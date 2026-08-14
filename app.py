@@ -206,7 +206,7 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
         senha_digitada = st.sidebar.text_input("Digite a Senha do Admin:", type="password", key="pwd_admin")
         
         if st.sidebar.button("Entrar como Admin"):
-            if senha_digitada == SENHA_ADMIN:
+            if senha_digitada == "13142715":
                 st.session_state.admin_autenticado = True
                 st.session_state.perfil_ativo = "🔒 Administração / Vendedor"
                 st.sidebar.success("Acesso liberado!")
