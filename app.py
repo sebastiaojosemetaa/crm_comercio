@@ -10,12 +10,11 @@ from reportlab.pdfgen import canvas
 # Configuração da página
 st.set_page_config(page_title="CRM Comércio", page_icon="📦", layout="wide")
 
-# Inicialização e Auto-Reparação do Banco de Dados
+# Inicialização do Banco de Dados
 def init_db():
     conn = sqlite3.connect('crm_comercio.db', check_same_thread=False)
     c = conn.cursor()
     
-    # Criar tabelas caso não existam
     c.execute('''
         CREATE TABLE IF NOT EXISTS clientes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -39,13 +38,17 @@ def init_db():
     c.execute('''
         CREATE TABLE IF NOT EXISTS produtos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            codigo TEXT UNIQUE,
+            codigo TEXT,
             nome TEXT,
+            produto TEXT,
             fornecedor TEXT,
             grupo TEXT,
             preco_custo REAL,
+            valor_compra REAL,
             preco_venda REAL,
-            estoque REAL
+            valor_venda REAL,
+            estoque REAL,
+            quantidade REAL
         )
     ''')
     c.execute('''
@@ -64,11 +67,10 @@ def init_db():
         )
     ''')
     
-    # Auto-patch: Garante que TODAS as colunas necessárias existam na tabela vendas
+    # Auto-patch para tabela de vendas
     try:
         c.execute("PRAGMA table_info(vendas)")
         cols_existentes = [column[1] for column in c.fetchall()]
-        
         colunas_necessarias = {
             'status_pagamento': "TEXT DEFAULT 'PAGO'",
             'tipo': "TEXT DEFAULT 'VENDA'",
@@ -79,7 +81,6 @@ def init_db():
             'codigo_venda': "TEXT DEFAULT ''",
             'data': "TEXT DEFAULT ''"
         }
-        
         for col, col_type in colunas_necessarias.items():
             if col not in cols_existentes and len(cols_existentes) > 0:
                 c.execute(f"ALTER TABLE vendas ADD COLUMN {col} {col_type}")
@@ -91,15 +92,52 @@ def init_db():
 
 conn = init_db()
 
-# Função de leitura segura
+# Leitura segura do SQLite
 def safe_read_sql(sql, params=None):
     try:
-        df = pd.read_sql_query(sql, conn, params=params)
-        return df
+        return pd.read_sql_query(sql, conn, params=params)
     except Exception:
         return pd.DataFrame()
 
-# Função para Gerar PDF de Pedidos
+# Helper para ler produtos mapeando nomes antigos e novos
+def get_produtos_df():
+    df = safe_read_sql("SELECT * FROM produtos")
+    if not df.empty:
+        cols = df.columns
+        if 'produto' in cols and 'nome' not in cols:
+            df['nome'] = df['produto']
+        elif 'nome' in cols and 'produto' not in cols:
+            df['produto'] = df['nome']
+            
+        if 'quantidade' in cols and 'estoque' not in cols:
+            df['estoque'] = df['quantidade']
+        elif 'estoque' in cols and 'quantidade' not in cols:
+            df['quantidade'] = df['estoque']
+            
+        if 'valor_venda' in cols and 'preco_venda' not in cols:
+            df['preco_venda'] = df['valor_venda']
+        elif 'preco_venda' in cols and 'valor_venda' not in cols:
+            df['valor_venda'] = df['preco_venda']
+            
+        if 'valor_compra' in cols and 'preco_custo' not in cols:
+            df['preco_custo'] = df['valor_compra']
+        elif 'preco_custo' in cols and 'valor_compra' not in cols:
+            df['valor_compra'] = df['preco_custo']
+    return df
+
+# Helper para atualizar o estoque de forma compatível
+def update_estoque_db(prod_id, novo_estoque):
+    c = conn.cursor()
+    c.execute("PRAGMA table_info(produtos)")
+    cols = [col[1] for col in c.fetchall()]
+    
+    if 'quantidade' in cols:
+        c.execute("UPDATE produtos SET quantidade = ? WHERE id = ?", (novo_estoque, prod_id))
+    if 'estoque' in cols:
+        c.execute("UPDATE produtos SET estoque = ? WHERE id = ?", (novo_estoque, prod_id))
+    conn.commit()
+
+# Função para Gerar PDF
 def gerar_pdf_pedido(codigo_pedido, df_itens, cliente):
     buffer = io.BytesIO()
     p = canvas.Canvas(buffer, pagesize=letter)
@@ -222,7 +260,6 @@ if menu == "📊 Fechamento & Financeiro":
     
     df_vendas = safe_read_sql("SELECT * FROM vendas WHERE tipo = 'VENDA'")
     
-    # Blindagem extra de colunas no Pandas
     if 'status_pagamento' not in df_vendas.columns:
         df_vendas['status_pagamento'] = 'PAGO'
     if 'quantidade' not in df_vendas.columns:
@@ -321,7 +358,7 @@ elif menu == "🛒 Registrar Venda":
     st.title("🛒 Nova Venda / Novo Pedido")
     
     df_clientes = safe_read_sql("SELECT nome FROM clientes")
-    df_prods = safe_read_sql("SELECT * FROM produtos")
+    df_prods = get_produtos_df()
     
     if df_prods.empty or 'nome' not in df_prods.columns:
         st.warning("Cadastre produtos no estoque antes de registrar vendas.")
@@ -332,7 +369,9 @@ elif menu == "🛒 Registrar Venda":
         status_pag = st.selectbox("Status do Pagamento:", ["PAGO", "PENDENTE (FIADO)"])
         
         st.subheader("Adicionar Itens")
-        prod_sel = st.selectbox("Selecione o Produto:", df_prods['nome'].tolist())
+        lista_produtos = df_prods['nome'].dropna().unique().tolist()
+        prod_sel = st.selectbox("Selecione o Produto:", lista_produtos)
+        
         prod_info = df_prods[df_prods['nome'] == prod_sel].iloc[0]
         
         qtd_venda = st.number_input("Quantidade:", min_value=0.1, value=1.0, step=0.5)
@@ -348,9 +387,9 @@ elif menu == "🛒 Registrar Venda":
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (cod_doc, data_atual, cliente_venda, prod_sel, prod_info.get('fornecedor', ''), prod_info.get('grupo', ''), qtd_venda, val_venda, status_pag, tipo_registro))
             
-            if tipo_registro == "VENDA" and 'estoque' in prod_info:
+            if tipo_registro == "VENDA":
                 novo_est = float(prod_info.get('estoque', 0.0)) - qtd_venda
-                c.execute("UPDATE produtos SET estoque = ? WHERE id = ?", (novo_est, prod_info['id']))
+                update_estoque_db(prod_info['id'], novo_est)
                 
             conn.commit()
             st.success(f"{tipo_registro} cadastrado(a) com sucesso! Código: {cod_doc}")
@@ -361,7 +400,7 @@ elif menu == "🛒 Registrar Venda":
 elif menu == "📥 Entrada de Estoque (Compras)":
     st.title("📥 Entrada de Estoque")
     
-    df_prods = safe_read_sql("SELECT * FROM produtos")
+    df_prods = get_produtos_df()
     if not df_prods.empty and 'nome' in df_prods.columns:
         prod_compra = st.selectbox("Selecione o Produto para dar Entrada:", df_prods['nome'].tolist())
         qtd_compra = st.number_input("Quantidade Comprada:", min_value=0.1, value=10.0)
@@ -369,9 +408,7 @@ elif menu == "📥 Entrada de Estoque (Compras)":
         if st.button("📥 Dar Entrada no Estoque"):
             prod_atual = df_prods[df_prods['nome'] == prod_compra].iloc[0]
             novo_est = float(prod_atual.get('estoque', 0.0)) + qtd_compra
-            c = conn.cursor()
-            c.execute("UPDATE produtos SET estoque = ? WHERE id = ?", (novo_est, prod_atual['id']))
-            conn.commit()
+            update_estoque_db(prod_atual['id'], novo_est)
             st.success(f"Estoque atualizado! Novo estoque de {prod_compra}: {novo_est}")
     else:
         st.info("Nenhum produto cadastrado para dar entrada.")
@@ -386,17 +423,27 @@ elif menu == "📦 Estoque de Produtos":
         c_cod = st.text_input("Código do Produto")
         c_nome = st.text_input("Nome do Produto")
         c_forn = st.text_input("Fornecedor")
-        c_grup = st.text_input("Grupo")
+        c_grup = st.text_input("Grupo", value="Geral")
         c_custo = st.number_input("Preço de Custo (R$)", min_value=0.0)
         c_venda = st.number_input("Preço de Venda (R$)", min_value=0.0)
         c_est = st.number_input("Estoque Inicial", min_value=0.0)
         
         if st.button("Salvar Produto"):
             c = conn.cursor()
-            c.execute('''
-                INSERT INTO produtos (codigo, nome, fornecedor, grupo, preco_custo, preco_venda, estoque)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (c_cod, c_nome, c_forn, c_grup, c_custo, c_venda, c_est))
+            c.execute("PRAGMA table_info(produtos)")
+            cols_db = [col[1] for col in c.fetchall()]
+            
+            if 'produto' in cols_db and 'nome' not in cols_db:
+                c.execute('''
+                    INSERT INTO produtos (produto, quantidade, valor_compra, valor_venda, grupo)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (c_nome, c_est, c_custo, c_venda, c_grup))
+            else:
+                c.execute('''
+                    INSERT INTO produtos (codigo, nome, fornecedor, grupo, preco_custo, preco_venda, estoque)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ''', (c_cod, c_nome, c_forn, c_grup, c_custo, c_venda, c_est))
+                
             conn.commit()
             st.success("Produto cadastrado!")
             st.rerun()
