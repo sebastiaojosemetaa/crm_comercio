@@ -15,13 +15,13 @@ st.set_page_config(page_title="CRM Comércio - Gestão Completa", layout="wide",
 # -----------------------------------------------------------------------------
 # DEFINIÇÃO DE SENHAS (ADMIN E CLIENTES)
 # -----------------------------------------------------------------------------
-SENHA_ADMIN = "1234"  # Senha da Administração/Vendedor
+SENHA_ADMIN = "13142715"  # Senha da Administração/Vendedor
 
 # Senhas individuais dos clientes:
 SENHAS_CLIENTES = {
     "Carlos Alberto": "1234",
-    "Sebastião": "4321",
-    "Valeilde Loja 01": "1111"
+    "Sebastião": "123456",
+    "Valeilde Loja 01": "12345"
 }
 SENHA_CLIENTE_PADRAO = "0000"  # Senha para clientes não cadastrados na lista acima
 
