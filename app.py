@@ -15,7 +15,7 @@ st.set_page_config(page_title="CRM Comércio - Gestão Completa", layout="wide",
 # -----------------------------------------------------------------------------
 # DEFINA SUA SENHA DE ADMINISTRADOR AQUI:
 # -----------------------------------------------------------------------------
-SENHA_ADMIN = "1234"  # <-- Troque "1234" pela senha que você desejar!
+SENHA_ADMIN = "13142715"  # <-- Troque "1234" pela senha que você desejar!
 
 # -----------------------------------------------------------------------------
 # CONEXÃO E CRIAÇÃO DO BANCO DE DADOS
@@ -196,7 +196,7 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
         senha_digitada = st.sidebar.text_input("Digite a Senha do Admin:", type="password", key="pwd_admin")
         
         if st.sidebar.button("Entrar como Admin"):
-            if senha_digitada == SENHA_ADMIN:
+            if senha_digitada == "13142715":
                 st.session_state.admin_autenticado = True
                 st.session_state.perfil_ativo = "🔒 Administração / Vendedor"
                 st.sidebar.success("Acesso liberado!")
