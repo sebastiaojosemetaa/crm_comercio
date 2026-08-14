@@ -15,13 +15,13 @@ st.set_page_config(page_title="CRM Comércio - Gestão Completa", layout="wide",
 # -----------------------------------------------------------------------------
 # DEFINIÇÃO DE SENHAS (ADMIN E CLIENTES)
 # -----------------------------------------------------------------------------
-SENHA_ADMIN = "13142715"  # Senha da Administração/Vendedor
+SENHA_ADMIN = "1234"  # Senha da Administração/Vendedor
 
 # Senhas individuais dos clientes:
 SENHAS_CLIENTES = {
     "Carlos Alberto": "1234",
-    "Sebastião": "12345",
-    "Valeilde Loja 01": "123456"
+    "Sebastião": "4321",
+    "Valeilde Loja 01": "1111"
 }
 SENHA_CLIENTE_PADRAO = "0000"  # Senha para clientes não cadastrados na lista acima
 
@@ -198,6 +198,7 @@ index_atual = opcoes_perfil.index(st.session_state.perfil_ativo)
 perfil_selecionado = st.sidebar.radio("Selecione o Perfil:", opcoes_perfil, index=index_atual)
 
 cliente_autenticado = None
+menu = None
 
 if perfil_selecionado == "🔒 Administração / Vendedor":
     if st.session_state.get('admin_autenticado') != True:
@@ -206,7 +207,7 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
         senha_digitada = st.sidebar.text_input("Digite a Senha do Admin:", type="password", key="pwd_admin")
         
         if st.sidebar.button("Entrar como Admin"):
-            if senha_digitada == "13142715":
+            if senha_digitada == SENHA_ADMIN:
                 st.session_state.admin_autenticado = True
                 st.session_state.perfil_ativo = "🔒 Administração / Vendedor"
                 st.sidebar.success("Acesso liberado!")
@@ -215,8 +216,20 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                 st.sidebar.error("Senha incorreta!")
         
         tipo_acesso = "👤 Portal do Cliente"
+        menu = "📋 Pedidos / Orçamentos"
     else:
         tipo_acesso = "🔒 Administração / Vendedor"
+        st.sidebar.markdown("---")
+        st.sidebar.title("CRM Comércio 📦")
+        menu = st.sidebar.radio("Navegação", [
+            "📊 Fechamento & Financeiro",
+            "📋 Pedidos / Orçamentos",
+            "🛒 Registrar Venda",
+            "📥 Entrada de Estoque (Compras)",
+            "📦 Estoque de Produtos",
+            "👥 Cadastros (Clientes / Fornecedores / Grupos)"
+        ])
+        
         if st.sidebar.button("🚪 Sair do Modo Admin"):
             st.session_state.admin_autenticado = False
             st.session_state.perfil_ativo = "👤 Portal do Cliente"
@@ -230,7 +243,6 @@ else:
     st.sidebar.markdown("---")
     cliente_sel = st.sidebar.selectbox("Identifique seu Nome/Empresa:", list_clientes, key="cli_login")
     
-    # Se trocar de cliente no menu, força novo login
     if st.session_state.get('cliente_logado') != cliente_sel:
         st.session_state.cliente_autenticado_status = False
     
