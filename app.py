@@ -26,7 +26,7 @@ menu = st.sidebar.radio(
     [
         "📊 Fechamento & Financeiro",
         "📑 Pedidos / Orçamentos",
-        "🛒 Registrar Venda",
+        "🛒 Registrar Venda / Pedido",
         "📥 Entrada de Estoque (Compras)",
         "📦 Estoque de Produtos",
         "👥 Cadastros (Clientes / Fornecedores / Grupos)"
@@ -39,9 +39,15 @@ menu = st.sidebar.radio(
 if menu == "📊 Fechamento & Financeiro":
     st.title("📊 Painel Financeiro & Fechamento")
     
-    df_vendas = safe_read_sql("SELECT * FROM vendas")
+    df_vendas_all = safe_read_sql("SELECT * FROM vendas")
     
-    if not df_vendas.empty:
+    if not df_vendas_all.empty:
+        # Filtra apenas o que é VENDA para o financeiro
+        if 'tipo' in df_vendas_all.columns:
+            df_vendas = df_vendas_all[df_vendas_all['tipo'] != 'PEDIDO'].copy()
+        else:
+            df_vendas = df_vendas_all.copy()
+            
         qtd = pd.to_numeric(df_vendas.get('quantidade', 0), errors='coerce').fillna(0)
         v_venda = pd.to_numeric(df_vendas.get('valor_venda', 0), errors='coerce').fillna(0)
         
@@ -64,6 +70,7 @@ if menu == "📊 Fechamento & Financeiro":
         tot_caixa = float(df_vendas['valor_recebido'].sum())
         tot_pendente = float(tot_faturamento - tot_caixa)
     else:
+        df_vendas = pd.DataFrame()
         tot_faturamento = 0.0
         tot_caixa = 0.0
         tot_pendente = 0.0
@@ -90,15 +97,27 @@ elif menu == "📑 Pedidos / Orçamentos":
         df_pedidos = pd.DataFrame()
 
     if df_pedidos.empty:
-        st.info("Nenhum pedido/orçamento registrado no momento.")
+        st.info("Nenhum pedido/orçamento registrado no momento. Vá em 'Registrar Venda / Pedido' para criar um novo!")
     else:
         st.dataframe(df_pedidos, use_container_width=True)
+        
+        st.markdown("---")
+        st.subheader("✅ Transformar Pedido em Venda Final")
+        ids_pedidos = df_pedidos['id'].tolist()
+        ped_sel = st.selectbox("Selecione o ID do Pedido para aprovar/finalizar:", ids_pedidos)
+        
+        if st.button("Finalizar Pedido como Venda"):
+            c = conn.cursor()
+            c.execute("UPDATE vendas SET tipo = 'VENDA' WHERE id = ?", (ped_sel,))
+            conn.commit()
+            st.success(f"Pedido #{ped_sel} transformado em Venda com sucesso!")
+            st.rerun()
 
 # ------------------------------------------------------------------------------
-# 3. REGISTRAR VENDA
+# 3. REGISTRAR VENDA / PEDIDO
 # ------------------------------------------------------------------------------
-elif menu == "🛒 Registrar Venda":
-    st.title("🛒 Nova Venda")
+elif menu == "🛒 Registrar Venda / Pedido":
+    st.title("🛒 Novo Registro (Venda ou Pedido)")
 
     df_clientes = safe_read_sql("SELECT * FROM clientes")
     df_produtos = safe_read_sql("SELECT * FROM produtos")
@@ -108,6 +127,8 @@ elif menu == "🛒 Registrar Venda":
     if df_produtos.empty or col_prod is None:
         st.warning("Nenhum produto cadastrado no estoque.")
     else:
+        tipo_registro = st.radio("O que deseja registrar?", ["Venda", "Pedido / Orçamento"], horizontal=True)
+        
         lista_clientes = df_clientes['nome'].dropna().tolist() if not df_clientes.empty and 'nome' in df_clientes.columns else ["Consumidor Final"]
         cliente = st.selectbox("Cliente:", lista_clientes)
         
@@ -130,17 +151,20 @@ elif menu == "🛒 Registrar Venda":
         val_recebido_default = 0.0 if forma_pag == "Crediário / Fiado" else valor_total
         valor_recebido = st.number_input("Valor Recebido (R$):", min_value=0.0, value=float(val_recebido_default))
 
-        if st.button("✅ Finalizar Venda", type="primary"):
+        label_botao = "✅ Finalizar Venda" if tipo_registro == "Venda" else "📑 Salvar Pedido / Orçamento"
+
+        if st.button(label_botao, type="primary"):
             c = conn.cursor()
             
             fornecedor = prod_row.get('fornecedor', 'BAHIA')
             data_hoje = datetime.now().strftime('%Y-%m-%d %H:%M')
+            tipo_db = 'VENDA' if tipo_registro == "Venda" else 'PEDIDO'
             
             c.execute("PRAGMA table_info(vendas)")
             vendas_cols = [col[1] for col in c.fetchall()]
 
-            fields = ['cliente', 'produto', 'fornecedor', 'quantidade', 'valor_venda', 'valor_total', 'forma_pagamento', 'valor_recebido', 'data']
-            values = [cliente, produto_nome, fornecedor, quantidade, preco_venda, valor_total, forma_pag, valor_recebido, data_hoje]
+            fields = ['cliente', 'produto', 'fornecedor', 'quantidade', 'valor_venda', 'valor_total', 'forma_pagamento', 'valor_recebido', 'data', 'tipo']
+            values = [cliente, produto_nome, fornecedor, quantidade, preco_venda, valor_total, forma_pag, valor_recebido, data_hoje, tipo_db]
 
             valid_fields = [f for f in fields if f in vendas_cols]
             valid_values = [values[i] for i, f in enumerate(fields) if f in vendas_cols]
@@ -150,15 +174,15 @@ elif menu == "🛒 Registrar Venda":
 
             c.execute(f"INSERT INTO vendas ({cols_str}) VALUES ({placeholders})", valid_values)
 
-            # Atualizar Estoque
-            col_est = 'quantidade' if 'quantidade' in df_produtos.columns else 'estoque'
-            est_atual = float(prod_row.get(col_est, 0))
-            novo_est = est_atual - quantidade
-
-            c.execute(f"UPDATE produtos SET {col_est} = ? WHERE id = ?", (novo_est, prod_row['id']))
+            # Atualiza estoque apenas se for VENDA
+            if tipo_db == 'VENDA':
+                col_est = 'quantidade' if 'quantidade' in df_produtos.columns else 'estoque'
+                est_atual = float(prod_row.get(col_est, 0))
+                novo_est = est_atual - quantidade
+                c.execute(f"UPDATE produtos SET {col_est} = ? WHERE id = ?", (novo_est, prod_row['id']))
 
             conn.commit()
-            st.success("Venda registrada com sucesso!")
+            st.success(f"{tipo_registro} registrado(a) com sucesso!")
             st.rerun()
 
 # ------------------------------------------------------------------------------
