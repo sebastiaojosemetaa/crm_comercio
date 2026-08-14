@@ -62,22 +62,23 @@ def init_db():
             grupo TEXT,
             quantidade REAL,
             valor_venda REAL,
+            valor_total REAL,
+            forma_pagamento TEXT,
+            valor_recebido REAL,
             status_pagamento TEXT DEFAULT 'PAGO',
             tipo TEXT DEFAULT 'VENDA'
         )
     ''')
     
-    # Auto-patch para tabela de vendas
+    # Auto-patch para garantir colunas necessárias
     try:
         c.execute("PRAGMA table_info(vendas)")
         cols_existentes = [column[1] for column in c.fetchall()]
         colunas_necessarias = {
-            'status_pagamento': "TEXT DEFAULT 'PAGO'",
+            'valor_total': "REAL DEFAULT 0",
+            'forma_pagamento': "TEXT DEFAULT 'Dinheiro'",
+            'valor_recebido': "REAL DEFAULT 0",
             'tipo': "TEXT DEFAULT 'VENDA'",
-            'quantidade': "REAL DEFAULT 0",
-            'valor_venda': "REAL DEFAULT 0",
-            'cliente': "TEXT DEFAULT ''",
-            'produto': "TEXT DEFAULT ''",
             'codigo_venda': "TEXT DEFAULT ''",
             'data': "TEXT DEFAULT ''"
         }
@@ -92,7 +93,7 @@ def init_db():
 
 conn = init_db()
 
-# Leitura segura do SQLite
+# Leitura segura
 def safe_read_sql(sql, params=None):
     try:
         return pd.read_sql_query(sql, conn, params=params)
@@ -125,7 +126,38 @@ def get_produtos_df():
             df['valor_compra'] = df['preco_custo']
     return df
 
-# Helper para atualizar o estoque de forma compatível
+# Helper para ler vendas com compatibilidade de nomes de colunas
+def get_vendas_df():
+    df = safe_read_sql("SELECT * FROM vendas")
+    if not df.empty:
+        cols = df.columns
+        df['quantidade'] = pd.to_numeric(df.get('quantidade', 0), errors='coerce').fillna(0.0)
+        df['valor_venda'] = pd.to_numeric(df.get('valor_venda', 0), errors='coerce').fillna(0.0)
+        
+        if 'valor_total' not in cols:
+            df['valor_total'] = df['quantidade'] * df['valor_venda']
+        else:
+            df['valor_total'] = pd.to_numeric(df['valor_total'], errors='coerce').fillna(df['quantidade'] * df['valor_venda'])
+            
+        if 'valor_recebido' not in cols:
+            if 'forma_pagamento' in cols:
+                df['valor_recebido'] = df.apply(
+                    lambda r: 0.0 if 'fiado' in str(r.get('forma_pagamento', '')).lower() else r['valor_total'], axis=1
+                )
+            else:
+                df['valor_recebido'] = df['valor_total']
+        else:
+            df['valor_recebido'] = pd.to_numeric(df['valor_recebido'], errors='coerce').fillna(0.0)
+            
+        if 'tipo' not in cols:
+            df['tipo'] = 'VENDA'
+            
+        if 'forma_pagamento' not in cols:
+            df['forma_pagamento'] = 'Dinheiro'
+            
+    return df
+
+# Helper para atualizar estoque
 def update_estoque_db(prod_id, novo_estoque):
     c = conn.cursor()
     c.execute("PRAGMA table_info(produtos)")
@@ -137,7 +169,7 @@ def update_estoque_db(prod_id, novo_estoque):
         c.execute("UPDATE produtos SET estoque = ? WHERE id = ?", (novo_estoque, prod_id))
     conn.commit()
 
-# Função para Gerar PDF
+# Gerar PDF
 def gerar_pdf_pedido(codigo_pedido, df_itens, cliente):
     buffer = io.BytesIO()
     p = canvas.Canvas(buffer, pagesize=letter)
@@ -162,7 +194,7 @@ def gerar_pdf_pedido(codigo_pedido, df_itens, cliente):
         prod = str(row.get('produto', ''))[:28]
         qtd = float(row.get('quantidade', 0))
         val = float(row.get('valor_venda', 0))
-        subtotal = qtd * val
+        subtotal = float(row.get('valor_total', qtd * val))
         total_geral += subtotal
         
         p.drawString(50, y, prod)
@@ -183,7 +215,7 @@ def gerar_pdf_pedido(codigo_pedido, df_itens, cliente):
     return buffer
 
 # ==============================================================================
-# VERIFICAÇÃO DE MODO CLIENTE (VIA LINK / URL)
+# MODO CLIENTE (VIA LINK)
 # ==============================================================================
 params = st.query_params
 cliente_url = params.get("cliente", None) or params.get("cliente_id", None)
@@ -216,10 +248,10 @@ if cliente_url:
             data_ped = itens['data'].iloc[0] if 'data' in itens.columns and not itens.empty else "N/A"
             
             with st.expander(f"📋 Pedido: {cod} | Data: {data_ped} | Total: R$ {total_pedido:.2f}", expanded=True):
-                cols_to_show = [c for c in ['produto', 'quantidade', 'valor_venda'] if c in itens.columns]
+                cols_to_show = [c for c in ['produto', 'quantidade', 'valor_venda', 'valor_total'] if c in itens.columns]
                 st.dataframe(
                     itens[cols_to_show].rename(
-                        columns={'produto': 'Produto', 'quantidade': 'Quantidade', 'valor_venda': 'Preço Unitário (R$)'}
+                        columns={'produto': 'Produto', 'quantidade': 'Quantidade', 'valor_venda': 'Preço Unitário (R$)', 'valor_total': 'Total (R$)'}
                     ),
                     use_container_width=True
                 )
@@ -236,7 +268,7 @@ if cliente_url:
     st.stop()
 
 # ==============================================================================
-# PAINEL ADMINISTRATIVO (SISTEMA COMPLETO)
+# PAINEL ADMINISTRATIVO
 # ==============================================================================
 
 st.sidebar.title("CRM Comércio 📦")
@@ -258,26 +290,21 @@ menu = st.sidebar.radio(
 if menu == "📊 Fechamento & Financeiro":
     st.title("📊 Painel Financeiro & Fechamento")
     
-    df_vendas = safe_read_sql("SELECT * FROM vendas WHERE tipo = 'VENDA'")
+    df_vendas_all = get_vendas_df()
     
-    if 'status_pagamento' not in df_vendas.columns:
-        df_vendas['status_pagamento'] = 'PAGO'
-    if 'quantidade' not in df_vendas.columns:
-        df_vendas['quantidade'] = 0.0
-    if 'valor_venda' not in df_vendas.columns:
-        df_vendas['valor_venda'] = 0.0
+    if not df_vendas_all.empty:
+        df_vendas = df_vendas_all[df_vendas_all['tipo'] != 'PEDIDO'].copy()
+    else:
+        df_vendas = pd.DataFrame()
 
     if df_vendas.empty:
         tot_faturamento = 0.0
         tot_caixa = 0.0
         tot_pendente = 0.0
     else:
-        qtd = pd.to_numeric(df_vendas['quantidade'], errors='coerce').fillna(0)
-        val = pd.to_numeric(df_vendas['valor_venda'], errors='coerce').fillna(0)
-        df_vendas['total'] = qtd * val
-        tot_faturamento = df_vendas['total'].sum()
-        tot_caixa = df_vendas[df_vendas['status_pagamento'] == 'PAGO']['total'].sum()
-        tot_pendente = df_vendas[df_vendas['status_pagamento'] != 'PAGO']['total'].sum()
+        tot_faturamento = float(df_vendas['valor_total'].sum())
+        tot_caixa = float(df_vendas['valor_recebido'].sum())
+        tot_pendente = float(tot_faturamento - tot_caixa)
         
     c1, c2, c3 = st.columns(3)
     c1.metric("Faturamento Total", f"R$ {tot_faturamento:.2f}")
@@ -295,7 +322,7 @@ elif menu == "📑 Pedidos / Orçamentos":
     
     st.markdown("---")
     st.subheader("🔗 Gerar Link Exclusivo para o Cliente")
-    st.write("Envie este link para seu cliente visualizar **apenas os próprios pedidos**, sem acesso ao financeiro ou opção de converter vendas.")
+    st.write("Envie este link para seu cliente visualizar apenas os próprios pedidos.")
     
     df_clientes_cad = safe_read_sql("SELECT nome FROM clientes")
     lista_cli = df_clientes_cad['nome'].dropna().tolist() if not df_clientes_cad.empty and 'nome' in df_clientes_cad.columns else []
@@ -305,7 +332,6 @@ elif menu == "📑 Pedidos / Orçamentos":
         if cliente_sel:
             base_url = "https://crmcomercio-bqofgjfpnvferb7cw4rike.streamlit.app"
             link_cliente = f"{base_url}/?cliente={urllib.parse.quote(cliente_sel)}"
-            
             st.code(link_cliente, language="text")
             
             msg_wa = urllib.parse.quote(f"Olá {cliente_sel}! Acompanhe seus pedidos e orçamentos pelo link exclusivo: {link_cliente}")
@@ -330,7 +356,7 @@ elif menu == "📑 Pedidos / Orçamentos":
             total_ped = (qtds * vals).sum()
             
             with st.expander(f"Pedido: {cod} | Cliente: {cli} | Total: R$ {total_ped:.2f}"):
-                cols_show = [c for c in ['produto', 'quantidade', 'valor_venda'] if c in itens.columns]
+                cols_show = [c for c in ['produto', 'quantidade', 'valor_venda', 'valor_total'] if c in itens.columns]
                 st.dataframe(itens[cols_show], use_container_width=True)
                 
                 col1, col2 = st.columns(2)
@@ -366,7 +392,8 @@ elif menu == "🛒 Registrar Venda":
         tipo_registro = st.radio("Tipo de Registro:", ["VENDA", "PEDIDO"], horizontal=True)
         list_cli_venda = df_clientes['nome'].dropna().tolist() if not df_clientes.empty and 'nome' in df_clientes.columns else ["Consumidor Final"]
         cliente_venda = st.selectbox("Cliente:", list_cli_venda)
-        status_pag = st.selectbox("Status do Pagamento:", ["PAGO", "PENDENTE (FIADO)"])
+        
+        forma_pag = st.selectbox("Forma de Pagamento:", ["Dinheiro", "PIX", "Cartão de Crédito", "Cartão de Débito", "Crediário / Fiado"])
         
         st.subheader("Adicionar Itens")
         lista_produtos = df_prods['nome'].dropna().unique().tolist()
@@ -376,16 +403,25 @@ elif menu == "🛒 Registrar Venda":
         
         qtd_venda = st.number_input("Quantidade:", min_value=0.1, value=1.0, step=0.5)
         val_venda = st.number_input("Preço de Venda (R$):", min_value=0.0, value=float(prod_info.get('preco_venda', 0.0)))
+        val_total = qtd_venda * val_venda
+        
+        st.info(f"💰 Valor Total: **R$ {val_total:.2f}**")
+        
+        # Define valor recebido padrão de acordo com a forma de pagamento
+        val_recebido_default = 0.0 if forma_pag == "Crediário / Fiado" else val_total
+        val_recebido = st.number_input("Valor Recebido (R$):", min_value=0.0, value=float(val_recebido_default))
         
         if st.button("➕ Confirmar Venda / Pedido"):
             cod_doc = f"DOC-{datetime.now().strftime('%Y%m%d%H%M%S')}"
             data_atual = datetime.now().strftime('%Y-%m-%d %H:%M')
+            fornecedor_prod = prod_info.get('fornecedor', 'BAHIA')
+            grupo_prod = prod_info.get('grupo', 'Geral')
             
             c = conn.cursor()
             c.execute('''
-                INSERT INTO vendas (codigo_venda, data, cliente, produto, fornecedor, grupo, quantidade, valor_venda, status_pagamento, tipo)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (cod_doc, data_atual, cliente_venda, prod_sel, prod_info.get('fornecedor', ''), prod_info.get('grupo', ''), qtd_venda, val_venda, status_pag, tipo_registro))
+                INSERT INTO vendas (codigo_venda, data, cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, tipo)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (cod_doc, data_atual, cliente_venda, prod_sel, fornecedor_prod, grupo_prod, qtd_venda, val_venda, val_total, forma_pag, val_recebido, tipo_registro))
             
             if tipo_registro == "VENDA":
                 novo_est = float(prod_info.get('estoque', 0.0)) - qtd_venda
@@ -422,7 +458,7 @@ elif menu == "📦 Estoque de Produtos":
     with st.expander("➕ Cadastrar Novo Produto"):
         c_cod = st.text_input("Código do Produto")
         c_nome = st.text_input("Nome do Produto")
-        c_forn = st.text_input("Fornecedor")
+        c_forn = st.text_input("Fornecedor", value="BAHIA")
         c_grup = st.text_input("Grupo", value="Geral")
         c_custo = st.number_input("Preço de Custo (R$)", min_value=0.0)
         c_venda = st.number_input("Preço de Venda (R$)", min_value=0.0)
