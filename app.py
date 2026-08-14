@@ -14,9 +14,9 @@ st.set_page_config(
 )
 
 # -----------------------------------------------------------------------------
-# DEFINIÇÃO DE SENHAS (ADMIN E CLIENTES)
+# DEFINIÇÃO DE SENHAS
 # -----------------------------------------------------------------------------
-SENHA_ADMIN = "13142715"  # Senha da Administração/Vendedor
+SENHA_ADMIN = "13142715"
 
 SENHAS_CLIENTES = {
     "Carlos Alberto": "1234",
@@ -135,7 +135,7 @@ for query in [
 
 conn.commit()
 
-# CARGA INICIAL SE ESTIVER VAZIO
+# CARGA INICIAL
 cursor.execute("SELECT COUNT(*) FROM produtos")
 if cursor.fetchone()[0] == 0:
   PRODUTOS_INICIAIS = [
@@ -806,8 +806,8 @@ elif menu == "📋 Pedidos / Orçamentos":
         st.dataframe(pedidos_df[cols_exibicao], use_container_width=True)
       else:
         st.info(
-            "💡 **Dica:** Clique duas vezes em qualquer valor da coluna"
-            " **`quantidade`** OU **`valor_unitario`** para editar diretamente.",
+            "💡 **Dica:** Clique duas vezes em qualquer valor para editar"
+            " quantidade ou preço unitário diretamente na tabela.",
             icon="✏️",
         )
         df_editavel = st.data_editor(
@@ -862,6 +862,137 @@ elif menu == "📋 Pedidos / Orçamentos":
           conn.commit()
           st.success("✅ Alterações salvas com sucesso!")
           st.rerun()
+
+        # ---------------------------------------------------------------------
+        # NOVA SESSÃO: CONVERTER PEDIDO EM VENDA (DANDO BAIXA EM VENDAS/ESTOQUE)
+        # ---------------------------------------------------------------------
+        st.markdown("---")
+        st.subheader("🔄 Transferir / Converter Pedido em Venda")
+
+        # Agrupar por código de pedido para facilitar
+        codigos_pedidos_pendentes = (
+            pedidos_df[pedidos_df["status"] != "Concluído (Convertido)"][
+                "codigo_pedido"
+            ]
+            .dropna()
+            .unique()
+            .tolist()
+        )
+
+        if not codigos_pedidos_pendentes:
+          st.success("Todos os pedidos atuais já foram convertidos em vendas!")
+        else:
+          col_conv1, col_conv2, col_conv3 = st.columns([3, 3, 2])
+
+          with col_conv1:
+            ped_sel_conv = st.selectbox(
+                "Selecione o Pedido para Transferir:",
+                codigos_pedidos_pendentes,
+                key="ped_sel_conv",
+            )
+
+          # Buscar os dados do pedido selecionado
+          itens_pedido_sel = pedidos_df[
+              pedidos_df["codigo_pedido"] == ped_sel_conv
+          ]
+          total_ped_conv = itens_pedido_sel["valor_total"].sum()
+          cliente_ped_conv = itens_pedido_sel.iloc[0]["cliente"]
+
+          with col_conv2:
+            forma_pagto_conv = st.selectbox(
+                "Forma de Pagamento:",
+                [
+                    "Dinheiro",
+                    "PIX",
+                    "Cartão de Débito",
+                    "Cartão de Crédito",
+                    "A Prazo / Fiado",
+                ],
+                key="forma_pagto_conv",
+            )
+
+          with col_conv3:
+            val_pago_conv = st.number_input(
+                "Valor Recebido (R$):",
+                min_value=0.0,
+                value=(
+                    float(total_ped_conv)
+                    if forma_pagto_conv != "A Prazo / Fiado"
+                    else 0.0
+                ),
+                key="val_pago_conv",
+            )
+
+          st.write(
+              f"**Cliente:** `{cliente_ped_conv}` | **Total do Pedido:** R$"
+              f" `{total_ped_conv:,.2f}`"
+          )
+
+          if st.button("🚀 Transferir para Vendas e Dar Baixa no Estoque"):
+            cod_venda = f"VEN-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+            data_venda = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+            troco_c = max(0.0, val_pago_conv - total_ped_conv)
+            restante_c = max(0.0, total_ped_conv - val_pago_conv)
+
+            # Insere cada item na tabela de vendas e baixa do estoque
+            for idx, r in itens_pedido_sel.iterrows():
+              p_nome = r["produto"]
+              p_qtd = float(r["quantidade"])
+              p_v_unit = float(r["valor_unitario"])
+              p_v_tot = float(r["valor_total"])
+              p_forn = r.get("fornecedor", "Geral")
+              p_grp = r.get("grupo", "Geral")
+
+              # Inserir em Vendas
+              cursor.execute(
+                  """
+                                INSERT INTO vendas (codigo_venda, cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, troco, restante, data)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            """,
+                  (
+                      cod_venda,
+                      cliente_ped_conv,
+                      p_nome,
+                      p_forn,
+                      p_grp,
+                      p_qtd,
+                      p_v_unit,
+                      p_v_tot,
+                      forma_pagto_conv,
+                      val_pago_conv,
+                      troco_c,
+                      restante_c,
+                      data_venda,
+                  ),
+              )
+
+              # Dar baixa no estoque
+              cursor.execute(
+                  """
+                                UPDATE produtos 
+                                SET quantidade = quantidade - ? 
+                                WHERE produto = ?
+                            """,
+                  (p_qtd, p_nome),
+              )
+
+            # Atualizar status do pedido para 'Concluído (Convertido)'
+            cursor.execute(
+                """
+                            UPDATE pedidos 
+                            SET status = 'Concluído (Convertido)' 
+                            WHERE codigo_pedido = ?
+                        """,
+                (ped_sel_conv,),
+            )
+
+            conn.commit()
+            st.success(
+                f"Pedido `{ped_sel_conv}` transferido para Vendas com sucesso!"
+                f" (Venda `{cod_venda}` registrada)"
+            )
+            st.rerun()
 
       st.markdown("---")
       st.subheader("📊 Agrupamento do Período / Seleção")
@@ -1005,7 +1136,7 @@ elif menu == "🛒 Registrar Venda":
       st.subheader("🛍️ Itens da Venda Atual")
 
       if not st.session_state.carrinho_venda:
-        st.info("Nenhum item adicionado à venda ainda.")
+        st.info("Nenum item adicionado à venda ainda.")
       else:
         df_v_cart = pd.DataFrame(st.session_state.carrinho_venda)
         st.dataframe(
@@ -1042,7 +1173,6 @@ elif menu == "🛒 Registrar Venda":
             data_venda = datetime.now().strftime("%Y-%m-%d %H:%M")
 
             for item in st.session_state.carrinho_venda:
-              # Registra no banco
               cursor.execute(
                   """
                                 INSERT INTO vendas (codigo_venda, cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, troco, restante, data)
@@ -1065,7 +1195,6 @@ elif menu == "🛒 Registrar Venda":
                   ),
               )
 
-              # Atualiza / Dá baixa no estoque
               cursor.execute(
                   """
                                 UPDATE produtos 
@@ -1139,7 +1268,6 @@ elif menu == "📥 Entrada de Estoque (Compras)":
           ),
       )
 
-      # Atualiza estoque
       cursor.execute(
           """
             UPDATE produtos 
