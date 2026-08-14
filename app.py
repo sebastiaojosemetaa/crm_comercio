@@ -13,9 +13,17 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 st.set_page_config(page_title="CRM Comércio - Gestão Completa", layout="wide", page_icon="📦")
 
 # -----------------------------------------------------------------------------
-# DEFINA SUA SENHA DE ADMINISTRADOR AQUI:
+# DEFINIÇÃO DE SENHAS (ADMIN E CLIENTES)
 # -----------------------------------------------------------------------------
-SENHA_ADMIN = "13142715"  # <-- Troque "1234" pela senha que você desejar!
+SENHA_ADMIN = "13142715"  # Senha da Administração/Vendedor
+
+# Senhas individuais dos clientes:
+SENHAS_CLIENTES = {
+    "Carlos Alberto": "1234",
+    "Sebastião": "12345",
+    "Valeilde Loja 01": "123456"
+}
+SENHA_CLIENTE_PADRAO = "0000"  # Senha para clientes não cadastrados na lista acima
 
 # -----------------------------------------------------------------------------
 # CONEXÃO E CRIAÇÃO DO BANCO DE DADOS
@@ -167,7 +175,7 @@ conn.commit()
 if 'carrinho_pedido' not in st.session_state:
     st.session_state.carrinho_pedido = []
 
-# LISTAS GERAIS PARA FILTROS
+# LISTAS GERAIS
 clientes_df = pd.read_sql_query("SELECT cliente FROM clientes", conn)
 fornecedores_df = pd.read_sql_query("SELECT fornecedor FROM fornecedores", conn)
 grupos_df = pd.read_sql_query("SELECT grupo FROM grupos", conn)
@@ -177,7 +185,7 @@ list_fornecedores = fornecedores_df['fornecedor'].tolist() if not fornecedores_d
 list_grupos = grupos_df['grupo'].tolist() if not grupos_df.empty else ["GERAL"]
 
 # -----------------------------------------------------------------------------
-# AUTENTICAÇÃO E PERFIS DE ACESSO (PROTEÇÃO COM SENHA)
+# AUTENTICAÇÃO E PERFIS DE ACESSO
 # -----------------------------------------------------------------------------
 st.sidebar.title("🔑 Acesso ao Sistema")
 
@@ -189,6 +197,8 @@ index_atual = opcoes_perfil.index(st.session_state.perfil_ativo)
 
 perfil_selecionado = st.sidebar.radio("Selecione o Perfil:", opcoes_perfil, index=index_atual)
 
+cliente_autenticado = None
+
 if perfil_selecionado == "🔒 Administração / Vendedor":
     if st.session_state.get('admin_autenticado') != True:
         st.sidebar.markdown("---")
@@ -196,7 +206,7 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
         senha_digitada = st.sidebar.text_input("Digite a Senha do Admin:", type="password", key="pwd_admin")
         
         if st.sidebar.button("Entrar como Admin"):
-            if senha_digitada == "13142715":
+            if senha_digitada == SENHA_ADMIN:
                 st.session_state.admin_autenticado = True
                 st.session_state.perfil_ativo = "🔒 Administração / Vendedor"
                 st.sidebar.success("Acesso liberado!")
@@ -211,32 +221,45 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
             st.session_state.admin_autenticado = False
             st.session_state.perfil_ativo = "👤 Portal do Cliente"
             st.rerun()
+
 else:
     st.session_state.admin_autenticado = False
     st.session_state.perfil_ativo = "👤 Portal do Cliente"
     tipo_acesso = "👤 Portal do Cliente"
-
-cliente_autenticado = None
-
-if tipo_acesso == "👤 Portal do Cliente":
+    
     st.sidebar.markdown("---")
-    cliente_autenticado = st.sidebar.selectbox("Identifique seu Nome/Empresa:", list_clientes, key="cli_login")
-    st.sidebar.info(f"Bem-vindo(a), **{cliente_autenticado}**!")
+    cliente_sel = st.sidebar.selectbox("Identifique seu Nome/Empresa:", list_clientes, key="cli_login")
+    
+    # Se trocar de cliente no menu, força novo login
+    if st.session_state.get('cliente_logado') != cliente_sel:
+        st.session_state.cliente_autenticado_status = False
+    
+    senha_esperada = SENHAS_CLIENTES.get(cliente_sel, SENHA_CLIENTE_PADRAO)
+    
+    if not st.session_state.get('cliente_autenticado_status', False):
+        st.sidebar.subheader(f"🔒 Login — {cliente_sel}")
+        pin_cliente = st.sidebar.text_input("Digite sua Senha de Cliente:", type="password", key=f"pwd_cli_{cliente_sel}")
+        
+        if st.sidebar.button("Acessar Meus Pedidos"):
+            if pin_cliente == senha_esperada:
+                st.session_state.cliente_autenticado_status = True
+                st.session_state.cliente_logado = cliente_sel
+                st.sidebar.success("Acesso confirmado!")
+                st.rerun()
+            else:
+                st.sidebar.error("Senha incorreta!")
+    else:
+        cliente_autenticado = cliente_sel
+        st.sidebar.success(f"Logado como: **{cliente_autenticado}**")
+        if st.sidebar.button("🚪 Sair / Trocar Cliente"):
+            st.session_state.cliente_autenticado_status = False
+            st.session_state.cliente_logado = None
+            st.rerun()
+
     menu = "📋 Pedidos / Orçamentos"
-else:
-    st.sidebar.markdown("---")
-    st.sidebar.title("CRM Comércio 📦")
-    menu = st.sidebar.radio("Navegação", [
-        "📊 Fechamento & Financeiro",
-        "📋 Pedidos / Orçamentos",
-        "🛒 Registrar Venda",
-        "📥 Entrada de Estoque (Compras)",
-        "📦 Estoque de Produtos",
-        "👥 Cadastros (Clientes / Fornecedores / Grupos)"
-    ])
 
 # -----------------------------------------------------------------------------
-# FUNÇÃO GERADORA DE PDF INTELIGENTE
+# FUNÇÃO GERADORA DE PDF
 # -----------------------------------------------------------------------------
 def gerar_pdf_relatorio(df_dados, titulo="Relatório de Vendas"):
     buffer = io.BytesIO()
@@ -308,9 +331,13 @@ def gerar_pdf_relatorio(df_dados, titulo="Relatório de Vendas"):
     return buffer
 
 # -----------------------------------------------------------------------------
-# 1. FECHAMENTO & FINANCEIRO
+# TELAS DO SISTEMA
 # -----------------------------------------------------------------------------
-if menu == "📊 Fechamento & Financeiro":
+if tipo_acesso == "👤 Portal do Cliente" and not cliente_autenticado:
+    st.title("🔒 Portal do Cliente")
+    st.warning("Por favor, selecione seu nome no menu à esquerda e insira sua senha para acessar seus pedidos.")
+
+elif menu == "📊 Fechamento & Financeiro":
     st.title("📊 Painel Financeiro & Fechamento")
     
     df_vendas = pd.read_sql_query("SELECT * FROM vendas", conn)
@@ -332,9 +359,6 @@ if menu == "📊 Fechamento & Financeiro":
     else:
         st.info("Nenhuma venda registrada até o momento.")
 
-# -----------------------------------------------------------------------------
-# 2. PEDIDOS / ORÇAMENTOS
-# -----------------------------------------------------------------------------
 elif menu == "📋 Pedidos / Orçamentos":
     if tipo_acesso == "👤 Portal do Cliente":
         st.title(f"🛍️ Portal do Cliente — Meus Pedidos ({cliente_autenticado})")
@@ -550,10 +574,9 @@ elif menu == "📋 Pedidos / Orçamentos":
             })
             
             df_agrupado['valor_unitario_medio'] = df_agrupado['valor_total'] / df_agrupado['quantidade']
-            df_agrupado_exibicao = df_agrupado[['produto', 'quantidade', 'valor_unitario_medio', 'valor_total']].copy()
             
             st.dataframe(
-                df_agrupado_exibicao,
+                df_agrupado[['produto', 'quantidade', 'valor_unitario_medio', 'valor_total']],
                 column_config={
                     "produto": "Produto",
                     "quantidade": st.column_config.NumberColumn("Quantidade Total", format="%.2f"),
@@ -574,9 +597,6 @@ elif menu == "📋 Pedidos / Orçamentos":
                 use_container_width=True
             )
 
-# -----------------------------------------------------------------------------
-# RESTANTE DAS TELAS DE ADMINISTRAÇÃO
-# -----------------------------------------------------------------------------
 elif menu == "🛒 Registrar Venda":
     st.title("🛒 Gerenciamento & Lançamento de Vendas")
     st.info("Página de vendas restrita ao ambiente administrativo.")
