@@ -21,7 +21,7 @@ SENHA_ADMIN = "13142715"
 SENHAS_CLIENTES = {
     "Carlos Alberto": "1234",
     "Sebastião": "123456",
-    "Valeilde Loja 01": "112345",
+    "Valeilde Loja 01": "12345",
 }
 SENHA_CLIENTE_PADRAO = "0000"
 
@@ -864,12 +864,11 @@ elif menu == "📋 Pedidos / Orçamentos":
           st.rerun()
 
         # ---------------------------------------------------------------------
-        # NOVA SESSÃO: CONVERTER PEDIDO EM VENDA (DANDO BAIXA EM VENDAS/ESTOQUE)
+        # CONVERTER PEDIDO EM VENDA
         # ---------------------------------------------------------------------
         st.markdown("---")
         st.subheader("🔄 Transferir / Converter Pedido em Venda")
 
-        # Agrupar por código de pedido para facilitar
         codigos_pedidos_pendentes = (
             pedidos_df[pedidos_df["status"] != "Concluído (Convertido)"][
                 "codigo_pedido"
@@ -891,7 +890,6 @@ elif menu == "📋 Pedidos / Orçamentos":
                 key="ped_sel_conv",
             )
 
-          # Buscar os dados do pedido selecionado
           itens_pedido_sel = pedidos_df[
               pedidos_df["codigo_pedido"] == ped_sel_conv
           ]
@@ -935,7 +933,6 @@ elif menu == "📋 Pedidos / Orçamentos":
             troco_c = max(0.0, val_pago_conv - total_ped_conv)
             restante_c = max(0.0, total_ped_conv - val_pago_conv)
 
-            # Insere cada item na tabela de vendas e baixa do estoque
             for idx, r in itens_pedido_sel.iterrows():
               p_nome = r["produto"]
               p_qtd = float(r["quantidade"])
@@ -944,7 +941,6 @@ elif menu == "📋 Pedidos / Orçamentos":
               p_forn = r.get("fornecedor", "Geral")
               p_grp = r.get("grupo", "Geral")
 
-              # Inserir em Vendas
               cursor.execute(
                   """
                                 INSERT INTO vendas (codigo_venda, cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, troco, restante, data)
@@ -967,7 +963,6 @@ elif menu == "📋 Pedidos / Orçamentos":
                   ),
               )
 
-              # Dar baixa no estoque
               cursor.execute(
                   """
                                 UPDATE produtos 
@@ -977,7 +972,6 @@ elif menu == "📋 Pedidos / Orçamentos":
                   (p_qtd, p_nome),
               )
 
-            # Atualizar status do pedido para 'Concluído (Convertido)'
             cursor.execute(
                 """
                             UPDATE pedidos 
@@ -1136,7 +1130,7 @@ elif menu == "🛒 Registrar Venda":
       st.subheader("🛍️ Itens da Venda Atual")
 
       if not st.session_state.carrinho_venda:
-        st.info("Nenum item adicionado à venda ainda.")
+        st.info("Nenhum item adicionado à venda ainda.")
       else:
         df_v_cart = pd.DataFrame(st.session_state.carrinho_venda)
         st.dataframe(
@@ -1324,13 +1318,104 @@ elif menu == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
   tab_c, tab_f, tab_g = st.tabs(["Clientes", "Fornecedores", "Grupos"])
 
   with tab_c:
-    st.subheader("Clientes Cadastrados")
-    st.dataframe(pd.read_sql_query("SELECT * FROM clientes", conn), use_container_width=True)
+    st.subheader("➕ Novo Cliente")
+    with st.form("form_novo_cliente"):
+      col_c1, col_c2 = st.columns(2)
+      with col_c1:
+        novo_c_nome = st.text_input("Nome do Cliente / Empresa *")
+        novo_c_cpf = st.text_input("CPF / CNPJ")
+        novo_c_fone = st.text_input("Telefone / WhatsApp")
+      with col_c2:
+        novo_c_email = st.text_input("E-mail")
+        novo_c_end = st.text_input("Endereço Completo")
+
+      btn_cad_c = st.form_submit_button("💾 Cadastrar Cliente")
+
+      if btn_cad_c:
+        if novo_c_nome.strip():
+          try:
+            cursor.execute(
+                """
+                                INSERT INTO clientes (cliente, cpf, endereco, email, fone)
+                                VALUES (?, ?, ?, ?, ?)
+                            """,
+                (
+                    novo_c_nome.strip(),
+                    novo_c_cpf.strip(),
+                    novo_c_end.strip(),
+                    novo_c_email.strip(),
+                    novo_c_fone.strip(),
+                ),
+            )
+            conn.commit()
+            st.success(f"Cliente '{novo_c_nome}' cadastrado com sucesso!")
+            st.rerun()
+          except sqlite3.IntegrityError:
+            st.error("Erro: Já existe um cliente cadastrado com esse nome.")
+        else:
+          st.error("Por favor, preencha o nome do cliente.")
+
+    st.markdown("---")
+    st.subheader("📋 Clientes Cadastrados")
+    st.dataframe(
+        pd.read_sql_query("SELECT * FROM clientes ORDER BY cliente ASC", conn),
+        use_container_width=True,
+    )
 
   with tab_f:
-    st.subheader("Fornecedores Cadastrados")
-    st.dataframe(pd.read_sql_query("SELECT * FROM fornecedores", conn), use_container_width=True)
+    st.subheader("➕ Novo Fornecedor")
+    with st.form("form_novo_fornecedor"):
+      novo_f_nome = st.text_input("Nome do Fornecedor *")
+      btn_cad_f = st.form_submit_button("💾 Cadastrar Fornecedor")
+
+      if btn_cad_f:
+        if novo_f_nome.strip():
+          try:
+            cursor.execute(
+                "INSERT INTO fornecedores (fornecedor) VALUES (?)",
+                (novo_f_nome.strip().upper(),),
+            )
+            conn.commit()
+            st.success(f"Fornecedor '{novo_f_nome}' cadastrado!")
+            st.rerun()
+          except sqlite3.IntegrityError:
+            st.error("Fornecedor já existe.")
+        else:
+          st.error("Preencha o nome do fornecedor.")
+
+    st.markdown("---")
+    st.subheader("📋 Fornecedores Cadastrados")
+    st.dataframe(
+        pd.read_sql_query(
+            "SELECT * FROM fornecedores ORDER BY fornecedor ASC", conn
+        ),
+        use_container_width=True,
+    )
 
   with tab_g:
-    st.subheader("Grupos Cadastrados")
-    st.dataframe(pd.read_sql_query("SELECT * FROM grupos", conn), use_container_width=True)
+    st.subheader("➕ Novo Grupo / Categoria")
+    with st.form("form_novo_grupo"):
+      novo_g_nome = st.text_input("Nome do Grupo *")
+      btn_cad_g = st.form_submit_button("💾 Cadastrar Grupo")
+
+      if btn_cad_g:
+        if novo_g_nome.strip():
+          try:
+            cursor.execute(
+                "INSERT INTO grupos (grupo) VALUES (?)",
+                (novo_g_nome.strip().upper(),),
+            )
+            conn.commit()
+            st.success(f"Grupo '{novo_g_nome}' cadastrado!")
+            st.rerun()
+          except sqlite3.IntegrityError:
+            st.error("Grupo já existe.")
+        else:
+          st.error("Preencha o nome do grupo.")
+
+    st.markdown("---")
+    st.subheader("📋 Grupos Cadastrados")
+    st.dataframe(
+        pd.read_sql_query("SELECT * FROM grupos ORDER BY grupo ASC", conn),
+        use_container_width=True,
+    )
