@@ -135,14 +135,17 @@ carregar_dados_iniciais()
 
 
 def safe_query_list(query, params=()):
-  try:
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute(query, params)
-    rows = cursor.fetchall()
-    return [r[0] for r in rows if r[0]]
-  except Exception:
-    return []
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        # Garante que estamos pegando a primeira coluna de cada linha
+        lista = [r[0] for r in rows if r[0] is not None]
+        return lista
+    except Exception as e:
+        # Se der erro, retorna vazio para não quebrar a tela
+        return []
 
 
 def get_produto_info(nome_produto):
