@@ -337,7 +337,19 @@ if tipo_acesso == "👤 Portal do Cliente" and not cliente_autenticado:
     st.title("🔒 Portal do Cliente")
     st.warning("Por favor, selecione seu nome no menu à esquerda e insira sua senha para acessar seus pedidos.")
 
-if menu == "📊 Fechamento & Financeiro":
+menu = st.sidebar.radio(
+        "Navegação",
+        [
+            "📊 Fechamento & Financeiro",
+            "📋 Pedidos / Orçamentos",
+            "🛒 Registrar Venda",
+            "📥 Entrada de Estoque (Compras)",
+            "📦 Estoque de Produtos",
+            "👥 Cadastros (Clientes / Fornecedores / Grupos)"
+        ]
+    )
+
+    if menu == "📊 Fechamento & Financeiro":
     st.title("📊 Painel Financeiro & Fechamento")
     
     df_vendas = pd.read_sql_query("SELECT * FROM vendas", conn)
