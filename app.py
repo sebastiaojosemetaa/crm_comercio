@@ -22,6 +22,7 @@ SENHAS_CLIENTES = {
     "Carlos Alberto": "1234",
     "Sebastião": "123456",
     "Valeilde Loja 01": "12345",
+    "Neurialdo": "456892"
 }
 SENHA_CLIENTE_PADRAO = "0000"
 
