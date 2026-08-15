@@ -350,6 +350,7 @@ menu = st.sidebar.radio(
     )
 
     if menu == "📊 Fechamento & Financeiro":
+    if menu == "📊 Fechamento & Financeiro":
     st.title("📊 Painel Financeiro & Fechamento")
     
     df_vendas = pd.read_sql_query("SELECT * FROM vendas", conn)
