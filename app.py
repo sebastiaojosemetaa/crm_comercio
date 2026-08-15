@@ -315,152 +315,10 @@ else:
 
   menu = "📋 Pedidos / Orçamentos"
 
-
 # -----------------------------------------------------------------------------
-# GERADOR DE PDF
+# IMPLEMENTAÇÃO DE TODAS AS TELAS
 # -----------------------------------------------------------------------------
-def gerar_pdf_relatorio(df_dados, titulo="Relatório de Vendas"):
-  buffer = io.BytesIO()
-  doc = SimpleDocTemplate(
-      buffer,
-      pagesize=letter,
-      rightMargin=30,
-      leftMargin=30,
-      topMargin=10,
-      bottomMargin=20,
-  )
-  elements = []
 
-  styles = getSampleStyleSheet()
-
-  header_company = ParagraphStyle(
-      "HeaderCompany",
-      parent=styles["Normal"],
-      fontName="Helvetica-BoldOblique",
-      fontSize=15,
-      leading=16,
-      alignment=1,
-      textColor=colors.black,
-  )
-  header_info = ParagraphStyle(
-      "HeaderInfo",
-      parent=styles["Normal"],
-      fontName="Helvetica-Bold",
-      fontSize=8.5,
-      leading=10,
-      alignment=1,
-      textColor=colors.black,
-  )
-  title_style = ParagraphStyle(
-      "TitleStyle",
-      parent=styles["Heading1"],
-      fontSize=13,
-      leading=15,
-      alignment=1,
-      textColor=colors.HexColor("#1E3A8A"),
-  )
-  sub_title_style = ParagraphStyle(
-      "SubTitleStyle",
-      parent=styles["Normal"],
-      fontSize=8.5,
-      leading=10,
-      alignment=1,
-      textColor=colors.HexColor("#475569"),
-  )
-
-  elements.append(Paragraph("REY DA CEBOLA", header_company))
-  elements.append(
-      Paragraph(
-          "CNPJ: 194.174.39/000-42 INSC.EST.: 12.426725-4", header_info
-      )
-  )
-  elements.append(
-      Paragraph(
-          "CONTATO: (99) 98814-9722 OU (99) 98414-3943", header_info
-      )
-  )
-  elements.append(Spacer(1, 6))
-
-  elements.append(Paragraph(f"<b>{titulo}</b>", title_style))
-  elements.append(
-      Paragraph(
-          f"Data de Emissão: {datetime.now().strftime('%d/%m/%Y %H:%M')}",
-          sub_title_style,
-      )
-  )
-  elements.append(Spacer(1, 8))
-
-  has_cliente = "cliente" in df_dados.columns
-
-  if has_cliente:
-    data = [[
-        "Cliente",
-        "Produto",
-        "Qtd Total",
-        "Valor Unit. Médio (R$)",
-        "Valor Total (R$)",
-    ]]
-    col_widths = [130, 140, 70, 105, 105]
-  else:
-    data = [
-        ["Produto", "Qtd Total", "Valor Unit. Médio (R$)", "Valor Total (R$)"]
-    ]
-    col_widths = [220, 90, 120, 120]
-
-  total_geral = 0.0
-  for idx, row in df_dados.iterrows():
-    qtd = float(row["quantidade"])
-    val_total = float(row["valor_total"])
-    unit_m = val_total / qtd if qtd > 0 else 0.0
-    total_geral += val_total
-
-    if has_cliente:
-      data.append([
-          str(row["cliente"]),
-          str(row["produto"]),
-          f"{qtd:,.2f}",
-          f"R$ {unit_m:,.2f}",
-          f"R$ {val_total:,.2f}",
-      ])
-    else:
-      data.append([
-          str(row["produto"]),
-          f"{qtd:,.2f}",
-          f"R$ {unit_m:,.2f}",
-          f"R$ {val_total:,.2f}",
-      ])
-
-  if has_cliente:
-    data.append(["VALOR TOTAL GERAL", "", "", "", f"R$ {total_geral:,.2f}"])
-    span_end = 3
-  else:
-    data.append(["VALOR TOTAL GERAL", "", "", f"R$ {total_geral:,.2f}"])
-    span_end = 2
-
-  table = Table(data, colWidths=col_widths)
-  t_style = TableStyle([
-      ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2563EB")),
-      ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-      ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-      ("FONTSIZE", (0, 0), (-1, 0), 9.0),
-      ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-      ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E1")),
-      ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#1E293B")),
-      ("TEXTCOLOR", (0, -1), (-1, -1), colors.white),
-      ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
-      ("SPAN", (0, -1), (span_end, -1)),
-  ])
-  table.setStyle(t_style)
-  elements.append(table)
-
-  doc.build(elements)
-  buffer.seek(0)
-  return buffer
-
-
-# -----------------------------------------------------------------------------
-# IMPLEMENTAÇÃO DAS TELAS
-# -----------------------------------------------------------------------------
 if tipo_acesso == "👤 Portal do Cliente" and not cliente_autenticado:
   st.title("🔒 Portal do Cliente")
   st.warning(
@@ -468,7 +326,7 @@ if tipo_acesso == "👤 Portal do Cliente" and not cliente_autenticado:
       " acessar seus pedidos."
   )
 
-# --- FECHAMENTO & FINANCEIRO ---
+# --- 1. FECHAMENTO & FINANCEIRO ---
 elif menu == "📊 Fechamento & Financeiro":
   st.title("📊 Painel Financeiro & Fechamento")
 
@@ -508,7 +366,7 @@ elif menu == "📊 Fechamento & Financeiro":
   else:
     st.info("Nenhuma venda registrada até o momento.")
 
-# --- PEDIDOS / ORÇAMENTOS ---
+# --- 2. PEDIDOS / ORÇAMENTOS ---
 elif menu == "📋 Pedidos / Orçamentos":
   if tipo_acesso == "👤 Portal do Cliente":
     st.title(f"🛍️ Portal do Cliente — Meus Pedidos ({cliente_autenticado})")
@@ -863,9 +721,6 @@ elif menu == "📋 Pedidos / Orçamentos":
           st.success("✅ Alterações salvas com sucesso!")
           st.rerun()
 
-        # ---------------------------------------------------------------------
-        # CONVERTER PEDIDO EM VENDA
-        # ---------------------------------------------------------------------
         st.markdown("---")
         st.subheader("🔄 Transferir / Converter Pedido em Venda")
 
@@ -1020,3 +875,339 @@ elif menu == "📋 Pedidos / Orçamentos":
           },
           hide_index=True,
       )
+
+# --- 3. REGISTRAR VENDA ---
+elif menu == "🛒 Registrar Venda":
+  st.title("🛒 Registrar Venda Direta (PDV)")
+
+  produtos_df = pd.read_sql_query("SELECT * FROM produtos", conn)
+
+  if produtos_df.empty:
+    st.warning("Nenhum produto cadastrado.")
+  else:
+    c_v1, c_v2 = st.columns(2)
+    with c_v1:
+      venda_cli = st.selectbox(
+          "Selecione o Cliente:", list_clientes, key="venda_cli"
+      )
+    with c_v2:
+      forma_pagto = st.selectbox(
+          "Forma de Pagamento:",
+          [
+              "Dinheiro",
+              "PIX",
+              "Cartão de Débito",
+              "Cartão de Crédito",
+              "A Prazo / Fiado",
+          ],
+          key="forma_pagto",
+      )
+
+    st.markdown("---")
+    st.write("#### ➕ Adicionar Item à Venda")
+    c_p1, c_p2, c_p3 = st.columns([4, 2, 2])
+
+    with c_p1:
+      venda_prod = st.selectbox(
+          "Produto", produtos_df["produto"].tolist(), key="v_prod"
+      )
+      prod_sel = produtos_df[produtos_df["produto"] == venda_prod].iloc[0]
+
+    with c_p2:
+      venda_preco = st.number_input(
+          "Preço Venda (R$)",
+          value=float(prod_sel["valor_venda"]),
+          min_value=0.0,
+          key="v_prec",
+      )
+
+    with c_p3:
+      venda_qtd = st.number_input(
+          "Quantidade", min_value=0.01, value=1.0, step=0.1, key="v_qtd"
+      )
+
+    if st.button("➕ Adicionar à Venda"):
+      st.session_state.carrinho_venda.append({
+          "produto": venda_prod,
+          "fornecedor": "Geral",
+          "grupo": prod_sel.get("grupo", "Geral"),
+          "quantidade": venda_qtd,
+          "valor_venda": venda_preco,
+          "valor_total": venda_qtd * venda_preco,
+      })
+      st.success(f"'{venda_prod}' adicionado ao carrinho.")
+
+    st.markdown("---")
+    st.write("### 🛒 Carrinho da Venda")
+
+    if not st.session_state.carrinho_venda:
+      st.info("O carrinho está vazio.")
+    else:
+      df_cart_v = pd.DataFrame(st.session_state.carrinho_venda)
+      st.dataframe(
+          df_cart_v[["produto", "quantidade", "valor_venda", "valor_total"]],
+          use_container_width=True,
+      )
+
+      total_venda = df_cart_v["valor_total"].sum()
+      st.markdown(f"### 💰 Total a Pagar: R$ {total_venda:,.2f}")
+
+      c_pay1, c_pay2 = st.columns(2)
+      with c_pay1:
+        val_recebido = st.number_input(
+            "Valor Recebido (R$)",
+            min_value=0.0,
+            value=float(total_venda) if forma_pagto != "A Prazo / Fiado" else 0.0,
+        )
+      with c_pay2:
+        troco = max(0.0, val_recebido - total_venda)
+        restante = max(0.0, total_venda - val_recebido)
+        st.write(
+            f"**Troco:** R$ {troco:,.2f} | **Falta Pagar:** R$"
+            f" {restante:,.2f}"
+        )
+
+      col_fv1, col_fv2 = st.columns(2)
+      with col_fv1:
+        if st.button("✅ Finalizar Venda"):
+          cod_v = f"VEN-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+          data_v = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+          for item in st.session_state.carrinho_venda:
+            cursor.execute(
+                """
+                            INSERT INTO vendas (codigo_venda, cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, troco, restante, data)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                (
+                    cod_v,
+                    venda_cli,
+                    item["produto"],
+                    item["fornecedor"],
+                    item["grupo"],
+                    item["quantidade"],
+                    item["valor_venda"],
+                    item["valor_total"],
+                    forma_pagto,
+                    val_recebido,
+                    troco,
+                    restante,
+                    data_v,
+                ),
+            )
+
+            cursor.execute(
+                """
+                            UPDATE produtos 
+                            SET quantidade = quantidade - ? 
+                            WHERE produto = ?
+                        """,
+                (item["quantidade"], item["produto"]),
+            )
+
+          conn.commit()
+          st.session_state.carrinho_venda = []
+          st.success(f"Venda `{cod_v}` concluída com sucesso!")
+          st.rerun()
+
+      with col_fv2:
+        if st.button("🗑️ Esvaziar Carrinho"):
+          st.session_state.carrinho_venda = []
+          st.rerun()
+
+# --- 4. ENTRADA DE ESTOQUE (COMPRAS) ---
+elif menu == "📥 Entrada de Estoque (Compras)":
+  st.title("📥 Lançamento de Compras (Entrada de Estoque)")
+
+  produtos_df = pd.read_sql_query("SELECT * FROM produtos", conn)
+
+  col_c1, col_c2 = st.columns(2)
+  with col_c1:
+    compra_prod = st.selectbox(
+        "Selecione o Produto",
+        produtos_df["produto"].tolist() if not produtos_df.empty else ["Nenhum"],
+    )
+    compra_forn = st.selectbox("Fornecedor", list_fornecedores)
+  with col_c2:
+    compra_grupo = st.selectbox("Grupo", list_grupos)
+    compra_qtd = st.number_input(
+        "Quantidade Comprada", min_value=0.01, value=10.0, step=1.0
+    )
+
+  col_p1, col_p2 = st.columns(2)
+  with col_p1:
+    compra_val_compra = st.number_input(
+        "Valor Unitário de Custo (R$)", min_value=0.0, value=10.0
+    )
+  with col_p2:
+    compra_val_venda = st.number_input(
+        "Novo Valor Unitário de Venda (R$)", min_value=0.0, value=15.0
+    )
+
+  compra_total = compra_qtd * compra_val_compra
+  st.write(f"### 💵 **Custo Total do Lote: R$ {compra_total:,.2f}**")
+
+  if st.button("📥 Dar Entrada no Estoque"):
+    data_compra = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+    cursor.execute(
+        """
+            INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_compra, valor_venda, valor_total, data)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            compra_prod,
+            compra_forn,
+            compra_grupo,
+            compra_qtd,
+            compra_val_compra,
+            compra_val_venda,
+            compra_total,
+            data_compra,
+        ),
+    )
+
+    cursor.execute(
+        """
+            UPDATE produtos 
+            SET quantidade = quantidade + ?, valor_compra = ?, valor_venda = ?
+            WHERE produto = ?
+        """,
+        (compra_qtd, compra_val_compra, compra_val_venda, compra_prod),
+    )
+
+    conn.commit()
+    st.success(f"Entrada de {compra_qtd} unidades do produto '{compra_prod}' salva!")
+    st.rerun()
+
+  st.markdown("---")
+  st.subheader("📑 Histórico de Entradas")
+  df_compras = pd.read_sql_query(
+      "SELECT * FROM compras ORDER BY id DESC", conn
+  )
+  st.dataframe(df_compras, use_container_width=True)
+
+# --- 5. ESTOQUE DE PRODUTOS ---
+elif menu == "📦 Estoque de Produtos":
+  st.title("📦 Gestão de Estoque e Produtos")
+
+  tab_p1, tab_p2 = st.tabs(["📋 Lista de Produtos", "➕ Cadastrar Novo Produto"])
+
+  with tab_p1:
+    df_prods = pd.read_sql_query("SELECT * FROM produtos", conn)
+    st.info("✏️ Você pode alterar os valores na tabela e salvar.")
+    df_p_edit = st.data_editor(df_prods, use_container_width=True, disabled=["id"])
+
+    if st.button("💾 Salvar Alterações nos Produtos"):
+      for idx, row in df_p_edit.iterrows():
+        cursor.execute(
+            """
+                    UPDATE produtos 
+                    SET produto = ?, grupo = ?, quantidade = ?, valor_compra = ?, valor_venda = ?
+                    WHERE id = ?
+                """,
+            (
+                row["produto"],
+                row["grupo"],
+                float(row["quantidade"]),
+                float(row["valor_compra"]),
+                float(row["valor_venda"]),
+                int(row["id"]),
+            ),
+        )
+      conn.commit()
+      st.success("Estoque atualizado!")
+      st.rerun()
+
+  with tab_p2:
+    st.subheader("➕ Novo Produto")
+    np_nome = st.text_input("Nome do Produto")
+    np_grupo = st.selectbox("Grupo", list_grupos, key="np_g")
+    np_qtd = st.number_input("Quantidade Inicial", min_value=0.0, value=0.0)
+    np_vc = st.number_input("Valor de Custo (R$)", min_value=0.0, value=0.0)
+    np_vv = st.number_input("Valor de Venda (R$)", min_value=0.0, value=0.0)
+
+    if st.button("Cadastrar Produto"):
+      if np_nome:
+        try:
+          cursor.execute(
+              """
+                        INSERT INTO produtos (produto, grupo, quantidade, valor_compra, valor_venda)
+                        VALUES (?, ?, ?, ?, ?)
+                    """,
+              (np_nome, np_grupo, np_qtd, np_vc, np_vv),
+          )
+          conn.commit()
+          st.success(f"Produto '{np_nome}' cadastrado!")
+          st.rerun()
+        except Exception as e:
+          st.error(f"Erro ao cadastrar: {e}")
+
+# --- 6. CADASTROS (CLIENTES / FORNECEDORES / GRUPOS) ---
+elif menu == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
+  st.title("👥 Cadastros de Apoio")
+
+  t_cli, t_forn, t_grp = st.tabs(
+      ["👥 Clientes", "🚚 Fornecedores", "🏷️ Grupos de Produtos"]
+  )
+
+  with t_cli:
+    st.subheader("Cadastro de Clientes")
+    df_cli = pd.read_sql_query("SELECT * FROM clientes", conn)
+    st.dataframe(df_cli, use_container_width=True)
+
+    with st.form("f_add_cli"):
+      nc_nome = st.text_input("Nome do Cliente/Empresa")
+      nc_cpf = st.text_input("CPF/CNPJ")
+      nc_end = st.text_input("Endereço")
+      nc_email = st.text_input("E-mail")
+      nc_fone = st.text_input("Telefone")
+      if st.form_submit_button("Adicionar Cliente"):
+        if nc_nome:
+          try:
+            cursor.execute(
+                """
+                            INSERT INTO clientes (cliente, cpf, endereco, email, fone)
+                            VALUES (?, ?, ?, ?, ?)
+                        """,
+                (nc_nome, nc_cpf, nc_end, nc_email, nc_fone),
+            )
+            conn.commit()
+            st.success("Cliente adicionado!")
+            st.rerun()
+          except Exception as e:
+            st.error(f"Erro: {e}")
+
+  with t_forn:
+    st.subheader("Cadastro de Fornecedores")
+    df_forn = pd.read_sql_query("SELECT * FROM fornecedores", conn)
+    st.dataframe(df_forn, use_container_width=True)
+
+    nf_nome = st.text_input("Nome do Fornecedor")
+    if st.button("Adicionar Fornecedor"):
+      if nf_nome:
+        try:
+          cursor.execute(
+              "INSERT INTO fornecedores (fornecedor) VALUES (?)", (nf_nome,)
+          )
+          conn.commit()
+          st.success("Fornecedor cadastrado!")
+          st.rerun()
+        except Exception as e:
+          st.error(f"Erro: {e}")
+
+  with t_grp:
+    st.subheader("Cadastro de Grupos/Categorias")
+    df_grp = pd.read_sql_query("SELECT * FROM grupos", conn)
+    st.dataframe(df_grp, use_container_width=True)
+
+    ng_nome = st.text_input("Nome do Grupo")
+    if st.button("Adicionar Grupo"):
+      if ng_nome:
+        try:
+          cursor.execute("INSERT INTO grupos (grupo) VALUES (?)", (ng_nome,))
+          conn.commit()
+          st.success("Grupo cadastrado!")
+          st.rerun()
+        except Exception as e:
+          st.error(f"Erro: {e}")
