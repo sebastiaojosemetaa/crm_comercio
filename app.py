@@ -1165,39 +1165,29 @@ elif menu == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
     
     with tab_c:
         st.subheader("Gerenciar Clientes")
-        novo_cli = st.text_input("Nome do Novo Cliente", key="input_novo_cli")
-        if st.button("Adicionar Cliente", key="btn_add_cli"):
-            if novo_cli:
-                try:
-                    cursor.execute("INSERT INTO clientes (cliente) VALUES (?)", (novo_cli,))
-                    conn.commit()
-                    st.success("Cliente adicionado!")
-                    st.rerun()
-                except:
-                    st.error("Cliente já existe.")
-                    
-    with tab_f:
-        st.subheader("Gerenciar Fornecedores")
-        novo_forn = st.text_input("Nome do Novo Fornecedor", key="input_novo_forn")
-        if st.button("Adicionar Fornecedor", key="btn_add_forn"):
-            if novo_forn:
-                try:
-                    cursor.execute("INSERT INTO fornecedores (fornecedor) VALUES (?)", (novo_forn,))
-                    conn.commit()
-                    st.success("Fornecedor adicionado!")
-                    st.rerun()
-                except:
-                    st.error("Fornecedor já existe.")
-                    
-    with tab_g:
-        st.subheader("Gerenciar Grupos")
-        novo_grp = st.text_input("Nome do Novo Grupo", key="input_novo_grp")
-        if st.button("Adicionar Grupo", key="btn_add_grp"):
-            if novo_grp:
-                try:
-                    cursor.execute("INSERT INTO grupos (grupo) VALUES (?)", (novo_grp,))
-                    conn.commit()
-                    st.success("Grupo adicionado!")
-                    st.rerun()
-                except:
-                    st.error("Grupo já existe.")
+        with st.form("form_cad_cliente"):
+            c_cli1, c_cli2 = st.columns(2)
+            with c_cli1:
+                novo_cli = st.text_input("Nome do Cliente / Empresa")
+                novo_cpf = st.text_input("CPF / CNPJ")
+                novo_fone = st.text_input("Telefone / WhatsApp")
+            with c_cli2:
+                novo_end = st.text_input("Endereço Completo")
+                novo_email = st.text_input("E-mail")
+                
+            btn_salvar_cli = st.form_submit_button("💾 Salvar Novo Cliente")
+            
+            if btn_salvar_cli:
+                if novo_cli:
+                    try:
+                        cursor.execute("""
+                            INSERT INTO clientes (cliente, cpf, endereco, email, fone) 
+                            VALUES (?, ?, ?, ?, ?)
+                        """, (novo_cli, novo_cpf, novo_end, novo_email, novo_fone))
+                        conn.commit()
+                        st.success(f"Cliente '{novo_cli}' cadastrado com sucesso!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao cadastrar cliente (talvez já exista): {e}")
+                else:
+                    st.warning("O campo Nome do Cliente é obrigatório.")
