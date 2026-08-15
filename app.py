@@ -19,17 +19,21 @@ st.set_page_config(
 )
 
 # -----------------------------------------------------------------------------
-# 2. CONEXÃO E CRIAÇÃO DO BANCO DE DADOS
+# 2. BANCO DE DADOS RESILIENTE COM CACHE
 # -----------------------------------------------------------------------------
 DB_FILE = "crm_comercio.db"
 
 
-def get_connection():
-  return sqlite3.connect(DB_FILE, check_same_thread=False)
+@st.cache_resource
+def get_db_connection():
+  # Permite reutilizar a conexão de forma segura no Streamlit
+  conn = sqlite3.connect(DB_FILE, check_same_thread=False)
+  conn.row_factory = sqlite3.Row
+  return conn
 
 
 def init_db():
-  conn = get_connection()
+  conn = get_db_connection()
   cursor = conn.cursor()
 
   cursor.execute("""
@@ -104,23 +108,46 @@ def init_db():
     """)
 
   conn.commit()
-  conn.close()
 
 
-# Inicializa o banco de dados antes de qualquer leitura
+# Inicializa as tabelas do banco
 init_db()
 
 
-def safe_query_list(query):
+def safe_query_list(query, params=()):
+  """Executa consultas de lista com proteção contra travamentos."""
   try:
-    conn = get_connection()
+    conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute(query)
+    cursor.execute(query, params)
     rows = cursor.fetchall()
-    conn.close()
     return [r[0] for r in rows if r[0]]
   except Exception:
     return []
+
+
+def get_produto_info(nome_produto):
+  """Busca dados de um produto específico com proteção de erro."""
+  if not nome_produto:
+    return 0.0, "", "", 0.0
+  try:
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    row = cursor.execute(
+        "SELECT preco_venda, fornecedor, grupo, quantidade FROM produtos WHERE"
+        " produto = ?",
+        (nome_produto,),
+    ).fetchone()
+    if row:
+      return (
+          row["preco_venda"] or 0.0,
+          row["fornecedor"] or "",
+          row["grupo"] or "",
+          row["quantidade"] or 0.0,
+      )
+  except Exception:
+    pass
+  return 0.0, "", "", 0.0
 
 
 # -----------------------------------------------------------------------------
@@ -256,7 +283,7 @@ menu = st.sidebar.radio(
     ],
 )
 
-# Listas auxiliares protegidas contra falhas
+# Listas auxiliares protegidas
 list_clientes = safe_query_list("SELECT nome FROM clientes ORDER BY nome")
 list_fornecedores = safe_query_list(
     "SELECT nome FROM fornecedores ORDER BY nome"
@@ -271,9 +298,8 @@ list_produtos = safe_query_list("SELECT produto FROM produtos ORDER BY produto")
 if menu == "📊 Fechamento & Financeiro":
   st.header("📊 Fechamento Financeiro & Relatórios")
 
-  conn = get_connection()
+  conn = get_db_connection()
   df_vendas_all = pd.read_sql_query("SELECT * FROM vendas", conn)
-  conn.close()
 
   col_m1, col_m2, col_m3, col_m4 = st.columns(4)
   val_tot = (
@@ -342,20 +368,10 @@ elif menu == "📋 Pedidos / Orçamentos":
             "Quantidade:", min_value=0.01, value=1.0, step=0.5
         )
 
-        v_unit_padrao, forn_padrao, grp_padrao = 0.0, "", ""
-        if prod_pedido:
-          conn = get_connection()
-          c = conn.cursor()
-          p_info = c.execute(
-              "SELECT preco_venda, fornecedor, grupo FROM produtos WHERE"
-              " produto = ?",
-              (prod_pedido,),
-          ).fetchone()
-          conn.close()
-          if p_info:
-            v_unit_padrao = p_info[0] or 0.0
-            forn_padrao = p_info[1] or ""
-            grp_padrao = p_info[2] or ""
+        # Busca preço e detalhes com segurança
+        v_unit_padrao, forn_padrao, grp_padrao, _ = get_produto_info(
+            prod_pedido
+        )
 
         val_unit = st.number_input(
             "Valor Unitário (R$):",
@@ -374,7 +390,7 @@ elif menu == "📋 Pedidos / Orçamentos":
           data_p = datetime.now().strftime("%Y-%m-%d %H:%M")
           v_tot = qtd_pedido * val_unit
 
-          conn = get_connection()
+          conn = get_db_connection()
           c = conn.cursor()
           c.execute(
               """
@@ -394,7 +410,6 @@ elif menu == "📋 Pedidos / Orçamentos":
               ),
           )
           conn.commit()
-          conn.close()
           st.success(f"Pedido `{cod_p}` registrado com sucesso!")
           st.rerun()
 
@@ -458,9 +473,8 @@ elif menu == "📋 Pedidos / Orçamentos":
 
     query_ped += " ORDER BY id DESC"
 
-    conn = get_connection()
+    conn = get_db_connection()
     pedidos_df = pd.read_sql_query(query_ped, conn, params=params)
-    conn.close()
 
     if (
         tipo_acesso != "👤 Portal do Cliente"
@@ -551,7 +565,7 @@ elif menu == "📋 Pedidos / Orçamentos":
             type="primary",
             key="btn_save_pedidos",
         ):
-          conn = get_connection()
+          conn = get_db_connection()
           c = conn.cursor()
           for idx, row in df_editavel.iterrows():
             id_row = int(row["id"])
@@ -569,7 +583,6 @@ elif menu == "📋 Pedidos / Orçamentos":
             )
 
           conn.commit()
-          conn.close()
           st.success("✅ Alterações salvas com sucesso!")
           st.rerun()
 
@@ -640,7 +653,7 @@ elif menu == "📋 Pedidos / Orçamentos":
             troco_c = max(0.0, val_pago_conv - total_ped_conv)
             restante_c = max(0.0, total_ped_conv - val_pago_conv)
 
-            conn = get_connection()
+            conn = get_db_connection()
             c = conn.cursor()
 
             for idx, r in itens_pedido_sel.iterrows():
@@ -692,7 +705,6 @@ elif menu == "📋 Pedidos / Orçamentos":
             )
 
             conn.commit()
-            conn.close()
             st.success(
                 f"Pedido `{ped_sel_conv}` transferido para Vendas com sucesso!"
                 f" (Venda `{cod_venda}` registrada)"
@@ -702,13 +714,12 @@ elif menu == "📋 Pedidos / Orçamentos":
     st.markdown("---")
     st.subheader("📄 Relatório de Pedidos em PDF")
 
-    conn = get_connection()
+    conn = get_db_connection()
     df_pdf_export = (
         pedidos_df
         if not pedidos_df.empty
         else pd.read_sql_query("SELECT * FROM pedidos", conn)
     )
-    conn.close()
 
     if not df_pdf_export.empty:
       pdf_data = gerar_pdf_relatorio(
@@ -741,21 +752,7 @@ elif menu == "🛒 Registrar Venda":
       )
 
     with col_v2:
-      v_unit_p, forn_p, grp_p, estq_p = 0.0, "", "", 0.0
-      if prod_venda:
-        conn = get_connection()
-        c = conn.cursor()
-        p_info = c.execute(
-            "SELECT preco_venda, fornecedor, grupo, quantidade FROM produtos"
-            " WHERE produto = ?",
-            (prod_venda,),
-        ).fetchone()
-        conn.close()
-        if p_info:
-          v_unit_p = p_info[0] or 0.0
-          forn_p = p_info[1] or ""
-          grp_p = p_info[2] or ""
-          estq_p = p_info[3] or 0.0
+      v_unit_p, forn_p, grp_p, estq_p = get_produto_info(prod_venda)
 
       st.caption(f"Estoque disponível: **{estq_p}**")
 
@@ -801,7 +798,7 @@ elif menu == "🛒 Registrar Venda":
         troco = max(0.0, val_recebido - val_tot_venda)
         restante = max(0.0, val_tot_venda - val_recebido)
 
-        conn = get_connection()
+        conn = get_db_connection()
         c = conn.cursor()
         c.execute(
             """
@@ -832,7 +829,6 @@ elif menu == "🛒 Registrar Venda":
         )
 
         conn.commit()
-        conn.close()
         st.success(f"Venda `{cod_v}` concluída com sucesso!")
         st.rerun()
 
@@ -861,7 +857,7 @@ elif menu == "📥 Entrada de Estoque (Compras)":
       if not prod_ent:
         st.error("Selecione um produto.")
       else:
-        conn = get_connection()
+        conn = get_db_connection()
         c = conn.cursor()
         c.execute(
             """
@@ -872,7 +868,6 @@ elif menu == "📥 Entrada de Estoque (Compras)":
             (qtd_ent, preco_custo_ent, prod_ent),
         )
         conn.commit()
-        conn.close()
         st.success(
             f"Entrada de {qtd_ent} unidades gravada para o produto"
             f" '{prod_ent}'!"
@@ -915,7 +910,7 @@ elif menu == "📦 Estoque de Produtos":
           st.error("Digite o nome do produto.")
         else:
           try:
-            conn = get_connection()
+            conn = get_db_connection()
             c = conn.cursor()
             c.execute(
                 """
@@ -925,16 +920,14 @@ elif menu == "📦 Estoque de Produtos":
                 (p_nome, p_forn, p_grp, p_qtd, p_cost, p_venda),
             )
             conn.commit()
-            conn.close()
             st.success(f"Produto '{p_nome}' cadastrado!")
             st.rerun()
           except sqlite3.IntegrityError:
             st.error("Produto já cadastrado.")
 
   with tab_prod_lista:
-    conn = get_connection()
+    conn = get_db_connection()
     df_prods = pd.read_sql_query("SELECT * FROM produtos", conn)
-    conn.close()
 
     st.dataframe(df_prods, use_container_width=True)
 
@@ -971,25 +964,23 @@ elif menu == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
       if st.form_submit_button("Salvar Cliente"):
         if c_nome:
           try:
-            conn = get_connection()
+            conn = get_db_connection()
             c = conn.cursor()
             c.execute(
                 "INSERT INTO clientes (nome, telefone, email) VALUES (?, ?, ?)",
                 (c_nome, c_tel, c_mail),
             )
             conn.commit()
-            conn.close()
             st.success("Cliente salvo!")
             st.rerun()
           except sqlite3.IntegrityError:
             st.error("Cliente já existe.")
 
-    conn = get_connection()
+    conn = get_db_connection()
     st.dataframe(
         pd.read_sql_query("SELECT * FROM clientes", conn),
         use_container_width=True,
     )
-    conn.close()
 
   with tab_f:
     st.subheader("Novo Fornecedor")
@@ -999,25 +990,23 @@ elif menu == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
       if st.form_submit_button("Salvar Fornecedor"):
         if f_nome:
           try:
-            conn = get_connection()
+            conn = get_db_connection()
             c = conn.cursor()
             c.execute(
                 "INSERT INTO fornecedores (nome, contato) VALUES (?, ?)",
                 (f_nome, f_cont),
             )
             conn.commit()
-            conn.close()
             st.success("Fornecedor salvo!")
             st.rerun()
           except sqlite3.IntegrityError:
             st.error("Fornecedor já existe.")
 
-    conn = get_connection()
+    conn = get_db_connection()
     st.dataframe(
         pd.read_sql_query("SELECT * FROM fornecedores", conn),
         use_container_width=True,
     )
-    conn.close()
 
   with tab_g:
     st.subheader("Novo Grupo")
@@ -1026,18 +1015,16 @@ elif menu == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
       if st.form_submit_button("Salvar Grupo"):
         if g_nome:
           try:
-            conn = get_connection()
+            conn = get_db_connection()
             c = conn.cursor()
             c.execute("INSERT INTO grupos (nome) VALUES (?)", (g_nome,))
             conn.commit()
-            conn.close()
             st.success("Grupo salvo!")
             st.rerun()
           except sqlite3.IntegrityError:
             st.error("Grupo já existe.")
 
-    conn = get_connection()
+    conn = get_db_connection()
     st.dataframe(
         pd.read_sql_query("SELECT * FROM grupos", conn), use_container_width=True
     )
-    conn.close()
