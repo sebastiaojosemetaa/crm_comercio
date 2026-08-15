@@ -17,6 +17,7 @@ st.set_page_config(
 # DEFINIÇÃO DE SENHAS
 # -----------------------------------------------------------------------------
 SENHA_ADMIN = "13142715"
+Neurialdo = "456892"
 
 SENHAS_CLIENTES = {
     "Carlos Alberto": "1234",
