@@ -10,63 +10,80 @@ from reportlab.pdfgen import canvas
 # Configuração da página
 st.set_page_config(page_title="CRM Comércio", page_icon="📦", layout="wide")
 
-# Conexão com o banco de dados
-def get_db():
+# Inicialização e Auto-Reparação do Banco de Dados
+def init_db():
     conn = sqlite3.connect('crm_comercio.db', check_same_thread=False)
+    c = conn.cursor()
+    
+    # Criar tabelas caso não existam
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS clientes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT UNIQUE,
+            telefone TEXT,
+            email TEXT
+        )
+    ''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS fornecedores (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT UNIQUE
+        )
+    ''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS grupos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT UNIQUE
+        )
+    ''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS produtos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            codigo TEXT UNIQUE,
+            nome TEXT,
+            fornecedor TEXT,
+            grupo TEXT,
+            preco_custo REAL,
+            preco_venda REAL,
+            estoque REAL
+        )
+    ''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS vendas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            codigo_venda TEXT,
+            data TEXT,
+            cliente TEXT,
+            produto TEXT,
+            fornecedor TEXT,
+            grupo TEXT,
+            quantidade REAL,
+            valor_venda REAL,
+            status_pagamento TEXT,
+            tipo TEXT DEFAULT 'VENDA'
+        )
+    ''')
+    
+    # Verifica se a coluna 'tipo' existe na tabela vendas (auto-patch para bancos antigos)
+    try:
+        c.execute("PRAGMA table_info(vendas)")
+        cols = [column[1] for column in c.fetchall()]
+        if 'tipo' not in cols and len(cols) > 0:
+            c.execute("ALTER TABLE vendas ADD COLUMN tipo TEXT DEFAULT 'VENDA'")
+    except Exception:
+        pass
+        
+    conn.commit()
     return conn
 
-conn = get_db()
-c = conn.cursor()
+conn = init_db()
 
-# Criação das tabelas
-c.execute('''
-    CREATE TABLE IF NOT EXISTS clientes (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nome TEXT UNIQUE,
-        telefone TEXT,
-        email TEXT
-    )
-''')
-c.execute('''
-    CREATE TABLE IF NOT EXISTS fornecedores (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nome TEXT UNIQUE
-    )
-''')
-c.execute('''
-    CREATE TABLE IF NOT EXISTS grupos (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nome TEXT UNIQUE
-    )
-''')
-c.execute('''
-    CREATE TABLE IF NOT EXISTS produtos (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        codigo TEXT UNIQUE,
-        nome TEXT,
-        fornecedor TEXT,
-        grupo TEXT,
-        preco_custo REAL,
-        preco_venda REAL,
-        estoque REAL
-    )
-''')
-c.execute('''
-    CREATE TABLE IF NOT EXISTS vendas (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        codigo_venda TEXT,
-        data TEXT,
-        cliente TEXT,
-        produto TEXT,
-        fornecedor TEXT,
-        grupo TEXT,
-        quantidade REAL,
-        valor_venda REAL,
-        status_pagamento TEXT,
-        tipo TEXT DEFAULT 'VENDA'
-    )
-''')
-conn.commit()
+# Função de leitura segura (evita crash se a tabela estiver vazia)
+def safe_read_sql(sql, params=None):
+    try:
+        return pd.read_sql_query(sql, conn, params=params)
+    except Exception:
+        return pd.DataFrame()
 
 # Função para Gerar PDF de Pedidos
 def gerar_pdf_pedido(codigo_pedido, df_itens, cliente):
@@ -120,7 +137,7 @@ params = st.query_params
 cliente_url = params.get("cliente", None) or params.get("cliente_id", None)
 
 if cliente_url:
-    # Oculta a barra lateral para o cliente não navegar no seu sistema
+    # Oculta a barra lateral para o cliente
     st.markdown("""
         <style>
             [data-testid="stSidebar"] { display: none; }
@@ -131,10 +148,8 @@ if cliente_url:
     st.subheader(f"👋 Olá, {cliente_url}!")
     st.info("Abaixo você encontra o histórico exclusivo dos seus pedidos e orçamentos conosco.")
     
-    # Busca apenas os pedidos do cliente específico
-    df_pedidos_cliente = pd.read_sql_query(
+    df_pedidos_cliente = safe_read_sql(
         "SELECT * FROM vendas WHERE cliente = ? AND tipo = 'PEDIDO' ORDER BY id DESC", 
-        conn, 
         params=(cliente_url,)
     )
     
@@ -145,7 +160,7 @@ if cliente_url:
         for cod in codigos:
             itens = df_pedidos_cliente[df_pedidos_cliente['codigo_venda'] == cod]
             total_pedido = (itens['quantidade'] * itens['valor_venda']).sum()
-            data_ped = itens['data'].iloc[0]
+            data_ped = itens['data'].iloc[0] if 'data' in itens.columns else "N/A"
             
             with st.expander(f"📋 Pedido: {cod} | Data: {data_ped} | Total: R$ {total_pedido:.2f}", expanded=True):
                 st.dataframe(
@@ -164,7 +179,7 @@ if cliente_url:
                     key=f"pdf_client_{cod}"
                 )
     
-    st.stop() # Encerra o script para garantir que o cliente não veja o resto do painel admin
+    st.stop()
 
 # ==============================================================================
 # PAINEL ADMINISTRATIVO (SISTEMA COMPLETO)
@@ -189,7 +204,7 @@ menu = st.sidebar.radio(
 if menu == "📊 Fechamento & Financeiro":
     st.title("📊 Painel Financeiro & Fechamento")
     
-    df_vendas = pd.read_sql_query("SELECT * FROM vendas WHERE tipo = 'VENDA'", conn)
+    df_vendas = safe_read_sql("SELECT * FROM vendas WHERE tipo = 'VENDA'")
     
     if df_vendas.empty:
         tot_faturamento = 0.0
@@ -215,12 +230,11 @@ if menu == "📊 Fechamento & Financeiro":
 elif menu == "📑 Pedidos / Orçamentos":
     st.title("📑 Gestão de Pedidos e Orçamentos")
     
-    # SEÇÃO PARA GERAR LINK PARA CLIENTE
     st.markdown("---")
     st.subheader("🔗 Gerar Link Exclusivo para o Cliente")
     st.write("Envie este link para seu cliente visualizar **apenas os próprios pedidos**, sem acesso ao financeiro ou opção de converter vendas.")
     
-    df_clientes_cad = pd.read_sql_query("SELECT nome FROM clientes", conn)
+    df_clientes_cad = safe_read_sql("SELECT nome FROM clientes")
     lista_cli = df_clientes_cad['nome'].tolist() if not df_clientes_cad.empty else []
     
     if lista_cli:
@@ -239,7 +253,7 @@ elif menu == "📑 Pedidos / Orçamentos":
     st.markdown("---")
     st.subheader("📋 Pedidos Cadastrados no Sistema")
     
-    df_pedidos = pd.read_sql_query("SELECT * FROM vendas WHERE tipo = 'PEDIDO' ORDER BY id DESC", conn)
+    df_pedidos = safe_read_sql("SELECT * FROM vendas WHERE tipo = 'PEDIDO' ORDER BY id DESC")
     
     if df_pedidos.empty:
         st.info("Nenhum pedido/orçamento registrado no momento.")
@@ -256,6 +270,7 @@ elif menu == "📑 Pedidos / Orçamentos":
                 col1, col2 = st.columns(2)
                 with col1:
                     if st.button(f"✅ Converter Pedido {cod} em Venda Final", key=f"conv_{cod}"):
+                        c = conn.cursor()
                         c.execute("UPDATE vendas SET tipo = 'VENDA' WHERE codigo_venda = ?", (cod,))
                         conn.commit()
                         st.success(f"Pedido {cod} convertido em Venda com sucesso!")
@@ -276,8 +291,8 @@ elif menu == "📑 Pedidos / Orçamentos":
 elif menu == "🛒 Registrar Venda":
     st.title("🛒 Nova Venda / Novo Pedido")
     
-    df_clientes = pd.read_sql_query("SELECT nome FROM clientes", conn)
-    df_prods = pd.read_sql_query("SELECT * FROM produtos", conn)
+    df_clientes = safe_read_sql("SELECT nome FROM clientes")
+    df_prods = safe_read_sql("SELECT * FROM produtos")
     
     if df_prods.empty:
         st.warning("Cadastre produtos no estoque antes de registrar vendas.")
@@ -297,12 +312,12 @@ elif menu == "🛒 Registrar Venda":
             cod_doc = f"DOC-{datetime.now().strftime('%Y%m%d%H%M%S')}"
             data_atual = datetime.now().strftime('%Y-%m-%d %H:%M')
             
+            c = conn.cursor()
             c.execute('''
                 INSERT INTO vendas (codigo_venda, data, cliente, produto, fornecedor, grupo, quantidade, valor_venda, status_pagamento, tipo)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (cod_doc, data_atual, cliente_venda, prod_sel, prod_info['fornecedor'], prod_info['grupo'], qtd_venda, val_venda, status_pag, tipo_registro))
             
-            # Baixa estoque apenas se for VENDA
             if tipo_registro == "VENDA":
                 novo_est = prod_info['estoque'] - qtd_venda
                 c.execute("UPDATE produtos SET estoque = ? WHERE id = ?", (novo_est, prod_info['id']))
@@ -316,7 +331,7 @@ elif menu == "🛒 Registrar Venda":
 elif menu == "📥 Entrada de Estoque (Compras)":
     st.title("📥 Entrada de Estoque")
     
-    df_prods = pd.read_sql_query("SELECT * FROM produtos", conn)
+    df_prods = safe_read_sql("SELECT * FROM produtos")
     if not df_prods.empty:
         prod_compra = st.selectbox("Selecione o Produto para dar Entrada:", df_prods['nome'].tolist())
         qtd_compra = st.number_input("Quantidade Comprada:", min_value=0.1, value=10.0)
@@ -324,6 +339,7 @@ elif menu == "📥 Entrada de Estoque (Compras)":
         if st.button("📥 Dar Entrada no Estoque"):
             prod_atual = df_prods[df_prods['nome'] == prod_compra].iloc[0]
             novo_est = prod_atual['estoque'] + qtd_compra
+            c = conn.cursor()
             c.execute("UPDATE produtos SET estoque = ? WHERE id = ?", (novo_est, prod_atual['id']))
             conn.commit()
             st.success(f"Estoque atualizado! Novo estoque de {prod_compra}: {novo_est}")
@@ -344,6 +360,7 @@ elif menu == "📦 Estoque de Produtos":
         c_est = st.number_input("Estoque Inicial", min_value=0.0)
         
         if st.button("Salvar Produto"):
+            c = conn.cursor()
             c.execute('''
                 INSERT INTO produtos (codigo, nome, fornecedor, grupo, preco_custo, preco_venda, estoque)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -352,7 +369,7 @@ elif menu == "📦 Estoque de Produtos":
             st.success("Produto cadastrado!")
             st.rerun()
             
-    df_prods = pd.read_sql_query("SELECT * FROM produtos", conn)
+    df_prods = safe_read_sql("SELECT * FROM produtos")
     st.dataframe(df_prods, use_container_width=True)
 
 # ------------------------------------------------------------------------------
@@ -369,36 +386,39 @@ elif menu == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
         tel_cli = st.text_input("Telefone / WhatsApp")
         if st.button("Salvar Cliente"):
             try:
+                c = conn.cursor()
                 c.execute("INSERT INTO clientes (nome, telefone) VALUES (?, ?)", (nome_cli, tel_cli))
                 conn.commit()
                 st.success("Cliente cadastrado com sucesso!")
                 st.rerun()
             except:
                 st.error("Cliente já existente.")
-        st.dataframe(pd.read_sql_query("SELECT * FROM clientes", conn), use_container_width=True)
+        st.dataframe(safe_read_sql("SELECT * FROM clientes"), use_container_width=True)
 
     with tab2:
         st.subheader("Cadastrar Fornecedor")
         nome_forn = st.text_input("Nome do Fornecedor")
         if st.button("Salvar Fornecedor"):
             try:
+                c = conn.cursor()
                 c.execute("INSERT INTO fornecedores (nome) VALUES (?)", (nome_forn,))
                 conn.commit()
                 st.success("Fornecedor cadastrado!")
                 st.rerun()
             except:
                 st.error("Fornecedor já existente.")
-        st.dataframe(pd.read_sql_query("SELECT * FROM fornecedores", conn), use_container_width=True)
+        st.dataframe(safe_read_sql("SELECT * FROM fornecedores"), use_container_width=True)
 
     with tab3:
         st.subheader("Cadastrar Grupo")
         nome_grup = st.text_input("Nome do Grupo")
         if st.button("Salvar Grupo"):
             try:
+                c = conn.cursor()
                 c.execute("INSERT INTO grupos (nome) VALUES (?)", (nome_grup,))
                 conn.commit()
                 st.success("Grupo cadastrado!")
                 st.rerun()
             except:
                 st.error("Grupo já existente.")
-        st.dataframe(pd.read_sql_query("SELECT * FROM grupos", conn), use_container_width=True)
+        st.dataframe(safe_read_sql("SELECT * FROM grupos"), use_container_width=True)
