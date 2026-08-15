@@ -18,6 +18,15 @@ st.set_page_config(page_title="CRM Comércio - Gestão Completa", layout="wide",
 SENHA_ADMIN = "1234"  # <-- Troque "1234" pela senha que você desejar!
 
 # -----------------------------------------------------------------------------
+# Senhas individuais dos clientes:
+SENHAS_CLIENTES = {
+    "Carlos Alberto": "1234",
+    "Sebastião": "4321",
+    "Valeilde Loja 01": "1111"
+}
+SENHA_CLIENTE_PADRAO = "0000"  # Senha para clientes não cadastrados na lista acima
+
+# -----------------------------------------------------------------------------
 # CONEXÃO E CRIAÇÃO DO BANCO DE DADOS
 # -----------------------------------------------------------------------------
 conn = sqlite3.connect('crm_comercio.db', check_same_thread=False)
