@@ -349,7 +349,7 @@ menu = st.sidebar.radio(
         ]
     )
 
-    if menu == "📊 Fechamento & Financeiro":
+if menu == "📊 Fechamento & Financeiro":
 IndentationError: unexpected indent
     st.title("📊 Painel Financeiro & Fechamento")
     
