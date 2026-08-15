@@ -1,100 +1,94 @@
 import io
 import sqlite3
 from datetime import date, datetime
+
 import pandas as pd
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 import streamlit as st
 
-# -----------------------------------------------------------------------------
-# 1. CONFIGURAÇÃO DA PÁGINA
-# -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="CRM Comércio",
-    page_icon="📦",
-    layout="wide",
-    initial_sidebar_state="expanded",
+    page_title="CRM Comércio - Gestão Completa", layout="wide", page_icon="📦"
 )
 
 # -----------------------------------------------------------------------------
-# 2. BANCO DE DADOS E FUNÇÕES DE SUPORTE
+# DEFINIÇÃO DE SENHAS
 # -----------------------------------------------------------------------------
-DB_FILE = "crm_comercio.db"
+SENHA_ADMIN = "13142715"
 
+SENHAS_CLIENTES = {
+    "Carlos Alberto": "1234",
+    "Sebastião": "123456",
+    "Valeilde Loja 01": "12345",
+}
+SENHA_CLIENTE_PADRAO = "0000"
 
-@st.cache_resource
-def get_db_connection():
-  conn = sqlite3.connect(DB_FILE, check_same_thread=False)
-  conn.row_factory = sqlite3.Row
-  return conn
+# -----------------------------------------------------------------------------
+# CONEXÃO E CRIAÇÃO DO BANCO DE DADOS
+# -----------------------------------------------------------------------------
+conn = sqlite3.connect("crm_comercio.db", check_same_thread=False)
+cursor = conn.cursor()
 
-
-def init_db():
-  conn = get_db_connection()
-  cursor = conn.cursor()
-
-  cursor.execute("""
-    CREATE TABLE IF NOT EXISTS clientes (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nome TEXT UNIQUE NOT NULL,
-        telefone TEXT,
-        email TEXT
-    )
-    """)
-
-  cursor.execute("""
-    CREATE TABLE IF NOT EXISTS fornecedores (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nome TEXT UNIQUE NOT NULL,
-        contato TEXT
-    )
-    """)
-
-  cursor.execute("""
-    CREATE TABLE IF NOT EXISTS grupos (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nome TEXT UNIQUE NOT NULL
-    )
-    """)
-
-  cursor.execute("""
+cursor.execute("""
     CREATE TABLE IF NOT EXISTS produtos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        produto TEXT UNIQUE NOT NULL,
-        fornecedor TEXT,
-        grupo TEXT,
-        quantidade REAL DEFAULT 0,
-        preco_custo REAL DEFAULT 0,
-        preco_venda REAL DEFAULT 0
+        produto TEXT UNIQUE,
+        grupo TEXT DEFAULT 'Geral',
+        quantidade REAL DEFAULT 0.0,
+        valor_compra REAL DEFAULT 0.0,
+        valor_venda REAL DEFAULT 0.0
     )
-    """)
+""")
 
-  cursor.execute("""
-    CREATE TABLE IF NOT EXISTS pedidos (
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS clientes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        codigo_pedido TEXT,
-        cliente TEXT,
+        cliente TEXT UNIQUE,
+        cpf TEXT,
+        endereco TEXT,
+        email TEXT,
+        fone TEXT
+    )
+""")
+
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS fornecedores (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        fornecedor TEXT UNIQUE
+    )
+""")
+
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS grupos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        grupo TEXT UNIQUE
+    )
+""")
+
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS compras (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
         produto TEXT,
         fornecedor TEXT,
         grupo TEXT,
         quantidade REAL,
-        valor_unitario REAL,
+        valor_compra REAL,
+        valor_venda REAL,
         valor_total REAL,
-        status TEXT DEFAULT 'Pendente',
         data TEXT
     )
-    """)
+""")
 
-  cursor.execute("""
+cursor.execute("""
     CREATE TABLE IF NOT EXISTS vendas (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         codigo_venda TEXT,
         cliente TEXT,
         produto TEXT,
-        fornecedor TEXT,
-        grupo TEXT,
+        fornecedor TEXT DEFAULT 'Geral',
+        grupo TEXT DEFAULT 'Geral',
         quantidade REAL,
         valor_venda REAL,
         valor_total REAL,
@@ -104,337 +98,601 @@ def init_db():
         restante REAL,
         data TEXT
     )
-    """)
+""")
 
-  conn.commit()
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS pedidos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        codigo_pedido TEXT,
+        cliente TEXT,
+        produto TEXT,
+        fornecedor TEXT DEFAULT 'Geral',
+        grupo TEXT DEFAULT 'Geral',
+        quantidade REAL,
+        valor_unitario REAL,
+        valor_total REAL,
+        status TEXT,
+        observacoes TEXT,
+        data TEXT
+    )
+""")
+conn.commit()
 
-
-def carregar_dados_iniciais():
-  conn = get_db_connection()
-  c = conn.cursor()
-  clientes_padrao = [
-      ("Carlos Alberto", "1234"),
-      ("Sebastião", "123456"),
-      ("Valeilde Loja 01", "12345"),
-      ("Neurialdo", "456892"),
-  ]
-  for nome, senha in clientes_padrao:
-    try:
-      c.execute(
-          "INSERT OR IGNORE INTO clientes (nome, telefone) VALUES (?, ?)",
-          (nome, senha),
-      )
-    except Exception:
-      pass
-  conn.commit()
-
-
-# Executa com segurança
-init_db()
-carregar_dados_iniciais()
-
-
-def safe_query_list(query, params=()):
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute(query, params)
-        rows = cursor.fetchall()
-        # Garante que estamos pegando a primeira coluna de cada linha
-        lista = [r[0] for r in rows if r[0] is not None]
-        return lista
-    except Exception as e:
-        # Se der erro, retorna vazio para não quebrar a tela
-        return []
-
-
-def get_produto_info(nome_produto):
-  if not nome_produto:
-    return 0.0, "", "", 0.0
+# Compatibilidade de colunas
+for query in [
+    "ALTER TABLE pedidos ADD COLUMN codigo_pedido TEXT",
+    "ALTER TABLE produtos ADD COLUMN grupo TEXT DEFAULT 'Geral'",
+    "ALTER TABLE pedidos ADD COLUMN fornecedor TEXT DEFAULT 'Geral'",
+    "ALTER TABLE pedidos ADD COLUMN grupo TEXT DEFAULT 'Geral'",
+    "ALTER TABLE vendas ADD COLUMN grupo TEXT DEFAULT 'Geral'",
+    "ALTER TABLE vendas ADD COLUMN fornecedor TEXT DEFAULT 'Geral'",
+    "ALTER TABLE vendas ADD COLUMN codigo_venda TEXT",
+]:
   try:
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    row = cursor.execute(
-        "SELECT preco_venda, fornecedor, grupo, quantidade FROM produtos WHERE"
-        " produto = ?",
-        (nome_produto,),
-    ).fetchone()
-    if row:
-      return (
-          row["preco_venda"] or 0.0,
-          row["fornecedor"] or "",
-          row["grupo"] or "",
-          row["quantidade"] or 0.0,
-      )
-  except Exception:
+    cursor.execute(query)
+  except:
     pass
-  return 0.0, "", "", 0.0
+
+conn.commit()
+
+# CARGA INICIAL
+cursor.execute("SELECT COUNT(*) FROM produtos")
+if cursor.fetchone()[0] == 0:
+  PRODUTOS_INICIAIS = [
+      ("ABACATE", "FRUTAS", 10.0, 80.0, 117.0),
+      ("ABACAXI PEQUENO", "FRUTAS", 10.0, 5.0, 6.0),
+      ("CEBOLA CAIXA 1", "VERDURAS", 10.0, 55.0, 70.0),
+      ("TOMATE 1ª", "VERDURAS", 10.0, 40.0, 70.0),
+  ]
+  for p, g, q, vc, vv in PRODUTOS_INICIAIS:
+    cursor.execute(
+        "INSERT INTO produtos (produto, grupo, quantidade, valor_compra,"
+        " valor_venda) VALUES (?, ?, ?, ?, ?)",
+        (p, g, q, vc, vv),
+    )
+
+cursor.execute("SELECT COUNT(*) FROM clientes")
+if cursor.fetchone()[0] == 0:
+  CLIENTES_INICIAIS = [
+      (
+          "Sebastião",
+          "95451160000",
+          "Rua Caipira, 174 Centro",
+          "sebastiaoappsheet@gmail.com",
+          "99985020000",
+      ),
+      ("Carlos Alberto", "", "", "midiapura07@gmail.com", ""),
+      ("Valeilde Loja 01", "", "", "", ""),
+  ]
+  for cli, cpf, end, em, fn in CLIENTES_INICIAIS:
+    cursor.execute(
+        "INSERT INTO clientes (cliente, cpf, endereco, email, fone) VALUES (?,"
+        " ?, ?, ?, ?)",
+        (cli, cpf, end, em, fn),
+    )
+
+cursor.execute("SELECT COUNT(*) FROM fornecedores")
+if cursor.fetchone()[0] == 0:
+  FORNECEDORES_INICIAIS = [("BAHIA",), ("TIANGUA",)]
+  for f in FORNECEDORES_INICIAIS:
+    cursor.execute("INSERT INTO fornecedores (fornecedor) VALUES (?)", f)
+
+cursor.execute("SELECT COUNT(*) FROM grupos")
+if cursor.fetchone()[0] == 0:
+  GRUPOS_INICIAIS = [("FRUTAS",), ("VERDURAS",), ("LEGUMES",), ("GERAL",)]
+  for g in GRUPOS_INICIAIS:
+    cursor.execute("INSERT INTO grupos (grupo) VALUES (?)", g)
+
+conn.commit()
+
+# Inicializar Carrinhos na sessão
+if "carrinho_pedido" not in st.session_state:
+  st.session_state.carrinho_pedido = []
+if "carrinho_venda" not in st.session_state:
+  st.session_state.carrinho_venda = []
+
+# CARREGAR LISTAS ATUALIZADAS
+clientes_df = pd.read_sql_query(
+    "SELECT cliente FROM clientes ORDER BY cliente ASC", conn
+)
+fornecedores_df = pd.read_sql_query(
+    "SELECT fornecedor FROM fornecedores ORDER BY fornecedor ASC", conn
+)
+grupos_df = pd.read_sql_query(
+    "SELECT grupo FROM grupos ORDER BY grupo ASC", conn
+)
+
+list_clientes = (
+    clientes_df["cliente"].tolist()
+    if not clientes_df.empty
+    else ["Cliente Geral"]
+)
+list_fornecedores = (
+    fornecedores_df["fornecedor"].tolist()
+    if not fornecedores_df.empty
+    else ["Geral"]
+)
+list_grupos = (
+    grupos_df["grupo"].tolist() if not grupos_df.empty else ["GERAL"]
+)
+
+# -----------------------------------------------------------------------------
+# AUTENTICAÇÃO E PERFIS DE ACESSO
+# -----------------------------------------------------------------------------
+st.sidebar.title("🔑 Acesso ao Sistema")
+
+if "perfil_ativo" not in st.session_state:
+  st.session_state.perfil_ativo = "👤 Portal do Cliente"
+
+opcoes_perfil = ["👤 Portal do Cliente", "🔒 Administração / Vendedor"]
+index_atual = opcoes_perfil.index(st.session_state.perfil_ativo)
+
+perfil_selecionado = st.sidebar.radio(
+    "Selecione o Perfil:", opcoes_perfil, index=index_atual
+)
+
+cliente_autenticado = None
+menu = None
+
+if perfil_selecionado == "🔒 Administração / Vendedor":
+  if st.session_state.get("admin_autenticado") != True:
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("🔒 Área Restrita")
+    senha_digitada = st.sidebar.text_input(
+        "Digite a Senha do Admin:", type="password", key="pwd_admin"
+    )
+
+    if st.sidebar.button("Entrar como Admin"):
+      if senha_digitada == SENHA_ADMIN:
+        st.session_state.admin_autenticado = True
+        st.session_state.perfil_ativo = "🔒 Administração / Vendedor"
+        st.sidebar.success("Acesso liberado!")
+        st.rerun()
+      else:
+        st.sidebar.error("Senha incorreta!")
+
+    tipo_acesso = "👤 Portal do Cliente"
+    menu = "📋 Pedidos / Orçamentos"
+  else:
+    tipo_acesso = "🔒 Administração / Vendedor"
+    st.sidebar.markdown("---")
+    st.sidebar.title("CRM Comércio 📦")
+    menu = st.sidebar.radio(
+        "Navegação",
+        [
+            "📊 Fechamento & Financeiro",
+            "📋 Pedidos / Orçamentos",
+            "🛒 Registrar Venda",
+            "📥 Entrada de Estoque (Compras)",
+            "📦 Estoque de Produtos",
+            "👥 Cadastros (Clientes / Fornecedores / Grupos)",
+        ],
+    )
+
+    if st.sidebar.button("🚪 Sair do Modo Admin"):
+      st.session_state.admin_autenticado = False
+      st.session_state.perfil_ativo = "👤 Portal do Cliente"
+      st.rerun()
+
+else:
+  st.session_state.admin_autenticado = False
+  st.session_state.perfil_ativo = "👤 Portal do Cliente"
+  tipo_acesso = "👤 Portal do Cliente"
+
+  st.sidebar.markdown("---")
+  cliente_sel = st.sidebar.selectbox(
+      "Identifique seu Nome/Empresa:", list_clientes, key="cli_login"
+  )
+
+  if st.session_state.get("cliente_logado") != cliente_sel:
+    st.session_state.cliente_autenticado_status = False
+
+  senha_esperada = SENHAS_CLIENTES.get(cliente_sel, SENHA_CLIENTE_PADRAO)
+
+  if not st.session_state.get("cliente_autenticado_status", False):
+    st.sidebar.subheader(f"🔒 Login — {cliente_sel}")
+    pin_cliente = st.sidebar.text_input(
+        "Digite sua Senha de Cliente:",
+        type="password",
+        key=f"pwd_cli_{cliente_sel}",
+    )
+
+    if st.sidebar.button("Acessar Meus Pedidos"):
+      if pin_cliente == senha_esperada:
+        st.session_state.cliente_autenticado_status = True
+        st.session_state.cliente_logado = cliente_sel
+        st.sidebar.success("Acesso confirmado!")
+        st.rerun()
+      else:
+        st.sidebar.error("Senha incorreta!")
+  else:
+    cliente_autenticado = cliente_sel
+    st.sidebar.success(f"Logado como: **{cliente_autenticado}**")
+    if st.sidebar.button("🚪 Sair / Trocar Cliente"):
+      st.session_state.cliente_autenticado_status = False
+      st.session_state.cliente_logado = None
+      st.rerun()
+
+  menu = "📋 Pedidos / Orçamentos"
 
 
 # -----------------------------------------------------------------------------
-# 3. FUNÇÃO PARA GERAR PDF
+# GERADOR DE PDF
 # -----------------------------------------------------------------------------
-def gerar_pdf_relatorio(df, titulo="Relatório Geral"):
+def gerar_pdf_relatorio(df_dados, titulo="Relatório de Vendas"):
   buffer = io.BytesIO()
   doc = SimpleDocTemplate(
-      buffer, pagesize=A4, rightMargin=20, leftMargin=20, topMargin=20, bottomMargin=20
+      buffer,
+      pagesize=letter,
+      rightMargin=30,
+      leftMargin=30,
+      topMargin=10,
+      bottomMargin=20,
   )
   elements = []
 
   styles = getSampleStyleSheet()
+
+  header_company = ParagraphStyle(
+      "HeaderCompany",
+      parent=styles["Normal"],
+      fontName="Helvetica-BoldOblique",
+      fontSize=15,
+      leading=16,
+      alignment=1,
+      textColor=colors.black,
+  )
+  header_info = ParagraphStyle(
+      "HeaderInfo",
+      parent=styles["Normal"],
+      fontName="Helvetica-Bold",
+      fontSize=8.5,
+      leading=10,
+      alignment=1,
+      textColor=colors.black,
+  )
   title_style = ParagraphStyle(
       "TitleStyle",
       parent=styles["Heading1"],
-      fontName="Helvetica-Bold",
-      fontSize=18,
-      leading=22,
-      textColor=colors.HexColor("#1E293B"),
-      spaceAfter=10,
-  )
-
-  header_style = ParagraphStyle(
-      "HeaderStyle",
-      fontName="Helvetica-Bold",
-      fontSize=8,
-      leading=10,
-      textColor=colors.white,
+      fontSize=13,
+      leading=15,
       alignment=1,
+      textColor=colors.HexColor("#1E3A8A"),
   )
-
-  cell_style = ParagraphStyle(
-      "CellStyle",
-      fontName="Helvetica",
-      fontSize=8,
+  sub_title_style = ParagraphStyle(
+      "SubTitleStyle",
+      parent=styles["Normal"],
+      fontSize=8.5,
       leading=10,
-      textColor=colors.HexColor("#334155"),
+      alignment=1,
+      textColor=colors.HexColor("#475569"),
   )
 
-  elements.append(Paragraph(f"<b>CRM Comércio</b> - {titulo}", title_style))
+  elements.append(Paragraph("REY DA CEBOLA", header_company))
   elements.append(
       Paragraph(
-          f"<font size=9 color='#64748B'>Gerado em:"
-          f" {datetime.now().strftime('%d/%m/%Y %H:%M')}</font>",
-          styles["Normal"],
+          "CNPJ: 194.174.39/000-42 INSC.EST.: 12.426725-4", header_info
       )
   )
-  elements.append(Spacer(1, 15))
+  elements.append(
+      Paragraph(
+          "CONTATO: (99) 98814-9722 OU (99) 98414-3943", header_info
+      )
+  )
+  elements.append(Spacer(1, 6))
 
-  if not df.empty:
-    cols_ignore = ["id"]
-    cols_to_use = [c for c in df.columns if c.lower() not in cols_ignore]
+  elements.append(Paragraph(f"<b>{titulo}</b>", title_style))
+  elements.append(
+      Paragraph(
+          f"Data de Emissão: {datetime.now().strftime('%d/%m/%Y %H:%M')}",
+          sub_title_style,
+      )
+  )
+  elements.append(Spacer(1, 8))
 
-    data_table = []
-    header_row = [
-        Paragraph(f"<b>{col.upper()}</b>", header_style) for col in cols_to_use
-    ]
-    data_table.append(header_row)
+  has_cliente = "cliente" in df_dados.columns
 
-    for _, row in df.iterrows():
-      formatted_row = []
-      for col in cols_to_use:
-        val = row[col]
-        if isinstance(val, (int, float)):
-          val_str = f"{val:,.2f}"
-        else:
-          val_str = str(val) if pd.notnull(val) else ""
-        formatted_row.append(Paragraph(val_str, cell_style))
-      data_table.append(formatted_row)
-
-    col_widths = [550 / len(cols_to_use)] * len(cols_to_use)
-    t = Table(data_table, colWidths=col_widths, repeatRows=1)
-    t.setStyle(
-        TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1E293B")),
-            ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-            ("TOPPADDING", (0, 0), (-1, -1), 4),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E1")),
-            (
-                "ROWBACKGROUNDS",
-                (0, 1),
-                (-1, -1),
-                [colors.white, colors.HexColor("#F8FAFC")],
-            ),
-        ])
-    )
-    elements.append(t)
+  if has_cliente:
+    data = [[
+        "Cliente",
+        "Produto",
+        "Qtd Total",
+        "Valor Unit. Médio (R$)",
+        "Valor Total (R$)",
+    ]]
+    col_widths = [130, 140, 70, 105, 105]
   else:
-    elements.append(Paragraph("Nenhum dado encontrado.", styles["Normal"]))
+    data = [
+        ["Produto", "Qtd Total", "Valor Unit. Médio (R$)", "Valor Total (R$)"]
+    ]
+    col_widths = [220, 90, 120, 120]
+
+  total_geral = 0.0
+  for idx, row in df_dados.iterrows():
+    qtd = float(row["quantidade"])
+    val_total = float(row["valor_total"])
+    unit_m = val_total / qtd if qtd > 0 else 0.0
+    total_geral += val_total
+
+    if has_cliente:
+      data.append([
+          str(row["cliente"]),
+          str(row["produto"]),
+          f"{qtd:,.2f}",
+          f"R$ {unit_m:,.2f}",
+          f"R$ {val_total:,.2f}",
+      ])
+    else:
+      data.append([
+          str(row["produto"]),
+          f"{qtd:,.2f}",
+          f"R$ {unit_m:,.2f}",
+          f"R$ {val_total:,.2f}",
+      ])
+
+  if has_cliente:
+    data.append(["VALOR TOTAL GERAL", "", "", "", f"R$ {total_geral:,.2f}"])
+    span_end = 3
+  else:
+    data.append(["VALOR TOTAL GERAL", "", "", f"R$ {total_geral:,.2f}"])
+    span_end = 2
+
+  table = Table(data, colWidths=col_widths)
+  t_style = TableStyle([
+      ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2563EB")),
+      ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+      ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+      ("FONTSIZE", (0, 0), (-1, 0), 9.0),
+      ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+      ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E1")),
+      ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#1E293B")),
+      ("TEXTCOLOR", (0, -1), (-1, -1), colors.white),
+      ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+      ("SPAN", (0, -1), (span_end, -1)),
+  ])
+  table.setStyle(t_style)
+  elements.append(table)
 
   doc.build(elements)
   buffer.seek(0)
-  return buffer.getvalue()
+  return buffer
 
 
 # -----------------------------------------------------------------------------
-# 4. BARRA LATERAL (NAVEGAÇÃO E FILTROS DE PERFIL)
+# IMPLEMENTAÇÃO DAS TELAS
 # -----------------------------------------------------------------------------
-st.sidebar.title("🔑 Acesso ao Sistema")
-tipo_acesso = st.sidebar.radio(
-    "Selecione o Perfil:",
-    ["👤 Portal do Cliente", "🔒 Administração / Vendedor"],
-)
+if tipo_acesso == "👤 Portal do Cliente" and not cliente_autenticado:
+  st.title("🔒 Portal do Cliente")
+  st.warning(
+      "Por favor, selecione seu nome no menu à esquerda e insira sua senha para"
+      " acessar seus pedidos."
+  )
 
-list_clientes = safe_query_list("SELECT nome FROM clientes ORDER BY nome")
-list_fornecedores = safe_query_list(
-    "SELECT nome FROM fornecedores ORDER BY nome"
-)
-list_grupos = safe_query_list("SELECT nome FROM grupos ORDER BY nome")
-list_produtos = safe_query_list("SELECT produto FROM produtos ORDER BY produto")
+# --- FECHAMENTO & FINANCEIRO ---
+elif menu == "📊 Fechamento & Financeiro":
+  st.title("📊 Painel Financeiro & Fechamento")
 
-cliente_autenticado = None
-if tipo_acesso == "👤 Portal do Cliente":
-  if list_clientes:
-    cliente_autenticado = st.sidebar.selectbox(
-        "Selecione seu Nome/Empresa:", list_clientes
-    )
+  df_vendas = pd.read_sql_query("SELECT * FROM vendas", conn)
+
+  if not df_vendas.empty:
+    total_faturado = df_vendas["valor_total"].sum()
+    total_recebido = df_vendas["valor_recebido"].sum()
+    total_fiado = df_vendas["restante"].sum()
+
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Faturamento Total", f"R$ {total_faturado:,.2f}")
+    c2.metric("Total Recebido em Caixa", f"R$ {total_recebido:,.2f}")
+    c3.metric("Total a Receber (Fiado/Pendente)", f"R$ {total_fiado:,.2f}")
+
+    st.markdown("---")
+    st.subheader("📋 Resumo do Histórico de Vendas")
+    cols_exib = [
+        c
+        for c in [
+            "id",
+            "codigo_venda",
+            "data",
+            "cliente",
+            "produto",
+            "fornecedor",
+            "grupo",
+            "quantidade",
+            "valor_venda",
+            "valor_total",
+            "forma_pagamento",
+            "restante",
+        ]
+        if c in df_vendas.columns
+    ]
+    st.dataframe(df_vendas[cols_exib], use_container_width=True)
   else:
-    st.sidebar.warning("Nenhum cliente cadastrado no sistema.")
+    st.info("Nenhuma venda registrada até o momento.")
 
-st.sidebar.markdown("---")
-st.sidebar.title("CRM Comércio 📦")
-
-menu = st.sidebar.radio(
-    "Navegação",
-    [
-        "📊 Fechamento & Financeiro",
-        "📋 Pedidos / Orçamentos",
-        "🛒 Registrar Venda",
-        "📥 Entrada de Estoque (Compras)",
-        "📦 Estoque de Produtos",
-        "👥 Cadastros (Clientes / Fornecedores / Grupos)",
-    ],
-)
-
-
-# -----------------------------------------------------------------------------
-# 5. FECHAMENTO & FINANCEIRO
-# -----------------------------------------------------------------------------
-if menu == "📊 Fechamento & Financeiro":
-  st.header("📊 Fechamento Financeiro & Relatórios")
-
-  conn = get_db_connection()
-  df_vendas_all = pd.read_sql_query("SELECT * FROM vendas", conn)
-
-  col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-  val_tot = (
-      df_vendas_all["valor_total"].sum() if not df_vendas_all.empty else 0.0
-  )
-  val_rec = (
-      df_vendas_all["valor_recebido"].sum() if not df_vendas_all.empty else 0.0
-  )
-  val_pend = df_vendas_all["restante"].sum() if not df_vendas_all.empty else 0.0
-
-  col_m1.metric("Faturamento Total", f"R$ {val_tot:,.2f}")
-  col_m2.metric("Total Recebido", f"R$ {val_rec:,.2f}")
-  col_m3.metric("A Receber (Fiado)", f"R$ {val_pend:,.2f}")
-  col_m4.metric(
-      "Total Vendas",
-      len(df_vendas_all["codigo_venda"].unique())
-      if not df_vendas_all.empty
-      else 0,
-  )
-
-  st.markdown("---")
-  if not df_vendas_all.empty:
-    st.subheader("📋 Histórico Geral de Vendas")
-    st.dataframe(df_vendas_all, use_container_width=True)
-
-  st.markdown("---")
-  st.subheader("📄 Relatório Financeiro em PDF")
-  pdf_fin = gerar_pdf_relatorio(df_vendas_all, titulo="Fechamento Financeiro")
-  st.download_button(
-      label="📥 Baixar Relatório Financeiro (PDF)",
-      data=pdf_fin,
-      file_name=f"Relatorio_Financeiro_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
-      mime="application/pdf",
-      type="primary",
-  )
-
-
-# -----------------------------------------------------------------------------
-# 6. PEDIDOS / ORÇAMENTOS
-# -----------------------------------------------------------------------------
+# --- PEDIDOS / ORÇAMENTOS ---
 elif menu == "📋 Pedidos / Orçamentos":
-  st.header("📋 Gestão de Pedidos e Orçamentos")
+  if tipo_acesso == "👤 Portal do Cliente":
+    st.title(f"🛍️ Portal do Cliente — Meus Pedidos ({cliente_autenticado})")
+  else:
+    st.title("📋 Gerenciamento de Pedidos e Orçamentos")
 
   tab_novo, tab_lista = st.tabs(
       ["➕ Criar Novo Pedido", "📑 Pedidos Registrados & Relatórios"]
   )
+  produtos_df = pd.read_sql_query("SELECT * FROM produtos", conn)
 
   with tab_novo:
-    st.subheader("Criar Novo Pedido")
-
-    if not list_clientes and tipo_acesso != "👤 Portal do Cliente":
-      st.warning(
-          "⚠️ Nenhum cliente cadastrado! Acesse a aba '👥 Cadastros' para"
-          " cadastrar o primeiro cliente."
-      )
+    if produtos_df.empty:
+      st.warning("Nenhum produto disponível no momento.")
     else:
-      with st.form("form_novo_pedido"):
-        col_p1, col_p2 = st.columns(2)
-        with col_p1:
-          if tipo_acesso == "👤 Portal do Cliente":
-            if cliente_autenticado:
-              cli_pedido = cliente_autenticado
-              st.info(f"Cliente: **{cli_pedido}**")
-            else:
-              cli_pedido = None
-              st.error("Nenhum cliente selecionado no portal.")
-          else:
-            cli_pedido = st.selectbox("Cliente:", list_clientes)
-
-          prod_pedido = st.selectbox("Produto:", list_produtos)
-
-        with col_p2:
-          qtd_pedido = st.number_input(
-              "Quantidade:", min_value=0.01, value=1.0, step=0.5
+      col_head1, col_head2 = st.columns(2)
+      with col_head1:
+        if tipo_acesso == "👤 Portal do Cliente":
+          st.text_input(
+              "Cliente do Pedido", value=cliente_autenticado, disabled=True
           )
-          v_unit_padrao, forn_padrao, grp_padrao, _ = get_produto_info(
-              prod_pedido
+          ped_cliente = cliente_autenticado
+        else:
+          ped_cliente = st.selectbox(
+              "Cliente do Pedido", list_clientes, key="ped_cli_multi"
           )
 
-          val_unit = st.number_input(
-              "Valor Unitário (R$):",
+      with col_head2:
+        if tipo_acesso == "👤 Portal do Cliente":
+          st.text_input("Status Inicial", value="Pendente", disabled=True)
+          ped_status = "Pendente"
+        else:
+          ped_status = st.selectbox(
+              "Status Inicial",
+              ["Pendente", "Em Andamento", "Cancelado"],
+              key="ped_stat_multi",
+          )
+
+      st.markdown("---")
+      st.write("#### 🛒 Adicionar Produtos ao Pedido")
+
+      if tipo_acesso == "👤 Portal do Cliente":
+        c_prod1, c_prod2, c_prod3 = st.columns([4, 2, 2])
+        with c_prod1:
+          item_produto = st.selectbox(
+              "Selecione o Produto",
+              produtos_df["produto"].tolist(),
+              key="item_prod",
+          )
+          prod_info = produtos_df[
+              produtos_df["produto"] == item_produto
+          ].iloc[0]
+          grupo_padrao = prod_info.get("grupo", "GERAL")
+          item_fornecedor = "Geral"
+          item_grupo = grupo_padrao
+
+        with c_prod2:
+          item_preco = float(prod_info["valor_venda"])
+          st.number_input(
+              "Preço Unit. Venda (R$)",
+              value=item_preco,
+              disabled=True,
+              key="item_prec",
+          )
+
+        with c_prod3:
+          item_qtd = st.number_input(
+              "Quantidade", min_value=0.01, value=1.0, step=0.1, key="item_qtd"
+          )
+      else:
+        c_prod1, c_prod2, c_prod3, c_prod4 = st.columns([3, 2, 2, 2])
+        with c_prod1:
+          item_produto = st.selectbox(
+              "Selecione o Produto",
+              produtos_df["produto"].tolist(),
+              key="item_prod",
+          )
+          prod_info = produtos_df[
+              produtos_df["produto"] == item_produto
+          ].iloc[0]
+          grupo_padrao = prod_info.get("grupo", "GERAL")
+
+        with c_prod2:
+          item_fornecedor = st.selectbox(
+              "Fornecedor", list_fornecedores, key="item_forn"
+          )
+
+        with c_prod3:
+          item_grupo = st.selectbox(
+              "Grupo",
+              list_grupos,
+              index=(
+                  list_grupos.index(grupo_padrao)
+                  if grupo_padrao in list_grupos
+                  else 0
+              ),
+              key="item_grup",
+          )
+
+        with c_prod4:
+          item_preco = st.number_input(
+              "Preço Unit. Venda (R$)",
+              value=float(prod_info["valor_venda"]),
               min_value=0.0,
-              value=float(v_unit_padrao),
-              step=0.5,
+              key="item_prec",
           )
 
-        btn_add_pedido = st.form_submit_button("➕ Gravar Pedido")
+        c_qtd1, c_qtd2 = st.columns([2, 2])
+        with c_qtd1:
+          item_qtd = st.number_input(
+              "Quantidade", min_value=0.01, value=1.0, step=0.1, key="item_qtd"
+          )
 
-        if btn_add_pedido:
-          if not cli_pedido:
-            st.error("Selecione ou cadastre um cliente primeiro.")
-          elif not prod_pedido:
-            st.error("Selecione um produto.")
-          else:
-            cod_p = f"PED-{datetime.now().strftime('%Y%m%d%H%M%S')}"
-            data_p = datetime.now().strftime("%Y-%m-%d %H:%M")
-            v_tot = qtd_pedido * val_unit
+      st.write("")
+      if st.button("➕ Adicionar Produto à Lista"):
+        total_item = item_qtd * item_preco
+        st.session_state.carrinho_pedido.append({
+            "produto": item_produto,
+            "fornecedor": item_fornecedor,
+            "grupo": item_grupo,
+            "quantidade": item_qtd,
+            "valor_unitario": item_preco,
+            "valor_total": total_item,
+        })
+        st.success(f"'{item_produto}' adicionado!")
 
-            conn = get_db_connection()
-            c = conn.cursor()
-            c.execute(
-                """
-                  INSERT INTO pedidos (codigo_pedido, cliente, produto, fornecedor, grupo, quantidade, valor_unitario, valor_total, status, data)
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Pendente', ?)
-              """,
-                (
-                    cod_p,
-                    cli_pedido,
-                    prod_pedido,
-                    forn_padrao,
-                    grp_padrao,
-                    qtd_pedido,
-                    val_unit,
-                    v_tot,
-                    data_p,
-                ),
-            )
+      st.markdown("---")
+      st.write("### 📜 Lista de Itens no Pedido Atual")
+
+      if len(st.session_state.carrinho_pedido) == 0:
+        st.info("Sua lista está vazia. Adicione produtos acima.")
+      else:
+        df_cart = pd.DataFrame(st.session_state.carrinho_pedido)
+        st.dataframe(
+            df_cart[
+                ["produto", "quantidade", "valor_unitario", "valor_total"]
+            ],
+            use_container_width=True,
+        )
+
+        total_geral_pedido = df_cart["valor_total"].sum()
+        st.markdown(
+            f"### 💰 **Valor Total do Pedido: R$ {total_geral_pedido:,.2f}**"
+        )
+
+        ped_obs = st.text_area("Observações Gerais do Pedido")
+
+        col_b1, col_b2 = st.columns(2)
+        with col_b1:
+          if st.button("✅ Finalizar e Enviar Pedido"):
+            data_hoje = datetime.now().strftime("%Y-%m-%d %H:%M")
+            codigo_ped = f"PED-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+
+            for item in st.session_state.carrinho_pedido:
+              cursor.execute(
+                  """
+                            INSERT INTO pedidos (codigo_pedido, cliente, produto, fornecedor, grupo, quantidade, valor_unitario, valor_total, status, observacoes, data)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                  (
+                      codigo_ped,
+                      ped_cliente,
+                      item["produto"],
+                      item["fornecedor"],
+                      item["grupo"],
+                      item["quantidade"],
+                      item["valor_unitario"],
+                      item["valor_total"],
+                      ped_status,
+                      ped_obs,
+                      data_hoje,
+                  ),
+              )
+
             conn.commit()
-            st.success(f"Pedido `{cod_p}` registrado com sucesso!")
+            st.session_state.carrinho_pedido = []
+            st.success(
+                f"Pedido enviado com sucesso! (Código: {codigo_ped})"
+            )
+            st.rerun()
+
+        with col_b2:
+          if st.button("🗑️ Limpar Lista"):
+            st.session_state.carrinho_pedido = []
             st.rerun()
 
   with tab_lista:
@@ -482,19 +740,21 @@ elif menu == "📋 Pedidos / Orçamentos":
       if filtro_cliente != "Todas as vendas":
         query_ped += " AND cliente = ?"
         params.append(filtro_cliente)
+
       if filtro_fornecedor != "Todos os fornecedores":
         query_ped += " AND fornecedor = ?"
         params.append(filtro_fornecedor)
+
       if filtro_grupo != "Todos os grupos":
         query_ped += " AND grupo = ?"
         params.append(filtro_grupo)
+
       if filtro_status != "Todos":
         query_ped += " AND status = ?"
         params.append(filtro_status)
 
     query_ped += " ORDER BY id DESC"
 
-    conn = get_db_connection()
     pedidos_df = pd.read_sql_query(query_ped, conn, params=params)
 
     if (
@@ -514,15 +774,21 @@ elif menu == "📋 Pedidos / Orçamentos":
     st.markdown("---")
 
     if pedidos_df.empty:
-      st.warning(
-          "Nenhum pedido encontrado para o filtro selecionado no momento."
-      )
+      st.warning("Nenhum pedido encontrado.")
     else:
       total_filtrado = pedidos_df["valor_total"].sum()
       st.write(
           f"**Itens Registrados:** {len(pedidos_df)} | **Soma dos Valores:** R$"
           f" {total_filtrado:,.2f}"
       )
+
+      if (
+          "valor_unitario" not in pedidos_df.columns
+          or pedidos_df["valor_unitario"].isnull().all()
+      ):
+        pedidos_df["valor_unitario"] = (
+            pedidos_df["valor_total"] / pedidos_df["quantidade"]
+        )
 
       cols_exibicao = [
           "id",
@@ -539,6 +805,11 @@ elif menu == "📋 Pedidos / Orçamentos":
       if tipo_acesso == "👤 Portal do Cliente":
         st.dataframe(pedidos_df[cols_exibicao], use_container_width=True)
       else:
+        st.info(
+            "💡 **Dica:** Clique duas vezes em qualquer valor para editar"
+            " quantidade ou preço unitário diretamente na tabela.",
+            icon="✏️",
+        )
         df_editavel = st.data_editor(
             pedidos_df[cols_exibicao],
             key="editor_pedidos_direto",
@@ -552,6 +823,20 @@ elif menu == "📋 Pedidos / Orçamentos":
                 "valor_total",
                 "status",
             ],
+            column_config={
+                "quantidade": st.column_config.NumberColumn(
+                    "Quantidade", min_value=0.01, step=0.1, format="%.2f"
+                ),
+                "valor_unitario": st.column_config.NumberColumn(
+                    "Valor Unitário (R$)",
+                    min_value=0.0,
+                    step=0.5,
+                    format="R$ %.2f",
+                ),
+                "valor_total": st.column_config.NumberColumn(
+                    "Valor Total (R$)", format="R$ %.2f"
+                ),
+            },
         )
 
         if st.button(
@@ -559,274 +844,190 @@ elif menu == "📋 Pedidos / Orçamentos":
             type="primary",
             key="btn_save_pedidos",
         ):
-          conn = get_db_connection()
-          c = conn.cursor()
           for idx, row in df_editavel.iterrows():
             id_row = int(row["id"])
             q_nova = float(row["quantidade"])
             v_unit_novo = float(row["valor_unitario"])
             v_tot_novo = q_nova * v_unit_novo
-            c.execute(
+
+            cursor.execute(
                 """
-                UPDATE pedidos 
-                SET quantidade = ?, valor_unitario = ?, valor_total = ? 
-                WHERE id = ?
-            """,
+                            UPDATE pedidos 
+                            SET quantidade = ?, valor_unitario = ?, valor_total = ? 
+                            WHERE id = ?
+                        """,
                 (q_nova, v_unit_novo, v_tot_novo, id_row),
             )
+
           conn.commit()
           st.success("✅ Alterações salvas com sucesso!")
           st.rerun()
 
+        # ---------------------------------------------------------------------
+        # CONVERTER PEDIDO EM VENDA
+        # ---------------------------------------------------------------------
+        st.markdown("---")
+        st.subheader("🔄 Transferir / Converter Pedido em Venda")
 
-# -----------------------------------------------------------------------------
-# 7. REGISTRAR VENDA DIRETA
-# -----------------------------------------------------------------------------
-elif menu == "🛒 Registrar Venda":
-  st.header("🛒 Registrar Venda Direta (Balcão)")
-  if not list_clientes:
-    st.warning("⚠️ Nenhum cliente cadastrado.")
-  elif not list_produtos:
-    st.warning("⚠️ Nenhum produto cadastrado.")
-  else:
-    with st.form("form_venda_direta"):
-      col_v1, col_v2 = st.columns(2)
-      with col_v1:
-        cli_venda = st.selectbox("Cliente:", list_clientes)
-        prod_venda = st.selectbox("Produto:", list_produtos)
-        qtd_venda = st.number_input(
-            "Quantidade:", min_value=0.01, value=1.0, step=0.5
-        )
-      with col_v2:
-        v_unit_p, forn_p, grp_p, estq_p = get_produto_info(prod_venda)
-        st.caption(f"Estoque disponível: **{estq_p}**")
-        val_venda_unit = st.number_input(
-            "Preço de Venda (R$):",
-            min_value=0.0,
-            value=float(v_unit_p),
-            step=0.5,
-        )
-        forma_pagto = st.selectbox(
-            "Forma de Pagamento:",
-            [
-                "Dinheiro",
-                "PIX",
-                "Cartão de Débito",
-                "Cartão de Crédito",
-                "A Prazo / Fiado",
-            ],
+        codigos_pedidos_pendentes = (
+            pedidos_df[pedidos_df["status"] != "Concluído (Convertido)"][
+                "codigo_pedido"
+            ]
+            .dropna()
+            .unique()
+            .tolist()
         )
 
-      val_tot_venda = qtd_venda * val_venda_unit
-      val_recebido = st.number_input(
-          "Valor Recebido (R$):",
-          min_value=0.0,
-          value=(
-              float(val_tot_venda) if forma_pagto != "A Prazo / Fiado" else 0.0
-          ),
-      )
-
-      if st.form_submit_button("🛒 Concluir Venda"):
-        if qtd_venda > estq_p:
-          st.error(
-              f"Estoque insuficiente! Disponível: {estq_p}, Tentativa:"
-              f" {qtd_venda}."
-          )
+        if not codigos_pedidos_pendentes:
+          st.success("Todos os pedidos atuais já foram convertidos em vendas!")
         else:
-          cod_v = f"VEN-{datetime.now().strftime('%Y%m%d%H%M%S')}"
-          data_v = datetime.now().strftime("%Y-%m-%d %H:%M")
-          troco = max(0.0, val_recebido - val_tot_venda)
-          restante = max(0.0, val_tot_venda - val_recebido)
+          col_conv1, col_conv2, col_conv3 = st.columns([3, 3, 2])
 
-          conn = get_db_connection()
-          c = conn.cursor()
-          c.execute(
-              """
-              INSERT INTO vendas (codigo_venda, cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, troco, restante, data)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          """,
-              (
-                  cod_v,
-                  cli_venda,
-                  prod_venda,
-                  forn_p,
-                  grp_p,
-                  qtd_venda,
-                  val_venda_unit,
-                  val_tot_venda,
-                  forma_pagto,
-                  val_recebido,
-                  troco,
-                  restante,
-                  data_v,
-              ),
+          with col_conv1:
+            ped_sel_conv = st.selectbox(
+                "Selecione o Pedido para Transferir:",
+                codigos_pedIDs_pendentes if 'codigos_pedIDs_pendentes' in locals() else codigos_pedidos_pendentes,
+                key="ped_sel_conv",
+            )
+
+          itens_pedido_sel = pedidos_df[
+              pedidos_df["codigo_pedido"] == ped_sel_conv
+          ]
+          total_ped_conv = itens_pedido_sel["valor_total"].sum()
+          cliente_ped_conv = itens_pedido_sel.iloc[0]["cliente"]
+
+          with col_conv2:
+            forma_pagto_conv = st.selectbox(
+                "Forma de Pagamento:",
+                [
+                    "Dinheiro",
+                    "PIX",
+                    "Cartão de Débito",
+                    "Cartão de Crédito",
+                    "A Prazo / Fiado",
+                ],
+                key="forma_pagto_conv",
+            )
+
+          with col_conv3:
+            val_pago_conv = st.number_input(
+                "Valor Recebido (R$):",
+                min_value=0.0,
+                value=(
+                    float(total_ped_conv)
+                    if forma_pagto_conv != "A Prazo / Fiado"
+                    else 0.0
+                ),
+                key="val_pago_conv",
+            )
+
+          st.write(
+              f"**Cliente:** `{cliente_ped_conv}` | **Total do Pedido:** R$"
+              f" `{total_ped_conv:,.2f}`"
           )
-          c.execute(
-              "UPDATE produtos SET quantidade = quantidade - ? WHERE produto ="
-              " ?",
-              (qtd_venda, prod_venda),
-          )
-          conn.commit()
-          st.success(f"Venda `{cod_v}` concluída com sucesso!")
-          st.rerun()
 
+          if st.button("🚀 Transferir para Vendas e Dar Baixa no Estoque"):
+            cod_venda = f"VEN-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+            data_venda = datetime.now().strftime("%Y-%m-%d %H:%M")
 
-# -----------------------------------------------------------------------------
-# 8. ENTRADA DE ESTOQUE
-# -----------------------------------------------------------------------------
-elif menu == "📥 Entrada de Estoque (Compras)":
-  st.header("📥 Entrada de Estoque")
-  if not list_produtos:
-    st.warning("⚠️ Cadastre produtos primeiro.")
-  else:
-    with st.form("form_entrada_estoque"):
-      prod_ent = st.selectbox("Produto:", list_produtos)
-      qtd_ent = st.number_input(
-          "Quantidade Comprada:", min_value=0.01, value=1.0, step=1.0
-      )
-      preco_custo_ent = st.number_input(
-          "Preço de Custo Unitário (R$):", min_value=0.0, value=0.0, step=0.5
-      )
+            troco_c = max(0.0, val_pago_conv - total_ped_conv)
+            restante_c = max(0.0, total_ped_conv - val_pago_conv)
 
-      if st.form_submit_button("📥 Registrar Entrada"):
-        conn = get_db_connection()
-        c = conn.cursor()
-        c.execute(
-            """
-            UPDATE produtos 
-            SET quantidade = quantidade + ?, preco_custo = ? 
-            WHERE produto = ?
-        """,
-            (qtd_ent, preco_custo_ent, prod_ent),
+            for idx, r in itens_pedido_sel.iterrows():
+              p_nome = r["produto"]
+              p_qtd = float(r["quantidade"])
+              p_v_unit = float(r["valor_unitario"])
+              p_v_tot = float(r["valor_total"])
+              p_forn = r.get("fornecedor", "Geral")
+              p_grp = r.get("grupo", "Geral")
+
+              cursor.execute(
+                  """
+                                INSERT INTO vendas (codigo_venda, cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, troco, restante, data)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            """,
+                  (
+                      cod_venda,
+                      cliente_ped_conv,
+                      p_nome,
+                      p_forn,
+                      p_grp,
+                      p_qtd,
+                      p_v_unit,
+                      p_v_tot,
+                      forma_pagto_conv,
+                      val_pago_conv,
+                      troco_c,
+                      restante_c,
+                      data_venda,
+                  ),
+              )
+
+              cursor.execute(
+                  """
+                            UPDATE produtos 
+                            SET quantidade = quantidade - ? 
+                            WHERE produto = ?
+                        """,
+                  (p_qtd, p_nome),
+              )
+
+              cursor.execute(
+                  """
+                            UPDATE pedidos 
+                            SET status = 'Concluído (Convertido)' 
+                            WHERE codigo_pedido = ?
+                        """,
+                  (ped_sel_conv,),
+              )
+
+            conn.commit()
+            st.success(
+                f"Pedido `{ped_sel_conv}` transferido para Vendas com sucesso!"
+                f" (Venda `{cod_venda}` registrada)"
+            )
+            st.rerun()
+
+        st.markdown("---")
+        st.subheader("📊 Agrupamento do Período / Seleção")
+
+        df_agrupado = pedidos_df.groupby("produto", as_index=False).agg(
+            {"quantidade": "sum", "valor_total": "sum"}
         )
-        conn.commit()
-        st.success("Entrada registrada com sucesso!")
-        st.rerun()
 
+        df_agrupado["valor_unitario_medio"] = (
+            df_agrupado["valor_total"] / df_agrupado["quantidade"]
+        )
 
-# -----------------------------------------------------------------------------
-# 9. ESTOQUE DE PRODUTOS
-# -----------------------------------------------------------------------------
-elif menu == "📦 Estoque de Produtos":
-  st.header("📦 Estoque de Produtos")
-  tab_prod_lista, tab_prod_novo = st.tabs(
-      ["📦 Produtos em Estoque", "➕ Novo Produto"]
-  )
-  with tab_prod_novo:
-    with st.form("form_novo_prod"):
-      p_nome = st.text_input("Nome do Produto:")
-      p_forn = st.selectbox("Fornecedor:", [""] + list_fornecedores)
-      p_cost = st.number_input(
-          "Preço Custo (R$):", min_value=0.0, value=0.0, step=0.5
-      )
-      p_qtd = st.number_input(
-          "Quantidade Inicial:", min_value=0.0, value=0.0, step=1.0
-      )
-      p_grp = st.selectbox("Grupo:", [""] + list_grupos)
-      p_venda = st.number_input(
-          "Preço Venda (R$):", min_value=0.0, value=0.0, step=0.5
-      )
+        st.dataframe(
+            df_agrupado[[
+                "produto",
+                "quantidade",
+                "valor_unitario_medio",
+                "valor_total",
+            ]],
+            column_config={
+                "produto": "Produto",
+                "quantidade": st.column_config.NumberColumn(
+                    "Quantidade Total", format="%.2f"
+                ),
+                "valor_unitario_medio": st.column_config.NumberColumn(
+                    "Valor Unitário Médio (R$)", format="R$ %.2f"
+                ),
+                "valor_total": st.column_config.NumberColumn(
+                    "Valor Total (R$)", format="R$ %.2f"
+                ),
+            },
+            hide_index=True,
+            use_container_width=True,
+        )
 
-      if st.form_submit_button("💾 Cadastrar Produto"):
-        if p_nome:
-          try:
-            conn = get_db_connection()
-            c = conn.cursor()
-            c.execute(
-                """
-                INSERT INTO produtos (produto, fornecedor, grupo, quantidade, preco_custo, preco_venda)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """,
-                (p_nome, p_forn, p_grp, p_qtd, p_cost, p_venda),
-            )
-            conn.commit()
-            st.success("Produto cadastrado com sucesso!")
-            st.rerun()
-          except sqlite3.IntegrityError:
-            st.error("Produto já cadastrado.")
-
-  with tab_prod_lista:
-    conn = get_db_connection()
-    df_prods = pd.read_sql_query("SELECT * FROM produtos", conn)
-    st.dataframe(df_prods, use_container_width=True)
-
-
-# -----------------------------------------------------------------------------
-# 10. CADASTROS
-# -----------------------------------------------------------------------------
-elif menu == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
-  st.header("👥 Gestão de Cadastros Base")
-  tab_c, tab_f, tab_g = st.tabs(
-      ["👤 Clientes", "🏭 Fornecedores", "🏷️ Grupos"]
-  )
-
-  with tab_c:
-    st.subheader("Novo Cliente")
-    with st.form("form_cli"):
-      c_nome = st.text_input("Nome / Razão Social:")
-      c_tel = st.text_input("Telefone / WhatsApp:")
-      c_mail = st.text_input("E-mail:")
-      if st.form_submit_button("Salvar Cliente"):
-        if c_nome:
-          try:
-            conn = get_db_connection()
-            c = conn.cursor()
-            c.execute(
-                "INSERT INTO clientes (nome, telefone, email) VALUES (?, ?, ?)",
-                (c_nome, c_tel, c_mail),
-            )
-            conn.commit()
-            st.success("Cliente salvo!")
-            st.rerun()
-          except sqlite3.IntegrityError:
-            st.error("Cliente já existe.")
-    conn = get_db_connection()
-    st.dataframe(
-        pd.read_sql_query("SELECT * FROM clientes", conn),
-        use_container_width=True,
-    )
-
-  with tab_f:
-    st.subheader("Novo Fornecedor")
-    with st.form("form_forn"):
-      f_nome = st.text_input("Nome do Fornecedor:")
-      f_cont = st.text_input("Contato / Obs:")
-      if st.form_submit_button("Salvar Fornecedor"):
-        if f_nome:
-          try:
-            conn = get_db_connection()
-            c = conn.cursor()
-            c.execute(
-                "INSERT INTO fornecedores (nome, contato) VALUES (?, ?)",
-                (f_nome, f_cont),
-            )
-            conn.commit()
-            st.success("Fornecedor salvo!")
-            st.rerun()
-          except sqlite3.IntegrityError:
-            st.error("Fornecedor já existe.")
-    conn = get_db_connection()
-    st.dataframe(
-        pd.read_sql_query("SELECT * FROM fornecedores", conn),
-        use_container_width=True,
-    )
-
-  with tab_g:
-    st.subheader("Novo Grupo")
-    with st.form("form_grp"):
-      g_nome = st.text_input("Nome do Grupo de Produtos:")
-      if st.form_submit_button("Salvar Grupo"):
-        if g_nome:
-          try:
-            conn = get_db_connection()
-            c = conn.cursor()
-            c.execute("INSERT INTO grupos (nome) VALUES (?)", (g_nome,))
-            conn.commit()
-            st.success("Grupo salvo!")
-            st.rerun()
-          except sqlite3.IntegrityError:
-            st.error("Grupo já existe.")
-    conn = get_db_connection()
-    st.dataframe(
-        pd.read_sql_query("SELECT * FROM grupos", conn), use_container_width=True
-    )
+        pdf_bytes = gerar_pdf_relatorio(
+            df_agrupado, titulo="Relatório de Pedidos Agrupados"
+        )
+        st.download_button(
+            label="📥 Baixar Relatório em PDF",
+            data=pdf_bytes,
+            file_name="relatorio_pedidos.pdf",
+            mime="application/pdf",
+        )
