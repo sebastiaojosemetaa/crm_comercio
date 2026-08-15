@@ -1,15 +1,15 @@
 from datetime import date, datetime
+import io
 import sqlite3
+import pandas as pd
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-import io
-import pandas as pd
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 import streamlit as st
 
 # -----------------------------------------------------------------------------
-# CONFIGURAÇÃO DA PÁGINA
+# 1. CONFIGURAÇÃO DA PÁGINA
 # -----------------------------------------------------------------------------
 st.set_page_config(
     page_title="CRM Comércio",
@@ -19,7 +19,7 @@ st.set_page_config(
 )
 
 # -----------------------------------------------------------------------------
-# BANCO DE DADOS (SQLITE)
+# 2. BANCO DE DADOS E CRIAÇÃO DAS TABELAS (PRIMEIRA COISA A EXECUTAR)
 # -----------------------------------------------------------------------------
 conn = sqlite3.connect("crm_comercio.db", check_same_thread=False)
 cursor = conn.cursor()
@@ -99,7 +99,7 @@ conn.commit()
 
 
 # -----------------------------------------------------------------------------
-# FUNÇÃO PARA GERAR PDF
+# 3. FUNÇÃO PARA GERAR PDF
 # -----------------------------------------------------------------------------
 def gerar_pdf_relatorio(df, titulo="Relatório Geral"):
   buffer = io.BytesIO()
@@ -139,7 +139,8 @@ def gerar_pdf_relatorio(df, titulo="Relatório Geral"):
   elements.append(Paragraph(f"<b>CRM Comércio</b> - {titulo}", title_style))
   elements.append(
       Paragraph(
-          f"<font size=9 color='#64748B'>Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M')}</font>",
+          f"<font size=9 color='#64748B'>Gerado em:"
+          f" {datetime.now().strftime('%d/%m/%Y %H:%M')}</font>",
           styles["Normal"],
       )
   )
@@ -197,7 +198,7 @@ def gerar_pdf_relatorio(df, titulo="Relatório Geral"):
 
 
 # -----------------------------------------------------------------------------
-# BARRA LATERAL (NAVEGAÇÃO E ACESSO)
+# 4. BARRA LATERAL (NAVEGAÇÃO E FILTROS DE PERFIL)
 # -----------------------------------------------------------------------------
 st.sidebar.title("🔑 Acesso ao Sistema")
 tipo_acesso = st.sidebar.radio(
@@ -250,7 +251,7 @@ list_produtos = [
 
 
 # -----------------------------------------------------------------------------
-# 1. FECHAMENTO & FINANCEIRO
+# 5. FECHAMENTO & FINANCEIRO
 # -----------------------------------------------------------------------------
 if menu == "📊 Fechamento & Financeiro":
   st.header("📊 Fechamento Financeiro & Relatórios")
@@ -270,7 +271,10 @@ if menu == "📊 Fechamento & Financeiro":
   col_m2.metric("Total Recebido", f"R$ {val_rec:,.2f}")
   col_m3.metric("A Receber (Fiado)", f"R$ {val_pend:,.2f}")
   col_m4.metric(
-      "Total Vendas", len(df_vendas_all["codigo_venda"].unique())
+      "Total Vendas",
+      len(df_vendas_all["codigo_venda"].unique())
+      if not df_vendas_all.empty
+      else 0,
   )
 
   st.markdown("---")
@@ -293,7 +297,7 @@ if menu == "📊 Fechamento & Financeiro":
 
 
 # -----------------------------------------------------------------------------
-# 2. PEDIDOS / ORÇAMENTOS
+# 6. PEDIDOS / ORÇAMENTOS
 # -----------------------------------------------------------------------------
 elif menu == "📋 Pedidos / Orçamentos":
   st.header("📋 Gestão de Pedidos e Orçamentos")
@@ -687,7 +691,7 @@ elif menu == "📋 Pedidos / Orçamentos":
 
 
 # -----------------------------------------------------------------------------
-# 3. REGISTRAR VENDA DIRETA
+# 7. REGISTRAR VENDA DIRETA
 # -----------------------------------------------------------------------------
 elif menu == "🛒 Registrar Venda":
   st.header("🛒 Registrar Venda Direta (Balcão)")
@@ -790,7 +794,7 @@ elif menu == "🛒 Registrar Venda":
 
 
 # -----------------------------------------------------------------------------
-# 4. ENTRADA DE ESTOQUE (COMPRAS)
+# 8. ENTRADA DE ESTOQUE (COMPRAS)
 # -----------------------------------------------------------------------------
 elif menu == "📥 Entrada de Estoque (Compras)":
   st.header("📥 Entrada de Estoque (Entrada de Compras)")
@@ -830,7 +834,7 @@ elif menu == "📥 Entrada de Estoque (Compras)":
 
 
 # -----------------------------------------------------------------------------
-# 5. ESTOQUE DE PRODUTOS
+# 9. ESTOQUE DE PRODUTOS
 # -----------------------------------------------------------------------------
 elif menu == "📦 Estoque de Produtos":
   st.header("📦 Estoque de Produtos")
@@ -896,7 +900,7 @@ elif menu == "📦 Estoque de Produtos":
 
 
 # -----------------------------------------------------------------------------
-# 6. CADASTROS (CLIENTES / FORNECEDORES / GRUPOS)
+# 10. CADASTROS (CLIENTES / FORNECEDORES / GRUPOS)
 # -----------------------------------------------------------------------------
 elif menu == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
   st.header("👥 Gestão de Cadastros Base")
