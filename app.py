@@ -348,9 +348,9 @@ menu = st.sidebar.radio(
             "👥 Cadastros (Clientes / Fornecedores / Grupos)"
         ]
     )
-
-    if menu == "📊 Fechamento & Financeiro":
-    if menu == "📊 Fechamento & Financeiro":
+      if menu == "📊 Fechamento & Financeiro":
+     ^
+IndentationError: unexpected indent
     st.title("📊 Painel Financeiro & Fechamento")
     
     df_vendas = pd.read_sql_query("SELECT * FROM vendas", conn)
