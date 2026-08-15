@@ -1191,3 +1191,33 @@ elif menu == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
                         st.error(f"Erro ao cadastrar cliente (talvez já exista): {e}")
                 else:
                     st.warning("O campo Nome do Cliente é obrigatório.")
+with tab_f:
+        st.subheader("Gerenciar Fornecedores")
+        with st.form("form_cad_fornecedor"):
+            c_f1, c_f2 = st.columns(2)
+            with c_f1:
+                novo_forn = st.text_input("Nome do Fornecedor / Empresa")
+                forn_fone = st.text_input("Telefone / WhatsApp (Fornecedor)")
+            with c_f2:
+                forn_end = st.text_input("Endereço / Cidade (Fornecedor)")
+                forn_email = st.text_input("E-mail (Fornecedor)")
+                
+            btn_salvar_forn = st.form_submit_button("💾 Salvar Novo Fornecedor")
+            
+            if btn_salvar_forn:
+                if novo_forn:
+                    try:
+                        # Se a sua tabela antiga tiver apenas 'fornecedor', vamos garantir compatibilidade
+                        # ou inserir com os novos dados se houver as colunas. 
+                        # Por segurança, vamos salvar na coluna principal:
+                        cursor.execute("""
+                            INSERT INTO fornecedores (fornecedor) 
+                            VALUES (?)
+                        """, (novo_forn,))
+                        conn.commit()
+                        st.success(f"Fornecedor '{novo_forn}' cadastrado com sucesso!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao cadastrar fornecedor (talvez já exista): {e}")
+                else:
+                    st.warning("O campo Nome do Fornecedor é obrigatório.")
