@@ -22,7 +22,6 @@ SENHAS_CLIENTES = {
     "Carlos Alberto": "1234",
     "Sebastião": "123456",
     "Valeilde Loja 01": "12345",
-    "Neurialdo": "456892"
 }
 SENHA_CLIENTE_PADRAO = "0000"
 
@@ -216,6 +215,149 @@ list_fornecedores = (
 list_grupos = (
     grupos_df["grupo"].tolist() if not grupos_df.empty else ["GERAL"]
 )
+
+
+# -----------------------------------------------------------------------------
+# GERADOR DE PDF
+# -----------------------------------------------------------------------------
+def gerar_pdf_relatorio(df_dados, titulo="Relatório de Pedidos"):
+  buffer = io.BytesIO()
+  doc = SimpleDocTemplate(
+      buffer,
+      pagesize=letter,
+      rightMargin=30,
+      leftMargin=30,
+      topMargin=10,
+      bottomMargin=20,
+  )
+  elements = []
+
+  styles = getSampleStyleSheet()
+
+  header_company = ParagraphStyle(
+      "HeaderCompany",
+      parent=styles["Normal"],
+      fontName="Helvetica-BoldOblique",
+      fontSize=15,
+      leading=16,
+      alignment=1,
+      textColor=colors.black,
+  )
+  header_info = ParagraphStyle(
+      "HeaderInfo",
+      parent=styles["Normal"],
+      fontName="Helvetica-Bold",
+      fontSize=8.5,
+      leading=10,
+      alignment=1,
+      textColor=colors.black,
+  )
+  title_style = ParagraphStyle(
+      "TitleStyle",
+      parent=styles["Heading1"],
+      fontSize=13,
+      leading=15,
+      alignment=1,
+      textColor=colors.HexColor("#1E3A8A"),
+  )
+  sub_title_style = ParagraphStyle(
+      "SubTitleStyle",
+      parent=styles["Normal"],
+      fontSize=8.5,
+      leading=10,
+      alignment=1,
+      textColor=colors.HexColor("#475569"),
+  )
+
+  elements.append(Paragraph("REY DA CEBOLA", header_company))
+  elements.append(
+      Paragraph(
+          "CNPJ: 194.174.39/000-42 INSC.EST.: 12.426725-4", header_info
+      )
+  )
+  elements.append(
+      Paragraph(
+          "CONTATO: (99) 98814-9722 OU (99) 98414-3943", header_info
+      )
+  )
+  elements.append(Spacer(1, 6))
+
+  elements.append(Paragraph(f"<b>{titulo}</b>", title_style))
+  elements.append(
+      Paragraph(
+          f"Data de Emissão: {datetime.now().strftime('%d/%m/%Y %H:%M')}",
+          sub_title_style,
+      )
+  )
+  elements.append(Spacer(1, 8))
+
+  has_cliente = "cliente" in df_dados.columns
+
+  if has_cliente:
+    data = [[
+        "Cliente",
+        "Produto",
+        "Qtd Total",
+        "Valor Unit. Médio (R$)",
+        "Valor Total (R$)",
+    ]]
+    col_widths = [130, 140, 70, 105, 105]
+  else:
+    data = [
+        ["Produto", "Qtd Total", "Valor Unit. Médio (R$)", "Valor Total (R$)"]
+    ]
+    col_widths = [220, 90, 120, 120]
+
+  total_geral = 0.0
+  for idx, row in df_dados.iterrows():
+    qtd = float(row["quantidade"])
+    val_total = float(row["valor_total"])
+    unit_m = val_total / qtd if qtd > 0 else 0.0
+    total_geral += val_total
+
+    if has_cliente:
+      data.append([
+          str(row["cliente"]),
+          str(row["produto"]),
+          f"{qtd:,.2f}",
+          f"R$ {unit_m:,.2f}",
+          f"R$ {val_total:,.2f}",
+      ])
+    else:
+      data.append([
+          str(row["produto"]),
+          f"{qtd:,.2f}",
+          f"R$ {unit_m:,.2f}",
+          f"R$ {val_total:,.2f}",
+      ])
+
+  if has_cliente:
+    data.append(["VALOR TOTAL GERAL", "", "", "", f"R$ {total_geral:,.2f}"])
+    span_end = 3
+  else:
+    data.append(["VALOR TOTAL GERAL", "", "", f"R$ {total_geral:,.2f}"])
+    span_end = 2
+
+  table = Table(data, colWidths=col_widths)
+  t_style = TableStyle([
+      ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2563EB")),
+      ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+      ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+      ("FONTSIZE", (0, 0), (-1, 0), 9.0),
+      ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+      ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E1")),
+      ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#1E293B")),
+      ("TEXTCOLOR", (0, -1), (-1, -1), colors.white),
+      ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+      ("SPAN", (0, -1), (span_end, -1)),
+  ])
+  table.setStyle(t_style)
+  elements.append(table)
+
+  doc.build(elements)
+  buffer.seek(0)
+  return buffer
+
 
 # -----------------------------------------------------------------------------
 # AUTENTICAÇÃO E PERFIS DE ACESSO
@@ -875,6 +1017,27 @@ elif menu == "📋 Pedidos / Orçamentos":
               ),
           },
           hide_index=True,
+          use_container_width=True,
+      )
+
+      # ---------------------------------------------------------------------
+      # BOTÃO PARA GERAR E BAIXAR O PDF
+      # ---------------------------------------------------------------------
+      st.write("")
+      pdf_data = gerar_pdf_relatorio(
+          df_agrupado,
+          titulo=(
+              f"Relatório de Pedidos —"
+              f" {datetime.now().strftime('%d/%m/%Y %H:%M')}"
+          ),
+      )
+
+      st.download_button(
+          label="📄 Baixar Relatório em PDF (REY DA CEBOLA)",
+          data=pdf_data,
+          file_name=f"Relatorio_Pedidos_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+          mime="application/pdf",
+          type="primary",
       )
 
 # --- 3. REGISTRAR VENDA ---
