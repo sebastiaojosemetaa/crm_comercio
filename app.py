@@ -1221,24 +1221,3 @@ with tab_f:
                         st.error(f"Erro ao cadastrar fornecedor (talvez já exista): {e}")
                 else:
                     st.warning("O campo Nome do Fornecedor é obrigatório.")
-with tab_g:
-        st.subheader("Gerenciar Grupos de Produtos")
-        with st.form("form_cad_grupo"):
-            novo_grp = st.text_input("Nome do Novo Grupo (ex: Frutas, Verduras, Limpeza)")
-            
-            btn_salvar_grp = st.form_submit_button("💾 Salvar Novo Grupo")
-            
-            if btn_salvar_grp:
-                if novo_grp:
-                    try:
-                        cursor.execute("""
-                            INSERT INTO grupos (grupo) 
-                            VALUES (?)
-                        """, (novo_grp.upper(),))
-                        conn.commit()
-                        st.success(f"Grupo '{novo_grp.upper()}' cadastrado com sucesso!")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Erro ao cadastrar grupo (talvez já exista): {e}")
-                else:
-                    st.warning("O campo Nome do Grupo é obrigatório.")
