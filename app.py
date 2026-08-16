@@ -121,7 +121,7 @@ def salvar_pedido_ou_venda(cliente, produto, fornecedor, grupo, quantidade, valo
 
 def converter_pedido_completo_para_venda(cliente_nome):
     cursor = conn.cursor()
-    cursor.execute("UPDATE vendas SET tipo = 'VENDA' WHERE cliente = ? AND (tipo = 'PEDIDO' OR tipo IS NULL)", (cliente_nome,))
+    cursor.execute("UPDATE vendas SET tipo = 'VENDA' WHERE cliente = ? AND (tipo = 'PEDIDO' OR tipo = 'PED' OR tipo IS NULL)", (cliente_nome,))
     conn.commit()
 
 def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo):
@@ -383,7 +383,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
             cond_status = "tipo = 'VENDA'"
             if status_filtro == "Incluir Pedidos Pendentes":
-                cond_status = "(tipo = 'PEDIDO' OR tipo IS NULL)"
+                cond_status = "(tipo IN ('PEDIDO', 'PED') OR tipo IS NULL)"
             elif status_filtro == "Todos":
                 cond_status = "1=1"
                 
@@ -477,22 +477,26 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     )
                     
                     st.markdown("---")
-                    st.subheader("⚙️ Converter Pedido Completo em Venda")
                     
                     if cliente_sel != "TODOS":
-                        pedidos_pendentes = df_registros[df_registros['tipo'].isin(['PEDIDO', None])]
+                        # Filtra qualquer variante de pedido pendente ('PEDIDO', 'PED' ou nulo)
+                        pedidos_pendentes = df_registros[
+                            df_registros['tipo'].astype(str).str.upper().isin(['PEDIDO', 'PED', 'NONE', 'NAN']) | df_registros['tipo'].isna()
+                        ]
+                        
                         if not pedidos_pendentes.empty:
+                            st.subheader("⚙️ Converter Pedido Completo em Venda")
                             total_ped = pedidos_pendentes['valor_total'].sum()
                             qtd_itens = len(pedidos_pendentes)
-                            st.write(f"O cliente **{cliente_sel}** possui **{qtd_itens} itens** pendentes, somando **R$ {total_ped:,.2f}**.")
+                            st.write(f"O cliente **{cliente_sel}** possui **{qtd_itens} item(ns)** pendente(s) como pedido, somando **R$ {total_ped:,.2f}**.")
                             if st.button(f"🔄 Converter Pedido Completo de {cliente_sel} para VENDA"):
                                 converter_pedido_completo_para_venda(cliente_sel)
-                                st.success(f"Todos os {qtd_itens} itens do pedido de {cliente_sel} foram convertidos para VENDA!")
+                                st.success(f"Todos os {qtd_itens} itens de {cliente_sel} foram convertidos para VENDA!")
                                 st.rerun()
                         else:
-                            st.info(f"Todos os itens de {cliente_sel} no período já estão convertidos como VENDA.")
+                            st.info(f"✅ Todos os registros exibidos para **{cliente_sel}** já estão confirmados como **VENDA**.")
                     else:
-                        st.info("Para converter o pedido completo, selecione um cliente específico no filtro acima.")
+                        st.info("Para converter um pedido em venda, selecione um cliente específico no filtro acima.")
                 else:
                     st.info("Nenhum registro encontrado para o período e cliente selecionados.")
 
