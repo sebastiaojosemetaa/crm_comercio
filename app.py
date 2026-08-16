@@ -338,18 +338,6 @@ if tipo_acesso == "👤 Portal do Cliente" and not cliente_autenticado:
     st.warning("Por favor, selecione seu nome no menu à esquerda e insira sua senha para acessar seus pedidos.")
 
 menu = st.sidebar.radio(
-        "Navegação",
-        [
-            "📊 Fechamento & Financeiro",
-            "📋 Pedidos / Orçamentos",
-            "🛒 Registrar Venda",
-            "📥 Entrada de Estoque (Compras)",
-            "📦 Estoque de Produtos",
-            "👥 Cadastros (Clientes / Fornecedores / Grupos)"
-        ]
-    )
-
-menu = st.sidebar.radio(
     "Navegação",
     [
         "📊 Fechamento & Financeiro",
