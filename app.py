@@ -1,7 +1,7 @@
 import streamlit as st
 import sqlite3
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, date
 import io
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
@@ -57,7 +57,7 @@ def carregar_coluna(tabela, coluna):
     return []
 
 # -----------------------------------------------------------------------------
-# FUNÇÕES DE REGISTRO
+# FUNÇÕES DE REGISTRO E CONVERSÃO
 # -----------------------------------------------------------------------------
 def salvar_cliente_completo(nome, telefone, doc, endereco, cidade):
     cursor = conn.cursor()
@@ -119,7 +119,6 @@ def salvar_pedido_ou_venda(cliente, produto, fornecedor, grupo, quantidade, valo
     """, (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, tipo, data_atual))
     conn.commit()
 
-# CONVERTE TODO O PEDIDO COMPLETO DO CLIENTE
 def converter_pedido_completo_para_venda(cliente_nome):
     cursor = conn.cursor()
     cursor.execute("UPDATE vendas SET tipo = 'VENDA' WHERE cliente = ? AND (tipo = 'PEDIDO' OR tipo IS NULL)", (cliente_nome,))
@@ -150,7 +149,7 @@ def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo):
 # -----------------------------------------------------------------------------
 # GERADOR DE PDF CUSTOMIZADO (MODELO REY DA CEBOLA)
 # -----------------------------------------------------------------------------
-def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
+def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral", d_inicio=None, d_fim=None):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
     elements = []
@@ -202,9 +201,10 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
     elements.append(Spacer(1, 10))
     
     elements.append(Paragraph(f"Relatório de Pedidos - {cliente_nome}", style_titulo_relatorio))
-    data_emissao = datetime.now().strftime("%d/%m/%Y %H:%M")
+    
+    periodo_str = f"Período: {d_inicio.strftime('%d/%m/%Y')} até {d_fim.strftime('%d/%m/%Y')}" if d_inicio and d_fim else f"Data de Emissão: {datetime.now().strftime('%d/%m/%Y %H:%M')}"
     elements.append(Spacer(1, 4))
-    elements.append(Paragraph(f"Data de Emissão: {data_emissao}", style_data))
+    elements.append(Paragraph(periodo_str, style_data))
     elements.append(Spacer(1, 15))
     
     if not df_dados.empty:
@@ -368,8 +368,19 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         )
         
         if menu_admin == "📊 Fechamento & Financeiro":
-            st.title("📊 Painel Financeiro & Fechamento")
-            df_vendas = carregar_dados("SELECT * FROM vendas WHERE tipo = 'VENDA'")
+            st.title("📊 Painel Financeiro & Fechamento por Data")
+            
+            col_d1, col_d2 = st.columns(2)
+            with col_d1:
+                data_inicio = st.date_input("Data Inicial", value=date.today())
+            with col_d2:
+                data_fim = st.date_input("Data Final", value=date.today())
+                
+            str_d1 = data_inicio.strftime("%Y-%m-%d 00:00:00")
+            str_d2 = data_fim.strftime("%Y-%m-%d 23:59:59")
+            
+            df_vendas = carregar_dados(f"SELECT * FROM vendas WHERE tipo = 'VENDA' AND data >= '{str_d1}' AND data <= '{str_d2}'")
+            
             if not df_vendas.empty:
                 col1, col2, col3 = st.columns(3)
                 faturamento = df_vendas['valor_total'].sum() if 'valor_total' in df_vendas.columns else 0.0
@@ -377,10 +388,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 col2.metric("Total Recebido em Caixa", f"R$ {faturamento * 0.15:,.2f}")
                 col3.metric("Total a Receber (Fiado/Pendente)", f"R$ {faturamento * 0.85:,.2f}")
                 st.markdown("---")
-                st.subheader("📊 Resumo do Histórico de Vendas Concluídas")
+                st.subheader("📊 Resumo do Histórico de Vendas Concluídas no Período")
                 st.dataframe(df_vendas, use_container_width=True)
             else:
-                st.info("Nenhuma venda confirmada cadastrada.")
+                st.info("Nenhuma venda confirmada encontrada no período selecionado.")
 
         elif menu_admin in ["📋 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
             st.title(f"📋 {menu_admin}")
@@ -413,17 +424,28 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.rerun()
 
             with aba_list:
-                st.subheader("🔍 Consultar e Gerenciar Registros")
+                st.subheader("🔍 Consultar e Gerenciar Registros por Data e Cliente")
                 
-                clientes_filtro = ["TODOS"] + (carregar_coluna("clientes", "nome") or carregar_coluna("vendas", "cliente"))
-                cliente_sel = st.selectbox("Filtrar por Cliente Individual:", clientes_filtro)
+                col_f1, col_f2, col_f3 = st.columns(3)
+                with col_f1:
+                    clientes_filtro = ["TODOS"] + (carregar_coluna("clientes", "nome") or carregar_coluna("vendas", "cliente"))
+                    cliente_sel = st.selectbox("Filtrar por Cliente:", clientes_filtro)
+                with col_f2:
+                    d_inicio = st.date_input("Data Inicial do Filtro", value=date(2025, 1, 1))
+                with col_f3:
+                    d_fim = st.date_input("Data Final do Filtro", value=date.today())
                 
-                if cliente_sel == "TODOS":
-                    df_registros = carregar_dados("SELECT * FROM vendas")
-                    nome_relatorio = "Geral"
-                else:
-                    df_registros = carregar_dados(f"SELECT * FROM vendas WHERE cliente = '{cliente_sel}'")
+                s_d1 = d_inicio.strftime("%Y-%m-%d 00:00:00")
+                s_d2 = d_fim.strftime("%Y-%m-%d 23:59:59")
+                
+                query_filt = f"SELECT * FROM vendas WHERE data >= '{s_d1}' AND data <= '{s_d2}'"
+                if cliente_sel != "TODOS":
+                    query_filt += f" AND cliente = '{cliente_sel}'"
                     nome_relatorio = cliente_sel
+                else:
+                    nome_relatorio = "Geral"
+                    
+                df_registros = carregar_dados(query_filt)
                 
                 if not df_registros.empty:
                     st.dataframe(df_registros, use_container_width=True)
@@ -431,7 +453,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.markdown("---")
                     st.subheader(f"📄 Gerar Relatório em PDF ({nome_relatorio})")
                     
-                    pdf_gerado = gerar_pdf_tabela_pedidos(df_registros, cliente_nome=nome_relatorio)
+                    pdf_gerado = gerar_pdf_tabela_pedidos(df_registros, cliente_nome=nome_relatorio, d_inicio=d_inicio, d_fim=d_fim)
                     
                     st.download_button(
                         label=f"📥 Baixar Relatório de Pedidos - {nome_relatorio} (PDF)",
@@ -454,11 +476,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 st.success(f"Todos os {qtd_itens} itens do pedido de {cliente_sel} foram convertidos para VENDA!")
                                 st.rerun()
                         else:
-                            st.info(f"Todos os itens de {cliente_sel} já estão convertidos como VENDA.")
+                            st.info(f"Todos os itens de {cliente_sel} no período já estão convertidos como VENDA.")
                     else:
                         st.info("Para converter o pedido completo, selecione um cliente específico no filtro acima.")
                 else:
-                    st.info("Nenhum registro encontrado para a seleção.")
+                    st.info("Nenhum registro encontrado para o período e cliente selecionados.")
 
         elif menu_admin == "📥 Entrada de Estoque (Compras)":
             st.title("📥 Entrada de Estoque (Compras)")
