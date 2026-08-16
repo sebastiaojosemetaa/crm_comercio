@@ -218,7 +218,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
     else:
         # Coloque a criação do menu_admin e as telas (if menu == ..., elif menu == ...) AQUI DENTRO do else:
 
-    menu = "📋 Pedidos / Orçamentos"
+        menu = "📋 Pedidos / Orçamentos"
 
 # -----------------------------------------------------------------------------
 # FUNÇÃO GERADORA DE PDF
