@@ -71,6 +71,34 @@ def carregar_coluna(tabela, coluna):
     return []
 
 # -----------------------------------------------------------------------------
+# FUNÇÕES DE EDICÃO E EXCLUSÃO (NOVAS)
+# -----------------------------------------------------------------------------
+def atualizar_item_venda(id_registro, quantidade, valor_venda, forma_pagamento, valor_recebido):
+    cursor = conn.cursor()
+    valor_total = quantidade * valor_venda
+    cursor.execute("""
+        UPDATE vendas 
+        SET quantidade = ?, valor_venda = ?, valor_total = ?, forma_pagamento = ?, valor_recebido = ?
+        WHERE id = ?
+    """, (quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, id_registro))
+    conn.commit()
+
+def deletar_item_venda(id_registro):
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM vendas WHERE id = ?", (id_registro,))
+    conn.commit()
+
+def deletar_pedidos_cliente(cliente_nome, s_d1, s_d2):
+    cursor = conn.cursor()
+    cursor.execute("""
+        DELETE FROM vendas 
+        WHERE TRIM(cliente) = TRIM(?) 
+          AND (substr(data, 1, 10) >= ? AND substr(data, 1, 10) <= ? OR data IS NULL OR data = '')
+    """, (cliente_nome, s_d1, s_d2))
+    conn.commit()
+    return cursor.rowcount
+
+# -----------------------------------------------------------------------------
 # FUNÇÕES DE REGISTRO E CONVERSÃO
 # -----------------------------------------------------------------------------
 def salvar_cliente_completo(nome, telefone, doc, endereco, cidade):
@@ -373,7 +401,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             df_todas = carregar_dados("SELECT * FROM vendas")
             
             if not df_todas.empty:
-                # Se for "Somente Vendas Concluídas", padroniza a exibição visual para VEN/VENDA
                 if status_filtro == "Somente Vendas Concluídas":
                     df_todas['tipo'] = 'VENDA'
                     df_todas['codigo'] = 'VEN'
@@ -431,7 +458,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
         elif menu_admin in ["📋 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
             st.title(f"📋 {menu_admin}")
-            aba_cad, aba_list = st.tabs(["➕ Novo Registro / Pedido", "📜 Gestão de Pedidos e Vendas"])
+            aba_cad, aba_list = st.tabs(["➕ Novo Registro / Pedido", "📜 Gestão, Edição & Exclusão de Pedidos"])
             
             with aba_cad:
                 clientes_opt = carregar_coluna("clientes", "nome") or ["Carlos Alberto"]
@@ -487,17 +514,62 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.dataframe(df_registros, use_container_width=True)
                     
                     st.markdown("---")
-                    st.subheader(f"📄 Gerar Relatório em PDF ({nome_relatorio})")
+                    st.subheader("✏️ Alterar Produto / Item Direto na Tela")
+                    st.caption("Edite os dados abaixo por linha e clique em **Atualizar** para gravar no banco ou **Deletar** para remover o item.")
                     
-                    pdf_gerado = gerar_pdf_tabela_pedidos(df_registros, cliente_nome=nome_relatorio, d_inicio=d_inicio, d_fim=d_fim)
+                    opcoes_pagamento = ["Crediário / Fiado", "Dinheiro", "Pix"]
                     
-                    st.download_button(
-                        label=f"📥 Baixar Relatório de Pedidos - {nome_relatorio} (PDF)",
-                        data=pdf_gerado,
-                        file_name=f"Relatorio_Pedidos_{nome_relatorio}.pdf",
-                        mime="application/pdf"
-                    )
+                    for idx, row in df_registros.iterrows():
+                        reg_id = row['id']
+                        prod_nome = row['produto']
+                        cli_nome = row['cliente']
+                        qtd_atual = float(row['quantidade']) if pd.notnull(row['quantidade']) else 1.0
+                        v_venda_atual = float(row['valor_venda']) if pd.notnull(row['valor_venda']) else 0.0
+                        f_pag_atual = str(row['forma_pagamento']) if pd.notnull(row['forma_pagamento']) else "Crediário / Fiado"
+                        v_rec_atual = float(row['valor_recebido']) if pd.notnull(row['valor_recebido']) else 0.0
+                        
+                        with st.expander(f"📦 ID: {reg_id} | Cliente: {cli_nome} | Produto: {prod_nome}"):
+                            c1, c2, c3, c4, c5, c6 = st.columns([1.5, 1.5, 2, 1.5, 1, 1])
+                            
+                            nova_qtd = c1.number_input("Qtd", min_value=0.1, step=0.5, value=qtd_atual, key=f"qtd_{reg_id}")
+                            novo_v_venda = c2.number_input("Valor Unit (R$)", min_value=0.0, step=1.0, value=v_venda_atual, key=f"vv_{reg_id}")
+                            
+                            idx_fp = opcoes_pagamento.index(f_pag_atual) if f_pag_atual in opcoes_pagamento else 0
+                            nova_f_pag = c3.selectbox("Forma Pagto", opcoes_pagamento, index=idx_fp, key=f"fp_{reg_id}")
+                            novo_v_rec = c4.number_input("Valor Rec (R$)", min_value=0.0, step=1.0, value=v_rec_atual, key=f"vr_{reg_id}")
+                            
+                            st.write(f"**Novo Valor Total:** R$ {nova_qtd * novo_v_venda:,.2f}")
+                            
+                            if c5.button("💾 Salvar", key=f"btn_salvar_{reg_id}"):
+                                atualizar_item_venda(reg_id, nova_qtd, novo_v_venda, nova_f_pag, novo_v_rec)
+                                st.success(f"Item ID {reg_id} atualizado com sucesso!")
+                                st.rerun()
+                                
+                            if c6.button("🗑️ Deletar", key=f"btn_del_{reg_id}"):
+                                deletar_item_venda(reg_id)
+                                st.warning(f"Item ID {reg_id} deletado com sucesso!")
+                                st.rerun()
                     
+                    st.markdown("---")
+                    st.subheader(f"📄 Relatório e Exclusão Total ({nome_relatorio})")
+                    
+                    col_b1, col_b2 = st.columns(2)
+                    with col_b1:
+                        pdf_gerado = gerar_pdf_tabela_pedidos(df_registros, cliente_nome=nome_relatorio, d_inicio=d_inicio, d_fim=d_fim)
+                        st.download_button(
+                            label=f"📥 Baixar Relatório - {nome_relatorio} (PDF)",
+                            data=pdf_gerado,
+                            file_name=f"Relatorio_Pedidos_{nome_relatorio}.pdf",
+                            mime="application/pdf"
+                        )
+                    
+                    with col_b2:
+                        if cliente_sel != "TODOS":
+                            if st.button(f"🚨 Apagar Pedido / Venda INTEIRA de {cliente_sel}", type="primary"):
+                                qtd_del = deletar_pedidos_cliente(cliente_sel, s_d1, s_d2)
+                                st.success(f"Foram deletados {qtd_del} registro(s) de {cliente_sel} com sucesso!")
+                                st.rerun()
+
                     st.markdown("---")
                     
                     if cliente_sel != "TODOS":
@@ -520,7 +592,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         else:
                             st.info(f"✅ Todos os registros exibidos para **{cliente_sel}** já estão confirmados como **VENDA**.")
                     else:
-                        st.info("Para converter um pedido em venda, selecione um cliente específico no filtro acima.")
+                        st.info("Para converter ou apagar o pedido/venda inteira de um cliente, selecione o cliente específico no filtro no topo da tela.")
                 else:
                     st.info("Nenhum registro encontrado para o período e cliente selecionados.")
 
