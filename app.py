@@ -186,7 +186,6 @@ list_grupos = grupos_df['grupo'].tolist() if not grupos_df.empty else ["GERAL"]
 
 # -----------------------------------------------------------------------------
 # AUTENTICAÇÃO E PERFIS DE ACESSO
-# -----------------------------------------------------------------------------
 st.sidebar.title("🔑 Acesso ao Sistema")
 
 if 'perfil_ativo' not in st.session_state:
@@ -197,66 +196,27 @@ index_atual = opcoes_perfil.index(st.session_state.perfil_ativo)
 
 perfil_selecionado = st.sidebar.radio("Selecione o Perfil:", opcoes_perfil, index=index_atual)
 
-cliente_autenticado = None
+# --- 1. SE FOR PORTAL DO CLIENTE ---
+if perfil_selecionado == "👤 Portal do Cliente":
+    st.title("🔒 Portal do Cliente")
+    # Insira aqui o formulário e os pedidos do cliente
 
-# --- TELA DE LOGIN DO ADMIN ---
-if perfil_selecionado == "🔒 Administração / Vendedor":
+# --- 2. SE FOR ADMIN / VENDEDOR ---
+elif perfil_selecionado == "🔒 Administração / Vendedor":
     if 'admin_logged' not in st.session_state:
         st.session_state.admin_logged = False
 
     if not st.session_state.admin_logged:
         st.title("🔑 Autenticação Administrativa")
-        senha = st.text_input("Senha de Acesso", type="password")
-        
+        senha_admin = st.text_input("Senha de Acesso", type="password")
         if st.button("Entrar"):
-            if senha == "1234":  # Subtitua pela sua senha cadastrada
+            if senha_admin == "1234":  # Substitua pela sua senha
                 st.session_state.admin_logged = True
-                st.success("Acesso liberado!")
                 st.rerun()
             else:
-                st.error("Senha incorreta.")
-        
-        tipo_acesso = "👤 Portal do Cliente"
+                st.error("Senha incorreta!")
     else:
-        tipo_acesso = "🔒 Administração / Vendedor"
-        if st.sidebar.button("🚪 Sair do Modo Admin"):
-            st.session_state.admin_autenticado = False
-            st.session_state.perfil_ativo = "👤 Portal do Cliente"
-            st.rerun()
-
-else:
-    st.session_state.admin_autenticado = False
-    st.session_state.perfil_ativo = "👤 Portal do Cliente"
-    tipo_acesso = "👤 Portal do Cliente"
-    
-    st.sidebar.markdown("---")
-    cliente_sel = st.sidebar.selectbox("Identifique seu Nome/Empresa:", list_clientes, key="cli_login")
-    
-    # Se trocar de cliente no menu, força novo login
-    if st.session_state.get('cliente_logado') != cliente_sel:
-        st.session_state.cliente_autenticado_status = False
-    
-    senha_esperada = SENHAS_CLIENTES.get(cliente_sel, SENHA_CLIENTE_PADRAO)
-    
-    if not st.session_state.get('cliente_autenticado_status', False):
-        st.sidebar.subheader(f"🔒 Login — {cliente_sel}")
-        pin_cliente = st.sidebar.text_input("Digite sua Senha de Cliente:", type="password", key=f"pwd_cli_{cliente_sel}")
-        
-        if st.sidebar.button("Acessar Meus Pedidos"):
-            if pin_cliente == senha_esperada:
-                st.session_state.cliente_autenticado_status = True
-                st.session_state.cliente_logado = cliente_sel
-                st.sidebar.success("Acesso confirmado!")
-                st.rerun()
-            else:
-                st.sidebar.error("Senha incorreta!")
-    else:
-        cliente_autenticado = cliente_sel
-        st.sidebar.success(f"Logado como: **{cliente_autenticado}**")
-        if st.sidebar.button("🚪 Sair / Trocar Cliente"):
-            st.session_state.cliente_autenticado_status = False
-            st.session_state.cliente_logado = None
-            st.rerun()
+        # Coloque a criação do menu_admin e as telas (if menu == ..., elif menu == ...) AQUI DENTRO do else:
 
     menu = "📋 Pedidos / Orçamentos"
 
