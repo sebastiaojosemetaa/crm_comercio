@@ -644,11 +644,99 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
+            
+            # 1. CARREGAMENTO DOS DADOS
             df_prods = carregar_dados("SELECT id, nome as produto, grupo, preco_custo, preco_venda, estoque_atual FROM produtos")
+            
             if not df_prods.empty:
-                st.dataframe(df_prods, use_container_width=True)
+                # 2. CARTÕES DE MÉTRICAS (KPIs)
+                col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
+                total_itens = df_prods['estoque_atual'].sum()
+                val_custo_total = (df_prods['estoque_atual'] * df_prods['preco_custo']).sum()
+                val_venda_total = (df_prods['estoque_atual'] * df_prods['preco_venda']).sum()
+                
+                col_kpi1.metric("📦 Total de Produtos em Estoque", f"{total_itens:,.2f}")
+                col_kpi2.metric("💰 Custo Total em Estoque", f"R$ {val_custo_total:,.2f}")
+                col_kpi3.metric("🏷️ Potencial de Venda (Bruto)", f"R$ {val_venda_total:,.2f}")
+                
+                st.markdown("---")
+                
+                # 3. FILTROS DE PESQUISA
+                col_f1, col_f2 = st.columns([2, 1])
+                with col_f1:
+                    busca = st.text_input("🔍 Pesquisar Produto pelo Nome:", "")
+                with col_f2:
+                    grupos_list = ["TODOS"] + sorted(list(df_prods['grupo'].dropna().unique()))
+                    grupo_filtro = st.selectbox("Filtrar por Grupo:", grupos_list)
+                
+                # Aplicação dos filtros
+                df_exibir = df_prods.copy()
+                if busca.strip():
+                    df_exibir = df_exibir[df_exibir['produto'].str.contains(busca, case=False, na=False)]
+                if grupo_filtro != "TODOS":
+                    df_exibir = df_exibir[df_exibir['grupo'] == grupo_filtro]
+                
+                st.caption("💡 **Dica:** Altere preços, estoques ou nomes diretamente na tabela e clique em **Salvar Alterações**. Para deletar um produto, marque a caixa **Deletar**.")
+                
+                # 4. TABELA EDITÁVEL (st.data_editor)
+                df_exibir.insert(0, "Deletar", False)
+                
+                df_editado_prod = st.data_editor(
+                    df_exibir,
+                    key="editor_produtos_estoque",
+                    use_container_width=True,
+                    num_rows="fixed",
+                    column_config={
+                        "Deletar": st.column_config.CheckboxColumn("Deletar", help="Marque para excluir o produto"),
+                        "id": st.column_config.NumberColumn("ID", disabled=True),
+                        "produto": st.column_config.TextColumn("Nome do Produto"),
+                        "grupo": st.column_config.TextColumn("Grupo"),
+                        "preco_custo": st.column_config.NumberColumn("Preço Custo (R$)", min_value=0.0, format="R$ %.2f"),
+                        "preco_venda": st.column_config.NumberColumn("Preço Venda (R$)", min_value=0.0, format="R$ %.2f"),
+                        "estoque_atual": st.column_config.NumberColumn("Qtd Estoque", min_value=0.0, format="%.2f"),
+                    },
+                    hide_index=True
+                )
+                
+                # 5. BOTÕES DE AÇÃO
+                c_btn1, c_btn2 = st.columns([1, 1])
+                
+                with c_btn1:
+                    if st.button("💾 Salvar Alterações do Estoque", type="primary"):
+                        cursor = conn.cursor()
+                        for _, row in df_editado_prod.iterrows():
+                            if not row["Deletar"]:
+                                cursor.execute("""
+                                    UPDATE produtos 
+                                    SET nome = ?, grupo = ?, preco_custo = ?, preco_venda = ?, estoque_atual = ?
+                                    WHERE id = ?
+                                """, (
+                                    str(row["produto"]).strip(),
+                                    str(row["grupo"]).strip(),
+                                    float(row["preco_custo"]),
+                                    float(row["preco_venda"]),
+                                    float(row["estoque_atual"]),
+                                    int(row["id"])
+                                ))
+                        conn.commit()
+                        st.success("Dados do estoque e preços atualizados com sucesso!")
+                        st.rerun()
+
+                with c_btn2:
+                    itens_del = df_editado_prod[df_editado_prod["Deletar"] == True]
+                    if not itens_del.empty:
+                        if st.button(f"🗑️ Confirmar Exclusão de ({len(itens_del)}) Produto(s)"):
+                            ids_del = tuple(itens_del["id"].tolist())
+                            cursor = conn.cursor()
+                            if len(ids_del) == 1:
+                                cursor.execute("DELETE FROM produtos WHERE id = ?", (ids_del[0],))
+                            else:
+                                cursor.execute(f"DELETE FROM produtos WHERE id IN {ids_del}")
+                            conn.commit()
+                            st.warning(f"{len(ids_del)} produto(s) excluído(s) com sucesso!")
+                            st.rerun()
             else:
-                st.info("Nenhum produto cadastrado.")
+                st.info("Nenhum produto cadastrado no banco de dados. Cadastre novos produtos através do menu 'Cadastros (Clientes / Fornecedores / Grupos)'.")
 
         elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
             st.title("👥 Cadastros Gerais")
