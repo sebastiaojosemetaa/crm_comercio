@@ -20,6 +20,8 @@ conn = get_connection()
 
 def adequar_banco_e_migrar():
     cursor = conn.cursor()
+    
+    # Criar / Atualizar Tabela Vendas
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS vendas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -45,6 +47,24 @@ def adequar_banco_e_migrar():
         cursor.execute("ALTER TABLE vendas ADD COLUMN codigo TEXT DEFAULT 'PED'")
     except sqlite3.OperationalError:
         pass
+
+    # Criar / Atualizar Tabela Produtos
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS produtos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT UNIQUE,
+            fornecedor TEXT,
+            grupo TEXT,
+            preco_custo REAL,
+            preco_venda REAL,
+            estoque_atual REAL
+        )
+    """)
+    try:
+        cursor.execute("ALTER TABLE produtos ADD COLUMN fornecedor TEXT DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass
+
     conn.commit()
 
     # CORREÇÃO AUTOMÁTICA: Converte todo o histórico antigo de PED/PEDIDO para VEN/VENDA
@@ -93,21 +113,11 @@ def salvar_cliente_completo(nome, telefone, doc, endereco, cidade):
     except sqlite3.IntegrityError:
         return False
 
-def salvar_produto_completo(nome, grupo, preco_custo, preco_venda, estoque_inicial):
+def salvar_produto_completo(nome, fornecedor, grupo, preco_custo, preco_venda, estoque_inicial):
     cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS produtos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT UNIQUE,
-            grupo TEXT,
-            preco_custo REAL,
-            preco_venda REAL,
-            estoque_atual REAL
-        )
-    """)
     try:
-        cursor.execute("INSERT INTO produtos (nome, grupo, preco_custo, preco_venda, estoque_atual) VALUES (?, ?, ?, ?, ?)",
-                       (nome.strip(), grupo, preco_custo, preco_venda, estoque_inicial))
+        cursor.execute("INSERT INTO produtos (nome, fornecedor, grupo, preco_custo, preco_venda, estoque_atual) VALUES (?, ?, ?, ?, ?, ?)",
+                       (nome.strip(), fornecedor, grupo, preco_custo, preco_venda, estoque_inicial))
         conn.commit()
         return True
     except sqlite3.IntegrityError:
@@ -495,10 +505,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 if not df_registros.empty:
                     st.caption("💡 **Dica:** Clique diretamente em qualquer célula para alterar valores (como quantidade, valor de venda, etc.). Marque **Deletar** e clique no botão abaixo para remover registros permanentemente.")
                     
-                    # Adiciona coluna temporária de checkbox para remoção
                     df_registros.insert(0, "Deletar", False)
                     
-                    # Configuração das colunas editáveis
                     df_editado = st.data_editor(
                         df_registros,
                         key="editor_registros_vendas",
@@ -645,11 +653,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
             
-            # 1. CARREGAMENTO DOS DADOS
-            df_prods = carregar_dados("SELECT id, nome as produto, grupo, preco_custo, preco_venda, estoque_atual FROM produtos")
+            df_prods = carregar_dados("SELECT id, nome as produto, fornecedor, grupo, preco_custo, preco_venda, estoque_atual FROM produtos")
             
             if not df_prods.empty:
-                # 2. CARTÕES DE MÉTRICAS (KPIs)
                 col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
                 total_itens = df_prods['estoque_atual'].sum()
                 val_custo_total = (df_prods['estoque_atual'] * df_prods['preco_custo']).sum()
@@ -661,7 +667,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 
                 st.markdown("---")
                 
-                # 3. FILTROS DE PESQUISA
                 col_f1, col_f2 = st.columns([2, 1])
                 with col_f1:
                     busca = st.text_input("🔍 Pesquisar Produto pelo Nome:", "")
@@ -669,16 +674,14 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     grupos_list = ["TODOS"] + sorted(list(df_prods['grupo'].dropna().unique()))
                     grupo_filtro = st.selectbox("Filtrar por Grupo:", grupos_list)
                 
-                # Aplicação dos filtros
                 df_exibir = df_prods.copy()
                 if busca.strip():
                     df_exibir = df_exibir[df_exibir['produto'].str.contains(busca, case=False, na=False)]
                 if grupo_filtro != "TODOS":
                     df_exibir = df_exibir[df_exibir['grupo'] == grupo_filtro]
                 
-                st.caption("💡 **Dica:** Altere preços, estoques ou nomes diretamente na tabela e clique em **Salvar Alterações**. Para deletar um produto, marque a caixa **Deletar**.")
+                st.caption("💡 **Dica:** Altere preços, estoques, fornecedores ou nomes diretamente na tabela e clique em **Salvar Alterações**. Para deletar um produto, marque a caixa **Deletar**.")
                 
-                # 4. TABELA EDITÁVEL (st.data_editor)
                 df_exibir.insert(0, "Deletar", False)
                 
                 df_editado_prod = st.data_editor(
@@ -690,6 +693,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         "Deletar": st.column_config.CheckboxColumn("Deletar", help="Marque para excluir o produto"),
                         "id": st.column_config.NumberColumn("ID", disabled=True),
                         "produto": st.column_config.TextColumn("Nome do Produto"),
+                        "fornecedor": st.column_config.TextColumn("Fornecedor"),
                         "grupo": st.column_config.TextColumn("Grupo"),
                         "preco_custo": st.column_config.NumberColumn("Preço Custo (R$)", min_value=0.0, format="R$ %.2f"),
                         "preco_venda": st.column_config.NumberColumn("Preço Venda (R$)", min_value=0.0, format="R$ %.2f"),
@@ -698,7 +702,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     hide_index=True
                 )
                 
-                # 5. BOTÕES DE AÇÃO
                 c_btn1, c_btn2 = st.columns([1, 1])
                 
                 with c_btn1:
@@ -708,10 +711,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             if not row["Deletar"]:
                                 cursor.execute("""
                                     UPDATE produtos 
-                                    SET nome = ?, grupo = ?, preco_custo = ?, preco_venda = ?, estoque_atual = ?
+                                    SET nome = ?, fornecedor = ?, grupo = ?, preco_custo = ?, preco_venda = ?, estoque_atual = ?
                                     WHERE id = ?
                                 """, (
                                     str(row["produto"]).strip(),
+                                    str(row["fornecedor"]).strip(),
                                     str(row["grupo"]).strip(),
                                     float(row["preco_custo"]),
                                     float(row["preco_venda"]),
@@ -764,18 +768,21 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             with tab_prod:
                 st.subheader("Cadastrar Novo Produto e Estoque")
                 grupos_opt = carregar_coluna("grupos", "nome") or ["GERAL"]
+                fornecedores_opt = carregar_coluna("fornecedores", "nome") or ["BAHIA"]
+                
                 with st.form("form_cad_produto_completo"):
                     col1, col2 = st.columns(2)
                     with col1:
                         novo_prod = st.text_input("Nome do Produto")
+                        fornec_prod = st.selectbox("Fornecedor", fornecedores_opt)
                         grupo_prod = st.selectbox("Grupo / Categoria", grupos_opt)
-                        estoque_ini = st.number_input("Estoque Inicial", min_value=0.0, step=1.0, value=0.0)
                     with col2:
                         p_custo = st.number_input("Preço de Custo (R$)", min_value=0.0, step=1.0, value=10.0)
                         p_venda = st.number_input("Preço de Venda (R$)", min_value=0.0, step=20.0, value=20.0)
+                        estoque_ini = st.number_input("Estoque Inicial", min_value=0.0, step=1.0, value=0.0)
                     
                     if st.form_submit_button("Salvar Produto no Estoque"):
-                        if novo_prod.strip() and salvar_produto_completo(novo_prod.strip(), grupo_prod, p_custo, p_venda, estoque_ini):
+                        if novo_prod.strip() and salvar_produto_completo(novo_prod.strip(), fornec_prod, grupo_prod, p_custo, p_venda, estoque_ini):
                             st.success("Produto cadastrado com sucesso!")
                             st.rerun()
                 st.markdown("---")
