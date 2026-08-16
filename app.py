@@ -370,28 +370,42 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         if menu_admin == "📊 Fechamento & Financeiro":
             st.title("📊 Painel Financeiro & Fechamento por Data")
             
-            col_d1, col_d2 = st.columns(2)
+            col_d1, col_d2, col_d3 = st.columns(3)
             with col_d1:
-                data_inicio = st.date_input("Data Inicial", value=date.today())
+                data_inicio = st.date_input("Data Inicial", value=date(2025, 1, 1))
             with col_d2:
                 data_fim = st.date_input("Data Final", value=date.today())
+            with col_d3:
+                status_filtro = st.selectbox("Status dos Registros", ["Somente Vendas Concluídas", "Incluir Pedidos Pendentes", "Todos"])
                 
-            str_d1 = data_inicio.strftime("%Y-%m-%d 00:00:00")
-            str_d2 = data_fim.strftime("%Y-%m-%d 23:59:59")
+            str_d1 = data_inicio.strftime("%Y-%m-%d")
+            str_d2 = data_fim.strftime("%Y-%m-%d")
             
-            df_vendas = carregar_dados(f"SELECT * FROM vendas WHERE tipo = 'VENDA' AND data >= '{str_d1}' AND data <= '{str_d2}'")
+            cond_status = "tipo = 'VENDA'"
+            if status_filtro == "Incluir Pedidos Pendentes":
+                cond_status = "(tipo = 'PEDIDO' OR tipo IS NULL)"
+            elif status_filtro == "Todos":
+                cond_status = "1=1"
+                
+            query_fin = f"""
+                SELECT * FROM vendas 
+                WHERE {cond_status} 
+                AND (date(data) >= '{str_d1}' AND date(data) <= '{str_d2}' OR data IS NULL)
+            """
+            
+            df_vendas = carregar_dados(query_fin)
             
             if not df_vendas.empty:
                 col1, col2, col3 = st.columns(3)
                 faturamento = df_vendas['valor_total'].sum() if 'valor_total' in df_vendas.columns else 0.0
-                col1.metric("Faturamento Total", f"R$ {faturamento:,.2f}")
-                col2.metric("Total Recebido em Caixa", f"R$ {faturamento * 0.15:,.2f}")
-                col3.metric("Total a Receber (Fiado/Pendente)", f"R$ {faturamento * 0.85:,.2f}")
+                col1.metric("Faturamento do Período", f"R$ {faturamento:,.2f}")
+                col2.metric("Total Recebido em Caixa", f"R$ {df_vendas['valor_recebido'].sum():,.2f}")
+                col3.metric("Total Pendente / Fiado", f"R$ {faturamento - df_vendas['valor_recebido'].sum():,.2f}")
                 st.markdown("---")
-                st.subheader("📊 Resumo do Histórico de Vendas Concluídas no Período")
+                st.subheader("📊 Registros Encontrados")
                 st.dataframe(df_vendas, use_container_width=True)
             else:
-                st.info("Nenhuma venda confirmada encontrada no período selecionado.")
+                st.info("Nenhum registro encontrado para os filtros selecionados. Tente alterar o status ou o intervalo de datas.")
 
         elif menu_admin in ["📋 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
             st.title(f"📋 {menu_admin}")
@@ -435,10 +449,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 with col_f3:
                     d_fim = st.date_input("Data Final do Filtro", value=date.today())
                 
-                s_d1 = d_inicio.strftime("%Y-%m-%d 00:00:00")
-                s_d2 = d_fim.strftime("%Y-%m-%d 23:59:59")
+                s_d1 = d_inicio.strftime("%Y-%m-%d")
+                s_d2 = d_fim.strftime("%Y-%m-%d")
                 
-                query_filt = f"SELECT * FROM vendas WHERE data >= '{s_d1}' AND data <= '{s_d2}'"
+                query_filt = f"SELECT * FROM vendas WHERE (date(data) >= '{s_d1}' AND date(data) <= '{s_d2}' OR data IS NULL)"
                 if cliente_sel != "TODOS":
                     query_filt += f" AND cliente = '{cliente_sel}'"
                     nome_relatorio = cliente_sel
