@@ -16,6 +16,34 @@ def get_connection():
 
 conn = get_connection()
 
+def adequar_banco():
+    """Garante que todas as tabelas e colunas necessárias existam."""
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS vendas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            cliente TEXT,
+            produto TEXT,
+            fornecedor TEXT,
+            grupo TEXT,
+            quantidade REAL,
+            valor_venda REAL,
+            valor_total REAL,
+            forma_pagamento TEXT,
+            valor_recebido REAL,
+            tipo TEXT DEFAULT 'PEDIDO',
+            data TEXT
+        )
+    """)
+    # Adiciona a coluna 'tipo' em bancos antigos que ainda não a possuem
+    try:
+        cursor.execute("ALTER TABLE vendas ADD COLUMN tipo TEXT DEFAULT 'PEDIDO'")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass  # A coluna já existe
+
+adequar_banco()
+
 def carregar_dados(query):
     try:
         return pd.read_sql_query(query, conn)
@@ -83,22 +111,6 @@ def salvar_simples(tabela, coluna, valor):
 
 def salvar_pedido_ou_venda(cliente, produto, fornecedor, grupo, quantidade, valor_venda, forma_pagamento, valor_recebido, tipo="PEDIDO"):
     cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS vendas (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            cliente TEXT,
-            produto TEXT,
-            fornecedor TEXT,
-            grupo TEXT,
-            quantidade REAL,
-            valor_venda REAL,
-            valor_total REAL,
-            forma_pagamento TEXT,
-            valor_recebido REAL,
-            tipo TEXT,
-            data TEXT
-        )
-    """)
     valor_total = quantidade * valor_venda
     data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     cursor.execute("""
@@ -141,21 +153,25 @@ def gerar_pdf_pedido(row):
     buffer = io.BytesIO()
     p = canvas.Canvas(buffer, pagesize=letter)
     
+    tipo_registro = row.get('tipo', 'PEDIDO')
+    if pd.isna(tipo_registro) or not tipo_registro:
+        tipo_registro = 'PEDIDO'
+        
     p.setFont("Helvetica-Bold", 16)
-    p.drawString(100, 750, f"COMPROVANTE DE {row['tipo']} - Nº #{row['id']}")
+    p.drawString(100, 750, f"COMPROVANTE DE {tipo_registro} - Nº #{row['id']}")
     p.setLineWidth(1)
     p.line(100, 740, 500, 740)
     
     p.setFont("Helvetica", 12)
-    p.drawString(100, 710, f"Data: {row['data']}")
-    p.drawString(100, 690, f"Cliente: {row['cliente']}")
-    p.drawString(100, 670, f"Produto: {row['produto']}")
-    p.drawString(100, 650, f"Grupo: {row['grupo']} | Fornecedor: {row['fornecedor']}")
-    p.drawString(100, 630, f"Quantidade: {row['quantidade']}")
-    p.drawString(100, 610, f"Valor Unitário: R$ {row['valor_venda']:,.2f}")
-    p.drawString(100, 590, f"Valor Total: R$ {row['valor_total']:,.2f}")
-    p.drawString(100, 570, f"Forma de Pagamento: {row['forma_pagamento']}")
-    p.drawString(100, 550, f"Status: {row['tipo']}")
+    p.drawString(100, 710, f"Data: {row.get('data', '')}")
+    p.drawString(100, 690, f"Cliente: {row.get('cliente', '')}")
+    p.drawString(100, 670, f"Produto: {row.get('produto', '')}")
+    p.drawString(100, 650, f"Grupo: {row.get('grupo', '')} | Fornecedor: {row.get('fornecedor', '')}")
+    p.drawString(100, 630, f"Quantidade: {row.get('quantidade', 0)}")
+    p.drawString(100, 610, f"Valor Unitário: R$ {row.get('valor_venda', 0.0):,.2f}")
+    p.drawString(100, 590, f"Valor Total: R$ {row.get('valor_total', 0.0):,.2f}")
+    p.drawString(100, 570, f"Forma de Pagamento: {row.get('forma_pagamento', '')}")
+    p.drawString(100, 550, f"Status: {tipo_registro}")
     
     p.line(100, 530, 500, 530)
     p.drawString(100, 500, "Obrigado pela preferência!")
@@ -299,7 +315,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         cli = st.selectbox("Selecione o Cliente", clientes_opt)
                         prod = st.selectbox("Selecione o Produto", produtos_opt)
                         qtd = st.number_input("Quantidade", min_value=0.1, step=0.5, value=1.0)
-                        v_unit = st.number_input("Valor Unitarizadd (R$)", min_value=0.0, step=1.0, value=100.0)
+                        v_unit = st.number_input("Valor Unitário (R$)", min_value=0.0, step=1.0, value=100.0)
                     with col_b:
                         fornec = st.selectbox("Selecione o Fornecedor", fornecedores_opt)
                         grupo = st.selectbox("Selecione o Grupo", grupos_opt)
@@ -343,8 +359,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         )
                     
                     with col_btn2:
-                        if row_sel.get('tipo') == "PEDIDO":
-                            if st.button(f"🔄 Convertor Pedido #{row_sel['id']} para VENDA"):
+                        tipo_atual = row_sel.get('tipo', 'PEDIDO')
+                        if tipo_atual == "PEDIDO" or pd.isna(tipo_atual):
+                            if st.button(f"🔄 Converter Pedido #{row_sel['id']} para VENDA"):
                                 converter_pedido_para_venda(row_sel['id'])
                                 st.success("Pedido convertido em Venda com sucesso!")
                                 st.rerun()
