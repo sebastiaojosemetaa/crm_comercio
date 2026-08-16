@@ -4,7 +4,7 @@ import pandas as pd
 from datetime import datetime
 
 # -----------------------------------------------------------------------------
-# CONFIGURAÇÃO E CONEXÃO COM BANCO
+# 1. CONFIGURAÇÃO E CONEXÃO COM O BANCO DE DADOS
 # -----------------------------------------------------------------------------
 st.set_page_config(page_title="CRM Comércio", layout="wide")
 
@@ -19,7 +19,14 @@ def carregar_dados(query):
     except Exception:
         return pd.DataFrame()
 
-def salvar_pedido(cliente, produto, fornecedor, quantidade, valor_venda, forma_pagamento, valor_recebido):
+def carregar_coluna(tabela, coluna):
+    """Busca uma coluna específica do banco e retorna em lista limpa."""
+    df = carregar_dados(f"SELECT DISTINCT {coluna} FROM {tabela} WHERE {coluna} IS NOT NULL AND {coluna} != ''")
+    if not df.empty:
+        return df[coluna].tolist()
+    return []
+
+def salvar_pedido(cliente, produto, fornecedor, grupo, quantidade, valor_venda, forma_pagamento, valor_recebido):
     cursor = conn.cursor()
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS vendas (
@@ -27,6 +34,7 @@ def salvar_pedido(cliente, produto, fornecedor, quantidade, valor_venda, forma_p
             cliente TEXT,
             produto TEXT,
             fornecedor TEXT,
+            grupo TEXT,
             quantidade REAL,
             valor_venda REAL,
             valor_total REAL,
@@ -39,14 +47,14 @@ def salvar_pedido(cliente, produto, fornecedor, quantidade, valor_venda, forma_p
     data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
     cursor.execute("""
-        INSERT INTO vendas (cliente, produto, fornecedor, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, data)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (cliente, produto, fornecedor, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, data_atual))
+        INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, data)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, data_atual))
     
     conn.commit()
 
 # -----------------------------------------------------------------------------
-# INICIALIZAÇÃO DE SESSÃO
+# 2. INICIALIZAÇÃO DE SESSÃO
 # -----------------------------------------------------------------------------
 if 'admin_logged' not in st.session_state:
     st.session_state.admin_logged = False
@@ -55,7 +63,7 @@ if 'cliente_autenticado' not in st.session_state:
     st.session_state.cliente_autenticado = None
 
 # -----------------------------------------------------------------------------
-# SELEÇÃO DE PERFIL
+# 3. BARRA LATERAL: SELEÇÃO DE PERFIL
 # -----------------------------------------------------------------------------
 st.sidebar.title("🔑 Acesso ao Sistema")
 
@@ -65,7 +73,7 @@ perfil_selecionado = st.sidebar.radio("Selecione o Perfil:", opcoes_perfil)
 st.sidebar.markdown("---")
 
 # ==========================================
-# 1. PORTAL DO CLIENTE
+# AMBIENTE 1: PORTAL DO CLIENTE
 # ==========================================
 if perfil_selecionado == "👤 Portal do Cliente":
     
@@ -73,8 +81,8 @@ if perfil_selecionado == "👤 Portal do Cliente":
         st.title("🔒 Portal do Cliente")
         st.info("Por favor, selecione seu nome no menu à esquerda e insira sua senha para acessar seus pedidos.")
         
-        df_cli = carregar_dados("SELECT DISTINCT cliente FROM vendas WHERE cliente IS NOT NULL AND cliente != ''")
-        lista_clientes = df_cli['cliente'].tolist() if not df_cli.empty else ["Carlos Alberto", "Sebastião", "Valeilde Loja 01"]
+        # Busca lista de clientes cadastrados
+        lista_clientes = carregar_coluna("vendas", "cliente") or carregar_coluna("clientes", "nome") or ["Carlos Alberto", "Sebastião"]
         
         cliente_nome = st.sidebar.selectbox("Identifique seu Nome/Empresa:", lista_clientes)
         senha_cliente = st.sidebar.text_input("Digite sua Senha de Cliente:", type="password")
@@ -98,15 +106,23 @@ if perfil_selecionado == "👤 Portal do Cliente":
         
         with aba_novo:
             st.subheader("➕ Registrar Novo Pedido")
+            
+            # Carrega listas do banco
+            produtos_opt = carregar_coluna("produtos", "nome") or carregar_coluna("vendas", "produto") or ["AMEIXA IMPORTADA", "ABACATE", "CEBOLA CAIXA 1"]
+            fornecedores_opt = carregar_coluna("fornecedores", "nome") or carregar_coluna("vendas", "fornecedor") or ["BAHIA"]
+            grupos_opt = carregar_coluna("grupos", "nome") or carregar_coluna("vendas", "grupo") or ["GERAL"]
+            
             with st.form("form_novo_pedido_cliente"):
-                prod = st.text_input("Produto / Item")
-                fornec = st.text_input("Fornecedor", value="BAHIA")
+                prod = st.selectbox("Selecione o Produto", produtos_opt)
+                fornec = st.selectbox("Selecione o Fornecedor", fornecedores_opt)
+                grupo = st.selectbox("Selecione o Grupo", grupos_opt)
+                
                 qtd = st.number_input("Quantidade", min_value=0.1, step=0.5, value=1.0)
                 v_unit = st.number_input("Valor Unitário (R$)", min_value=0.0, step=1.0, value=100.0)
                 f_pag = st.selectbox("Forma de Pagamento", ["Dinheiro", "Crediário / Fiado", "Pix"])
                 
                 if st.form_submit_button("Confirmar Pedido"):
-                    salvar_pedido(st.session_state.cliente_autenticado, prod, fornec, qtd, v_unit, f_pag, v_unit * qtd)
+                    salvar_pedido(st.session_state.cliente_autenticado, prod, fornec, grupo, qtd, v_unit, f_pag, v_unit * qtd)
                     st.success("Pedido registrado com sucesso!")
                     st.rerun()
             
@@ -122,7 +138,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 st.warning("Nenhum pedido encontrado para o seu usuário.")
 
 # ==========================================
-# 2. ADMINISTRADOR / VENDEDOR
+# AMBIENTE 2: ADMINISTRADOR / VENDEDOR
 # ==========================================
 elif perfil_selecionado == "🔒 Administração / Vendedor":
     
@@ -179,18 +195,29 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             aba_cad, aba_list = st.tabs(["➕ Novo Registro / Pedido", "📜 Todos os Pedidos Cadastrados"])
             
             with aba_cad:
+                # Carregamento de listas cadastradas no banco
+                clientes_opt = carregar_coluna("clientes", "nome") or carregar_coluna("vendas", "cliente") or ["Carlos Alberto", "Sebastião", "Valeilde Loja 01"]
+                produtos_opt = carregar_coluna("produtos", "nome") or carregar_coluna("vendas", "produto") or ["AMEIXA IMPORTADA", "ABACATE", "CEBOLA CAIXA 1"]
+                fornecedores_opt = carregar_coluna("fornecedores", "nome") or carregar_coluna("vendas", "fornecedor") or ["BAHIA"]
+                grupos_opt = carregar_coluna("grupos", "nome") or carregar_coluna("vendas", "grupo") or ["GERAL"]
+                
                 with st.form("form_admin_pedido"):
-                    cli = st.text_input("Nome do Cliente", value="Carlos Alberto")
-                    prod = st.text_input("Produto")
-                    fornec = st.text_input("Fornecedor", value="BAHIA")
-                    qtd = st.number_input("Quantidade", min_value=0.1, step=0.5, value=1.0)
-                    v_unit = st.number_input("Valor da Venda (R$)", min_value=0.0, step=1.0, value=100.0)
-                    f_pag = st.selectbox("Forma de Pagamento", ["Dinheiro", "Crediário / Fiado", "Pix"])
-                    v_rec = st.number_input("Valor Recebido (R$)", min_value=0.0, step=1.0, value=0.0)
+                    col_a, col_b = st.columns(2)
+                    with col_a:
+                        cli = st.selectbox("Selecione o Cliente", clientes_opt)
+                        prod = st.selectbox("Selecione o Produto", produtos_opt)
+                        qtd = st.number_input("Quantidade", min_value=0.1, step=0.5, value=1.0)
+                        v_unit = st.number_input("Valor da Venda (R$)", min_value=0.0, step=1.0, value=100.0)
+                    
+                    with col_b:
+                        fornec = st.selectbox("Selecione o Fornecedor", fornecedores_opt)
+                        grupo = st.selectbox("Selecione o Grupo", grupos_opt)
+                        f_pag = st.selectbox("Forma de Pagamento", ["Dinheiro", "Crediário / Fiado", "Pix"])
+                        v_rec = st.number_input("Valor Recebido (R$)", min_value=0.0, step=1.0, value=0.0)
                     
                     if st.form_submit_button("Salvar Registro"):
-                        salvar_pedido(cli, prod, fornec, qtd, v_unit, f_pag, v_rec)
-                        st.success("Venda/Pedido gravado no banco de dados!")
+                        salvar_pedido(cli, prod, fornec, grupo, qtd, v_unit, f_pag, v_rec)
+                        st.success("Venda/Pedido gravado no banco de dados com sucesso!")
                         st.rerun()
 
             with aba_list:
