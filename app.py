@@ -53,6 +53,30 @@ def salvar_pedido(cliente, produto, fornecedor, grupo, quantidade, valor_venda, 
     
     conn.commit()
 
+def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo):
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS compras (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            produto TEXT,
+            fornecedor TEXT,
+            grupo TEXT,
+            quantidade REAL,
+            valor_custo REAL,
+            valor_total REAL,
+            data TEXT
+        )
+    """)
+    valor_total = quantidade * valor_custo
+    data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    cursor.execute("""
+        INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data_atual))
+    
+    conn.commit()
+
 # -----------------------------------------------------------------------------
 # 2. INICIALIZAÇÃO DE SESSÃO
 # -----------------------------------------------------------------------------
@@ -81,7 +105,6 @@ if perfil_selecionado == "👤 Portal do Cliente":
         st.title("🔒 Portal do Cliente")
         st.info("Por favor, selecione seu nome no menu à esquerda e insira sua senha para acessar seus pedidos.")
         
-        # Busca lista de clientes cadastrados
         lista_clientes = carregar_coluna("vendas", "cliente") or carregar_coluna("clientes", "nome") or ["Carlos Alberto", "Sebastião"]
         
         cliente_nome = st.sidebar.selectbox("Identifique seu Nome/Empresa:", lista_clientes)
@@ -107,7 +130,6 @@ if perfil_selecionado == "👤 Portal do Cliente":
         with aba_novo:
             st.subheader("➕ Registrar Novo Pedido")
             
-            # Carrega listas do banco
             produtos_opt = carregar_coluna("produtos", "nome") or carregar_coluna("vendas", "produto") or ["AMEIXA IMPORTADA", "ABACATE", "CEBOLA CAIXA 1"]
             fornecedores_opt = carregar_coluna("fornecedores", "nome") or carregar_coluna("vendas", "fornecedor") or ["BAHIA"]
             grupos_opt = carregar_coluna("grupos", "nome") or carregar_coluna("vendas", "grupo") or ["GERAL"]
@@ -195,7 +217,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             aba_cad, aba_list = st.tabs(["➕ Novo Registro / Pedido", "📜 Todos os Pedidos Cadastrados"])
             
             with aba_cad:
-                # Carregamento de listas cadastradas no banco
                 clientes_opt = carregar_coluna("clientes", "nome") or carregar_coluna("vendas", "cliente") or ["Carlos Alberto", "Sebastião", "Valeilde Loja 01"]
                 produtos_opt = carregar_coluna("produtos", "nome") or carregar_coluna("vendas", "produto") or ["AMEIXA IMPORTADA", "ABACATE", "CEBOLA CAIXA 1"]
                 fornecedores_opt = carregar_coluna("fornecedores", "nome") or carregar_coluna("vendas", "fornecedor") or ["BAHIA"]
@@ -225,7 +246,39 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.dataframe(df_pedidos, use_container_width=True)
 
         elif menu_admin == "📥 Entrada de Estoque (Compras)":
-            st.title("📥 Entrada de Estoque")
+            st.title("📥 Entrada de Estoque (Compras)")
+            
+            aba_compra, aba_historico_compras = st.tabs(["➕ Dar Entrada em Estoque", "📜 Histórico de Entradas / Compras"])
+            
+            produtos_opt = carregar_coluna("produtos", "nome") or carregar_coluna("vendas", "produto") or ["AMEIXA IMPORTADA", "ABACATE", "CEBOLA CAIXA 1"]
+            fornecedores_opt = carregar_coluna("fornecedores", "nome") or carregar_coluna("vendas", "fornecedor") or ["BAHIA"]
+            grupos_opt = carregar_coluna("grupos", "nome") or carregar_coluna("vendas", "grupo") or ["GERAL"]
+            
+            with aba_compra:
+                with st.form("form_entrada_estoque"):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        prod = st.selectbox("Selecione o Produto", produtos_opt)
+                        fornec = st.selectbox("Selecione o Fornecedor", fornecedores_opt)
+                        grupo = st.selectbox("Selecione o Grupo", grupos_opt)
+                    
+                    with col2:
+                        qtd = st.number_input("Quantidade Comprada", min_value=0.1, step=0.5, value=10.0)
+                        v_custo = st.number_input("Valor do Custo Unitário (R$)", min_value=0.0, step=1.0, value=50.0)
+                        v_total_calc = qtd * v_custo
+                        st.markdown(f"**Custo Total do Lote:** R$ {v_total_calc:,.2f}")
+                    
+                    if st.form_submit_button("Registrar Entrada no Estoque"):
+                        registrar_compra(prod, fornec, grupo, qtd, v_custo)
+                        st.success("Entrada de estoque gravada com sucesso!")
+                        st.rerun()
+                        
+            with aba_historico_compras:
+                df_compras = carregar_dados("SELECT * FROM compras")
+                if not df_compras.empty:
+                    st.dataframe(df_compras, use_container_width=True)
+                else:
+                    st.info("Nenhuma entrada de estoque registrada até o momento.")
 
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos")
