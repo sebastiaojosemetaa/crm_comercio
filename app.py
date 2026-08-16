@@ -187,8 +187,20 @@ list_grupos = grupos_df['grupo'].tolist() if not grupos_df.empty else ["GERAL"]
 # -----------------------------------------------------------------------------
 # --- ESTRUTURA PRINCIPAL ---
 
-# 1. PERFIL: PORTAL DO CLIENTE
-if perfil_selecionado == "🥷 Portal do Cliente":
+# 1. Criação e definição do perfil na barra lateral (VEM PRIMEIRO)
+opcoes_perfil = ["👤 Portal do Cliente", "🔒 Administração / Vendedor"]
+
+if 'perfil_ativo' not in st.session_state:
+    st.session_state.perfil_ativo = opcoes_perfil[0]
+
+index_atual = opcoes_perfil.index(st.session_state.perfil_ativo)
+
+# AQUI a variável perfil_selecionado é criada:
+perfil_selecionado = st.sidebar.radio("Selecione o Perfil:", opcoes_perfil, index=index_atual)
+
+# 2. Verificação da variável (VEM DEPOIS)
+if perfil_selecionado == "👤 Portal do Cliente":
+    # Conteúdo da tela do cliente...
     
     if not st.session_state.get('cliente_autenticado'):
         # --- FORMULÁRIO DE LOGIN DO CLIENTE (SIDEBAR OU CORPO) ---
