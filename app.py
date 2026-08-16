@@ -358,7 +358,8 @@ menu = st.sidebar.radio(
         "📥 Entrada de Estoque (Compras)",
         "📦 Estoque de Produtos",
         "👥 Cadastros (Clientes / Fornecedores / Grupos)"
-    ]
+    ],
+    key="menu_admin_principal"
 )
 
 if menu == "📊 Fechamento & Financeiro":
