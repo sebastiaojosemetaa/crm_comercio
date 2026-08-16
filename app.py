@@ -33,14 +33,19 @@ def adequar_banco():
             forma_pagamento TEXT,
             valor_recebido REAL,
             tipo TEXT DEFAULT 'PEDIDO',
+            codigo TEXT DEFAULT 'PED',
             data TEXT
         )
     """)
     try:
         cursor.execute("ALTER TABLE vendas ADD COLUMN tipo TEXT DEFAULT 'PEDIDO'")
-        conn.commit()
     except sqlite3.OperationalError:
         pass
+    try:
+        cursor.execute("ALTER TABLE vendas ADD COLUMN codigo TEXT DEFAULT 'PED'")
+    except sqlite3.OperationalError:
+        pass
+    conn.commit()
 
 adequar_banco()
 
@@ -57,7 +62,7 @@ def carregar_coluna(tabela, coluna):
     return []
 
 # -----------------------------------------------------------------------------
-# FUNÇÕES DE REGISTRO E CONVERSÃO
+# FUNÇÕES DE REGISTRO, MIGRAÇÃO E CONVERSÃO
 # -----------------------------------------------------------------------------
 def salvar_cliente_completo(nome, telefone, doc, endereco, cidade):
     cursor = conn.cursor()
@@ -113,19 +118,21 @@ def salvar_pedido_ou_venda(cliente, produto, fornecedor, grupo, quantidade, valo
     cursor = conn.cursor()
     valor_total = quantidade * valor_venda
     data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cod_status = "VEN" if tipo.upper() in ["VENDA", "VENDAS", "VEN"] else "PED"
+    
     cursor.execute("""
-        INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, tipo, data)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (cliente.strip(), produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, tipo, data_atual))
+        INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, tipo, codigo, data)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (cliente.strip(), produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, tipo, cod_status, data_atual))
     conn.commit()
 
 def converter_pedido_completo_para_venda(cliente_nome):
     cursor = conn.cursor()
     cursor.execute("""
         UPDATE vendas 
-        SET tipo = 'VENDA' 
+        SET tipo = 'VENDA', codigo = 'VEN' 
         WHERE TRIM(cliente) = TRIM(?) 
-        AND (UPPER(TRIM(tipo)) IN ('PEDIDO', 'PED') OR tipo IS NULL)
+        AND (UPPER(TRIM(COALESCE(tipo, ''))) IN ('PEDIDO', 'PED', '') OR UPPER(TRIM(COALESCE(codigo, ''))) IN ('PED', 'PEDIDO', ''))
     """, (cliente_nome,))
     conn.commit()
     return cursor.rowcount
@@ -159,46 +166,19 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral", d_inicio=None, d_fi
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
     elements = []
-    
     styles = getSampleStyleSheet()
     
     style_empresa = ParagraphStyle(
-        'EmpresaStyle',
-        parent=styles['Heading1'],
-        fontName='Helvetica-BoldOblique',
-        fontSize=20,
-        leading=22,
-        alignment=1,
-        textColor=colors.black
+        'EmpresaStyle', parent=styles['Heading1'], fontName='Helvetica-BoldOblique', fontSize=20, leading=22, alignment=1, textColor=colors.black
     )
-    
     style_sub = ParagraphStyle(
-        'SubStyle',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=9,
-        leading=11,
-        alignment=1
+        'SubStyle', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=9, leading=11, alignment=1
     )
-    
     style_titulo_relatorio = ParagraphStyle(
-        'RelatorioStyle',
-        parent=styles['Heading2'],
-        fontName='Helvetica-Bold',
-        fontSize=15,
-        leading=18,
-        alignment=1,
-        textColor=colors.HexColor('#1E50A2')
+        'RelatorioStyle', parent=styles['Heading2'], fontName='Helvetica-Bold', fontSize=15, leading=18, alignment=1, textColor=colors.HexColor('#1E50A2')
     )
-    
     style_data = ParagraphStyle(
-        'DataStyle',
-        parent=styles['Normal'],
-        fontName='Helvetica',
-        fontSize=9,
-        leading=11,
-        alignment=1,
-        textColor=colors.HexColor('#333333')
+        'DataStyle', parent=styles['Normal'], fontName='Helvetica', fontSize=9, leading=11, alignment=1, textColor=colors.HexColor('#333333')
     )
 
     elements.append(Paragraph("REY DA CEBOLA", style_empresa))
@@ -206,8 +186,7 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral", d_inicio=None, d_fi
     elements.append(Paragraph("CONTATO: (99) 98814-9722 OU (99) 98414-3943", style_sub))
     elements.append(Spacer(1, 10))
     
-    elements.append(Paragraph(f"Relatório de Pedidos - {cliente_nome}", style_titulo_relatorio))
-    
+    elements.append(Paragraph(f"Relatório de Pedidos / Vendas - {cliente_nome}", style_titulo_relatorio))
     periodo_str = f"Período: {d_inicio.strftime('%d/%m/%Y')} até {d_fim.strftime('%d/%m/%Y')}" if d_inicio and d_fim else f"Data de Emissão: {datetime.now().strftime('%d/%m/%Y %H:%M')}"
     elements.append(Spacer(1, 4))
     elements.append(Paragraph(periodo_str, style_data))
@@ -222,10 +201,7 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral", d_inicio=None, d_fi
     else:
         df_resumo = pd.DataFrame(columns=['produto', 'quantidade', 'valor_venda', 'valor_total'])
 
-    table_data = [
-        ["Produto", "Qtd Total", "Valor Unit. Médio (R$)", "Valor Total (R$)"]
-    ]
-    
+    table_data = [["Produto", "Qtd Total", "Valor Unit. Médio (R$)", "Valor Total (R$)"]]
     valor_total_geral = 0.0
     for _, row in df_resumo.iterrows():
         prod = str(row['produto'])
@@ -233,13 +209,12 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral", d_inicio=None, d_fi
         v_unit = f"R$ {row['valor_venda']:,.2f}"
         v_tot = row['valor_total']
         valor_total_geral += v_tot
-        
         table_data.append([prod, qtd, v_unit, f"R$ {v_tot:,.2f}"])
         
     table_data.append(["VALOR TOTAL GERAL", "", "", f"R$ {valor_total_geral:,.2f}"])
     
     t = Table(table_data, colWidths=[220, 90, 120, 120])
-    t_style = TableStyle([
+    t.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2A65F0')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
@@ -255,8 +230,7 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral", d_inicio=None, d_fi
         ('FONTSIZE', (0, -1), (-1, -1), 11),
         ('ALIGN', (0, -1), (2, -1), 'RIGHT'),
         ('ALIGN', (-1, -1), (-1, -1), 'CENTER'),
-    ])
-    t.setStyle(t_style)
+    ]))
     
     elements.append(t)
     doc.build(elements)
@@ -285,7 +259,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
         st.title("🔒 Portal do Cliente")
         st.info("Por favor, selecione seu nome no menu à esquerda e insira sua senha para acessar seus pedidos.")
         
-        lista_clientes = carregar_coluna("clientes", "nome") or carregar_coluna("vendas", "cliente") or ["Carlos Alberto", "Sebastião"]
+        lista_clientes = carregar_coluna("clientes", "nome") or carregar_coluna("vendas", "cliente") or ["Carlos Alberto"]
         cliente_nome = st.sidebar.selectbox("Identifique seu Nome/Empresa:", lista_clientes)
         senha_cliente = st.sidebar.text_input("Digite sua Senha de Cliente:", type="password")
         
@@ -387,27 +361,29 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             str_d1 = data_inicio.strftime("%Y-%m-%d")
             str_d2 = data_fim.strftime("%Y-%m-%d")
             
-            # Carrega todos os dados primeiro para filtrar no Pandas com tratamento robusto de data e texto
             df_todas = carregar_dados("SELECT * FROM vendas")
             
             if not df_todas.empty:
-                # Normaliza coluna de tipo
-                df_todas['tipo_norm'] = df_todas['tipo'].fillna('').astype(str).str.strip().str.upper()
+                # Normaliza colunas de verificação (tanto 'tipo' quanto 'codigo')
+                df_todas['tipo_str'] = df_todas['tipo'].fillna('').astype(str).str.strip().str.upper() if 'tipo' in df_todas.columns else ''
+                df_todas['codigo_str'] = df_todas['codigo'].fillna('').astype(str).str.strip().str.upper() if 'codigo' in df_todas.columns else ''
                 
-                # Filtra por status
+                # Identifica registros que são vendas
+                is_venda = df_todas['tipo_str'].isin(['VENDA', 'VENDAS', 'VEN']) | df_todas['codigo_str'].isin(['VEN', 'VENDA'])
+                
                 if status_filtro == "Somente Vendas Concluídas":
-                    df_vendas = df_todas[df_todas['tipo_norm'].isin(['VENDA', 'VENDAS'])]
+                    df_vendas = df_todas[is_venda]
                 elif status_filtro == "Incluir Pedidos Pendentes":
-                    df_vendas = df_todas[df_todas['tipo_norm'].isin(['PEDIDO', 'PED', ''])]
+                    df_vendas = df_todas[~is_venda]
                 else:
                     df_vendas = df_todas.copy()
                 
-                # Filtra por intervalo de data (extrai apenas os 10 primeiros caracteres YYYY-MM-DD)
+                # Filtra por data
                 if 'data' in df_vendas.columns:
                     df_vendas['data_curta'] = df_vendas['data'].fillna('').astype(str).str.slice(0, 10)
                     mask_data = (df_vendas['data_curta'] >= str_d1) & (df_vendas['data_curta'] <= str_d2)
                     df_vendas = df_vendas[mask_data | (df_vendas['data_curta'] == '')]
-                    df_vendas = df_vendas.drop(columns=['data_curta', 'tipo_norm'], errors='ignore')
+                    df_vendas = df_vendas.drop(columns=['data_curta', 'tipo_str', 'codigo_str'], errors='ignore')
             else:
                 df_vendas = pd.DataFrame()
             
@@ -429,7 +405,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             aba_cad, aba_list = st.tabs(["➕ Novo Registro / Pedido", "📜 Gestão de Pedidos e Vendas"])
             
             with aba_cad:
-                clientes_opt = carregar_coluna("clientes", "nome") or ["Carlos Alberto", "Sebastião"]
+                clientes_opt = carregar_coluna("clientes", "nome") or ["Carlos Alberto"]
                 produtos_opt = carregar_coluna("produtos", "nome") or ["AMEIXA IMPORTADA", "ABACATE"]
                 fornecedores_opt = carregar_coluna("fornecedores", "nome") or ["BAHIA"]
                 grupos_opt = carregar_coluna("grupos", "nome") or ["GERAL"]
@@ -447,7 +423,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         fornec = st.selectbox("Selecione o Fornecedor", fornecedores_opt)
                         grupo = st.selectbox("Selecione o Grupo", grupos_opt)
                         f_pag = st.selectbox("Forma de Pagamento", ["Dinheiro", "Crediário / Fiado", "Pix"])
-                        v_rec = st.number_input("Valor Recebido (R$)", min_value=0.0, step=1.0, value=0.0)
+                        v_rec = st.number_input("Valor Recebido (R$)", min_value=0.0, step=1.0, value=v_unit * qtd)
                     
                     if st.form_submit_button(f"Salvar como {tipo_registro}"):
                         salvar_pedido_ou_venda(cli, prod, fornec, grupo, qtd, v_unit, f_pag, v_rec, tipo=tipo_registro)
@@ -496,10 +472,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.markdown("---")
                     
                     if cliente_sel != "TODOS":
-                        mask_pedidos = (
-                            df_registros['tipo'].astype(str).str.strip().str.upper().isin(['PEDIDO', 'PED', 'NONE', 'NAN', '']) | 
-                            df_registros['tipo'].isna()
-                        )
+                        tipo_str = df_registros['tipo'].fillna('').astype(str).str.strip().str.upper() if 'tipo' in df_registros.columns else pd.Series([''] * len(df_registros))
+                        codigo_str = df_registros['codigo'].fillna('').astype(str).str.strip().str.upper() if 'codigo' in df_registros.columns else pd.Series([''] * len(df_registros))
+                        
+                        mask_pedidos = (~tipo_str.isin(['VENDA', 'VENDAS', 'VEN'])) & (~codigo_str.isin(['VEN', 'VENDA']))
                         pedidos_pendentes = df_registros[mask_pedidos]
                         
                         if not pedidos_pendentes.empty:
@@ -510,7 +486,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             
                             if st.button(f"🔄 Converter Pedido Completo de {cliente_sel} para VENDA", key="btn_converter_venda"):
                                 linhas_afetadas = converter_pedido_completo_para_venda(cliente_sel)
-                                st.success(f"Sucesso! {linhas_afetadas} registro(s) do cliente {cliente_sel} foram convertidos para VENDA no banco de dados!")
+                                st.success(f"Sucesso! {linhas_afetadas} registro(s) do cliente {cliente_sel} foram convertidos para VENDA!")
                                 st.rerun()
                         else:
                             st.info(f"✅ Todos os registros exibidos para **{cliente_sel}** já estão confirmados como **VENDA**.")
