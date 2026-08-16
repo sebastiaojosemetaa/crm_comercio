@@ -119,9 +119,10 @@ def salvar_pedido_ou_venda(cliente, produto, fornecedor, grupo, quantidade, valo
     """, (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, tipo, data_atual))
     conn.commit()
 
-def converter_pedido_para_venda(pedido_id):
+# CONVERTE TODO O PEDIDO COMPLETO DO CLIENTE
+def converter_pedido_completo_para_venda(cliente_nome):
     cursor = conn.cursor()
-    cursor.execute("UPDATE vendas SET tipo = 'VENDA' WHERE id = ?", (pedido_id,))
+    cursor.execute("UPDATE vendas SET tipo = 'VENDA' WHERE cliente = ? AND (tipo = 'PEDIDO' OR tipo IS NULL)", (cliente_nome,))
     conn.commit()
 
 def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo):
@@ -162,7 +163,7 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
         fontName='Helvetica-BoldOblique',
         fontSize=20,
         leading=22,
-        alignment=1, # Centralizado
+        alignment=1,
         textColor=colors.black
     )
     
@@ -195,20 +196,17 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
         textColor=colors.HexColor('#333333')
     )
 
-    # 1. CABEÇALHO DA EMPRESA
     elements.append(Paragraph("REY DA CEBOLA", style_empresa))
     elements.append(Paragraph("CNPJ: 194.174.39/000-42 INSC.EST.: 12.426725-4", style_sub))
     elements.append(Paragraph("CONTATO: (99) 98814-9722 OU (99) 98414-3943", style_sub))
     elements.append(Spacer(1, 10))
     
-    # 2. TÍTULO DINÂMICO (GERAL OU NOME DO CLIENTE)
     elements.append(Paragraph(f"Relatório de Pedidos - {cliente_nome}", style_titulo_relatorio))
     data_emissao = datetime.now().strftime("%d/%m/%Y %H:%M")
     elements.append(Spacer(1, 4))
     elements.append(Paragraph(f"Data de Emissão: {data_emissao}", style_data))
     elements.append(Spacer(1, 15))
     
-    # 3. AGRUPAMENTO E SOMA DOS PRODUTOS
     if not df_dados.empty:
         df_resumo = df_dados.groupby('produto').agg({
             'quantidade': 'sum',
@@ -232,10 +230,8 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
         
         table_data.append([prod, qtd, v_unit, f"R$ {v_tot:,.2f}"])
         
-    # LINHA FINAL DO TOTAL GERAL
     table_data.append(["VALOR TOTAL GERAL", "", "", f"R$ {valor_total_geral:,.2f}"])
     
-    # ESTILIZAÇÃO DA TABELA (AZUL, BRANCO E BORDAS)
     t = Table(table_data, colWidths=[220, 90, 120, 120])
     t_style = TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2A65F0')),
@@ -246,7 +242,6 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
         ('ALIGN', (0, 1), (0, -2), 'LEFT'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('GRID', (0, 0), (-1, -2), 0.5, colors.HexColor('#CCCCCC')),
-        # Linha de total geral (Rodapé escuro)
         ('SPAN', (0, -1), (2, -1)),
         ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#1B2A4A')),
         ('TEXTCOLOR', (0, -1), (-1, -1), colors.white),
@@ -446,18 +441,22 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     )
                     
                     st.markdown("---")
-                    st.subheader("⚙️ Converter Pedido para Venda Concluída")
-                    pedido_id_sel = st.selectbox("Selecione o ID do Pedido:", df_registros['id'].tolist())
-                    row_sel = df_registros[df_registros['id'] == pedido_id_sel].iloc[0]
+                    st.subheader("⚙️ Converter Pedido Completo em Venda")
                     
-                    tipo_atual = row_sel.get('tipo', 'PEDIDO')
-                    if tipo_atual == "PEDIDO" or pd.isna(tipo_atual):
-                        if st.button(f"🔄 Converter Pedido #{row_sel['id']} para VENDA"):
-                            converter_pedido_para_venda(row_sel['id'])
-                            st.success("Pedido convertido em Venda com sucesso!")
-                            st.rerun()
+                    if cliente_sel != "TODOS":
+                        pedidos_pendentes = df_registros[df_registros['tipo'].isin(['PEDIDO', None])]
+                        if not pedidos_pendentes.empty:
+                            total_ped = pedidos_pendentes['valor_total'].sum()
+                            qtd_itens = len(pedidos_pendentes)
+                            st.write(f"O cliente **{cliente_sel}** possui **{qtd_itens} itens** pendentes, somando **R$ {total_ped:,.2f}**.")
+                            if st.button(f"🔄 Converter Pedido Completo de {cliente_sel} para VENDA"):
+                                converter_pedido_completo_para_venda(cliente_sel)
+                                st.success(f"Todos os {qtd_itens} itens do pedido de {cliente_sel} foram convertidos para VENDA!")
+                                st.rerun()
+                        else:
+                            st.info(f"Todos os itens de {cliente_sel} já estão convertidos como VENDA.")
                     else:
-                        st.info("Este registro já é uma Venda confirmada.")
+                        st.info("Para converter o pedido completo, selecione um cliente específico no filtro acima.")
                 else:
                     st.info("Nenhum registro encontrado para a seleção.")
 
