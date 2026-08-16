@@ -349,9 +349,20 @@ menu = st.sidebar.radio(
         ]
     )
 
+menu = st.sidebar.radio(
+    "Navegação",
+    [
+        "📊 Fechamento & Financeiro",
+        "📋 Pedidos / Orçamentos",
+        "🛒 Registrar Venda",
+        "📥 Entrada de Estoque (Compras)",
+        "📦 Estoque de Produtos",
+        "👥 Cadastros (Clientes / Fornecedores / Grupos)"
+    ]
+)
+
 if menu == "📊 Fechamento & Financeiro":
-IndentationError: unexpected indent   
-st.title("📊 Painel Financeiro & Fechamento")
+    st.title("📊 Painel Financeiro & Fechamento")
     
     df_vendas = pd.read_sql_query("SELECT * FROM vendas", conn)
     
@@ -366,8 +377,8 @@ st.title("📊 Painel Financeiro & Fechamento")
         c3.metric("Total a Receber (Fiado/Pendente)", f"R$ {total_fiado:,.2f}")
         
         st.markdown("---")
-        st.subheader("📋 Resumo do Histórico de Vendas")
-        cols_exib = [c for c in ['id', 'codigo_venda', 'data', 'cliente', 'produto', 'fornecedor', 'grupo', 'quantidade', 'valor_venda', 'valor_total', 'forma_pagamento', 'restante'] if c in df_vendas.columns]
+        st.subheader("📊 Resumo do Histórico de Vendas")
+        cols_exib = [c for c in ['id', 'codigo_venda', 'data', 'cliente', 'produto', 'fornecedor', 'grupo', 'quantidade', 'valor_venda', 'valor_total'] if c in df_vendas.columns]
         st.dataframe(df_vendas[cols_exib], use_container_width=True)
     else:
         st.info("Nenhuma venda registrada até o momento.")
