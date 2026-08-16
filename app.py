@@ -71,35 +71,7 @@ def carregar_coluna(tabela, coluna):
     return []
 
 # -----------------------------------------------------------------------------
-# FUNÇÕES DE EDICÃO E EXCLUSÃO (NOVAS)
-# -----------------------------------------------------------------------------
-def atualizar_item_venda(id_registro, quantidade, valor_venda, forma_pagamento, valor_recebido):
-    cursor = conn.cursor()
-    valor_total = quantidade * valor_venda
-    cursor.execute("""
-        UPDATE vendas 
-        SET quantidade = ?, valor_venda = ?, valor_total = ?, forma_pagamento = ?, valor_recebido = ?
-        WHERE id = ?
-    """, (quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, id_registro))
-    conn.commit()
-
-def deletar_item_venda(id_registro):
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM vendas WHERE id = ?", (id_registro,))
-    conn.commit()
-
-def deletar_pedidos_cliente(cliente_nome, s_d1, s_d2):
-    cursor = conn.cursor()
-    cursor.execute("""
-        DELETE FROM vendas 
-        WHERE TRIM(cliente) = TRIM(?) 
-          AND (substr(data, 1, 10) >= ? AND substr(data, 1, 10) <= ? OR data IS NULL OR data = '')
-    """, (cliente_nome, s_d1, s_d2))
-    conn.commit()
-    return cursor.rowcount
-
-# -----------------------------------------------------------------------------
-# FUNÇÕES DE REGISTRO E CONVERSÃO
+# FUNÇÕES DE REGISTRO, ATUALIZAÇÃO E EXCLUSÃO NO BANCO
 # -----------------------------------------------------------------------------
 def salvar_cliente_completo(nome, telefone, doc, endereco, cidade):
     cursor = conn.cursor()
@@ -170,6 +142,16 @@ def converter_pedido_completo_para_venda(cliente_nome):
         SET tipo = 'VENDA', codigo = 'VEN' 
         WHERE TRIM(cliente) = TRIM(?)
     """, (cliente_nome,))
+    conn.commit()
+    return cursor.rowcount
+
+def deletar_pedidos_cliente(cliente_nome, s_d1, s_d2):
+    cursor = conn.cursor()
+    cursor.execute("""
+        DELETE FROM vendas 
+        WHERE TRIM(cliente) = TRIM(?) 
+          AND (substr(data, 1, 10) >= ? AND substr(data, 1, 10) <= ? OR data IS NULL OR data = '')
+    """, (cliente_nome, s_d1, s_d2))
     conn.commit()
     return cursor.rowcount
 
@@ -458,7 +440,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
         elif menu_admin in ["📋 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
             st.title(f"📋 {menu_admin}")
-            aba_cad, aba_list = st.tabs(["➕ Novo Registro / Pedido", "📜 Gestão, Edição & Exclusão de Pedidos"])
+            aba_cad, aba_list = st.tabs(["➕ Novo Registro / Pedido", "✏️ Tabela Editável (Edição Direta & Exclusão)"])
             
             with aba_cad:
                 clientes_opt = carregar_coluna("clientes", "nome") or ["Carlos Alberto"]
@@ -487,7 +469,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.rerun()
 
             with aba_list:
-                st.subheader("🔍 Consultar e Gerenciar Registros por Data e Cliente")
+                st.subheader("🔍 Edição Direta na Tabela & Gestão por Cliente")
                 
                 col_f1, col_f2, col_f3 = st.columns(3)
                 with col_f1:
@@ -511,45 +493,81 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 df_registros = carregar_dados(query_filt)
                 
                 if not df_registros.empty:
-                    st.dataframe(df_registros, use_container_width=True)
+                    st.caption("💡 **Dica:** Clique diretamente em qualquer célula para alterar valores (como quantidade, valor de venda, etc.). Marque **Deletar** e clique no botão abaixo para remover registros permanentemente.")
                     
-                    st.markdown("---")
-                    st.subheader("✏️ Alterar Produto / Item Direto na Tela")
-                    st.caption("Edite os dados abaixo por linha e clique em **Atualizar** para gravar no banco ou **Deletar** para remover o item.")
+                    # Adiciona coluna temporária de checkbox para remoção
+                    df_registros.insert(0, "Deletar", False)
                     
-                    opcoes_pagamento = ["Crediário / Fiado", "Dinheiro", "Pix"]
+                    # Configuração das colunas editáveis
+                    df_editado = st.data_editor(
+                        df_registros,
+                        key="editor_registros_vendas",
+                        use_container_width=True,
+                        num_rows="fixed",
+                        column_config={
+                            "Deletar": st.column_config.CheckboxColumn("Deletar", help="Marque para excluir o item"),
+                            "id": st.column_config.NumberColumn("ID", disabled=True),
+                            "cliente": st.column_config.TextColumn("Cliente"),
+                            "produto": st.column_config.TextColumn("Produto"),
+                            "fornecedor": st.column_config.TextColumn("Fornecedor"),
+                            "quantidade": st.column_config.NumberColumn("Qtd", min_value=0.0, format="%.2f"),
+                            "valor_venda": st.column_config.NumberColumn("Valor Venda", min_value=0.0, format="R$ %.2f"),
+                            "valor_total": st.column_config.NumberColumn("Valor Total", disabled=True, format="R$ %.2f"),
+                            "forma_pagamento": st.column_config.SelectboxColumn("Forma Pagamento", options=["Dinheiro", "Crediário / Fiado", "Pix"]),
+                            "valor_recebido": st.column_config.NumberColumn("Valor Recebido", min_value=0.0, format="R$ %.2f"),
+                            "tipo": st.column_config.TextColumn("Tipo"),
+                            "codigo": st.column_config.TextColumn("Código"),
+                            "data": st.column_config.TextColumn("Data", disabled=True),
+                        },
+                        hide_index=True
+                    )
                     
-                    for idx, row in df_registros.iterrows():
-                        reg_id = row['id']
-                        prod_nome = row['produto']
-                        cli_nome = row['cliente']
-                        qtd_atual = float(row['quantidade']) if pd.notnull(row['quantidade']) else 1.0
-                        v_venda_atual = float(row['valor_venda']) if pd.notnull(row['valor_venda']) else 0.0
-                        f_pag_atual = str(row['forma_pagamento']) if pd.notnull(row['forma_pagamento']) else "Crediário / Fiado"
-                        v_rec_atual = float(row['valor_recebido']) if pd.notnull(row['valor_recebido']) else 0.0
-                        
-                        with st.expander(f"📦 ID: {reg_id} | Cliente: {cli_nome} | Produto: {prod_nome}"):
-                            c1, c2, c3, c4, c5, c6 = st.columns([1.5, 1.5, 2, 1.5, 1, 1])
-                            
-                            nova_qtd = c1.number_input("Qtd", min_value=0.1, step=0.5, value=qtd_atual, key=f"qtd_{reg_id}")
-                            novo_v_venda = c2.number_input("Valor Unit (R$)", min_value=0.0, step=1.0, value=v_venda_atual, key=f"vv_{reg_id}")
-                            
-                            idx_fp = opcoes_pagamento.index(f_pag_atual) if f_pag_atual in opcoes_pagamento else 0
-                            nova_f_pag = c3.selectbox("Forma Pagto", opcoes_pagamento, index=idx_fp, key=f"fp_{reg_id}")
-                            novo_v_rec = c4.number_input("Valor Rec (R$)", min_value=0.0, step=1.0, value=v_rec_atual, key=f"vr_{reg_id}")
-                            
-                            st.write(f"**Novo Valor Total:** R$ {nova_qtd * novo_v_venda:,.2f}")
-                            
-                            if c5.button("💾 Salvar", key=f"btn_salvar_{reg_id}"):
-                                atualizar_item_venda(reg_id, nova_qtd, novo_v_venda, nova_f_pag, novo_v_rec)
-                                st.success(f"Item ID {reg_id} atualizado com sucesso!")
+                    c_btn1, c_btn2 = st.columns([1, 1])
+                    
+                    with c_btn1:
+                        if st.button("💾 Salvar Alterações Feitas na Tabela", type="primary"):
+                            cursor = conn.cursor()
+                            for _, row in df_editado.iterrows():
+                                if not row["Deletar"]:
+                                    v_tot = float(row["quantidade"]) * float(row["valor_venda"])
+                                    cursor.execute("""
+                                        UPDATE vendas 
+                                        SET cliente = ?, produto = ?, fornecedor = ?, quantidade = ?, 
+                                            valor_venda = ?, valor_total = ?, forma_pagamento = ?, 
+                                            valor_recebido = ?, grupo = ?, tipo = ?, codigo = ?
+                                        WHERE id = ?
+                                    """, (
+                                        str(row["cliente"]).strip(),
+                                        str(row["produto"]),
+                                        str(row["fornecedor"]),
+                                        float(row["quantidade"]),
+                                        float(row["valor_venda"]),
+                                        v_tot,
+                                        str(row["forma_pagamento"]),
+                                        float(row["valor_recebido"]),
+                                        str(row["grupo"]),
+                                        str(row["tipo"]),
+                                        str(row["codigo"]),
+                                        int(row["id"])
+                                    ))
+                            conn.commit()
+                            st.success("Todas as edições na tabela foram salvas no banco de dados!")
+                            st.rerun()
+
+                    with c_btn2:
+                        itens_para_deletar = df_editado[df_editado["Deletar"] == True]
+                        if not itens_para_deletar.empty:
+                            if st.button(f"🗑️ Confirmar Exclusão de ({len(itens_para_deletar)}) Item(ns) Marcados"):
+                                ids_del = tuple(itens_para_deletar["id"].tolist())
+                                cursor = conn.cursor()
+                                if len(ids_del) == 1:
+                                    cursor.execute("DELETE FROM vendas WHERE id = ?", (ids_del[0],))
+                                else:
+                                    cursor.execute(f"DELETE FROM vendas WHERE id IN {ids_del}")
+                                conn.commit()
+                                st.warning(f"{len(ids_del)} registro(s) foram apagados do banco com sucesso!")
                                 st.rerun()
-                                
-                            if c6.button("🗑️ Deletar", key=f"btn_del_{reg_id}"):
-                                deletar_item_venda(reg_id)
-                                st.warning(f"Item ID {reg_id} deletado com sucesso!")
-                                st.rerun()
-                    
+
                     st.markdown("---")
                     st.subheader(f"📄 Relatório e Exclusão Total ({nome_relatorio})")
                     
@@ -565,7 +583,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     
                     with col_b2:
                         if cliente_sel != "TODOS":
-                            if st.button(f"🚨 Apagar Pedido / Venda INTEIRA de {cliente_sel}", type="primary"):
+                            if st.button(f"🚨 Apagar Pedido / Venda INTEIRA de {cliente_sel}"):
                                 qtd_del = deletar_pedidos_cliente(cliente_sel, s_d1, s_d2)
                                 st.success(f"Foram deletados {qtd_del} registro(s) de {cliente_sel} com sucesso!")
                                 st.rerun()
