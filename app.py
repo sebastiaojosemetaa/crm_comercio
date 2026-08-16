@@ -4,12 +4,14 @@ import pandas as pd
 from datetime import datetime
 import io
 from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
 # -----------------------------------------------------------------------------
 # 1. CONFIGURAÇÃO E CONEXÃO COM O BANCO DE DADOS
 # -----------------------------------------------------------------------------
-st.set_page_config(page_title="CRM Comércio", layout="wide")
+st.set_page_config(page_title="CRM Comércio - Rey da Cebola", layout="wide")
 
 def get_connection():
     return sqlite3.connect("crm_comercio.db", check_same_thread=False)
@@ -17,7 +19,6 @@ def get_connection():
 conn = get_connection()
 
 def adequar_banco():
-    """Garante que todas as tabelas e colunas necessárias existam."""
     cursor = conn.cursor()
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS vendas (
@@ -35,12 +36,11 @@ def adequar_banco():
             data TEXT
         )
     """)
-    # Adiciona a coluna 'tipo' em bancos antigos que ainda não a possuem
     try:
         cursor.execute("ALTER TABLE vendas ADD COLUMN tipo TEXT DEFAULT 'PEDIDO'")
         conn.commit()
     except sqlite3.OperationalError:
-        pass  # A coluna já existe
+        pass
 
 adequar_banco()
 
@@ -57,7 +57,7 @@ def carregar_coluna(tabela, coluna):
     return []
 
 # -----------------------------------------------------------------------------
-# FUNÇÕES DE BANCO DE DADOS E REGISTROS
+# FUNÇÕES DE REGISTRO
 # -----------------------------------------------------------------------------
 def salvar_cliente_completo(nome, telefone, doc, endereco, cidade):
     cursor = conn.cursor()
@@ -147,37 +147,118 @@ def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo):
     conn.commit()
 
 # -----------------------------------------------------------------------------
-# GERADOR DE PDF
+# GERADOR DE PDF CUSTOMIZADO (MODELO REY DA CEBOLA)
 # -----------------------------------------------------------------------------
-def gerar_pdf_pedido(row):
+def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
     buffer = io.BytesIO()
-    p = canvas.Canvas(buffer, pagesize=letter)
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+    elements = []
     
-    tipo_registro = row.get('tipo', 'PEDIDO')
-    if pd.isna(tipo_registro) or not tipo_registro:
-        tipo_registro = 'PEDIDO'
+    styles = getSampleStyleSheet()
+    
+    style_empresa = ParagraphStyle(
+        'EmpresaStyle',
+        parent=styles['Heading1'],
+        fontName='Helvetica-BoldOblique',
+        fontSize=20,
+        leading=22,
+        alignment=1, # Centralizado
+        textColor=colors.black
+    )
+    
+    style_sub = ParagraphStyle(
+        'SubStyle',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=9,
+        leading=11,
+        alignment=1
+    )
+    
+    style_titulo_relatorio = ParagraphStyle(
+        'RelatorioStyle',
+        parent=styles['Heading2'],
+        fontName='Helvetica-Bold',
+        fontSize=15,
+        leading=18,
+        alignment=1,
+        textColor=colors.HexColor('#1E50A2')
+    )
+    
+    style_data = ParagraphStyle(
+        'DataStyle',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=9,
+        leading=11,
+        alignment=1,
+        textColor=colors.HexColor('#333333')
+    )
+
+    # 1. CABEÇALHO DA EMPRESA
+    elements.append(Paragraph("REY DA CEBOLA", style_empresa))
+    elements.append(Paragraph("CNPJ: 194.174.39/000-42 INSC.EST.: 12.426725-4", style_sub))
+    elements.append(Paragraph("CONTATO: (99) 98814-9722 OU (99) 98414-3943", style_sub))
+    elements.append(Spacer(1, 10))
+    
+    # 2. TÍTULO DINÂMICO (GERAL OU NOME DO CLIENTE)
+    elements.append(Paragraph(f"Relatório de Pedidos - {cliente_nome}", style_titulo_relatorio))
+    data_emissao = datetime.now().strftime("%d/%m/%Y %H:%M")
+    elements.append(Spacer(1, 4))
+    elements.append(Paragraph(f"Data de Emissão: {data_emissao}", style_data))
+    elements.append(Spacer(1, 15))
+    
+    # 3. AGRUPAMENTO E SOMA DOS PRODUTOS
+    if not df_dados.empty:
+        df_resumo = df_dados.groupby('produto').agg({
+            'quantidade': 'sum',
+            'valor_venda': 'mean',
+            'valor_total': 'sum'
+        }).reset_index()
+    else:
+        df_resumo = pd.DataFrame(columns=['produto', 'quantidade', 'valor_venda', 'valor_total'])
+
+    table_data = [
+        ["Produto", "Qtd Total", "Valor Unit. Médio (R$)", "Valor Total (R$)"]
+    ]
+    
+    valor_total_geral = 0.0
+    for _, row in df_resumo.iterrows():
+        prod = str(row['produto'])
+        qtd = f"{row['quantidade']:.2f}"
+        v_unit = f"R$ {row['valor_venda']:,.2f}"
+        v_tot = row['valor_total']
+        valor_total_geral += v_tot
         
-    p.setFont("Helvetica-Bold", 16)
-    p.drawString(100, 750, f"COMPROVANTE DE {tipo_registro} - Nº #{row['id']}")
-    p.setLineWidth(1)
-    p.line(100, 740, 500, 740)
+        table_data.append([prod, qtd, v_unit, f"R$ {v_tot:,.2f}"])
+        
+    # LINHA FINAL DO TOTAL GERAL
+    table_data.append(["VALOR TOTAL GERAL", "", "", f"R$ {valor_total_geral:,.2f}"])
     
-    p.setFont("Helvetica", 12)
-    p.drawString(100, 710, f"Data: {row.get('data', '')}")
-    p.drawString(100, 690, f"Cliente: {row.get('cliente', '')}")
-    p.drawString(100, 670, f"Produto: {row.get('produto', '')}")
-    p.drawString(100, 650, f"Grupo: {row.get('grupo', '')} | Fornecedor: {row.get('fornecedor', '')}")
-    p.drawString(100, 630, f"Quantidade: {row.get('quantidade', 0)}")
-    p.drawString(100, 610, f"Valor Unitário: R$ {row.get('valor_venda', 0.0):,.2f}")
-    p.drawString(100, 590, f"Valor Total: R$ {row.get('valor_total', 0.0):,.2f}")
-    p.drawString(100, 570, f"Forma de Pagamento: {row.get('forma_pagamento', '')}")
-    p.drawString(100, 550, f"Status: {tipo_registro}")
+    # ESTILIZAÇÃO DA TABELA (AZUL, BRANCO E BORDAS)
+    t = Table(table_data, colWidths=[220, 90, 120, 120])
+    t_style = TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2A65F0')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 10),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('ALIGN', (0, 1), (0, -2), 'LEFT'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('GRID', (0, 0), (-1, -2), 0.5, colors.HexColor('#CCCCCC')),
+        # Linha de total geral (Rodapé escuro)
+        ('SPAN', (0, -1), (2, -1)),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#1B2A4A')),
+        ('TEXTCOLOR', (0, -1), (-1, -1), colors.white),
+        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, -1), (-1, -1), 11),
+        ('ALIGN', (0, -1), (2, -1), 'RIGHT'),
+        ('ALIGN', (-1, -1), (-1, -1), 'CENTER'),
+    ])
+    t.setStyle(t_style)
     
-    p.line(100, 530, 500, 530)
-    p.drawString(100, 500, "Obrigado pela preferência!")
-    
-    p.showPage()
-    p.save()
+    elements.append(t)
+    doc.build(elements)
     buffer.seek(0)
     return buffer
 
@@ -248,6 +329,15 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 soma_total = df_pedidos['valor_total'].sum() if 'valor_total' in df_pedidos.columns else 0.0
                 st.markdown(f"**Itens Registrados:** {len(df_pedidos)} | **Soma dos Valores:** R$ {soma_total:,.2f}")
                 st.dataframe(df_pedidos, use_container_width=True)
+                
+                st.markdown("---")
+                pdf_cli = gerar_pdf_tabela_pedidos(df_pedidos, cliente_nome=st.session_state.cliente_autenticado)
+                st.download_button(
+                    label=f"📄 Baixar Relatório de Pedidos ({st.session_state.cliente_autenticado}) em PDF",
+                    data=pdf_cli,
+                    file_name=f"Relatorio_Pedidos_{st.session_state.cliente_autenticado}.pdf",
+                    mime="application/pdf"
+                )
             else:
                 st.warning("Nenhum pedido encontrado para o seu usuário.")
 
@@ -335,38 +425,39 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 
                 if cliente_sel == "TODOS":
                     df_registros = carregar_dados("SELECT * FROM vendas")
+                    nome_relatorio = "Geral"
                 else:
                     df_registros = carregar_dados(f"SELECT * FROM vendas WHERE cliente = '{cliente_sel}'")
+                    nome_relatorio = cliente_sel
                 
                 if not df_registros.empty:
                     st.dataframe(df_registros, use_container_width=True)
                     
                     st.markdown("---")
-                    st.subheader("⚙️ Ações para o Pedido Selecionado")
+                    st.subheader(f"📄 Gerar Relatório em PDF ({nome_relatorio})")
                     
-                    pedido_id_sel = st.selectbox("Selecione o ID do Pedido/Venda:", df_registros['id'].tolist())
+                    pdf_gerado = gerar_pdf_tabela_pedidos(df_registros, cliente_nome=nome_relatorio)
+                    
+                    st.download_button(
+                        label=f"📥 Baixar Relatório de Pedidos - {nome_relatorio} (PDF)",
+                        data=pdf_gerado,
+                        file_name=f"Relatorio_Pedidos_{nome_relatorio}.pdf",
+                        mime="application/pdf"
+                    )
+                    
+                    st.markdown("---")
+                    st.subheader("⚙️ Converter Pedido para Venda Concluída")
+                    pedido_id_sel = st.selectbox("Selecione o ID do Pedido:", df_registros['id'].tolist())
                     row_sel = df_registros[df_registros['id'] == pedido_id_sel].iloc[0]
                     
-                    col_btn1, col_btn2 = st.columns(2)
-                    
-                    with col_btn1:
-                        pdf_data = gerar_pdf_pedido(row_sel)
-                        st.download_button(
-                            label=f"📄 Baixar PDF do Registro #{row_sel['id']}",
-                            data=pdf_data,
-                            file_name=f"Pedido_{row_sel['id']}_{row_sel['cliente']}.pdf",
-                            mime="application/pdf"
-                        )
-                    
-                    with col_btn2:
-                        tipo_atual = row_sel.get('tipo', 'PEDIDO')
-                        if tipo_atual == "PEDIDO" or pd.isna(tipo_atual):
-                            if st.button(f"🔄 Converter Pedido #{row_sel['id']} para VENDA"):
-                                converter_pedido_para_venda(row_sel['id'])
-                                st.success("Pedido convertido em Venda com sucesso!")
-                                st.rerun()
-                        else:
-                            st.info("Este registro já é uma Venda confirmada.")
+                    tipo_atual = row_sel.get('tipo', 'PEDIDO')
+                    if tipo_atual == "PEDIDO" or pd.isna(tipo_atual):
+                        if st.button(f"🔄 Converter Pedido #{row_sel['id']} para VENDA"):
+                            converter_pedido_para_venda(row_sel['id'])
+                            st.success("Pedido convertido em Venda com sucesso!")
+                            st.rerun()
+                    else:
+                        st.info("Este registro já é uma Venda confirmada.")
                 else:
                     st.info("Nenhum registro encontrado para a seleção.")
 
