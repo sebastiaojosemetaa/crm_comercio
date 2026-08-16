@@ -57,7 +57,7 @@ def carregar_coluna(tabela, coluna):
     return []
 
 # -----------------------------------------------------------------------------
-# FUNÇÕES DE REGISTRO E CONVERSÃO (com TRIM para evitar erros de espaço)
+# FUNÇÕES DE REGISTRO E CONVERSÃO
 # -----------------------------------------------------------------------------
 def salvar_cliente_completo(nome, telefone, doc, endereco, cidade):
     cursor = conn.cursor()
@@ -121,12 +121,11 @@ def salvar_pedido_ou_venda(cliente, produto, fornecedor, grupo, quantidade, valo
 
 def converter_pedido_completo_para_venda(cliente_nome):
     cursor = conn.cursor()
-    # Usando TRIM no banco para converter mesmo se houver espaço no nome
     cursor.execute("""
         UPDATE vendas 
         SET tipo = 'VENDA' 
         WHERE TRIM(cliente) = TRIM(?) 
-        AND (UPPER(tipo) IN ('PEDIDO', 'PED') OR tipo IS NULL)
+        AND (UPPER(TRIM(tipo)) IN ('PEDIDO', 'PED') OR tipo IS NULL)
     """, (cliente_nome,))
     conn.commit()
     return cursor.rowcount
@@ -388,26 +387,37 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             str_d1 = data_inicio.strftime("%Y-%m-%d")
             str_d2 = data_fim.strftime("%Y-%m-%d")
             
-            cond_status = "UPPER(tipo) = 'VENDA'"
-            if status_filtro == "Incluir Pedidos Pendentes":
-                cond_status = "(UPPER(tipo) IN ('PEDIDO', 'PED') OR tipo IS NULL)"
-            elif status_filtro == "Todos":
-                cond_status = "1=1"
-                
-            query_fin = f"""
-                SELECT * FROM vendas 
-                WHERE {cond_status} 
-                AND (date(data) >= '{str_d1}' AND date(data) <= '{str_d2}' OR data IS NULL)
-            """
+            # Carrega todos os dados primeiro para filtrar no Pandas com tratamento robusto de data e texto
+            df_todas = carregar_dados("SELECT * FROM vendas")
             
-            df_vendas = carregar_dados(query_fin)
+            if not df_todas.empty:
+                # Normaliza coluna de tipo
+                df_todas['tipo_norm'] = df_todas['tipo'].fillna('').astype(str).str.strip().str.upper()
+                
+                # Filtra por status
+                if status_filtro == "Somente Vendas Concluídas":
+                    df_vendas = df_todas[df_todas['tipo_norm'].isin(['VENDA', 'VENDAS'])]
+                elif status_filtro == "Incluir Pedidos Pendentes":
+                    df_vendas = df_todas[df_todas['tipo_norm'].isin(['PEDIDO', 'PED', ''])]
+                else:
+                    df_vendas = df_todas.copy()
+                
+                # Filtra por intervalo de data (extrai apenas os 10 primeiros caracteres YYYY-MM-DD)
+                if 'data' in df_vendas.columns:
+                    df_vendas['data_curta'] = df_vendas['data'].fillna('').astype(str).str.slice(0, 10)
+                    mask_data = (df_vendas['data_curta'] >= str_d1) & (df_vendas['data_curta'] <= str_d2)
+                    df_vendas = df_vendas[mask_data | (df_vendas['data_curta'] == '')]
+                    df_vendas = df_vendas.drop(columns=['data_curta', 'tipo_norm'], errors='ignore')
+            else:
+                df_vendas = pd.DataFrame()
             
             if not df_vendas.empty:
                 col1, col2, col3 = st.columns(3)
                 faturamento = df_vendas['valor_total'].sum() if 'valor_total' in df_vendas.columns else 0.0
+                valor_rec = df_vendas['valor_recebido'].sum() if 'valor_recebido' in df_vendas.columns else 0.0
                 col1.metric("Faturamento do Período", f"R$ {faturamento:,.2f}")
-                col2.metric("Total Recebido em Caixa", f"R$ {df_vendas['valor_recebido'].sum():,.2f}")
-                col3.metric("Total Pendente / Fiado", f"R$ {faturamento - df_vendas['valor_recebido'].sum():,.2f}")
+                col2.metric("Total Recebido em Caixa", f"R$ {valor_rec:,.2f}")
+                col3.metric("Total Pendente / Fiado", f"R$ {faturamento - valor_rec:,.2f}")
                 st.markdown("---")
                 st.subheader("📊 Registros Encontrados")
                 st.dataframe(df_vendas, use_container_width=True)
@@ -459,7 +469,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 s_d1 = d_inicio.strftime("%Y-%m-%d")
                 s_d2 = d_fim.strftime("%Y-%m-%d")
                 
-                query_filt = f"SELECT * FROM vendas WHERE (date(data) >= '{s_d1}' AND date(data) <= '{s_d2}' OR data IS NULL)"
+                query_filt = f"SELECT * FROM vendas WHERE (substr(data, 1, 10) >= '{s_d1}' AND substr(data, 1, 10) <= '{s_d2}' OR data IS NULL OR data = '')"
                 if cliente_sel != "TODOS":
                     query_filt += f" AND TRIM(cliente) = TRIM('{cliente_sel}')"
                     nome_relatorio = cliente_sel
@@ -486,7 +496,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.markdown("---")
                     
                     if cliente_sel != "TODOS":
-                        # Identifica linhas onde o tipo é PEDIDO / PED / vazio
                         mask_pedidos = (
                             df_registros['tipo'].astype(str).str.strip().str.upper().isin(['PEDIDO', 'PED', 'NONE', 'NAN', '']) | 
                             df_registros['tipo'].isna()
