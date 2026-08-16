@@ -295,7 +295,7 @@ def gerar_pdf_relatorio(df_dados, titulo="Relatório de Vendas"):
 # -----------------------------------------------------------------------------
 # TELAS DO SISTEMA
 # -----------------------------------------------------------------------------
-if tipo_acesso == "👤 Portal do Cliente" and not cliente_autenticado:
+if perfil_selecionado == "👤 Portal do Cliente" and not cliente_autenticado:
     st.title("🔒 Portal do Cliente")
     st.warning("Por favor, selecione seu nome no menu à esquerda e insira sua senha para acessar seus pedidos.")
 
