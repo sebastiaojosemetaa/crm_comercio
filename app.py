@@ -170,7 +170,7 @@ def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo):
 # -----------------------------------------------------------------------------
 # GERADOR DE PDF CUSTOMIZADO (MODELO REY DA CEBOLA)
 # -----------------------------------------------------------------------------
-def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral", d_inicio=None, d_fim=None):
+def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral", d_inicio=None, d_fim=None, titulo_custom=None):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
     elements = []
@@ -194,7 +194,8 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral", d_inicio=None, d_fi
     elements.append(Paragraph("CONTATO: (99) 98814-9722 OU (99) 98414-3943", style_sub))
     elements.append(Spacer(1, 10))
     
-    elements.append(Paragraph(f"Relatório de Pedidos / Vendas - {cliente_nome}", style_titulo_relatorio))
+    titulo_doc = titulo_custom if titulo_custom else f"Relatório de Pedidos / Vendas - {cliente_nome}"
+    elements.append(Paragraph(titulo_doc, style_titulo_relatorio))
     periodo_str = f"Período: {d_inicio.strftime('%d/%m/%Y')} até {d_fim.strftime('%d/%m/%Y')}" if d_inicio and d_fim else f"Data de Emissão: {datetime.now().strftime('%d/%m/%Y %H:%M')}"
     elements.append(Spacer(1, 4))
     elements.append(Paragraph(periodo_str, style_data))
@@ -372,6 +373,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             df_todas = carregar_dados("SELECT * FROM vendas")
             
             if not df_todas.empty:
+                # Se for "Somente Vendas Concluídas", padroniza a exibição visual para VEN/VENDA
+                if status_filtro == "Somente Vendas Concluídas":
+                    df_todas['tipo'] = 'VENDA'
+                    df_todas['codigo'] = 'VEN'
+
                 df_todas['tipo_str'] = df_todas['tipo'].fillna('').astype(str).str.strip().str.upper() if 'tipo' in df_todas.columns else ''
                 df_todas['codigo_str'] = df_todas['codigo'].fillna('').astype(str).str.strip().str.upper() if 'codigo' in df_todas.columns else ''
                 
@@ -400,8 +406,26 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 col2.metric("Total Recebido em Caixa", f"R$ {valor_rec:,.2f}")
                 col3.metric("Total Pendente / Fiado", f"R$ {faturamento - valor_rec:,.2f}")
                 st.markdown("---")
+                
                 st.subheader("📊 Registros Encontrados")
                 st.dataframe(df_vendas, use_container_width=True)
+                
+                st.markdown("---")
+                st.subheader("📄 Gerar Relatório do Fechamento Financeiro em PDF")
+                pdf_fechamento = gerar_pdf_tabela_pedidos(
+                    df_vendas, 
+                    cliente_nome="Geral", 
+                    d_inicio=data_inicio, 
+                    d_fim=data_fim,
+                    titulo_custom=f"Fechamento Financeiro ({status_filtro})"
+                )
+                
+                st.download_button(
+                    label="📥 Baixar Relatório de Fechamento Financeiro (PDF)",
+                    data=pdf_fechamento,
+                    file_name=f"Fechamento_Financeiro_{str_d1}_a_{str_d2}.pdf",
+                    mime="application/pdf"
+                )
             else:
                 st.info("Nenhum registro encontrado para os filtros selecionados. Tente alterar o status ou o intervalo de datas.")
 
