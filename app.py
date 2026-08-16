@@ -18,7 +18,7 @@ def get_connection():
 
 conn = get_connection()
 
-def adequar_banco():
+def adequar_banco_e_migrar():
     cursor = conn.cursor()
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS vendas (
@@ -47,7 +47,16 @@ def adequar_banco():
         pass
     conn.commit()
 
-adequar_banco()
+    # CORREÇÃO AUTOMÁTICA: Converte todo o histórico antigo de PED/PEDIDO para VEN/VENDA
+    cursor.execute("""
+        UPDATE vendas 
+        SET tipo = 'VENDA', codigo = 'VEN' 
+        WHERE UPPER(TRIM(COALESCE(tipo, ''))) IN ('PEDIDO', 'PED', '') 
+           OR UPPER(TRIM(COALESCE(codigo, ''))) IN ('PED', 'PEDIDO', '')
+    """)
+    conn.commit()
+
+adequar_banco_e_migrar()
 
 def carregar_dados(query):
     try:
@@ -62,7 +71,7 @@ def carregar_coluna(tabela, coluna):
     return []
 
 # -----------------------------------------------------------------------------
-# FUNÇÕES DE REGISTRO, MIGRAÇÃO E CONVERSÃO
+# FUNÇÕES DE REGISTRO E CONVERSÃO
 # -----------------------------------------------------------------------------
 def salvar_cliente_completo(nome, telefone, doc, endereco, cidade):
     cursor = conn.cursor()
@@ -131,8 +140,7 @@ def converter_pedido_completo_para_venda(cliente_nome):
     cursor.execute("""
         UPDATE vendas 
         SET tipo = 'VENDA', codigo = 'VEN' 
-        WHERE TRIM(cliente) = TRIM(?) 
-        AND (UPPER(TRIM(COALESCE(tipo, ''))) IN ('PEDIDO', 'PED', '') OR UPPER(TRIM(COALESCE(codigo, ''))) IN ('PED', 'PEDIDO', ''))
+        WHERE TRIM(cliente) = TRIM(?)
     """, (cliente_nome,))
     conn.commit()
     return cursor.rowcount
@@ -364,11 +372,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             df_todas = carregar_dados("SELECT * FROM vendas")
             
             if not df_todas.empty:
-                # Normaliza colunas de verificação (tanto 'tipo' quanto 'codigo')
                 df_todas['tipo_str'] = df_todas['tipo'].fillna('').astype(str).str.strip().str.upper() if 'tipo' in df_todas.columns else ''
                 df_todas['codigo_str'] = df_todas['codigo'].fillna('').astype(str).str.strip().str.upper() if 'codigo' in df_todas.columns else ''
                 
-                # Identifica registros que são vendas
                 is_venda = df_todas['tipo_str'].isin(['VENDA', 'VENDAS', 'VEN']) | df_todas['codigo_str'].isin(['VEN', 'VENDA'])
                 
                 if status_filtro == "Somente Vendas Concluídas":
@@ -378,7 +384,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 else:
                     df_vendas = df_todas.copy()
                 
-                # Filtra por data
                 if 'data' in df_vendas.columns:
                     df_vendas['data_curta'] = df_vendas['data'].fillna('').astype(str).str.slice(0, 10)
                     mask_data = (df_vendas['data_curta'] >= str_d1) & (df_vendas['data_curta'] <= str_d2)
@@ -565,7 +570,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         estoque_ini = st.number_input("Estoque Inicial", min_value=0.0, step=1.0, value=0.0)
                     with col2:
                         p_custo = st.number_input("Preço de Custo (R$)", min_value=0.0, step=1.0, value=10.0)
-                        p_venda = st.number_input("Preço de Venda (R$)", min_value=0.0, step=1.0, value=20.0)
+                        p_venda = st.number_input("Preço de Venda (R$)", min_value=0.0, step=20.0, value=20.0)
                     
                     if st.form_submit_button("Salvar Produto no Estoque"):
                         if novo_prod.strip() and salvar_produto_completo(novo_prod.strip(), grupo_prod, p_custo, p_venda, estoque_ini):
