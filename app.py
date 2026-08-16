@@ -51,13 +51,13 @@ def carregar_dados(query):
         return pd.DataFrame()
 
 def carregar_coluna(tabela, coluna):
-    df = carregar_dados(f"SELECT DISTINCT {coluna} FROM {tabela} WHERE {coluna} IS NOT NULL AND {coluna} != ''")
+    df = carregar_dados(f"SELECT DISTINCT TRIM({coluna}) as {coluna} FROM {tabela} WHERE {coluna} IS NOT NULL AND {coluna} != ''")
     if not df.empty:
         return df[coluna].tolist()
     return []
 
 # -----------------------------------------------------------------------------
-# FUNÇÕES DE REGISTRO E CONVERSÃO
+# FUNÇÕES DE REGISTRO E CONVERSÃO (com TRIM para evitar erros de espaço)
 # -----------------------------------------------------------------------------
 def salvar_cliente_completo(nome, telefone, doc, endereco, cidade):
     cursor = conn.cursor()
@@ -73,7 +73,7 @@ def salvar_cliente_completo(nome, telefone, doc, endereco, cidade):
     """)
     try:
         cursor.execute("INSERT INTO clientes (nome, telefone, doc, endereco, cidade) VALUES (?, ?, ?, ?, ?)",
-                       (nome, telefone, doc, endereco, cidade))
+                       (nome.strip(), telefone, doc, endereco, cidade))
         conn.commit()
         return True
     except sqlite3.IntegrityError:
@@ -93,7 +93,7 @@ def salvar_produto_completo(nome, grupo, preco_custo, preco_venda, estoque_inici
     """)
     try:
         cursor.execute("INSERT INTO produtos (nome, grupo, preco_custo, preco_venda, estoque_atual) VALUES (?, ?, ?, ?, ?)",
-                       (nome, grupo, preco_custo, preco_venda, estoque_inicial))
+                       (nome.strip(), grupo, preco_custo, preco_venda, estoque_inicial))
         conn.commit()
         return True
     except sqlite3.IntegrityError:
@@ -103,7 +103,7 @@ def salvar_simples(tabela, coluna, valor):
     cursor = conn.cursor()
     cursor.execute(f"CREATE TABLE IF NOT EXISTS {tabela} (id INTEGER PRIMARY KEY AUTOINCREMENT, {coluna} TEXT UNIQUE)")
     try:
-        cursor.execute(f"INSERT INTO {tabela} ({coluna}) VALUES (?)", (valor,))
+        cursor.execute(f"INSERT INTO {tabela} ({coluna}) VALUES (?)", (valor.strip(),))
         conn.commit()
         return True
     except sqlite3.IntegrityError:
@@ -116,13 +116,20 @@ def salvar_pedido_ou_venda(cliente, produto, fornecedor, grupo, quantidade, valo
     cursor.execute("""
         INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, tipo, data)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, tipo, data_atual))
+    """, (cliente.strip(), produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, tipo, data_atual))
     conn.commit()
 
 def converter_pedido_completo_para_venda(cliente_nome):
     cursor = conn.cursor()
-    cursor.execute("UPDATE vendas SET tipo = 'VENDA' WHERE cliente = ? AND (tipo = 'PEDIDO' OR tipo = 'PED' OR tipo IS NULL)", (cliente_nome,))
+    # Usando TRIM no banco para converter mesmo se houver espaço no nome
+    cursor.execute("""
+        UPDATE vendas 
+        SET tipo = 'VENDA' 
+        WHERE TRIM(cliente) = TRIM(?) 
+        AND (UPPER(tipo) IN ('PEDIDO', 'PED') OR tipo IS NULL)
+    """, (cliente_nome,))
     conn.commit()
+    return cursor.rowcount
 
 def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo):
     cursor = conn.cursor()
@@ -318,7 +325,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                     st.rerun()
             
         with aba_historico:
-            query_cli = f"SELECT * FROM vendas WHERE cliente = '{st.session_state.cliente_autenticado}'"
+            query_cli = f"SELECT * FROM vendas WHERE TRIM(cliente) = TRIM('{st.session_state.cliente_autenticado}')"
             df_pedidos = carregar_dados(query_cli)
             if not df_pedidos.empty:
                 soma_total = df_pedidos['valor_total'].sum() if 'valor_total' in df_pedidos.columns else 0.0
@@ -381,9 +388,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             str_d1 = data_inicio.strftime("%Y-%m-%d")
             str_d2 = data_fim.strftime("%Y-%m-%d")
             
-            cond_status = "tipo = 'VENDA'"
+            cond_status = "UPPER(tipo) = 'VENDA'"
             if status_filtro == "Incluir Pedidos Pendentes":
-                cond_status = "(tipo IN ('PEDIDO', 'PED') OR tipo IS NULL)"
+                cond_status = "(UPPER(tipo) IN ('PEDIDO', 'PED') OR tipo IS NULL)"
             elif status_filtro == "Todos":
                 cond_status = "1=1"
                 
@@ -454,7 +461,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 
                 query_filt = f"SELECT * FROM vendas WHERE (date(data) >= '{s_d1}' AND date(data) <= '{s_d2}' OR data IS NULL)"
                 if cliente_sel != "TODOS":
-                    query_filt += f" AND cliente = '{cliente_sel}'"
+                    query_filt += f" AND TRIM(cliente) = TRIM('{cliente_sel}')"
                     nome_relatorio = cliente_sel
                 else:
                     nome_relatorio = "Geral"
@@ -479,19 +486,22 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.markdown("---")
                     
                     if cliente_sel != "TODOS":
-                        # Filtra qualquer variante de pedido pendente ('PEDIDO', 'PED' ou nulo)
-                        pedidos_pendentes = df_registros[
-                            df_registros['tipo'].astype(str).str.upper().isin(['PEDIDO', 'PED', 'NONE', 'NAN']) | df_registros['tipo'].isna()
-                        ]
+                        # Identifica linhas onde o tipo é PEDIDO / PED / vazio
+                        mask_pedidos = (
+                            df_registros['tipo'].astype(str).str.strip().str.upper().isin(['PEDIDO', 'PED', 'NONE', 'NAN', '']) | 
+                            df_registros['tipo'].isna()
+                        )
+                        pedidos_pendentes = df_registros[mask_pedidos]
                         
                         if not pedidos_pendentes.empty:
                             st.subheader("⚙️ Converter Pedido Completo em Venda")
                             total_ped = pedidos_pendentes['valor_total'].sum()
                             qtd_itens = len(pedidos_pendentes)
                             st.write(f"O cliente **{cliente_sel}** possui **{qtd_itens} item(ns)** pendente(s) como pedido, somando **R$ {total_ped:,.2f}**.")
-                            if st.button(f"🔄 Converter Pedido Completo de {cliente_sel} para VENDA"):
-                                converter_pedido_completo_para_venda(cliente_sel)
-                                st.success(f"Todos os {qtd_itens} itens de {cliente_sel} foram convertidos para VENDA!")
+                            
+                            if st.button(f"🔄 Converter Pedido Completo de {cliente_sel} para VENDA", key="btn_converter_venda"):
+                                linhas_afetadas = converter_pedido_completo_para_venda(cliente_sel)
+                                st.success(f"Sucesso! {linhas_afetadas} registro(s) do cliente {cliente_sel} foram convertidos para VENDA no banco de dados!")
                                 st.rerun()
                         else:
                             st.info(f"✅ Todos os registros exibidos para **{cliente_sel}** já estão confirmados como **VENDA**.")
