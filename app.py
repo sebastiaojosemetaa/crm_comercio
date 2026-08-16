@@ -9,19 +9,19 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
 # -----------------------------------------------------------------------------
-# 1. CONFIGURAÇÃO E CONEXÃO COM O BANCO DE DADOS (ATUALIZADO PARA V2)
+# 1. CONFIGURAÇÃO E CONEXÃO COM O BANCO DE DADOS ORIGINAL
 # -----------------------------------------------------------------------------
 st.set_page_config(page_title="CRM Comércio - Rey da Cebola", layout="wide")
 
 def get_connection():
-    return sqlite3.connect("crm_comercio_v2.db", check_same_thread=False)
+    return sqlite3.connect("crm_comercio.db", check_same_thread=False)
 
 conn = get_connection()
 
 def adequar_banco_e_migrar():
     cursor = conn.cursor()
     
-    # Criar Tabela Vendas
+    # Criar Tabela Vendas se não existir
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS vendas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -40,7 +40,7 @@ def adequar_banco_e_migrar():
         )
     """)
 
-    # Criar Tabela Produtos já com a coluna fornecedor inclusa
+    # Criar Tabela Produtos se não existir
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS produtos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -52,6 +52,16 @@ def adequar_banco_e_migrar():
             estoque_atual REAL
         )
     """)
+
+    # MIGRAÇÃO AUTOMÁTICA: Garantir que a coluna 'fornecedor' existe na tabela produtos antiga
+    cursor.execute("PRAGMA table_info(produtos)")
+    colunas_produtos = [col[1] for col in cursor.fetchall()]
+    if "fornecedor" not in colunas_produtos:
+        try:
+            cursor.execute("ALTER TABLE produtos ADD COLUMN fornecedor TEXT")
+            conn.commit()
+        except Exception:
+            pass
 
     conn.commit()
 
