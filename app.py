@@ -9,19 +9,19 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
 # -----------------------------------------------------------------------------
-# 1. CONFIGURAÇÃO E CONEXÃO COM O BANCO DE DADOS
+# 1. CONFIGURAÇÃO E CONEXÃO COM O BANCO DE DADOS (ATUALIZADO PARA V2)
 # -----------------------------------------------------------------------------
 st.set_page_config(page_title="CRM Comércio - Rey da Cebola", layout="wide")
 
 def get_connection():
-    return sqlite3.connect("crm_comercio.db", check_same_thread=False)
+    return sqlite3.connect("crm_comercio_v2.db", check_same_thread=False)
 
 conn = get_connection()
 
 def adequar_banco_e_migrar():
     cursor = conn.cursor()
     
-    # Criar / Atualizar Tabela Vendas
+    # Criar Tabela Vendas
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS vendas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -39,40 +39,20 @@ def adequar_banco_e_migrar():
             data TEXT
         )
     """)
-    try:
-        cursor.execute("ALTER TABLE vendas ADD COLUMN tipo TEXT DEFAULT 'PEDIDO'")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        cursor.execute("ALTER TABLE vendas ADD COLUMN codigo TEXT DEFAULT 'PED'")
-    except sqlite3.OperationalError:
-        pass
 
-    # Criar / Atualizar Tabela Produtos
+    # Criar Tabela Produtos já com a coluna fornecedor inclusa
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS produtos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nome TEXT UNIQUE,
+            fornecedor TEXT,
             grupo TEXT,
             preco_custo REAL,
             preco_venda REAL,
             estoque_atual REAL
         )
     """)
-    try:
-        cursor.execute("ALTER TABLE produtos ADD COLUMN fornecedor TEXT DEFAULT ''")
-    except sqlite3.OperationalError:
-        pass
 
-    conn.commit()
-
-    # CORREÇÃO AUTOMÁTICA: Converte todo o histórico antigo de PED/PEDIDO para VEN/VENDA
-    cursor.execute("""
-        UPDATE vendas 
-        SET tipo = 'VENDA', codigo = 'VEN' 
-        WHERE UPPER(TRIM(COALESCE(tipo, ''))) IN ('PEDIDO', 'PED', '') 
-           OR UPPER(TRIM(COALESCE(codigo, ''))) IN ('PED', 'PEDIDO', '')
-    """)
     conn.commit()
 
 adequar_banco_e_migrar()
@@ -114,12 +94,6 @@ def salvar_cliente_completo(nome, telefone, doc, endereco, cidade):
 
 def salvar_produto_completo(nome, fornecedor, grupo, preco_custo, preco_venda, estoque_inicial):
     cursor = conn.cursor()
-    try:
-        cursor.execute("ALTER TABLE produtos ADD COLUMN fornecedor TEXT DEFAULT ''")
-        conn.commit()
-    except sqlite3.OperationalError:
-        pass
-
     try:
         cursor.execute("""
             INSERT INTO produtos (nome, fornecedor, grupo, preco_custo, preco_venda, estoque_atual) 
