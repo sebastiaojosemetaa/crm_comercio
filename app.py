@@ -26,6 +26,22 @@ def carregar_coluna(tabela, coluna):
         return df[coluna].tolist()
     return []
 
+# FUNÇÕES DE SALVAMENTO NO BANCO
+def salvar_cadastro(tabela, coluna, valor):
+    cursor = conn.cursor()
+    cursor.execute(f"""
+        CREATE TABLE IF NOT EXISTS {tabela} (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            {coluna} TEXT UNIQUE
+        )
+    """)
+    try:
+        cursor.execute(f"INSERT INTO {tabela} ({coluna}) VALUES (?)", (valor,))
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False
+
 def salvar_pedido(cliente, produto, fornecedor, grupo, quantidade, valor_venda, forma_pagamento, valor_recebido):
     cursor = conn.cursor()
     cursor.execute("""
@@ -105,7 +121,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
         st.title("🔒 Portal do Cliente")
         st.info("Por favor, selecione seu nome no menu à esquerda e insira sua senha para acessar seus pedidos.")
         
-        lista_clientes = carregar_coluna("vendas", "cliente") or carregar_coluna("clientes", "nome") or ["Carlos Alberto", "Sebastião"]
+        lista_clientes = carregar_coluna("clientes", "nome") or carregar_coluna("vendas", "cliente") or ["Carlos Alberto", "Sebastião"]
         
         cliente_nome = st.sidebar.selectbox("Identifique seu Nome/Empresa:", lista_clientes)
         senha_cliente = st.sidebar.text_input("Digite sua Senha de Cliente:", type="password")
@@ -282,7 +298,80 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos")
-            st.dataframe(carregar_dados("SELECT * FROM produtos"), use_container_width=True)
+            
+            # Mostra o inventário concatenado das compras e cadastros de produtos
+            df_prods = carregar_dados("SELECT * FROM produtos")
+            if not df_prods.empty:
+                st.dataframe(df_prods, use_container_width=True)
+            else:
+                df_compras_prod = carregar_dados("SELECT produto, SUM(quantidade) as quantidade_total FROM compras GROUP BY produto")
+                st.dataframe(df_compras_prod, use_container_width=True)
 
         elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
             st.title("👥 Cadastros Gerais")
+            
+            tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["👥 Clientes", "📦 Produtos", "🏭 Fornecedores", "🏷️ Grupos"])
+            
+            with tab_cli:
+                st.subheader("Cadastrar Novo Cliente")
+                with st.form("form_cad_cliente"):
+                    novo_cli = st.text_input("Nome do Cliente / Empresa")
+                    if st.form_submit_button("Salvar Cliente"):
+                        if novo_cli.strip():
+                            if salvar_cadastro("clientes", "nome", novo_cli.strip()):
+                                st.success("Cliente cadastrado com sucesso!")
+                                st.rerun()
+                            else:
+                                st.warning("Este cliente já está cadastrado.")
+                
+                st.markdown("---")
+                st.subheader("Clientes Cadastrados")
+                st.dataframe(carregar_dados("SELECT * FROM clientes"), use_container_width=True)
+
+            with tab_prod:
+                st.subheader("Cadastrar Novo Produto")
+                with st.form("form_cad_produto"):
+                    novo_prod = st.text_input("Nome do Produto")
+                    if st.form_submit_button("Salvar Produto"):
+                        if novo_prod.strip():
+                            if salvar_cadastro("produtos", "nome", novo_prod.strip()):
+                                st.success("Produto cadastrado com sucesso!")
+                                st.rerun()
+                            else:
+                                st.warning("Este produto já está cadastrado.")
+                
+                st.markdown("---")
+                st.subheader("Produtos Cadastrados")
+                st.dataframe(carregar_dados("SELECT * FROM produtos"), use_container_width=True)
+
+            with tab_forn:
+                st.subheader("Cadastrar Novo Fornecedor")
+                with st.form("form_cad_fornecedor"):
+                    novo_forn = st.text_input("Nome do Fornecedor")
+                    if st.form_submit_button("Salvar Fornecedor"):
+                        if novo_forn.strip():
+                            if salvar_cadastro("fornecedores", "nome", novo_forn.strip()):
+                                st.success("Fornecedor cadastrado com sucesso!")
+                                st.rerun()
+                            else:
+                                st.warning("Este fornecedor já está cadastrado.")
+                
+                st.markdown("---")
+                st.subheader("Fornecedores Cadastrados")
+                st.dataframe(carregar_dados("SELECT * FROM fornecedores"), use_container_width=True)
+
+            with tab_grup:
+                st.subheader("Cadastrar Novo Grupo")
+                with st.form("form_cad_grupo"):
+                    novo_grup = st.text_input("Nome do Grupo")
+                    if st.form_submit_button("Salvar Grupo"):
+                        if novo_grup.strip():
+                            if salvar_cadastro("grupos", "nome", novo_grup.strip()):
+                                st.success("Grupo cadastrado com sucesso!")
+                                st.rerun()
+                            else:
+                                st.warning("Este grupo já está cadastrado.")
+                
+                st.markdown("---")
+                st.subheader("Grupos Cadastrados")
+                st.dataframe(carregar_dados("SELECT * FROM grupos"), use_container_width=True)
