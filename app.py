@@ -53,7 +53,6 @@ def adequar_banco_e_migrar():
         CREATE TABLE IF NOT EXISTS produtos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nome TEXT UNIQUE,
-            fornecedor TEXT,
             grupo TEXT,
             preco_custo REAL,
             preco_venda REAL,
@@ -116,8 +115,16 @@ def salvar_cliente_completo(nome, telefone, doc, endereco, cidade):
 def salvar_produto_completo(nome, fornecedor, grupo, preco_custo, preco_venda, estoque_inicial):
     cursor = conn.cursor()
     try:
-        cursor.execute("INSERT INTO produtos (nome, fornecedor, grupo, preco_custo, preco_venda, estoque_atual) VALUES (?, ?, ?, ?, ?, ?)",
-                       (nome.strip(), fornecedor, grupo, preco_custo, preco_venda, estoque_inicial))
+        cursor.execute("ALTER TABLE produtos ADD COLUMN fornecedor TEXT DEFAULT ''")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        cursor.execute("""
+            INSERT INTO produtos (nome, fornecedor, grupo, preco_custo, preco_venda, estoque_atual) 
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (nome.strip(), fornecedor, grupo, preco_custo, preco_venda, estoque_inicial))
         conn.commit()
         return True
     except sqlite3.IntegrityError:
