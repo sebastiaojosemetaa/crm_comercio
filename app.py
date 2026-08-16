@@ -13,17 +13,9 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 st.set_page_config(page_title="CRM Comércio - Gestão Completa", layout="wide", page_icon="📦")
 
 # -----------------------------------------------------------------------------
-# DEFINIÇÃO DE SENHAS (ADMIN E CLIENTES)
+# DEFINA SUA SENHA DE ADMINISTRADOR AQUI:
 # -----------------------------------------------------------------------------
-SENHA_ADMIN = "1234"  # Senha da Administração/Vendedor
-
-# Senhas individuais dos clientes:
-SENHAS_CLIENTES = {
-    "Carlos Alberto": "1234",
-    "Sebastião": "4321",
-    "Valeilde Loja 01": "1111"
-}
-SENHA_CLIENTE_PADRAO = "0000"  # Senha para clientes não cadastrados na lista acima
+SENHA_ADMIN = "1234"  # <-- Troque "1234" pela senha que você desejar!
 
 # -----------------------------------------------------------------------------
 # CONEXÃO E CRIAÇÃO DO BANCO DE DADOS
@@ -175,7 +167,7 @@ conn.commit()
 if 'carrinho_pedido' not in st.session_state:
     st.session_state.carrinho_pedido = []
 
-# LISTAS GERAIS
+# LISTAS GERAIS PARA FILTROS
 clientes_df = pd.read_sql_query("SELECT cliente FROM clientes", conn)
 fornecedores_df = pd.read_sql_query("SELECT fornecedor FROM fornecedores", conn)
 grupos_df = pd.read_sql_query("SELECT grupo FROM grupos", conn)
@@ -185,102 +177,160 @@ list_fornecedores = fornecedores_df['fornecedor'].tolist() if not fornecedores_d
 list_grupos = grupos_df['grupo'].tolist() if not grupos_df.empty else ["GERAL"]
 
 # -----------------------------------------------------------------------------
-# --- ESTRUTURA PRINCIPAL ---
-
-# 1. Criação e definição do perfil na barra lateral (VEM PRIMEIRO)
-opcoes_perfil = ["👤 Portal do Cliente", "🔒 Administração / Vendedor"]
+# AUTENTICAÇÃO E PERFIS DE ACESSO (PROTEÇÃO COM SENHA)
+# -----------------------------------------------------------------------------
+st.sidebar.title("🔑 Acesso ao Sistema")
 
 if 'perfil_ativo' not in st.session_state:
-    st.session_state.perfil_ativo = opcoes_perfil[0]
+    st.session_state.perfil_ativo = "👤 Portal do Cliente"
 
+opcoes_perfil = ["👤 Portal do Cliente", "🔒 Administração / Vendedor"]
 index_atual = opcoes_perfil.index(st.session_state.perfil_ativo)
 
-# AQUI a variável perfil_selecionado é criada:
 perfil_selecionado = st.sidebar.radio("Selecione o Perfil:", opcoes_perfil, index=index_atual)
 
-# 2. Verificação da variável (VEM DEPOIS)
-if perfil_selecionado == "👤 Portal do Cliente":
-    # Conteúdo da tela do cliente...
-    
-    if not st.session_state.get('cliente_autenticado'):
-        # --- FORMULÁRIO DE LOGIN DO CLIENTE (SIDEBAR OU CORPO) ---
-        st.title("🔒 Portal do Cliente")
+if perfil_selecionado == "🔒 Administração / Vendedor":
+    if st.session_state.get('admin_autenticado') != True:
+        st.sidebar.markdown("---")
+        st.sidebar.subheader("🔒 Área Restrita")
+        senha_digitada = st.sidebar.text_input("Digite a Senha do Admin:", type="password", key="pwd_admin")
         
-        # Seleção do cliente no sidebar
-        cliente_nome = st.sidebar.selectbox("Identifique seu Nome/Empresa:", lista_clientes)
-        senha_cliente = st.sidebar.text_input("Digite sua Senha de Cliente:", type="password")
-        
-        if st.sidebar.button("Acessar Meus Pedidos"):
-            if validar_senha_cliente(cliente_nome, senha_cliente):
-                st.session_state.cliente_autenticado = cliente_nome
+        if st.sidebar.button("Entrar como Admin"):
+            if senha_digitada == SENHA_ADMIN:
+                st.session_state.admin_autenticado = True
+                st.session_state.perfil_ativo = "🔒 Administração / Vendedor"
+                st.sidebar.success("Acesso liberado!")
                 st.rerun()
             else:
                 st.sidebar.error("Senha incorreta!")
-        else:
-            st.warning("Por favor, selecione seu nome no menu à esquerda e insira sua senha para acessar seus pedidos.")
-            
-    else:
-        # --- TELA INTERNA DO CLIENTE (LOGADO) ---
-        st.title(f"📦 Meus Pedidos — {st.session_state.cliente_autenticado}")
-        if st.sidebar.button("Sair / Trocar Cliente"):
-            st.session_state.cliente_autenticado = None
-            st.rerun()
-            
-        # [COLOQUE AQUI APENAS O CÓDIGO DA CONSULTA DE PEDIDOS DO CLIENTE]
-
-
-# 2. PERFIL: ADMIN / VENDEDOR
-elif perfil_selecionado == "🔒 Administração / Vendedor":
-    
-    if not st.session_state.get('admin_logged', False):
-        # --- TELA DE LOGIN DO ADMIN ---
-        st.title("🔑 Autenticação Administrativa")
-        senha_admin = st.text_input("Senha de Acesso", type="password")
-        if st.button("Entrar"):
-            if senha_admin == "1234":  # Sua senha de admin
-                st.session_state.admin_logged = True
-                st.rerun()
-            else:
-                st.error("Senha incorreta.")
-    else:
-        # --- MENU E TELAS DO ADMIN (SÓ RENDERIZA SE ADMIN LOGADO) ---
-        menu = st.sidebar.radio(
-            "Navegação",
-            [
-                "📊 Fechamento & Financeiro",
-                "📋 Pedidos / Orçamentos",
-                "🛒 Registrar Venda",
-                "📥 Entrada de Estoque (Compras)",
-                "📦 Estoque de Produtos",
-                "👥 Cadastros (Clientes / Fornecedores / Grupos)"
-            ]
-        )
         
-        if menu == "📊 Fechamento & Financeiro":
-            st.title("📊 Painel Financeiro & Fechamento")
-            # [COLOQUE AQUI O CÓDIGO DO PAINEL FINANCEIRO]
-            
-        elif menu == "📋 Pedidos / Orçamentos":
-            # [CÓDIGO DE PEDIDOS/ORÇAMENTOS]
-            pass
-            
-        elif menu == "🛒 Registrar Venda":
-            # [CÓDIGO DE VENDAS]
-            pass
-        st.warning("Página de vendas restrita ao ambiente administrativo.")
+        tipo_acesso = "👤 Portal do Cliente"
+    else:
+        tipo_acesso = "🔒 Administração / Vendedor"
+        if st.sidebar.button("🚪 Sair do Modo Admin"):
+            st.session_state.admin_autenticado = False
+            st.session_state.perfil_ativo = "👤 Portal do Cliente"
+            st.rerun()
+else:
+    st.session_state.admin_autenticado = False
+    st.session_state.perfil_ativo = "👤 Portal do Cliente"
+    tipo_acesso = "👤 Portal do Cliente"
 
-elif menu == "📥 Entrada de Estoque (Compras)":
-    st.title("📥 Registro de Compras & Entrada de Estoque")
-    st.info("Página de compras restrita ao ambiente administrativo.")
+cliente_autenticado = None
 
-elif menu == "📦 Estoque de Produtos":
-    st.title("📦 Consulta & Atualização de Estoque")
-    df_estoque = pd.read_sql_query("SELECT * FROM produtos", conn)
-    st.dataframe(df_estoque, use_container_width=True)
+if tipo_acesso == "👤 Portal do Cliente":
+    st.sidebar.markdown("---")
+    cliente_autenticado = st.sidebar.selectbox("Identifique seu Nome/Empresa:", list_clientes, key="cli_login")
+    st.sidebar.info(f"Bem-vindo(a), **{cliente_autenticado}**!")
+    menu = "📋 Pedidos / Orçamentos"
+else:
+    st.sidebar.markdown("---")
+    st.sidebar.title("CRM Comércio 📦")
+    menu = st.sidebar.radio("Navegação", [
+        "📊 Fechamento & Financeiro",
+        "📋 Pedidos / Orçamentos",
+        "🛒 Registrar Venda",
+        "📥 Entrada de Estoque (Compras)",
+        "📦 Estoque de Produtos",
+        "👥 Cadastros (Clientes / Fornecedores / Grupos)"
+    ])
 
-elif menu == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
-    st.title("👥 Cadastros Gerais")
-    st.info("Página de cadastros restrita ao ambiente administrativo.")
+# -----------------------------------------------------------------------------
+# FUNÇÃO GERADORA DE PDF INTELIGENTE
+# -----------------------------------------------------------------------------
+def gerar_pdf_relatorio(df_dados, titulo="Relatório de Vendas"):
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=10, bottomMargin=20)
+    elements = []
+
+    styles = getSampleStyleSheet()
+
+    header_company = ParagraphStyle('HeaderCompany', parent=styles['Normal'], fontName='Helvetica-BoldOblique', fontSize=15, leading=16, alignment=1, textColor=colors.black)
+    header_info = ParagraphStyle('HeaderInfo', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8.5, leading=10, alignment=1, textColor=colors.black)
+    title_style = ParagraphStyle('TitleStyle', parent=styles['Heading1'], fontSize=13, leading=15, alignment=1, textColor=colors.HexColor('#1E3A8A'))
+    sub_title_style = ParagraphStyle('SubTitleStyle', parent=styles['Normal'], fontSize=8.5, leading=10, alignment=1, textColor=colors.HexColor('#475569'))
+
+    elements.append(Paragraph("REY DA CEBOLA", header_company))
+    elements.append(Paragraph("CNPJ: 194.174.39/000-42 INSC.EST.: 12.426725-4", header_info))
+    elements.append(Paragraph("CONTATO: (99) 98814-9722 OU (99) 98414-3943", header_info))
+    elements.append(Spacer(1, 6))
+
+    elements.append(Paragraph(f"<b>{titulo}</b>", title_style))
+    elements.append(Paragraph(f"Data de Emissão: {datetime.now().strftime('%d/%m/%Y %H:%M')}", sub_title_style))
+    elements.append(Spacer(1, 8))
+
+    has_cliente = 'cliente' in df_dados.columns
+
+    if has_cliente:
+        data = [["Cliente", "Produto", "Qtd Total", "Valor Unit. Médio (R$)", "Valor Total (R$)"]]
+        col_widths = [130, 140, 70, 105, 105]
+    else:
+        data = [["Produto", "Qtd Total", "Valor Unit. Médio (R$)", "Valor Total (R$)"]]
+        col_widths = [220, 90, 120, 120]
+    
+    total_geral = 0.0
+    for idx, row in df_dados.iterrows():
+        qtd = float(row['quantidade'])
+        val_total = float(row['valor_total'])
+        unit_m = val_total / qtd if qtd > 0 else 0.0
+        total_geral += val_total
+
+        if has_cliente:
+            data.append([str(row['cliente']), str(row['produto']), f"{qtd:,.2f}", f"R$ {unit_m:,.2f}", f"R$ {val_total:,.2f}"])
+        else:
+            data.append([str(row['produto']), f"{qtd:,.2f}", f"R$ {unit_m:,.2f}", f"R$ {val_total:,.2f}"])
+
+    if has_cliente:
+        data.append(["VALOR TOTAL GERAL", "", "", "", f"R$ {total_geral:,.2f}"])
+        span_end = 3
+    else:
+        data.append(["VALOR TOTAL GERAL", "", "", f"R$ {total_geral:,.2f}"])
+        span_end = 2
+
+    table = Table(data, colWidths=col_widths)
+    t_style = TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2563EB')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 9.0),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#1E293B')),
+        ('TEXTCOLOR', (0, -1), (-1, -1), colors.white),
+        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ('SPAN', (0, -1), (span_end, -1)),
+    ])
+    table.setStyle(t_style)
+    elements.append(table)
+
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
+
+# -----------------------------------------------------------------------------
+# 1. FECHAMENTO & FINANCEIRO
+# -----------------------------------------------------------------------------
+if menu == "📊 Fechamento & Financeiro":
+    st.title("📊 Painel Financeiro & Fechamento")
+    
+    df_vendas = pd.read_sql_query("SELECT * FROM vendas", conn)
+    
+    if not df_vendas.empty:
+        total_faturado = df_vendas['valor_total'].sum()
+        total_recebido = df_vendas['valor_recebido'].sum()
+        total_fiado = df_vendas['restante'].sum()
+        
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Faturamento Total", f"R$ {total_faturado:,.2f}")
+        c2.metric("Total Recebido em Caixa", f"R$ {total_recebido:,.2f}")
+        c3.metric("Total a Receber (Fiado/Pendente)", f"R$ {total_fiado:,.2f}")
+        
+        st.markdown("---")
+        st.subheader("📋 Resumo do Histórico de Vendas")
+        cols_exib = [c for c in ['id', 'codigo_venda', 'data', 'cliente', 'produto', 'fornecedor', 'grupo', 'quantidade', 'valor_venda', 'valor_total', 'forma_pagamento', 'restante'] if c in df_vendas.columns]
+        st.dataframe(df_vendas[cols_exib], use_container_width=True)
+    else:
+        st.info("Nenhuma venda registrada até o momento.")
 
 # -----------------------------------------------------------------------------
 # 2. PEDIDOS / ORÇAMENTOS
