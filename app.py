@@ -199,20 +199,22 @@ perfil_selecionado = st.sidebar.radio("Selecione o Perfil:", opcoes_perfil, inde
 
 cliente_autenticado = None
 
+# --- TELA DE LOGIN DO ADMIN ---
 if perfil_selecionado == "🔒 Administração / Vendedor":
-    if st.session_state.get('admin_autenticado') != True:
-        st.sidebar.markdown("---")
-        st.sidebar.subheader("🔒 Área Restrita")
-        senha_digitada = st.sidebar.text_input("Digite a Senha do Admin:", type="password", key="pwd_admin")
+    if 'admin_logged' not in st.session_state:
+        st.session_state.admin_logged = False
+
+    if not st.session_state.admin_logged:
+        st.title("🔑 Autenticação Administrativa")
+        senha = st.text_input("Senha de Acesso", type="password")
         
-        if st.sidebar.button("Entrar como Admin"):
-            if senha_digitada == SENHA_ADMIN:
-                st.session_state.admin_autenticado = True
-                st.session_state.perfil_ativo = "🔒 Administração / Vendedor"
-                st.sidebar.success("Acesso liberado!")
+        if st.button("Entrar"):
+            if senha == "1234":  # Subtitua pela sua senha cadastrada
+                st.session_state.admin_logged = True
+                st.success("Acesso liberado!")
                 st.rerun()
             else:
-                st.sidebar.error("Senha incorreta!")
+                st.error("Senha incorreta.")
         
         tipo_acesso = "👤 Portal do Cliente"
     else:
