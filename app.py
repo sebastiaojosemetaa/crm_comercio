@@ -1,6 +1,7 @@
 import streamlit as st
 import sqlite3
 import pandas as pd
+from datetime import datetime
 
 # -----------------------------------------------------------------------------
 # CONFIGURAÇÃO E CONEXÃO COM BANCO
@@ -17,6 +18,32 @@ def carregar_dados(query):
         return pd.read_sql_query(query, conn)
     except Exception:
         return pd.DataFrame()
+
+def salvar_pedido(cliente, produto, fornecedor, quantidade, valor_venda, forma_pagamento, valor_recebido):
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS vendas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            cliente TEXT,
+            produto TEXT,
+            fornecedor TEXT,
+            quantidade REAL,
+            valor_venda REAL,
+            valor_total REAL,
+            forma_pagamento TEXT,
+            valor_recebido REAL,
+            data TEXT
+        )
+    """)
+    valor_total = quantidade * valor_venda
+    data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    cursor.execute("""
+        INSERT INTO vendas (cliente, produto, fornecedor, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, data)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (cliente, produto, fornecedor, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, data_atual))
+    
+    conn.commit()
 
 # -----------------------------------------------------------------------------
 # INICIALIZAÇÃO DE SESSÃO
@@ -46,15 +73,14 @@ if perfil_selecionado == "👤 Portal do Cliente":
         st.title("🔒 Portal do Cliente")
         st.info("Por favor, selecione seu nome no menu à esquerda e insira sua senha para acessar seus pedidos.")
         
-        # Busca clientes cadastrados
         df_cli = carregar_dados("SELECT DISTINCT cliente FROM vendas WHERE cliente IS NOT NULL AND cliente != ''")
-        lista_clientes = df_cli['cliente'].tolist() if not df_cli.empty else ["Carlos Alberto"]
+        lista_clientes = df_cli['cliente'].tolist() if not df_cli.empty else ["Carlos Alberto", "Sebastião", "Valeilde Loja 01"]
         
         cliente_nome = st.sidebar.selectbox("Identifique seu Nome/Empresa:", lista_clientes)
         senha_cliente = st.sidebar.text_input("Digite sua Senha de Cliente:", type="password")
         
         if st.sidebar.button("Acessar Meus Pedidos"):
-            if senha_cliente == "123":  # Coloque a regra de validação de senha
+            if senha_cliente == "123":
                 st.session_state.cliente_autenticado = cliente_nome
                 st.rerun()
             else:
@@ -68,27 +94,32 @@ if perfil_selecionado == "👤 Portal do Cliente":
             
         st.title(f"🛍️ Portal do Cliente — Meus Pedidos ({st.session_state.cliente_autenticado})")
         
-        # Abas do Portal do Cliente
         aba_novo, aba_historico = st.tabs(["➕ Criar Novo Pedido", "📜 Pedidos Registrados & Relatórios"])
         
         with aba_novo:
-            st.subheader("Fazer Novo Pedido")
-            st.info("Selecione os produtos e a quantidade desejada.")
-            # Insira aqui o formulário de novos pedidos do cliente
+            st.subheader("➕ Registrar Novo Pedido")
+            with st.form("form_novo_pedido_cliente"):
+                prod = st.text_input("Produto / Item")
+                fornec = st.text_input("Fornecedor", value="BAHIA")
+                qtd = st.number_input("Quantidade", min_value=0.1, step=0.5, value=1.0)
+                v_unit = st.number_input("Valor Unitário (R$)", min_value=0.0, step=1.0, value=100.0)
+                f_pag = st.selectbox("Forma de Pagamento", ["Dinheiro", "Crediário / Fiado", "Pix"])
+                
+                if st.form_submit_button("Confirmar Pedido"):
+                    salvar_pedido(st.session_state.cliente_autenticado, prod, fornec, qtd, v_unit, f_pag, v_unit * qtd)
+                    st.success("Pedido registrado com sucesso!")
+                    st.rerun()
             
         with aba_historico:
             query_cli = f"SELECT * FROM vendas WHERE cliente = '{st.session_state.cliente_autenticado}'"
             df_pedidos = carregar_dados(query_cli)
             
             if not df_pedidos.empty:
-                col_val = [c for c in df_pedidos.columns if 'valor' in c.lower() or 'total' in c.lower()]
-                soma_total = df_pedidos[col_val[0]].sum() if col_val else 0.0
-                
+                soma_total = df_pedidos['valor_total'].sum() if 'valor_total' in df_pedidos.columns else 0.0
                 st.markdown(f"**Itens Registrados:** {len(df_pedidos)} | **Soma dos Valores:** R$ {soma_total:,.2f}")
                 st.dataframe(df_pedidos, use_container_width=True)
             else:
                 st.warning("Nenhum pedido encontrado para o seu usuário.")
-
 
 # ==========================================
 # 2. ADMINISTRADOR / VENDEDOR
@@ -130,8 +161,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
             if not df_vendas.empty:
                 col1, col2, col3 = st.columns(3)
-                col_val = [c for c in df_vendas.columns if 'valor' in c.lower() or 'total' in c.lower()]
-                faturamento = df_vendas[col_val[0]].sum() if col_val else 0.0
+                faturamento = df_vendas['valor_total'].sum() if 'valor_total' in df_vendas.columns else 0.0
                 
                 col1.metric("Faturamento Total", f"R$ {faturamento:,.2f}")
                 col2.metric("Total Recebido em Caixa", f"R$ {faturamento * 0.15:,.2f}")
@@ -143,12 +173,29 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             else:
                 st.info("Nenhuma venda cadastrada.")
 
-        elif menu_admin == "📋 Pedidos / Orçamentos":
-            st.title("📋 Pedidos / Orçamentos")
-            st.dataframe(carregar_dados("SELECT * FROM vendas"), use_container_width=True)
+        elif menu_admin in ["📋 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
+            st.title(f"📋 {menu_admin}")
+            
+            aba_cad, aba_list = st.tabs(["➕ Novo Registro / Pedido", "📜 Todos os Pedidos Cadastrados"])
+            
+            with aba_cad:
+                with st.form("form_admin_pedido"):
+                    cli = st.text_input("Nome do Cliente", value="Carlos Alberto")
+                    prod = st.text_input("Produto")
+                    fornec = st.text_input("Fornecedor", value="BAHIA")
+                    qtd = st.number_input("Quantidade", min_value=0.1, step=0.5, value=1.0)
+                    v_unit = st.number_input("Valor da Venda (R$)", min_value=0.0, step=1.0, value=100.0)
+                    f_pag = st.selectbox("Forma de Pagamento", ["Dinheiro", "Crediário / Fiado", "Pix"])
+                    v_rec = st.number_input("Valor Recebido (R$)", min_value=0.0, step=1.0, value=0.0)
+                    
+                    if st.form_submit_button("Salvar Registro"):
+                        salvar_pedido(cli, prod, fornec, qtd, v_unit, f_pag, v_rec)
+                        st.success("Venda/Pedido gravado no banco de dados!")
+                        st.rerun()
 
-        elif menu_admin == "🛒 Registrar Venda":
-            st.title("🛒 Registrar Venda")
+            with aba_list:
+                df_pedidos = carregar_dados("SELECT * FROM vendas")
+                st.dataframe(df_pedidos, use_container_width=True)
 
         elif menu_admin == "📥 Entrada de Estoque (Compras)":
             st.title("📥 Entrada de Estoque")
