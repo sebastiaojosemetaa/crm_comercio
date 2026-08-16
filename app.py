@@ -612,9 +612,12 @@ elif menu == "📋 Pedidos / Orçamentos":
                 use_container_width=True
             )
 
-elif menu == "🛒 Registrar Venda":
-    st.title("🛒 Gerenciamento & Lançamento de Vendas")
-    st.info("Página de vendas restrita ao ambiente administrativo.")
+if menu == "🛒 Registrar Venda":
+    if st.session_state.get('admin_logged', False):
+        st.title("🛒 Gerenciamento & Lançamento de Vendas")
+        # --- CÓDIGO DA TELA DE VENDAS AQUI ---
+    else:
+        st.warning("Página de vendas restrita ao ambiente administrativo.")
 
 elif menu == "📥 Entrada de Estoque (Compras)":
     st.title("📥 Registro de Compras & Entrada de Estoque")
