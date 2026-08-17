@@ -51,6 +51,16 @@ def adequar_banco_e_migrar():
         )
     """)
 
+    # Migração automática caso a tabela use nomes antigos de colunas
+    cursor.execute("PRAGMA table_info(produtos)")
+    cols_prod = [col[1] for col in cursor.fetchall()]
+    if "valor_compra" in cols_prod and "preco_custo" not in cols_prod:
+        try:
+            cursor.execute("ALTER TABLE produtos RENAME COLUMN valor_compra TO preco_custo")
+            conn.commit()
+        except Exception:
+            pass
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS clientes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -456,6 +466,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         qtd = st.number_input("Quantidade", min_value=0.1, step=0.5, value=1.0)
                         
                         res_custo = carregar_dados(f"SELECT preco_custo FROM produtos WHERE TRIM(nome) = TRIM('{prod}')")
+                        if res_custo.empty:
+                            res_custo = carregar_dados(f"SELECT valor_compra FROM produtos WHERE TRIM(nome) = TRIM('{prod}')")
                         if not res_custo.empty and res_custo.iloc[0, 0] is not None:
                             default_valor = float(res_custo.iloc[0, 0])
                             
@@ -670,10 +682,18 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             st.title("📦 Gestão de Estoque e Produtos")
             st.caption("💡 **Dica:** Edite diretamente os valores de estoque, custo ou venda na tabela abaixo e clique no botão para salvar.")
             
-            df_produtos = carregar_dados("SELECT id, nome, fornecedor, grupo, preco_custo, preco_venda, estoque_atual FROM produtos")
+            # Carrega a estrutura e normaliza colunas caso o banco tenha nomes antigos
+            cursor_temp = conn.cursor()
+            cursor_temp.execute("PRAGMA table_info(produtos)")
+            cols_atuais = [col[1] for col in cursor_temp.fetchall()]
+            
+            col_custo_nome = "preco_custo" if "preco_custo" in cols_atuais else ("valor_compra" if "valor_compra" in cols_atuais else "preco_custo")
+            col_qtd_nome = "estoque_atual" if "estoque_atual" in cols_atuais else ("quantidade" if "quantidade" in cols_atuais else "estoque_atual")
+            
+            query_prod = f"SELECT id, nome, fornecedor, grupo, {col_custo_nome} as preco_custo, preco_venda, {col_qtd_nome} as estoque_atual FROM produtos"
+            df_produtos = carregar_dados(query_prod)
             
             if not df_produtos.empty:
-                # Adiciona coluna de exclusão
                 df_produtos.insert(0, "Deletar", False)
                 df_produtos["Deletar"] = df_produtos["Deletar"].astype(bool)
                 
@@ -711,14 +731,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         cursor = conn.cursor()
                         for _, row in df_produtos_editado.iterrows():
                             if not row["Deletar"] and str(row["nome"]).strip() != "" and str(row["nome"]).strip() != "nan":
-                                # Verifica se o produto já existe pelo ID ou Nome
                                 cursor.execute("SELECT COUNT(*) FROM produtos WHERE id = ?", (int(row["id"]),))
                                 existe = cursor.fetchone()[0]
                                 
                                 if existe > 0:
-                                    cursor.execute("""
+                                    cursor.execute(f"""
                                         UPDATE produtos 
-                                        SET nome = ?, fornecedor = ?, grupo = ?, preco_custo = ?, preco_venda = ?, estoque_atual = ?
+                                        SET nome = ?, fornecedor = ?, grupo = ?, {col_custo_nome} = ?, preco_venda = ?, {col_qtd_nome} = ?
                                         WHERE id = ?
                                     """, (
                                         str(row["nome"]).strip(),
@@ -730,10 +749,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         int(row["id"])
                                     ))
                                 else:
-                                    # Se for uma linha nova adicionada pelo usuário via tabela dinâmica
                                     try:
-                                        cursor.execute("""
-                                            INSERT INTO produtos (nome, fornecedor, grupo, preco_custo, preco_venda, estoque_atual)
+                                        cursor.execute(f"""
+                                            INSERT INTO produtos (nome, fornecedor, grupo, {col_custo_nome}, preco_venda, {col_qtd_nome})
                                             VALUES (?, ?, ?, ?, ?, ?)
                                         """, (
                                             str(row["nome"]).strip(),
