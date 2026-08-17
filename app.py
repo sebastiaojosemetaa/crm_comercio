@@ -39,6 +39,7 @@ def adequar_banco_e_migrar():
         )
     """)
 
+    # Garantir que a tabela produtos existe com todas as colunas corretas
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS produtos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -50,6 +51,18 @@ def adequar_banco_e_migrar():
             estoque_atual REAL
         )
     """)
+
+    # Verificar colunas e adicionar se faltarem em bancos antigos
+    cursor.execute("PRAGMA table_info(produtos)")
+    cols_prod = [col[1] for col in cursor.fetchall()]
+    
+    for col_nome, col_tipo in [("preco_custo", "REAL"), ("preco_venda", "REAL"), ("estoque_atual", "REAL")]:
+        if col_nome not in cols_prod:
+            try:
+                cursor.execute(f"ALTER TABLE produtos ADD COLUMN {col_nome} {col_tipo} DEFAULT 0.0")
+                conn.commit()
+            except Exception:
+                pass
 
     # Inserir produtos padrão se a tabela estiver vazia
     cursor.execute("SELECT COUNT(*) FROM produtos")
