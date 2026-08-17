@@ -112,6 +112,14 @@ def carregar_coluna(tabela, coluna):
         return df[col_alvo].tolist()
     return []
 
+def obter_preco_produto(nome_produto):
+    cursor = conn.cursor()
+    cursor.execute("SELECT preco_venda FROM produtos WHERE TRIM(nome) = TRIM(?)", (nome_produto,))
+    res = cursor.fetchone()
+    if res and res[0] is not None:
+        return float(res[0])
+    return 0.0
+
 # -----------------------------------------------------------------------------
 # FUNÇÕES DE REGISTRO E BANCO
 # -----------------------------------------------------------------------------
@@ -294,6 +302,9 @@ if 'admin_logged' not in st.session_state:
 if 'cliente_autenticado' not in st.session_state:
     st.session_state.cliente_autenticado = None
 
+if 'preco_selecionado_manual' not in st.session_state:
+    st.session_state.preco_selecionado_manual = 5.0
+
 st.sidebar.title("🔑 Acesso ao Sistema")
 opcoes_perfil = ["👤 Portal do Cliente", "🔒 Administração / Vendedor"]
 perfil_selecionado = st.sidebar.radio("Selecione o Perfil:", opcoes_perfil)
@@ -334,10 +345,15 @@ if perfil_selecionado == "👤 Portal do Cliente":
             
             with st.form("form_novo_pedido_cliente"):
                 prod = st.selectbox("Selecione o Produto", produtos_opt)
+                
+                if st.form_submit_button("🔄 Buscar Preço Atualizado do Estoque"):
+                    st.session_state.preco_selecionado_manual = obter_preco_produto(prod)
+                    st.rerun()
+
                 fornec = st.selectbox("Selecione o Fornecedor", fornecedores_opt)
                 grupo = st.selectbox("Selecione o Grupo", grupos_opt)
                 qtd = st.number_input("Quantidade", min_value=0.1, step=0.5, value=1.0)
-                v_unit = st.number_input("Valor Unitário (R$)", min_value=0.0, step=1.0, value=5.0)
+                v_unit = st.number_input("Valor Unitário (R$)", min_value=0.0, step=1.0, value=st.session_state.preco_selecionado_manual)
                 f_pag = st.selectbox("Forma de Pagamento", ["Dinheiro", "Crediário / Fiado", "Pix"])
                 
                 if st.form_submit_button("Confirmar Pedido"):
@@ -480,12 +496,18 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 tipo_registro = "VENDA" if menu_admin == "🛒 Registrar Venda" else "PEDIDO"
                 
                 with st.form("form_admin_pedido"):
+                    col_prod_btn, col_dummy = st.columns([2, 2])
+                    with col_prod_btn:
+                        prod = st.selectbox("Selecione o Produto", produtos_opt)
+                        if st.form_submit_button("🔄 Buscar Preço Atualizado do Estoque"):
+                            st.session_state.preco_selecionado_manual = obter_preco_produto(prod)
+                            st.rerun()
+
                     col_a, col_b = st.columns(2)
                     with col_a:
                         cli = st.selectbox("Selecione o Cliente", clientes_opt)
-                        prod = st.selectbox("Selecione o Produto", produtos_opt)
                         qtd = st.number_input("Quantidade", min_value=0.1, step=0.5, value=1.0)
-                        v_unit = st.number_input("Valor Unitário (R$)", min_value=0.0, step=1.0, value=5.0)
+                        v_unit = st.number_input("Valor Unitário (R$)", min_value=0.0, step=1.0, value=st.session_state.preco_selecionado_manual)
                     with col_b:
                         fornec = st.selectbox("Selecione o Fornecedor", fornecedores_opt)
                         grupo = st.selectbox("Selecione o Grupo", grupos_opt)
@@ -522,7 +544,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 df_registros = carregar_dados(query_filt)
                 
                 if not df_registros.empty:
-                    # Garantir os tipos corretos para evitar conflito no st.data_editor
                     df_registros['quantidade'] = pd.to_numeric(df_registros['quantidade'], errors='coerce').fillna(0.0)
                     df_registros['valor_venda'] = pd.to_numeric(df_registros['valor_venda'], errors='coerce').fillna(0.0)
                     df_registros['valor_total'] = pd.to_numeric(df_registros['valor_total'], errors='coerce').fillna(0.0)
@@ -676,7 +697,47 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             st.title("📦 Gestão de Estoque de Produtos")
             df_prod = carregar_dados("SELECT * FROM produtos")
             if not df_prod.empty:
-                st.dataframe(df_prod, use_container_width=True)
+                df_prod['preco_custo'] = pd.to_numeric(df_prod['preco_custo'], errors='coerce').fillna(0.0)
+                df_prod['preco_venda'] = pd.to_numeric(df_prod['preco_venda'], errors='coerce').fillna(0.0)
+                df_prod['estoque_atual'] = pd.to_numeric(df_prod['estoque_atual'], errors='coerce').fillna(0.0)
+                
+                st.caption("💡 **Dica:** Edite preços ou estoque diretamente na tabela abaixo e clique em Salvar para atualizar.")
+                
+                df_prod_editado = st.data_editor(
+                    df_prod,
+                    key="editor_estoque_produtos",
+                    use_container_width=True,
+                    num_rows="dynamic",
+                    column_config={
+                        "id": st.column_config.NumberColumn("ID", disabled=True),
+                        "nome": st.column_config.TextColumn("Nome do Produto"),
+                        "fornecedor": st.column_config.TextColumn("Fornecedor"),
+                        "grupo": st.column_config.TextColumn("Grupo"),
+                        "preco_custo": st.column_config.NumberColumn("Preço Custo", min_value=0.0, format="R$ %.2f"),
+                        "preco_venda": st.column_config.NumberColumn("Preço Venda", min_value=0.0, format="R$ %.2f"),
+                        "estoque_atual": st.column_config.NumberColumn("Estoque Atual", min_value=0.0, format="%.2f"),
+                    },
+                    hide_index=True
+                )
+                
+                if st.button("💾 Salvar Alterações de Estoque", type="primary"):
+                    cursor = conn.cursor()
+                    for _, row in df_prod_editado.iterrows():
+                        cursor.execute("""
+                            INSERT OR REPLACE INTO produtos (id, nome, fornecedor, grupo, preco_custo, preco_venda, estoque_atual)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                        """, (
+                            row.get("id"),
+                            str(row["nome"]).strip().upper(),
+                            str(row["fornecedor"]),
+                            str(row["grupo"]),
+                            float(row["preco_custo"]),
+                            float(row["preco_venda"]),
+                            float(row["estoque_atual"])
+                        ))
+                    conn.commit()
+                    st.success("Estoque e preços atualizados com sucesso!")
+                    st.rerun()
             else:
                 st.info("Nenhum produto cadastrado.")
 
