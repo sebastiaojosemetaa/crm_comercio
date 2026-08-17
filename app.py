@@ -663,13 +663,23 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
             
-            df_prods = carregar_dados("SELECT id, nome as produto, fornecedor, grupo, preco_custo, preco_venda, estoque_atual FROM produtos")
+            cursor_p = conn.cursor()
+            cursor_p.execute("PRAGMA table_info(produtos)")
+            cols_prod = [c[1] for c in cursor_p.fetchall()]
+            
+            col_nome_real = 'nome' if 'nome' in cols_prod else (cols_prod[1] if len(cols_prod) > 1 else 'id')
+            df_prods = carregar_dados("SELECT * FROM produtos")
             
             if not df_prods.empty:
+                if col_nome_real != 'produto' and col_nome_real in df_prods.columns:
+                    df_prods = df_prods.rename(columns={col_nome_real: 'produto'})
+                elif 'produto' not in df_prods.columns and len(df_prods.columns) > 1:
+                    df_prods = df_prods.rename(columns={df_prods.columns[1]: 'produto'})
+
                 col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
-                total_itens = df_prods['estoque_atual'].sum()
-                val_custo_total = (df_prods['estoque_atual'] * df_prods['preco_custo']).sum()
-                val_venda_total = (df_prods['estoque_atual'] * df_prods['preco_venda']).sum()
+                total_itens = df_prods['estoque_atual'].sum() if 'estoque_atual' in df_prods.columns else 0.0
+                val_custo_total = (df_prods['estoque_atual'] * df_prods['preco_custo']).sum() if 'estoque_atual' in df_prods.columns and 'preco_custo' in df_prods.columns else 0.0
+                val_venda_total = (df_prods['estoque_atual'] * df_prods['preco_venda']).sum() if 'estoque_atual' in df_prods.columns and 'preco_venda' in df_prods.columns else 0.0
                 
                 col_kpi1.metric("📦 Total de Produtos em Estoque", f"{total_itens:,.2f}")
                 col_kpi2.metric("💰 Custo Total em Estoque", f"R$ {val_custo_total:,.2f}")
@@ -681,13 +691,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 with col_f1:
                     busca = st.text_input("🔍 Pesquisar Produto pelo Nome:", "")
                 with col_f2:
-                    grupos_list = ["TODOS"] + sorted(list(df_prods['grupo'].dropna().unique()))
+                    grupos_list = ["TODOS"] + (sorted(list(df_prods['grupo'].dropna().unique())) if 'grupo' in df_prods.columns else [])
                     grupo_filtro = st.selectbox("Filtrar por Grupo:", grupos_list)
                 
                 df_exibir = df_prods.copy()
-                if busca.strip():
+                if busca.strip() and 'produto' in df_exibir.columns:
                     df_exibir = df_exibir[df_exibir['produto'].str.contains(busca, case=False, na=False)]
-                if grupo_filtro != "TODOS":
+                if grupo_filtro != "TODOS" and 'grupo' in df_exibir.columns:
                     df_exibir = df_exibir[df_exibir['grupo'] == grupo_filtro]
                 
                 st.caption("💡 **Dica:** Altere preços, estoques, fornecedores ou nomes diretamente na tabela e clique em **Salvar Alterações**.")
@@ -725,11 +735,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     WHERE id = ?
                                 """, (
                                     str(row["produto"]).strip(),
-                                    str(row["fornecedor"]).strip(),
-                                    str(row["grupo"]).strip(),
-                                    float(row["preco_custo"]),
-                                    float(row["preco_venda"]),
-                                    float(row["estoque_atual"]),
+                                    str(row.get("fornecedor", "")).strip(),
+                                    str(row.get("grupo", "")).strip(),
+                                    float(row.get("preco_custo", 0.0)),
+                                    float(row.get("preco_venda", 0.0)),
+                                    float(row.get("estoque_atual", 0.0)),
                                     int(row["id"])
                                 ))
                         conn.commit()
