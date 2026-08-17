@@ -1,157 +1,123 @@
 import streamlit as st
 import sqlite3
 import pandas as pd
-from datetime import datetime, date
-import io
-from reportlab.lib.pagesizes import letter
-from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from datetime import datetime
 
-# -----------------------------------------------------------------------------
-# 1. CONFIGURAÇÃO E CONEXÃO COM O BANCO DE DADOS
-# -----------------------------------------------------------------------------
+# --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="CRM Comércio - Rey da Cebola", layout="wide")
 
+# --- CONEXÃO E ESTRUTURA DO BANCO ---
 def get_connection():
     return sqlite3.connect("crm_comercio.db", check_same_thread=False)
 
 conn = get_connection()
 
-def adequar_banco_e_migrar():
+def inicializar_banco():
     cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS vendas (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            cliente TEXT, produto TEXT, fornecedor TEXT, grupo TEXT,
-            quantidade REAL, valor_venda REAL, valor_total REAL,
-            forma_pagamento TEXT, valor_recebido TEXT,
-            tipo TEXT DEFAULT 'PEDIDO', codigo TEXT DEFAULT 'PED', data TEXT
-        )
-    """)
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS produtos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT UNIQUE, fornecedor TEXT, grupo TEXT,
-            preco_custo REAL, preco_venda REAL, estoque_atual REAL
-        )
-    """)
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS clientes (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT UNIQUE)
-    """)
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS fornecedores (id INTEGER PRIMARY KEY AUTOINCREMENT, fornecedor TEXT UNIQUE)
-    """)
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS grupos (id INTEGER PRIMARY KEY AUTOINCREMENT, grupo TEXT UNIQUE)
-    """)
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS compras (id INTEGER PRIMARY KEY AUTOINCREMENT, produto TEXT, fornecedor TEXT, grupo TEXT, quantidade REAL, valor_custo REAL, valor_total REAL, data TEXT)
-    """)
+    # Tabelas essenciais
+    cursor.execute("CREATE TABLE IF NOT EXISTS vendas (id INTEGER PRIMARY KEY, cliente TEXT, produto TEXT, quantidade REAL, valor_venda REAL, valor_total REAL, data TEXT)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS produtos (id INTEGER PRIMARY KEY, nome TEXT UNIQUE, preco_custo REAL, preco_venda REAL, estoque_atual REAL)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS clientes (id INTEGER PRIMARY KEY, nome TEXT UNIQUE)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS fornecedores (id INTEGER PRIMARY KEY, nome TEXT UNIQUE)")
+    
+    # Dados de teste se estiver vazio
+    cursor.execute("INSERT OR IGNORE INTO produtos (nome, preco_custo, preco_venda, estoque_atual) VALUES ('CEBOLA', 2.0, 5.0, 100.0)")
+    cursor.execute("INSERT OR IGNORE INTO clientes (nome) VALUES ('CLIENTE PADRÃO')")
     conn.commit()
 
-adequar_banco_e_migrar()
+inicializar_banco()
 
-# -----------------------------------------------------------------------------
-# FUNÇÕES AUXILIARES
-# -----------------------------------------------------------------------------
-def carregar_dados(query):
-    try: return pd.read_sql_query(query, conn)
-    except: return pd.DataFrame()
-
-def carregar_coluna(tabela, coluna):
+# --- FUNÇÕES DE APOIO ---
+def buscar_opcoes(tabela, coluna):
     try:
-        df = pd.read_sql_query(f"SELECT DISTINCT {coluna} FROM {tabela} WHERE {coluna} IS NOT NULL", conn)
-        return df[coluna].tolist() if not df.empty else []
-    except: return []
+        df = pd.read_sql_query(f"SELECT {coluna} FROM {tabela}", conn)
+        return df[coluna].tolist() if not df.empty else ["NENHUM"]
+    except: return ["NENHUM"]
 
-# -----------------------------------------------------------------------------
-# INTERFACE PRINCIPAL
-# -----------------------------------------------------------------------------
-st.sidebar.title("🔑 Acesso ao Sistema")
-perfil_selecionado = st.sidebar.radio("Selecione o Perfil:", ["👤 Portal do Cliente", "🔒 Administração / Vendedor"])
+# --- BARRA LATERAL ---
+st.sidebar.title("🔐 Acesso")
+perfil = st.sidebar.radio("Selecione o Perfil:", ["Portal do Cliente", "Administração / Vendedor"])
 
-if perfil_selecionado == "👤 Portal do Cliente":
-    st.title("🛍️ Portal do Cliente")
-    st.info("Acesse a área administrativa para visualizar o sistema.")
-
-elif perfil_selecionado == "🔒 Administração / Vendedor":
-    if 'admin_logged' not in st.session_state: st.session_state.admin_logged = False
-    
-    if not st.session_state.admin_logged:
-        senha = st.sidebar.text_input("Senha Admin:", type="password")
-        if st.sidebar.button("Entrar"):
-            if senha == "1234": st.session_state.admin_logged = True; st.rerun()
-    else:
-        menu_admin = st.sidebar.radio("Navegação", [
-            "📊 Fechamento & Financeiro",
-            "🛒 Registrar Venda",
-            "📋 Pedidos / Orçamentos",
-            "📥 Entrada de Estoque (Compras)",
-            "📦 Estoque de Produtos",
-            "👥 Cadastros (Clientes / Fornecedores / Grupos)"
+if perfil == "Administração / Vendedor":
+    senha = st.sidebar.text_input("Senha", type="password")
+    if senha == "1234":
+        menu = st.sidebar.radio("Navegação", [
+            "Fechamento & Financeiro", 
+            "Registrar Venda", 
+            "Entrada de Estoque (Compras)", 
+            "Estoque de Produtos", 
+            "Cadastros"
         ])
-        
-        # --- TELA FINANCEIRO ---
-        if menu_admin == "📊 Fechamento & Financeiro":
-            st.title("📊 Painel Financeiro")
-            c1, c2 = st.columns(2)
-            d_inicio = c1.date_input("Data Inicial", value=date(2025, 1, 1))
-            d_fim = c2.date_input("Data Final", value=date.today())
-            
-            query = f"SELECT * FROM vendas WHERE date(data) BETWEEN '{d_inicio}' AND '{d_fim}'"
-            df = carregar_dados(query)
-            if not df.empty:
-                st.metric("Total Vendido", f"R$ {df['valor_total'].sum():,.2f}")
-                st.dataframe(df, use_container_width=True)
-            else: st.info("Nenhum dado no período.")
 
-        # --- TELA VENDAS/PEDIDOS ---
-        elif menu_admin in ["🛒 Registrar Venda", "📋 Pedidos / Orçamentos"]:
-            st.title(f"📋 {menu_admin}")
-            tabs = st.tabs(["➕ Novo Registro", "✏️ Tabela Editável"])
+        # --- TELA: REGISTRAR VENDA ---
+        if menu == "Registrar Venda":
+            st.title("🛒 Registrar Venda")
+            clientes = buscar_opcoes("clientes", "nome")
+            produtos = buscar_opcoes("produtos", "nome")
             
-            with tabs[0]:
-                with st.form("form_venda"):
-                    cli = st.selectbox("Cliente", carregar_coluna("clientes", "nome") or ["Geral"])
-                    prod = st.selectbox("Produto", carregar_coluna("produtos", "nome") or ["Produto"])
-                    qtd = st.number_input("Quantidade", value=1.0)
-                    v_uni = st.number_input("Valor Unitário", value=0.0)
-                    if st.form_submit_button("Salvar Venda"):
-                        data_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        conn.execute("INSERT INTO vendas (cliente, produto, quantidade, valor_venda, valor_total, data) VALUES (?,?,?,?,?,?)",
-                                     (cli, prod, qtd, v_uni, qtd * v_uni, data_str))
-                        conn.commit()
-                        st.rerun()
-            
-            with tabs[1]:
-                df = carregar_dados("SELECT * FROM vendas")
-                if not df.empty: st.data_editor(df, use_container_width=True)
+            with st.form("venda_form"):
+                c = st.selectbox("Cliente", clientes)
+                p = st.selectbox("Produto", produtos)
+                q = st.number_input("Quantidade", min_value=0.1, value=1.0)
+                v = st.number_input("Valor Unitário", value=5.0)
+                btn = st.form_submit_button("Finalizar Venda")
+                
+                if btn:
+                    total = q * v
+                    data = datetime.now().strftime("%d/%m/%Y %H:%M")
+                    conn.execute("INSERT INTO vendas (cliente, produto, quantidade, valor_venda, valor_total, data) VALUES (?,?,?,?,?,?)", 
+                                 (c, p, q, v, total, data))
+                    conn.execute("UPDATE produtos SET estoque_atual = estoque_atual - ? WHERE nome = ?", (q, p))
+                    conn.commit()
+                    st.success("Venda registrada com sucesso!")
 
-        # --- TELA ESTOQUE ---
-        elif menu_admin == "📦 Estoque de Produtos":
-            st.title("📦 Estoque de Produtos")
-            tabs = st.tabs(["📋 Lista de Produtos", "➕ Novo Produto"])
-            with tabs[1]:
-                with st.form("form_prod"):
-                    nome = st.text_input("Nome")
-                    v_custo = st.number_input("Custo")
-                    v_venda = st.number_input("Venda")
-                    if st.form_submit_button("Cadastrar"):
-                        conn.execute("INSERT INTO produtos (nome, preco_custo, preco_venda) VALUES (?,?,?)", (nome, v_custo, v_venda))
-                        conn.commit()
-                        st.rerun()
-            with tabs[0]:
-                df = carregar_dados("SELECT * FROM produtos")
-                if not df.empty: st.data_editor(df, use_container_width=True)
-
-        # --- TELA COMPRAS ---
-        elif menu_admin == "📥 Entrada de Estoque (Compras)":
+        # --- TELA: ENTRADA DE ESTOQUE ---
+        elif menu == "Entrada de Estoque (Compras)":
             st.title("📥 Entrada de Estoque")
-            with st.form("form_compra"):
-                p = st.selectbox("Produto", carregar_coluna("produtos", "nome") or [])
-                q = st.number_input("Quantidade", value=1.0)
-                if st.form_submit_button("Registrar Entrada"):
+            produtos = buscar_opcoes("produtos", "nome")
+            with st.form("compra_form"):
+                p = st.selectbox("Produto", produtos)
+                q = st.number_input("Quantidade de Entrada", min_value=0.1, value=1.0)
+                btn = st.form_submit_button("Confirmar Entrada")
+                
+                if btn:
                     conn.execute("UPDATE produtos SET estoque_atual = estoque_atual + ? WHERE nome = ?", (q, p))
                     conn.commit()
-                    st.success("Estoque atualizado!")
+                    st.success(f"Estoque de {p} atualizado!")
+
+        # --- TELA: ESTOQUE DE PRODUTOS ---
+        elif menu == "Estoque de Produtos":
+            st.title("📦 Estoque Atual")
+            df = pd.read_sql_query("SELECT * FROM produtos", conn)
+            st.data_editor(df, use_container_width=True)
+
+        # --- TELA: FINANCEIRO ---
+        elif menu == "Fechamento & Financeiro":
+            st.title("📊 Fechamento")
+            df = pd.read_sql_query("SELECT * FROM vendas", conn)
+            if not df.empty:
+                st.metric("Total Vendido", f"R$ {df['valor_total'].sum():.2f}")
+                st.dataframe(df)
+            else: st.write("Nenhuma venda registrada.")
+
+        # --- TELA: CADASTROS ---
+        elif menu == "Cadastros":
+            st.title("👥 Cadastros Gerais")
+            tab1, tab2 = st.tabs(["Cliente", "Produto"])
+            with tab1:
+                nome_c = st.text_input("Nome do Novo Cliente")
+                if st.button("Salvar Cliente"):
+                    conn.execute("INSERT INTO clientes (nome) VALUES (?)", (nome_c,))
+                    conn.commit()
+                    st.success("Cliente salvo!")
+            with tab2:
+                nome_p = st.text_input("Nome do Produto")
+                custo = st.number_input("Custo")
+                venda = st.number_input("Preço Venda")
+                if st.button("Salvar Produto"):
+                    conn.execute("INSERT INTO produtos (nome, preco_custo, preco_venda, estoque_atual) VALUES (?,?,?,0)", (nome_p, custo, venda))
+                    conn.commit()
+                    st.success("Produto salvo!")
+
+    else:
+        st.warning("Por favor, digite a senha 1234 para acessar.")
