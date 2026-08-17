@@ -186,21 +186,51 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Gestão de Estoque e Produtos")
-            df_prod = carregar_dados("SELECT id, nome, fornecedor, grupo, preco_custo, preco_venda, estoque_atual FROM produtos")
-            if not df_prod.empty:
-                df_prod.insert(0, "Deletar", False)
-                df_prod_edit = st.data_editor(df_prod, hide_index=True, use_container_width=True)
-                if st.button("💾 Salvar Estoque"):
-                    cursor = conn.cursor()
-                    for _, row in df_prod_edit.iterrows():
-                        if row["Deletar"]:
-                            cursor.execute("DELETE FROM produtos WHERE id = ?", (int(row["id"]),))
+            aba_est_lista, aba_est_novo = st.tabs(["📋 Lista de Produtos", "➕ Cadastrar Novo Produto"])
+            
+            with aba_est_novo:
+                st.subheader("Cadastrar Novo Produto")
+                forn_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
+                grp_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
+                with st.form("form_cad_prod"):
+                    np = st.text_input("Nome do Produto")
+                    nf = st.selectbox("Fornecedor", forn_opt)
+                    ng = st.selectbox("Grupo", grp_opt)
+                    nc = st.number_input("Preço Custo", min_value=0.0, value=50.0)
+                    nv = st.number_input("Preço Venda", min_value=0.0, value=80.0)
+                    nq = st.number_input("Estoque Inicial", min_value=0.0, value=100.0)
+                    if st.form_submit_button("Salvar Produto"):
+                        if np:
+                            cursor = conn.cursor()
+                            try:
+                                cursor.execute("INSERT INTO produtos (nome, fornecedor, grupo, preco_custo, preco_venda, estoque_atual) VALUES (?, ?, ?, ?, ?, ?)",
+                                               (np.strip().upper(), nf, ng, nc, nv, nq))
+                                conn.commit()
+                                st.success("Produto cadastrado com sucesso!")
+                                st.rerun()
+                            except sqlite3.IntegrityError:
+                                st.error("Este produto já existe.")
                         else:
-                            cursor.execute("""UPDATE produtos SET nome=?, preco_custo=?, preco_venda=?, estoque_atual=? WHERE id=?""",
-                                           (str(row["nome"]), float(row["preco_custo"]), float(row["preco_venda"]), float(row["estoque_atual"]), int(row["id"])))
-                    conn.commit()
-                    st.success("Estoque atualizado!")
-                    st.rerun()
+                            st.warning("Informe o nome do produto.")
+
+            with aba_est_lista:
+                df_prod = carregar_dados("SELECT id, nome, fornecedor, grupo, preco_custo, preco_venda, estoque_atual FROM produtos")
+                if not df_prod.empty:
+                    df_prod.insert(0, "Deletar", False)
+                    df_prod_edit = st.data_editor(df_prod, hide_index=True, use_container_width=True)
+                    if st.button("💾 Salvar Estoque"):
+                        cursor = conn.cursor()
+                        for _, row in df_prod_edit.iterrows():
+                            if row["Deletar"]:
+                                cursor.execute("DELETE FROM produtos WHERE id = ?", (int(row["id"]),))
+                            else:
+                                cursor.execute("""UPDATE produtos SET nome=?, preco_custo=?, preco_venda=?, estoque_atual=? WHERE id=?""",
+                                               (str(row["nome"]), float(row["preco_custo"]), float(row["preco_venda"]), float(row["estoque_atual"]), int(row["id"])))
+                        conn.commit()
+                        st.success("Estoque atualizado!")
+                        st.rerun()
+                else:
+                    st.info("Nenhum produto cadastrado.")
 
         elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
             st.title("👥 Cadastros Gerais")
