@@ -33,14 +33,14 @@ def adequar_banco_e_migrar():
             valor_venda REAL,
             valor_total REAL,
             forma_pagamento TEXT,
-            valor_recebido REAL,
+            valor_recebido TEXT,
             tipo TEXT DEFAULT 'PEDIDO',
             codigo TEXT DEFAULT 'PED',
             data TEXT
         )
     """)
 
-    # Garantir tabela produtos e suas colunas corretas sem perder dados antigos
+    # Garantir tabela produtos base
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS produtos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -53,11 +53,21 @@ def adequar_banco_e_migrar():
         )
     """)
 
-    # Verificar se faltam colunas na tabela produtos existente e adicioná-las se necessário
+    # Verificar colunas existentes na tabela produtos
     cursor.execute("PRAGMA table_info(produtos)")
     colunas_existentes = [col[1] for col in cursor.fetchall()]
     
+    # Se a tabela antiga foi criada com 'produto' em vez de 'nome', renomeamos ou adicionamos
+    if "produto" in colunas_existentes and "nome" not in colunas_existentes:
+        try:
+            cursor.execute("ALTER TABLE produtos RENAME COLUMN produto TO nome")
+            cursor.execute("PRAGMA table_info(produtos)")
+            colunas_existentes = [col[1] for col in cursor.fetchall()]
+        except Exception:
+            pass
+
     colunas_necessarias = {
+        "nome": "TEXT",
         "fornecedor": "TEXT",
         "grupo": "TEXT",
         "preco_custo": "REAL",
@@ -83,9 +93,10 @@ def carregar_dados(query):
         return pd.DataFrame()
 
 def carregar_coluna(tabela, coluna):
-    df = carregar_dados(f"SELECT DISTINCT TRIM({coluna}) as {coluna} FROM {tabela} WHERE {coluna} IS NOT NULL AND {coluna} != ''")
+    col_alvo = "nome" if tabela == "produtos" and coluna == "produto" else coluna
+    df = carregar_dados(f"SELECT DISTINCT TRIM({col_alvo}) as {col_alvo} FROM {tabela} WHERE {col_alvo} IS NOT NULL AND {col_alvo} != ''")
     if not df.empty:
-        return df[coluna].tolist()
+        return df[col_alvo].tolist()
     return []
 
 # -----------------------------------------------------------------------------
@@ -121,7 +132,6 @@ def salvar_produto_completo(nome, fornecedor, grupo, preco_custo, preco_venda, e
         conn.commit()
         return True
     except sqlite3.IntegrityError:
-        # Se já existe o produto pelo nome, fazemos um UPDATE para atualizar os dados em vez de dar erro
         cursor.execute("""
             UPDATE produtos 
             SET fornecedor = ?, grupo = ?, preco_custo = ?, preco_venda = ?, estoque_atual = ?
