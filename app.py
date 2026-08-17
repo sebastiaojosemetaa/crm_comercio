@@ -39,7 +39,14 @@ def adequar_banco_e_migrar():
         )
     """)
 
-    # Garantir que a tabela produtos existe com todas as colunas corretas
+    # Verificar se a tabela produtos tem a estrutura correta, senão recriar com segurança
+    try:
+        cursor.execute("SELECT preco_custo, preco_venda, estoque_atual FROM produtos LIMIT 1")
+    except Exception:
+        # Se der erro, a tabela antiga está desatualizada ou corrompida. Vamos recriá-la.
+        cursor.execute("DROP TABLE IF EXISTS produtos")
+        conn.commit()
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS produtos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,18 +58,6 @@ def adequar_banco_e_migrar():
             estoque_atual REAL
         )
     """)
-
-    # Verificar colunas e adicionar se faltarem em bancos antigos
-    cursor.execute("PRAGMA table_info(produtos)")
-    cols_prod = [col[1] for col in cursor.fetchall()]
-    
-    for col_nome, col_tipo in [("preco_custo", "REAL"), ("preco_venda", "REAL"), ("estoque_atual", "REAL")]:
-        if col_nome not in cols_prod:
-            try:
-                cursor.execute(f"ALTER TABLE produtos ADD COLUMN {col_nome} {col_tipo} DEFAULT 0.0")
-                conn.commit()
-            except Exception:
-                pass
 
     # Inserir produtos padrão se a tabela estiver vazia
     cursor.execute("SELECT COUNT(*) FROM produtos")
@@ -187,26 +182,6 @@ def salvar_pedido_ou_venda(cliente, produto, fornecedor, grupo, quantidade, valo
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (cliente.strip(), produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, str(valor_recebido), tipo, cod_status, data_atual))
     conn.commit()
-
-def converter_pedido_completo_para_venda(cliente_nome):
-    cursor = conn.cursor()
-    cursor.execute("""
-        UPDATE vendas 
-        SET tipo = 'VENDA', codigo = 'VEN' 
-        WHERE TRIM(cliente) = TRIM(?)
-    """, (cliente_nome,))
-    conn.commit()
-    return cursor.rowcount
-
-def deletar_pedidos_cliente(cliente_nome, s_d1, s_d2):
-    cursor = conn.cursor()
-    cursor.execute("""
-        DELETE FROM vendas 
-        WHERE TRIM(cliente) = TRIM(?) 
-          AND (substr(data, 1, 10) >= ? AND substr(data, 1, 10) <= ? OR data IS NULL OR data = '')
-    """, (cliente_nome, s_d1, s_d2))
-    conn.commit()
-    return cursor.rowcount
 
 def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo):
     cursor = conn.cursor()
