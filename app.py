@@ -43,11 +43,14 @@ def adequar_banco_e_migrar():
         CREATE TABLE IF NOT EXISTS produtos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nome TEXT UNIQUE,
+            produto TEXT,
             fornecedor TEXT,
             grupo TEXT,
             preco_custo REAL,
             preco_venda REAL,
-            estoque_atual REAL
+            estoque_atual REAL,
+            quantidade REAL,
+            valor_compra REAL
         )
     """)
 
@@ -146,17 +149,17 @@ def salvar_produto_completo(nome, fornecedor, grupo, preco_custo, preco_venda, e
     cursor = conn.cursor()
     try:
         cursor.execute("""
-            INSERT INTO produtos (nome, fornecedor, grupo, preco_custo, preco_venda, estoque_atual) 
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (nome.strip().upper(), fornecedor, grupo, preco_custo, preco_venda, estoque_inicial))
+            INSERT INTO produtos (nome, produto, fornecedor, grupo, preco_custo, preco_venda, estoque_atual, quantidade, valor_compra) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (nome.strip().upper(), nome.strip().upper(), fornecedor, grupo, preco_custo, preco_venda, estoque_inicial, estoque_inicial, preco_custo))
         conn.commit()
         return True
     except sqlite3.IntegrityError:
         cursor.execute("""
             UPDATE produtos 
-            SET fornecedor = ?, grupo = ?, preco_custo = ?, preco_venda = ?, estoque_atual = ?
+            SET fornecedor = ?, grupo = ?, preco_custo = ?, preco_venda = ?, estoque_atual = ?, quantidade = ?, valor_compra = ?
             WHERE TRIM(nome) = TRIM(?) OR TRIM(produto) = TRIM(?)
-        """, (fornecedor, grupo, preco_custo, preco_venda, estoque_inicial, nome.strip().upper(), nome.strip().upper()))
+        """, (fornecedor, grupo, preco_custo, preco_venda, estoque_inicial, estoque_inicial, preco_custo, nome.strip().upper(), nome.strip().upper()))
         conn.commit()
         return True
     except Exception as e:
@@ -227,8 +230,8 @@ def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo):
     """, (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data_atual))
     
     cursor.execute("""
-        UPDATE produtos SET estoque_atual = estoque_atual + ? WHERE TRIM(nome) = TRIM(?) OR TRIM(produto) = TRIM(?)
-    """, (quantidade, produto, produto))
+        UPDATE produtos SET estoque_atual = estoque_atual + ?, quantidade = quantidade + ? WHERE TRIM(nome) = TRIM(?) OR TRIM(produto) = TRIM(?)
+    """, (quantidade, quantidade, produto, produto))
     conn.commit()
 
 # -----------------------------------------------------------------------------
@@ -703,7 +706,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             st.title("📦 Gestão de Estoque de Produtos")
             df_prod = carregar_dados("SELECT * FROM produtos")
             if not df_prod.empty:
-                # Normaliza colunas caso o banco tenha nomes antigos (produto, valor_compra, etc.)
                 if 'produto' in df_prod.columns and 'nome' not in df_prod.columns:
                     df_prod['nome'] = df_prod['produto']
                 if 'valor_compra' in df_prod.columns and 'preco_custo' not in df_prod.columns:
@@ -742,21 +744,27 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     cursor = conn.cursor()
                     for _, row in df_prod_editado.iterrows():
                         nome_val = str(row.get("nome", row.get("produto", "PRODUTO"))).strip().upper()
-                        cursor.execute("""
-                            INSERT OR REPLACE INTO produtos (id, nome, produto, fornecedor, grupo, preco_custo, preco_venda, estoque_atual, quantidade, valor_compra)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        """, (
-                            row.get("id"),
-                            nome_val,
-                            nome_val,
-                            str(row.get("fornecedor", "GERAL")),
-                            str(row.get("grupo", "GERAL")),
-                            float(row.get("preco_custo", 0.0)),
-                            float(row.get("preco_venda", 0.0)),
-                            float(row.get("estoque_atual", 0.0)),
-                            float(row.get("estoque_atual", 0.0)),
-                            float(row.get("preco_custo", 0.0))
-                        ))
+                        fornec_val = str(row.get("fornecedor", "GERAL"))
+                        grupo_val = str(row.get("grupo", "GERAL"))
+                        p_custo = float(row.get("preco_custo", row.get("valor_compra", 0.0)))
+                        p_venda = float(row.get("preco_venda", 0.0))
+                        est_atual = float(row.get("estoque_atual", row.get("quantidade", 0.0)))
+                        prod_id = row.get("id")
+
+                        if pd.notna(prod_id):
+                            cursor.execute("""
+                                UPDATE produtos 
+                                SET nome = ?, produto = ?, fornecedor = ?, grupo = ?, 
+                                    preco_custo = ?, preco_venda = ?, estoque_atual = ?, 
+                                    quantidade = ?, valor_compra = ?
+                                WHERE id = ?
+                            """, (nome_val, nome_val, fornec_val, grupo_val, p_custo, p_venda, est_atual, est_atual, p_custo, int(prod_id)))
+                        else:
+                            cursor.execute("""
+                                INSERT INTO produtos (nome, produto, fornecedor, grupo, preco_custo, preco_venda, estoque_atual, quantidade, valor_compra)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            """, (nome_val, nome_val, fornec_val, grupo_val, p_custo, p_venda, est_atual, est_atual, p_custo))
+                            
                     conn.commit()
                     st.success("Estoque e preços atualizados com sucesso!")
                     st.rerun()
