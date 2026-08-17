@@ -65,14 +65,14 @@ def adequar_banco_e_migrar():
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS fornecedores (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT UNIQUE
+            fornecedor TEXT UNIQUE
         )
     """)
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS grupos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT UNIQUE
+            grupo TEXT UNIQUE
         )
     """)
 
@@ -100,7 +100,11 @@ def carregar_dados(query):
         return pd.DataFrame()
 
 def carregar_coluna(tabela, coluna):
-    col_alvo = "nome" if tabela == "produtos" and coluna == "produto" else coluna
+    cursor = conn.cursor()
+    cursor.execute(f"PRAGMA table_info({tabela})")
+    cols = [col[1] for col in cursor.fetchall()]
+    col_alvo = coluna if coluna in cols else (cols[1] if len(cols) > 1 else coluna)
+    
     df = carregar_dados(f"SELECT DISTINCT TRIM({col_alvo}) as {col_alvo} FROM {tabela} WHERE {col_alvo} IS NOT NULL AND {col_alvo} != ''")
     if not df.empty:
         return df[col_alvo].tolist()
@@ -141,11 +145,20 @@ def salvar_produto_completo(nome, fornecedor, grupo, preco_custo, preco_venda, e
         return False
 
 def salvar_simples(tabela, coluna, valor):
+    """Função robusta que descobre automaticamente a coluna correta da tabela."""
     cursor = conn.cursor()
     try:
-        cursor.execute(f"CREATE TABLE IF NOT EXISTS {tabela} (id INTEGER PRIMARY KEY AUTOINCREMENT, {coluna} TEXT UNIQUE)")
-        conn.commit()
-        cursor.execute(f"INSERT INTO {tabela} ({coluna}) VALUES (?)", (valor.strip(),))
+        cursor.execute(f"PRAGMA table_info({tabela})")
+        colunas_existentes = [col[1] for col in cursor.fetchall()]
+        
+        if not colunas_existentes:
+            cursor.execute(f"CREATE TABLE IF NOT EXISTS {tabela} (id INTEGER PRIMARY KEY AUTOINCREMENT, {coluna} TEXT UNIQUE)")
+            conn.commit()
+            coluna_alvo = coluna
+        else:
+            coluna_alvo = coluna if coluna in colunas_existentes else colunas_existentes[-1]
+
+        cursor.execute(f"INSERT INTO {tabela} ({coluna_alvo}) VALUES (?)", (valor.strip(),))
         conn.commit()
         return True
     except sqlite3.IntegrityError:
@@ -311,8 +324,8 @@ if perfil_selecionado == "👤 Portal do Cliente":
         with aba_novo:
             st.subheader("➕ Registrar Novo Pedido")
             produtos_opt = carregar_coluna("produtos", "nome") or ["AMEIXA IMPORTADA", "ABACATE", "CEBOLA CAIXA 1"]
-            fornecedores_opt = carregar_coluna("fornecedores", "nome") or ["BAHIA"]
-            grupos_opt = carregar_coluna("grupos", "nome") or ["GERAL"]
+            fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
+            grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
             
             with st.form("form_novo_pedido_cliente"):
                 prod = st.selectbox("Selecione o Produto", produtos_opt)
@@ -456,8 +469,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             with aba_cad:
                 clientes_opt = carregar_coluna("clientes", "nome") or ["Carlos Alberto"]
                 produtos_opt = carregar_coluna("produtos", "nome") or ["AMEIXA IMPORTADA", "ABACATE"]
-                fornecedores_opt = carregar_coluna("fornecedores", "nome") or ["BAHIA"]
-                grupos_opt = carregar_coluna("grupos", "nome") or ["GERAL"]
+                fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
+                grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
                 
                 tipo_registro = "VENDA" if menu_admin == "🛒 Registrar Venda" else "PEDIDO"
                 
@@ -624,8 +637,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             aba_compra, aba_historico_compras = st.tabs(["➕ Dar Entrada em Estoque", "📜 Histórico de Entradas / Compras"])
             
             produtos_opt = carregar_coluna("produtos", "nome") or ["AMEIXA IMPORTADA", "ABACATE"]
-            fornecedores_opt = carregar_coluna("fornecedores", "nome") or ["BAHIA"]
-            grupos_opt = carregar_coluna("grupos", "nome") or ["GERAL"]
+            fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
+            grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
             
             with aba_compra:
                 with st.form("form_entrada_estoque"):
@@ -764,8 +777,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
             with tab_prod:
                 st.subheader("Cadastrar Novo Produto e Estoque")
-                grupos_opt = carregar_coluna("grupos", "nome") or ["GERAL"]
-                fornecedores_opt = carregar_coluna("fornecedores", "nome") or ["BAHIA"]
+                grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
+                fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
                 
                 with st.form("form_cad_produto_completo"):
                     col1, col2 = st.columns(2)
@@ -790,7 +803,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 with st.form("form_cad_fornecedor"):
                     novo_forn = st.text_input("Nome do Fornecedor")
                     if st.form_submit_button("Salvar Fornecedor"):
-                        if novo_forn.strip() and salvar_simples("fornecedores", "nome", novo_forn.strip()):
+                        if novo_forn.strip() and salvar_simples("fornecedores", "fornecedor", novo_forn.strip()):
                             st.success("Fornecedor cadastrado com sucesso!")
                             st.rerun()
                 st.markdown("---")
@@ -801,7 +814,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 with st.form("form_cad_grupo"):
                     novo_grup = st.text_input("Nome do Grupo")
                     if st.form_submit_button("Salvar Grupo"):
-                        if novo_grup.strip() and salvar_simples("grupos", "nome", novo_grup.strip()):
+                        if novo_grup.strip() and salvar_simples("grupos", "grupo", novo_grup.strip()):
                             st.success("Grupo cadastrado com sucesso!")
                             st.rerun()
                 st.markdown("---")
