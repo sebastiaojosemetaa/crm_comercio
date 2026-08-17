@@ -14,16 +14,42 @@ conn = get_connection()
 
 def inicializar_banco():
     cursor = conn.cursor()
-    # Tabelas essenciais
-    cursor.execute("CREATE TABLE IF NOT EXISTS vendas (id INTEGER PRIMARY KEY, cliente TEXT, produto TEXT, quantidade REAL, valor_venda REAL, valor_total REAL, data TEXT)")
-    cursor.execute("CREATE TABLE IF NOT EXISTS produtos (id INTEGER PRIMARY KEY, nome TEXT UNIQUE, preco_custo REAL, preco_venda REAL, estoque_atual REAL)")
-    cursor.execute("CREATE TABLE IF NOT EXISTS clientes (id INTEGER PRIMARY KEY, nome TEXT UNIQUE)")
-    cursor.execute("CREATE TABLE IF NOT EXISTS fornecedores (id INTEGER PRIMARY KEY, nome TEXT UNIQUE)")
-    
-    # Dados de teste se estiver vazio
-    cursor.execute("INSERT OR IGNORE INTO produtos (nome, preco_custo, preco_venda, estoque_atual) VALUES ('CEBOLA', 2.0, 5.0, 100.0)")
-    cursor.execute("INSERT OR IGNORE INTO clientes (nome) VALUES ('CLIENTE PADRÃO')")
+    # Criar tabelas com segurança
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS vendas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, 
+            cliente TEXT, 
+            produto TEXT, 
+            quantidade REAL, 
+            valor_venda REAL, 
+            valor_total REAL, 
+            data TEXT
+        )
+    """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS produtos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, 
+            nome TEXT UNIQUE, 
+            preco_custo REAL, 
+            preco_venda REAL, 
+            estoque_atual REAL
+        )
+    """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS clientes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, 
+            nome TEXT UNIQUE
+        )
+    """)
     conn.commit()
+    
+    # Inserção segura tratada com try/except para evitar falhas
+    try:
+        cursor.execute("INSERT OR IGNORE INTO produtos (nome, preco_custo, preco_venda, estoque_atual) VALUES ('CEBOLA', 2.0, 5.0, 100.0)")
+        cursor.execute("INSERT OR IGNORE INTO clientes (nome) VALUES ('CLIENTE PADRÃO')")
+        conn.commit()
+    except:
+        pass
 
 inicializar_banco()
 
@@ -32,7 +58,8 @@ def buscar_opcoes(tabela, coluna):
     try:
         df = pd.read_sql_query(f"SELECT {coluna} FROM {tabela}", conn)
         return df[coluna].tolist() if not df.empty else ["NENHUM"]
-    except: return ["NENHUM"]
+    except: 
+        return ["NENHUM"]
 
 # --- BARRA LATERAL ---
 st.sidebar.title("🔐 Acesso")
@@ -98,7 +125,8 @@ if perfil == "Administração / Vendedor":
             if not df.empty:
                 st.metric("Total Vendido", f"R$ {df['valor_total'].sum():.2f}")
                 st.dataframe(df)
-            else: st.write("Nenhuma venda registrada.")
+            else: 
+                st.write("Nenhuma venda registrada.")
 
         # --- TELA: CADASTROS ---
         elif menu == "Cadastros":
@@ -106,18 +134,26 @@ if perfil == "Administração / Vendedor":
             tab1, tab2 = st.tabs(["Cliente", "Produto"])
             with tab1:
                 nome_c = st.text_input("Nome do Novo Cliente")
-                if st.button("Salvar Cliente"):
-                    conn.execute("INSERT INTO clientes (nome) VALUES (?)", (nome_c,))
-                    conn.commit()
-                    st.success("Cliente salvo!")
+                if st.button("Salvar Cliente") and nome_c:
+                    try:
+                        conn.execute("INSERT INTO clientes (nome) VALUES (?)", (nome_c.upper(),))
+                        conn.commit()
+                        st.success("Cliente salvo!")
+                        st.rerun()
+                    except:
+                        st.error("Erro: Cliente já cadastrado.")
             with tab2:
                 nome_p = st.text_input("Nome do Produto")
-                custo = st.number_input("Custo")
-                venda = st.number_input("Preço Venda")
-                if st.button("Salvar Produto"):
-                    conn.execute("INSERT INTO produtos (nome, preco_custo, preco_venda, estoque_atual) VALUES (?,?,?,0)", (nome_p, custo, venda))
-                    conn.commit()
-                    st.success("Produto salvo!")
+                custo = st.number_input("Custo", min_value=0.0)
+                venda = st.number_input("Preço Venda", min_value=0.0)
+                if st.button("Salvar Produto") and nome_p:
+                    try:
+                        conn.execute("INSERT INTO produtos (nome, preco_custo, preco_venda, estoque_atual) VALUES (?,?,?,0)", (nome_p.upper(), custo, venda))
+                        conn.commit()
+                        st.success("Produto salvo!")
+                        st.rerun()
+                    except:
+                        st.error("Erro: Produto já cadastrado.")
 
     else:
         st.warning("Por favor, digite a senha 1234 para acessar.")
