@@ -53,11 +53,49 @@ def adequar_banco_e_migrar():
         )
     """)
 
+    # Garantir tabelas auxiliares (clientes, fornecedores, grupos, compras)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS clientes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT UNIQUE,
+            telefone TEXT,
+            doc TEXT,
+            endereco TEXT,
+            cidade TEXT
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS fornecedores (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT UNIQUE
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS grupos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT UNIQUE
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS compras (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            produto TEXT,
+            fornecedor TEXT,
+            grupo TEXT,
+            quantidade REAL,
+            valor_custo REAL,
+            valor_total REAL,
+            data TEXT
+        )
+    """)
+
     # Verificar colunas existentes na tabela produtos
     cursor.execute("PRAGMA table_info(produtos)")
     colunas_existentes = [col[1] for col in cursor.fetchall()]
     
-    # Se a tabela antiga foi criada com 'produto' em vez de 'nome', renomeamos ou adicionamos
     if "produto" in colunas_existentes and "nome" not in colunas_existentes:
         try:
             cursor.execute("ALTER TABLE produtos RENAME COLUMN produto TO nome")
@@ -104,16 +142,6 @@ def carregar_coluna(tabela, coluna):
 # -----------------------------------------------------------------------------
 def salvar_cliente_completo(nome, telefone, doc, endereco, cidade):
     cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS clientes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT UNIQUE,
-            telefone TEXT,
-            doc TEXT,
-            endereco TEXT,
-            cidade TEXT
-        )
-    """)
     try:
         cursor.execute("INSERT INTO clientes (nome, telefone, doc, endereco, cidade) VALUES (?, ?, ?, ?, ?)",
                        (nome.strip(), telefone, doc, endereco, cidade))
@@ -187,18 +215,6 @@ def deletar_pedidos_cliente(cliente_nome, s_d1, s_d2):
 
 def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo):
     cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS compras (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            produto TEXT,
-            fornecedor TEXT,
-            grupo TEXT,
-            quantidade REAL,
-            valor_custo REAL,
-            valor_total REAL,
-            data TEXT
-        )
-    """)
     valor_total = quantidade * valor_custo
     data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     cursor.execute("""
