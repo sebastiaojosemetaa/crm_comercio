@@ -751,19 +751,61 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         est_atual = float(row.get("estoque_atual", row.get("quantidade", 0.0)))
                         prod_id = row.get("id")
 
+                        # Verificação rigorosa do dicionário de colunas e mapeamento por ID ou INSERT
+                        cursor.execute("PRAGMA table_info(produtos)")
+                        db_cols = [c[1] for c in cursor.fetchall()]
+
                         if pd.notna(prod_id):
-                            cursor.execute("""
-                                UPDATE produtos 
-                                SET nome = ?, produto = ?, fornecedor = ?, grupo = ?, 
-                                    preco_custo = ?, preco_venda = ?, estoque_atual = ?, 
-                                    quantidade = ?, valor_compra = ?
-                                WHERE id = ?
-                            """, (nome_val, nome_val, fornec_val, grupo_val, p_custo, p_venda, est_atual, est_atual, p_custo, int(prod_id)))
+                            # Monta o UPDATE dinâmico ou seguro baseado nas colunas existentes na tabela física
+                            update_parts = []
+                            vals = []
+                            
+                            colunas_mapeadas = {
+                                "nome": nome_val,
+                                "produto": nome_val,
+                                "fornecedor": fornec_val,
+                                "grupo": grupo_val,
+                                "preco_custo": p_custo,
+                                "preco_venda": p_venda,
+                                "estoque_atual": est_atual,
+                                "quantidade": est_atual,
+                                "valor_compra": p_custo
+                            }
+                            
+                            for col_db in db_cols:
+                                if col_db in colunas_mapeadas and col_db != "id":
+                                    update_parts.append(f"{col_db} = ?")
+                                    vals.append(colunas_mapeadas[col_db])
+                            
+                            if update_parts:
+                                vals.append(int(prod_id))
+                                query_update = f"UPDATE produtos SET {', '.join(update_parts)} WHERE id = ?"
+                                cursor.execute(query_update, vals)
                         else:
-                            cursor.execute("""
-                                INSERT INTO produtos (nome, produto, fornecedor, grupo, preco_custo, preco_venda, estoque_atual, quantidade, valor_compra)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                            """, (nome_val, nome_val, fornec_val, grupo_val, p_custo, p_venda, est_atual, est_atual, p_custo))
+                            # Tratamento para nova linha adicionada no editor dinâmico
+                            insert_cols = []
+                            insert_vals = []
+                            colunas_mapeadas = {
+                                "nome": nome_val,
+                                "produto": nome_val,
+                                "fornecedor": fornec_val,
+                                "grupo": grupo_val,
+                                "preco_custo": p_custo,
+                                "preco_venda": p_venda,
+                                "estoque_atual": est_atual,
+                                "quantidade": est_atual,
+                                "valor_compra": p_custo
+                            }
+                            for col_db in db_cols:
+                                if col_db in colunas_mapeadas and col_db != "id":
+                                    insert_cols.append(col_db)
+                                    insert_vals.append(colunas_mapeadas[col_db])
+                            
+                            if insert_cols:
+                                placeholders = ", ".join(["?"] * len(insert_cols))
+                                cols_str = ", ".join(insert_cols)
+                                query_insert = f"INSERT INTO produtos ({cols_str}) VALUES ({placeholders})"
+                                cursor.execute(query_insert, insert_vals)
                             
                     conn.commit()
                     st.success("Estoque e preços atualizados com sucesso!")
