@@ -110,6 +110,15 @@ def carregar_coluna(tabela, coluna):
         return df[col_alvo].tolist()
     return []
 
+def salvar_simples(tabela, coluna, valor):
+    cursor = conn.cursor()
+    try:
+        cursor.execute(f"INSERT INTO {tabela} ({coluna}) VALUES (?)", (valor.strip(),))
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False
+
 # -----------------------------------------------------------------------------
 # FUNÇÕES DE REGISTRO E BANCO
 # -----------------------------------------------------------------------------
@@ -132,7 +141,7 @@ def salvar_pedido_ou_venda(cliente, produto, fornecedor, grupo, quantidade, valo
     cursor.execute("""
         INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, tipo, codigo, data)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (cliente.strip(), produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, tipo, cod_status, data_atual))
+    """, (cliente.strip(), produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, str(valor_recebido), tipo, cod_status, data_atual))
     conn.commit()
 
 def converter_pedido_completo_para_venda(cliente_nome):
@@ -390,7 +399,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             if not df_vendas.empty:
                 col1, col2, col3 = st.columns(3)
                 faturamento = df_vendas['valor_total'].sum() if 'valor_total' in df_vendas.columns else 0.0
-                valor_rec = df_vendas['valor_recebido'].sum() if 'valor_recebido' in df_vendas.columns else 0.0
+                
+                # Conversão segura para somar valor_recebido
+                if 'valor_recebido' in df_vendas.columns:
+                    valor_rec = pd.to_numeric(df_vendas['valor_recebido'].astype(str).str.replace('R$', '').str.replace(',', '.').str.strip(), errors='coerce').fillna(0).sum()
+                else:
+                    valor_rec = 0.0
+
                 col1.metric("Faturamento do Período", f"R$ {faturamento:,.2f}")
                 col2.metric("Total Recebido em Caixa", f"R$ {valor_rec:,.2f}")
                 col3.metric("Total Pendente / Fiado", f"R$ {faturamento - valor_rec:,.2f}")
@@ -476,10 +491,19 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.caption("💡 **Dica:** Clique diretamente em qualquer célula para alterar valores. Marque **Deletar** e clique no botão abaixo para remover registros permanentemente.")
                     
                     df_registros.insert(0, "Deletar", False)
+                    df_registros["Deletar"] = df_registros["Deletar"].astype(bool)
                     
-                    # Configuração dinâmica de colunas para suportar bases antigas com colunas extras (como troco, restante, etc.)
+                    # Garantir que campos de texto e números fiquem no formato rigoroso exigido pelo st.data_editor
+                    for col in ["cliente", "produto", "fornecedor", "grupo", "forma_pagamento", "valor_recebido", "tipo", "codigo", "data"]:
+                        if col in df_registros.columns:
+                            df_registros[col] = df_registros[col].astype(str)
+                    
+                    for col in ["id", "quantidade", "valor_venda", "valor_total"]:
+                        if col in df_registros.columns:
+                            df_registros[col] = pd.to_numeric(df_registros[col], errors='coerce').fillna(0.0)
+
                     column_configs = {
-                        "Deletar": st.column_config.CheckboxColumn("Deletar", help="Marque para excluir o item"),
+                        "Deletar": st.column_config.CheckboxColumn("Deletar", help="Marque para excluir o item", default=False),
                         "id": st.column_config.NumberColumn("ID", disabled=True),
                         "cliente": st.column_config.TextColumn("Cliente"),
                         "produto": st.column_config.TextColumn("Produto"),
@@ -512,7 +536,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 if not row["Deletar"]:
                                     v_tot = float(row["quantidade"]) * float(row["valor_venda"])
                                     
-                                    # Montagem dinâmica dos campos baseado nas colunas reais da tabela do banco
                                     cursor.execute(f"PRAGMA table_info(vendas)")
                                     colunas_db = [col[1] for col in cursor.fetchall()]
                                     
