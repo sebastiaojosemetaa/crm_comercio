@@ -400,7 +400,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 col1, col2, col3 = st.columns(3)
                 faturamento = df_vendas['valor_total'].sum() if 'valor_total' in df_vendas.columns else 0.0
                 
-                # Conversão segura para somar valor_recebido
                 if 'valor_recebido' in df_vendas.columns:
                     valor_rec = pd.to_numeric(df_vendas['valor_recebido'].astype(str).str.replace('R$', '').str.replace(',', '.').str.strip(), errors='coerce').fillna(0).sum()
                 else:
@@ -488,12 +487,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 df_registros = carregar_dados(query_filt)
                 
                 if not df_registros.empty:
-                    st.caption("💡 **Dica:** Clique diretamente em qualquer célula para alterar valores. Marque **Deletar** e clique no botão abaixo para remover registros permanentemente.")
+                    st.caption("💡 **Dica:** Edite a quantidade ou o valor unitário. Depois, clique no botão **🔄 Atualizar Valores Totais da Tabela** antes de salvar ou baixar.")
                     
                     df_registros.insert(0, "Deletar", False)
                     df_registros["Deletar"] = df_registros["Deletar"].astype(bool)
                     
-                    # Garantir que campos de texto e números fiquem no formato rigoroso exigido pelo st.data_editor
                     for col in ["cliente", "produto", "fornecedor", "grupo", "forma_pagamento", "valor_recebido", "tipo", "codigo", "data"]:
                         if col in df_registros.columns:
                             df_registros[col] = df_registros[col].astype(str)
@@ -527,6 +525,15 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         hide_index=True
                     )
                     
+                    # Botão para recalcular os totais instantaneamente na tela
+                    if st.button("🔄 Atualizar Valores Totais da Tabela"):
+                        for idx in df_editado.index:
+                            q = float(df_editado.loc[idx, "quantidade"])
+                            v = float(df_editado.loc[idx, "valor_venda"])
+                            df_editado.loc[idx, "valor_total"] = q * v
+                        st.success("Valores totais recalculados com sucesso!")
+                        st.rerun()
+
                     c_btn1, c_btn2 = st.columns([1, 1])
                     
                     with c_btn1:
@@ -583,7 +590,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     
                     col_b1, col_b2 = st.columns(2)
                     with col_b1:
-                        pdf_gerado = gerar_pdf_tabela_pedidos(df_registros, cliente_nome=nome_relatorio, d_inicio=d_inicio, d_fim=d_fim)
+                        pdf_gerado = gerar_pdf_tabela_pedidos(df_editado, cliente_nome=nome_relatorio, d_inicio=d_inicio, d_fim=d_fim)
                         st.download_button(
                             label=f"📥 Baixar Relatório - {nome_relatorio} (PDF)",
                             data=pdf_gerado,
