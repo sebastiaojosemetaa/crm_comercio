@@ -444,7 +444,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 
                 tipo_registro = "VENDA" if menu_admin == "🛒 Registrar Venda" else "PEDIDO"
                 
-                # Se for Pedido/Orçamento, buscamos buscar o custo unitario padrão do produto cadastrado
                 default_valor = 100.0
                 if menu_admin == "📋 Pedidos / Orçamentos":
                     st.info("💡 Módulo de Pedidos/Orçamentos configurado para utilizar o **Valor de Custo (Referência)**.")
@@ -456,7 +455,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         prod = st.selectbox("Selecione o Produto", produtos_opt)
                         qtd = st.number_input("Quantidade", min_value=0.1, step=0.5, value=1.0)
                         
-                        # Tenta buscar o preço de custo do produto selecionado
                         res_custo = carregar_dados(f"SELECT preco_custo FROM produtos WHERE TRIM(nome) = TRIM('{prod}')")
                         if not res_custo.empty and res_custo.iloc[0, 0] is not None:
                             default_valor = float(res_custo.iloc[0, 0])
@@ -536,7 +534,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         hide_index=True
                     )
                     
-                    # Botão para recalcular os totais instantaneamente na tela
                     if st.button("🔄 Atualizar Valores Totais da Tabela"):
                         for idx in df_editado.index:
                             q = float(df_editado.loc[idx, "quantidade"])
@@ -671,9 +668,100 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Gestão de Estoque e Produtos")
-            df_produtos = carregar_dados("SELECT * FROM produtos")
+            st.caption("💡 **Dica:** Edite diretamente os valores de estoque, custo ou venda na tabela abaixo e clique no botão para salvar.")
+            
+            df_produtos = carregar_dados("SELECT id, nome, fornecedor, grupo, preco_custo, preco_venda, estoque_atual FROM produtos")
+            
             if not df_produtos.empty:
-                st.dataframe(df_produtos, use_container_width=True)
+                # Adiciona coluna de exclusão
+                df_produtos.insert(0, "Deletar", False)
+                df_produtos["Deletar"] = df_produtos["Deletar"].astype(bool)
+                
+                for col in ["nome", "fornecedor", "grupo"]:
+                    if col in df_produtos.columns:
+                        df_produtos[col] = df_produtos[col].astype(str)
+                
+                for col in ["id", "preco_custo", "preco_venda", "estoque_atual"]:
+                    if col in df_produtos.columns:
+                        df_produtos[col] = pd.to_numeric(df_produtos[col], errors='coerce').fillna(0.0)
+
+                column_configs_prod = {
+                    "Deletar": st.column_config.CheckboxColumn("Deletar", help="Marque para excluir o produto", default=False),
+                    "id": st.column_config.NumberColumn("ID", disabled=True),
+                    "nome": st.column_config.TextColumn("Produto"),
+                    "fornecedor": st.column_config.TextColumn("Fornecedor"),
+                    "grupo": st.column_config.TextColumn("Grupo"),
+                    "preco_custo": st.column_config.NumberColumn("Preço Custo", min_value=0.0, format="R$ %.2f"),
+                    "preco_venda": st.column_config.NumberColumn("Preço Venda", min_value=0.0, format="R$ %.2f"),
+                    "estoque_atual": st.column_config.NumberColumn("Estoque Atual", format="%.2f"),
+                }
+                
+                df_produtos_editado = st.data_editor(
+                    df_produtos,
+                    key="editor_estoque_produtos",
+                    use_container_width=True,
+                    num_rows="dynamic",
+                    column_config=column_configs_prod,
+                    hide_index=True
+                )
+                
+                col_sp1, col_sp2 = st.columns(2)
+                with col_sp1:
+                    if st.button("💾 Salvar Alterações no Estoque / Produtos", type="primary"):
+                        cursor = conn.cursor()
+                        for _, row in df_produtos_editado.iterrows():
+                            if not row["Deletar"] and str(row["nome"]).strip() != "" and str(row["nome"]).strip() != "nan":
+                                # Verifica se o produto já existe pelo ID ou Nome
+                                cursor.execute("SELECT COUNT(*) FROM produtos WHERE id = ?", (int(row["id"]),))
+                                existe = cursor.fetchone()[0]
+                                
+                                if existe > 0:
+                                    cursor.execute("""
+                                        UPDATE produtos 
+                                        SET nome = ?, fornecedor = ?, grupo = ?, preco_custo = ?, preco_venda = ?, estoque_atual = ?
+                                        WHERE id = ?
+                                    """, (
+                                        str(row["nome"]).strip(),
+                                        str(row["fornecedor"]),
+                                        str(row["grupo"]),
+                                        float(row["preco_custo"]),
+                                        float(row["preco_venda"]),
+                                        float(row["estoque_atual"]),
+                                        int(row["id"])
+                                    ))
+                                else:
+                                    # Se for uma linha nova adicionada pelo usuário via tabela dinâmica
+                                    try:
+                                        cursor.execute("""
+                                            INSERT INTO produtos (nome, fornecedor, grupo, preco_custo, preco_venda, estoque_atual)
+                                            VALUES (?, ?, ?, ?, ?, ?)
+                                        """, (
+                                            str(row["nome"]).strip(),
+                                            str(row["fornecedor"]),
+                                            str(row["grupo"]),
+                                            float(row["preco_custo"]),
+                                            float(row["preco_venda"]),
+                                            float(row["estoque_atual"])
+                                        ))
+                                    except sqlite3.IntegrityError:
+                                        pass
+                        conn.commit()
+                        st.success("Alterações de estoque e produtos salvas com sucesso!")
+                        st.rerun()
+
+                with col_sp2:
+                    produtos_para_deletar = df_produtos_editado[df_produtos_editado["Deletar"] == True]
+                    if not produtos_para_deletar.empty:
+                        if st.button(f"🗑️ Confirmar Exclusão de ({len(produtos_para_deletar)}) Produto(s)"):
+                            ids_p_del = tuple(produtos_para_deletar["id"].tolist())
+                            cursor = conn.cursor()
+                            if len(ids_p_del) == 1:
+                                cursor.execute("DELETE FROM produtos WHERE id = ?", (ids_p_del[0],))
+                            else:
+                                cursor.execute(f"DELETE FROM produtos WHERE id IN {ids_p_del}")
+                            conn.commit()
+                            st.warning(f"{len(ids_p_del)} produto(s) excluído(s) com sucesso!")
+                            st.rerun()
             else:
                 st.info("Nenhum produto cadastrado.")
 
