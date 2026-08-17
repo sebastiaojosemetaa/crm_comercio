@@ -234,7 +234,7 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral", d_inicio=None, d_fi
     elements.append(Paragraph(periodo_str, style_data))
     elements.append(Spacer(1, 15))
     
-    if not df_dados.empty:
+    if not df_dados.empty and 'produto' in df_dados.columns:
         df_resumo = df_dados.groupby('produto').agg({
             'quantidade': 'sum',
             'valor_venda': 'mean',
@@ -518,28 +518,32 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 if not df_registros.empty:
                     st.caption("💡 **Dica:** Clique diretamente em qualquer célula para alterar valores. Marque **Deletar** e clique no botão abaixo para remover registros permanentemente.")
                     
-                    df_registros.insert(0, "Deletar", False)
+                    if "Deletar" not in df_registros.columns:
+                        df_registros.insert(0, "Deletar", False)
+                    
+                    # Configuração dinâmica de colunas para suportar qualquer campo adicional no banco
+                    column_configs = {
+                        "Deletar": st.column_config.CheckboxColumn("Deletar", help="Marque para excluir o item"),
+                        "id": st.column_config.NumberColumn("ID", disabled=True),
+                        "cliente": st.column_config.TextColumn("Cliente"),
+                        "produto": st.column_config.TextColumn("Produto"),
+                        "fornecedor": st.column_config.TextColumn("Fornecedor"),
+                        "quantidade": st.column_config.NumberColumn("Qtd", min_value=0.0, format="%.2f"),
+                        "valor_venda": st.column_config.NumberColumn("Valor Venda", min_value=0.0, format="R$ %.2f"),
+                        "valor_total": st.column_config.NumberColumn("Valor Total", disabled=True, format="R$ %.2f"),
+                        "forma_pagamento": st.column_config.SelectboxColumn("Forma Pagamento", options=["Dinheiro", "Crediário / Fiado", "Pix"]),
+                        "valor_recebido": st.column_config.NumberColumn("Valor Recebido", min_value=0.0, format="R$ %.2f"),
+                        "tipo": st.column_config.TextColumn("Tipo"),
+                        "codigo": st.column_config.TextColumn("Código"),
+                        "data": st.column_config.TextColumn("Data", disabled=True),
+                    }
                     
                     df_editado = st.data_editor(
                         df_registros,
                         key="editor_registros_vendas",
                         use_container_width=True,
                         num_rows="fixed",
-                        column_config={
-                            "Deletar": st.column_config.CheckboxColumn("Deletar", help="Marque para excluir o item"),
-                            "id": st.column_config.NumberColumn("ID", disabled=True),
-                            "cliente": st.column_config.TextColumn("Cliente"),
-                            "produto": st.column_config.TextColumn("Produto"),
-                            "fornecedor": st.column_config.TextColumn("Fornecedor"),
-                            "quantidade": st.column_config.NumberColumn("Qtd", min_value=0.0, format="%.2f"),
-                            "valor_venda": st.column_config.NumberColumn("Valor Venda", min_value=0.0, format="R$ %.2f"),
-                            "valor_total": st.column_config.NumberColumn("Valor Total", disabled=True, format="R$ %.2f"),
-                            "forma_pagamento": st.column_config.SelectboxColumn("Forma Pagamento", options=["Dinheiro", "Crediário / Fiado", "Pix"]),
-                            "valor_recebido": st.column_config.NumberColumn("Valor Recebido", min_value=0.0, format="R$ %.2f"),
-                            "tipo": st.column_config.TextColumn("Tipo"),
-                            "codigo": st.column_config.TextColumn("Código"),
-                            "data": st.column_config.TextColumn("Data", disabled=True),
-                        },
+                        column_config=column_configs,
                         hide_index=True
                     )
                     
@@ -548,31 +552,47 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     with c_btn1:
                         if st.button("💾 Salvar Alterações Feitas na Tabela", type="primary"):
                             cursor = conn.cursor()
+                            # Obtém as colunas reais da tabela no SQLite para evitar erros de SQL
+                            cursor.execute("PRAGMA table_info(vendas)")
+                            colunas_banco = [info[1] for info in cursor.fetchall()]
+                            
                             for _, row in df_editado.iterrows():
                                 if not row["Deletar"]:
-                                    v_tot = float(row["quantidade"]) * float(row["valor_venda"])
-                                    cursor.execute("""
-                                        UPDATE vendas 
-                                        SET cliente = ?, produto = ?, fornecedor = ?, quantidade = ?, 
-                                            valor_venda = ?, valor_total = ?, forma_pagamento = ?, 
-                                            valor_recebido = ?, grupo = ?, tipo = ?, codigo = ?
-                                        WHERE id = ?
-                                    """, (
-                                        str(row["cliente"]).strip(),
-                                        str(row["produto"]),
-                                        str(row["fornecedor"]),
-                                        float(row["quantidade"]),
-                                        float(row["valor_venda"]),
-                                        v_tot,
-                                        str(row["forma_pagamento"]),
-                                        float(row["valor_recebido"]),
-                                        str(row["grupo"]),
-                                        str(row["tipo"]),
-                                        str(row["codigo"]),
-                                        int(row["id"])
-                                    ))
+                                    # Recalcula o total caso a quantidade ou valor de venda tenham sido alterados
+                                    qtd_val = float(row["quantidade"]) if "quantidade" in row and pd.notna(row["quantidade"]) else 0.0
+                                    venda_val = float(row["valor_venda"]) if "valor_venda" in row and pd.notna(row["valor_venda"]) else 0.0
+                                    v_tot = qtd_val * venda_val
+                                    
+                                    # Atualiza dinamicamente apenas as colunas presentes no banco de dados e no DataFrame
+                                    atualizacoes = []
+                                    valores = []
+                                    
+                                    campos_mapeados = {
+                                        "cliente": str(row.get("cliente", "")).strip(),
+                                        "produto": str(row.get("produto", "")),
+                                        "fornecedor": str(row.get("fornecedor", "")),
+                                        "grupo": str(row.get("grupo", "")),
+                                        "quantidade": qtd_val,
+                                        "valor_venda": venda_val,
+                                        "valor_total": v_tot,
+                                        "forma_pagamento": str(row.get("forma_pagamento", "")),
+                                        "valor_recebido": str(row.get("valor_recebido", "")),
+                                        "tipo": str(row.get("tipo", "")),
+                                        "codigo": str(row.get("codigo", ""))
+                                    }
+                                    
+                                    for campo, valor in campos_mapeados.items():
+                                        if campo in colunas_banco:
+                                            atualizacoes.append(f"{campo} = ?")
+                                            valores.append(valor)
+                                            
+                                    if atualizacoes and "id" in row:
+                                        valores.append(int(row["id"]))
+                                        query_update = f"UPDATE vendas SET {', '.join(atualizacoes)} WHERE id = ?"
+                                        cursor.execute(query_update, tuple(valores))
+                                        
                             conn.commit()
-                            st.success("Todas as edições na tabela foram salvas no banco de dados!")
+                            st.success("Todas as edições na tabela foram salvas no banco de dados com sucesso!")
                             st.rerun()
 
                     with c_btn2:
@@ -650,7 +670,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     if st.form_submit_button("Registrar Entrada e Atualizar Estoque"):
                         registrar_compra(prod_c, fornec_c, grupo_c, qtd_c, custo_c)
                         
-                        # Atualiza o estoque atual na tabela produtos
                         cursor = conn.cursor()
                         cursor.execute("UPDATE produtos SET estoque_atual = COALESCE(estoque_atual, 0) + ? WHERE TRIM(nome) = TRIM(?)", (qtd_c, prod_c))
                         conn.commit()
