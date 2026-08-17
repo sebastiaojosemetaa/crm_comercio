@@ -51,7 +51,6 @@ def adequar_banco_e_migrar():
         )
     """)
 
-    # Garantir colunas essenciais na tabela produtos caso já exista sem elas
     cursor.execute("PRAGMA table_info(produtos)")
     cols_prod = [col[1] for col in cursor.fetchall()]
     if "preco_custo" not in cols_prod:
@@ -124,7 +123,7 @@ def carregar_coluna(tabela, coluna):
 
 def obter_preco_produto(nome_produto):
     cursor = conn.cursor()
-    cursor.execute("SELECT preco_venda FROM produtos WHERE TRIM(nome) = TRIM(?)", (nome_produto,))
+    cursor.execute("SELECT preco_venda FROM produtos WHERE TRIM(nome) = TRIM(?) OR TRIM(produto) = TRIM(?)", (nome_produto, nome_produto))
     res = cursor.fetchone()
     if res and res[0] is not None:
         return float(res[0])
@@ -156,8 +155,8 @@ def salvar_produto_completo(nome, fornecedor, grupo, preco_custo, preco_venda, e
         cursor.execute("""
             UPDATE produtos 
             SET fornecedor = ?, grupo = ?, preco_custo = ?, preco_venda = ?, estoque_atual = ?
-            WHERE TRIM(nome) = TRIM(?)
-        """, (fornecedor, grupo, preco_custo, preco_venda, estoque_inicial, nome.strip().upper()))
+            WHERE TRIM(nome) = TRIM(?) OR TRIM(produto) = TRIM(?)
+        """, (fornecedor, grupo, preco_custo, preco_venda, estoque_inicial, nome.strip().upper(), nome.strip().upper()))
         conn.commit()
         return True
     except Exception as e:
@@ -228,8 +227,8 @@ def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo):
     """, (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data_atual))
     
     cursor.execute("""
-        UPDATE produtos SET estoque_atual = estoque_atual + ? WHERE TRIM(nome) = TRIM(?)
-    """, (quantidade, produto))
+        UPDATE produtos SET estoque_atual = estoque_atual + ? WHERE TRIM(nome) = TRIM(?) OR TRIM(produto) = TRIM(?)
+    """, (quantidade, produto, produto))
     conn.commit()
 
 # -----------------------------------------------------------------------------
@@ -349,7 +348,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
         
         with aba_novo:
             st.subheader("➕ Registrar Novo Pedido")
-            produtos_opt = carregar_coluna("produtos", "nome") or ["CEBOLA"]
+            produtos_opt = carregar_coluna("produtos", "nome") or carregar_coluna("produtos", "produto") or ["CEBOLA"]
             fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["GERAL"]
             grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
             
@@ -498,7 +497,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
             with aba_cad:
                 clientes_opt = carregar_coluna("clientes", "nome") or ["CLIENTE PADRÃO"]
-                produtos_opt = carregar_coluna("produtos", "nome") or ["CEBOLA"]
+                produtos_opt = carregar_coluna("produtos", "nome") or carregar_coluna("produtos", "produto") or ["CEBOLA"]
                 fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["GERAL"]
                 grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
                 
@@ -676,7 +675,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             st.title("📥 Entrada de Estoque (Compras)")
             aba_compra, aba_historico_compras = st.tabs(["➕ Dar Entrada em Estoque", "📜 Histórico de Entradas / Compras"])
             
-            produtos_opt = carregar_coluna("produtos", "nome") or ["CEBOLA"]
+            produtos_opt = carregar_coluna("produtos", "nome") or carregar_coluna("produtos", "produto") or ["CEBOLA"]
             fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["GERAL"]
             grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
             
@@ -704,9 +703,17 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             st.title("📦 Gestão de Estoque de Produtos")
             df_prod = carregar_dados("SELECT * FROM produtos")
             if not df_prod.empty:
-                for col_nec in ['preco_custo', 'preco_venda', 'estoque_atual']:
+                # Normaliza colunas caso o banco tenha nomes antigos (produto, valor_compra, etc.)
+                if 'produto' in df_prod.columns and 'nome' not in df_prod.columns:
+                    df_prod['nome'] = df_prod['produto']
+                if 'valor_compra' in df_prod.columns and 'preco_custo' not in df_prod.columns:
+                    df_prod['preco_custo'] = df_prod['valor_compra']
+                if 'quantidade' in df_prod.columns and 'estoque_atual' not in df_prod.columns:
+                    df_prod['estoque_atual'] = df_prod['quantidade']
+
+                for col_nec in ['nome', 'fornecedor', 'grupo', 'preco_custo', 'preco_venda', 'estoque_atual']:
                     if col_nec not in df_prod.columns:
-                        df_prod[col_nec] = 0.0
+                        df_prod[col_nec] = 0.0 if 'preco' in col_nec or 'estoque' in col_nec else 'GERAL'
 
                 df_prod['preco_custo'] = pd.to_numeric(df_prod['preco_custo'], errors='coerce').fillna(0.0)
                 df_prod['preco_venda'] = pd.to_numeric(df_prod['preco_venda'], errors='coerce').fillna(0.0)
@@ -734,17 +741,21 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 if st.button("💾 Salvar Alterações de Estoque", type="primary"):
                     cursor = conn.cursor()
                     for _, row in df_prod_editado.iterrows():
+                        nome_val = str(row.get("nome", row.get("produto", "PRODUTO"))).strip().upper()
                         cursor.execute("""
-                            INSERT OR REPLACE INTO produtos (id, nome, fornecedor, grupo, preco_custo, preco_venda, estoque_atual)
-                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                            INSERT OR REPLACE INTO produtos (id, nome, produto, fornecedor, grupo, preco_custo, preco_venda, estoque_atual, quantidade, valor_compra)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """, (
                             row.get("id"),
-                            str(row["nome"]).strip().upper(),
-                            str(row["fornecedor"]),
-                            str(row["grupo"]),
-                            float(row["preco_custo"]),
-                            float(row["preco_venda"]),
-                            float(row["estoque_atual"])
+                            nome_val,
+                            nome_val,
+                            str(row.get("fornecedor", "GERAL")),
+                            str(row.get("grupo", "GERAL")),
+                            float(row.get("preco_custo", 0.0)),
+                            float(row.get("preco_venda", 0.0)),
+                            float(row.get("estoque_atual", 0.0)),
+                            float(row.get("estoque_atual", 0.0)),
+                            float(row.get("preco_custo", 0.0))
                         ))
                     conn.commit()
                     st.success("Estoque e preços atualizados com sucesso!")
