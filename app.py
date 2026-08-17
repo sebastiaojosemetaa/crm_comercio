@@ -123,49 +123,6 @@ def salvar_cliente_completo(nome, telefone, doc, endereco, cidade):
     except sqlite3.IntegrityError:
         return False
 
-def salvar_produto_completo(nome, fornecedor, grupo, preco_custo, preco_venda, estoque_inicial):
-    cursor = conn.cursor()
-    try:
-        cursor.execute("""
-            INSERT INTO produtos (nome, fornecedor, grupo, preco_custo, preco_venda, estoque_atual) 
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (nome.strip(), fornecedor, grupo, preco_custo, preco_venda, estoque_inicial))
-        conn.commit()
-        return True
-    except sqlite3.IntegrityError:
-        cursor.execute("""
-            UPDATE produtos 
-            SET fornecedor = ?, grupo = ?, preco_custo = ?, preco_venda = ?, estoque_atual = ?
-            WHERE TRIM(nome) = TRIM(?)
-        """, (fornecedor, grupo, preco_custo, preco_venda, estoque_inicial, nome.strip()))
-        conn.commit()
-        return True
-    except Exception as e:
-        st.error(f"Erro ao salvar produto: {e}")
-        return False
-
-def salvar_simples(tabela, coluna, valor):
-    cursor = conn.cursor()
-    try:
-        cursor.execute(f"PRAGMA table_info({tabela})")
-        colunas_existentes = [col[1] for col in cursor.fetchall()]
-        
-        if not colunas_existentes:
-            cursor.execute(f"CREATE TABLE IF NOT EXISTS {tabela} (id INTEGER PRIMARY KEY AUTOINCREMENT, {coluna} TEXT UNIQUE)")
-            conn.commit()
-            coluna_alvo = coluna
-        else:
-            coluna_alvo = coluna if coluna in colunas_existentes else colunas_existentes[-1]
-
-        cursor.execute(f"INSERT INTO {tabela} ({coluna_alvo}) VALUES (?)", (valor.strip(),))
-        conn.commit()
-        return True
-    except sqlite3.IntegrityError:
-        return False
-    except Exception as e:
-        st.error(f"Erro ao salvar em {tabela}: {e}")
-        return False
-
 def salvar_pedido_ou_venda(cliente, produto, fornecedor, grupo, quantidade, valor_venda, forma_pagamento, valor_recebido, tipo="PEDIDO"):
     cursor = conn.cursor()
     valor_total = quantidade * valor_venda
@@ -520,26 +477,29 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     
                     df_registros.insert(0, "Deletar", False)
                     
+                    # Configuração dinâmica de colunas para suportar bases antigas com colunas extras (como troco, restante, etc.)
+                    column_configs = {
+                        "Deletar": st.column_config.CheckboxColumn("Deletar", help="Marque para excluir o item"),
+                        "id": st.column_config.NumberColumn("ID", disabled=True),
+                        "cliente": st.column_config.TextColumn("Cliente"),
+                        "produto": st.column_config.TextColumn("Produto"),
+                        "fornecedor": st.column_config.TextColumn("Fornecedor"),
+                        "quantidade": st.column_config.NumberColumn("Qtd", min_value=0.0, format="%.2f"),
+                        "valor_venda": st.column_config.NumberColumn("Valor Venda", min_value=0.0, format="R$ %.2f"),
+                        "valor_total": st.column_config.NumberColumn("Valor Total", disabled=True, format="R$ %.2f"),
+                        "forma_pagamento": st.column_config.SelectboxColumn("Forma Pagamento", options=["Dinheiro", "Crediário / Fiado", "Pix"]),
+                        "valor_recebido": st.column_config.TextColumn("Valor Recebido"),
+                        "tipo": st.column_config.TextColumn("Tipo"),
+                        "codigo": st.column_config.TextColumn("Código"),
+                        "data": st.column_config.TextColumn("Data", disabled=True),
+                    }
+                    
                     df_editado = st.data_editor(
                         df_registros,
                         key="editor_registros_vendas",
                         use_container_width=True,
                         num_rows="fixed",
-                        column_config={
-                            "Deletar": st.column_config.CheckboxColumn("Deletar", help="Marque para excluir o item"),
-                            "id": st.column_config.NumberColumn("ID", disabled=True),
-                            "cliente": st.column_config.TextColumn("Cliente"),
-                            "produto": st.column_config.TextColumn("Produto"),
-                            "fornecedor": st.column_config.TextColumn("Fornecedor"),
-                            "quantidade": st.column_config.NumberColumn("Qtd", min_value=0.0, format="%.2f"),
-                            "valor_venda": st.column_config.NumberColumn("Valor Venda", min_value=0.0, format="R$ %.2f"),
-                            "valor_total": st.column_config.NumberColumn("Valor Total", disabled=True, format="R$ %.2f"),
-                            "forma_pagamento": st.column_config.SelectboxColumn("Forma Pagamento", options=["Dinheiro", "Crediário / Fiado", "Pix"]),
-                            "valor_recebido": st.column_config.NumberColumn("Valor Recebido", min_value=0.0, format="R$ %.2f"),
-                            "tipo": st.column_config.TextColumn("Tipo"),
-                            "codigo": st.column_config.TextColumn("Código"),
-                            "data": st.column_config.TextColumn("Data", disabled=True),
-                        },
+                        column_config=column_configs,
                         hide_index=True
                     )
                     
@@ -551,28 +511,34 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             for _, row in df_editado.iterrows():
                                 if not row["Deletar"]:
                                     v_tot = float(row["quantidade"]) * float(row["valor_venda"])
-                                    cursor.execute("""
-                                        UPDATE vendas 
-                                        SET cliente = ?, produto = ?, fornecedor = ?, quantidade = ?, 
-                                            valor_venda = ?, valor_total = ?, forma_pagamento = ?, 
-                                            valor_recebido = ?, grupo = ?, tipo = ?, codigo = ?
-                                        WHERE id = ?
-                                    """, (
-                                        str(row["cliente"]).strip(),
-                                        str(row["produto"]),
-                                        str(row["fornecedor"]),
-                                        float(row["quantidade"]),
-                                        float(row["valor_venda"]),
-                                        v_tot,
-                                        str(row["forma_pagamento"]),
-                                        float(row["valor_recebido"]),
-                                        str(row["grupo"]),
-                                        str(row["tipo"]),
-                                        str(row["codigo"]),
-                                        int(row["id"])
-                                    ))
+                                    
+                                    # Montagem dinâmica dos campos baseado nas colunas reais da tabela do banco
+                                    cursor.execute(f"PRAGMA table_info(vendas)")
+                                    colunas_db = [col[1] for col in cursor.fetchall()]
+                                    
+                                    if "valor_recebido" in colunas_db:
+                                        cursor.execute("""
+                                            UPDATE vendas 
+                                            SET cliente = ?, produto = ?, fornecedor = ?, quantidade = ?, 
+                                                valor_venda = ?, valor_total = ?, forma_pagamento = ?, 
+                                                valor_recebido = ?, grupo = ?, tipo = ?, codigo = ?
+                                            WHERE id = ?
+                                        """, (
+                                            str(row["cliente"]).strip(),
+                                            str(row["produto"]),
+                                            str(row["fornecedor"]),
+                                            float(row["quantidade"]),
+                                            float(row["valor_venda"]),
+                                            v_tot,
+                                            str(row["forma_pagamento"]),
+                                            str(row["valor_recebido"]),
+                                            str(row["grupo"]),
+                                            str(row["tipo"]),
+                                            str(row["codigo"]),
+                                            int(row["id"])
+                                        ))
                             conn.commit()
-                            st.success("Todas as edições na tabela foram salvas no banco de dados!")
+                            st.success("Todas as edições na tabela foram salvas no banco de dados com sucesso!")
                             st.rerun()
 
                     with c_btn2:
@@ -649,7 +615,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     
                     if st.form_submit_button("Registrar Entrada de Estoque"):
                         registrar_compra(p_compra, f_compra, g_compra, q_compra, v_custo)
-                        # Atualizar estoque atual do produto
                         cursor = conn.cursor()
                         cursor.execute("UPDATE produtos SET estoque_atual = COALESCE(estoque_atual, 0) + ? WHERE TRIM(nome) = TRIM(?)", (q_compra, p_compra))
                         conn.commit()
