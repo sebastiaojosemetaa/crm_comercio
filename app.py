@@ -51,6 +51,16 @@ def adequar_banco_e_migrar():
         )
     """)
 
+    # Garantir colunas essenciais na tabela produtos caso já exista sem elas
+    cursor.execute("PRAGMA table_info(produtos)")
+    cols_prod = [col[1] for col in cursor.fetchall()]
+    if "preco_custo" not in cols_prod:
+        cursor.execute("ALTER TABLE produtos ADD COLUMN preco_custo REAL DEFAULT 0.0")
+    if "preco_venda" not in cols_prod:
+        cursor.execute("ALTER TABLE produtos ADD COLUMN preco_venda REAL DEFAULT 0.0")
+    if "estoque_atual" not in cols_prod:
+        cursor.execute("ALTER TABLE produtos ADD COLUMN estoque_atual REAL DEFAULT 0.0")
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS clientes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -345,7 +355,6 @@ if perfil_selecionado == "👤 Portal do Cliente":
             
             with st.form("form_novo_pedido_cliente"):
                 prod = st.selectbox("Selecione o Produto", produtos_opt)
-                
                 if st.form_submit_button("🔄 Buscar Preço Atualizado do Estoque"):
                     st.session_state.preco_selecionado_manual = obter_preco_produto(prod)
                     st.rerun()
@@ -496,12 +505,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 tipo_registro = "VENDA" if menu_admin == "🛒 Registrar Venda" else "PEDIDO"
                 
                 with st.form("form_admin_pedido"):
-                    col_prod_btn, col_dummy = st.columns([2, 2])
-                    with col_prod_btn:
-                        prod = st.selectbox("Selecione o Produto", produtos_opt)
-                        if st.form_submit_button("🔄 Buscar Preço Atualizado do Estoque"):
-                            st.session_state.preco_selecionado_manual = obter_preco_produto(prod)
-                            st.rerun()
+                    prod = st.selectbox("Selecione o Produto", produtos_opt)
+                    if st.form_submit_button("🔄 Buscar Preço Atualizado do Estoque"):
+                        st.session_state.preco_selecionado_manual = obter_preco_produto(prod)
+                        st.rerun()
 
                     col_a, col_b = st.columns(2)
                     with col_a:
@@ -697,6 +704,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             st.title("📦 Gestão de Estoque de Produtos")
             df_prod = carregar_dados("SELECT * FROM produtos")
             if not df_prod.empty:
+                for col_nec in ['preco_custo', 'preco_venda', 'estoque_atual']:
+                    if col_nec not in df_prod.columns:
+                        df_prod[col_nec] = 0.0
+
                 df_prod['preco_custo'] = pd.to_numeric(df_prod['preco_custo'], errors='coerce').fillna(0.0)
                 df_prod['preco_venda'] = pd.to_numeric(df_prod['preco_venda'], errors='coerce').fillna(0.0)
                 df_prod['estoque_atual'] = pd.to_numeric(df_prod['estoque_atual'], errors='coerce').fillna(0.0)
