@@ -61,6 +61,18 @@ def adequar_banco_e_migrar():
         except Exception:
             pass
 
+    # Inserir um produto padrão se a tabela estiver completamente vazia
+    cursor.execute("SELECT COUNT(*) FROM produtos")
+    if cursor.fetchone()[0] == 0:
+        try:
+            cursor.execute("""
+                INSERT INTO produtos (nome, fornecedor, grupo, preco_custo, preco_venda, estoque_atual)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, ("CEBOLA CAIXA 1", "BAHIA", "GERAL", 50.0, 80.0, 100.0))
+            conn.commit()
+        except Exception:
+            pass
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS clientes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -682,7 +694,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             st.title("📦 Gestão de Estoque e Produtos")
             st.caption("💡 **Dica:** Edite diretamente os valores de estoque, custo ou venda na tabela abaixo e clique no botão para salvar.")
             
-            # Carrega a estrutura e normaliza colunas caso o banco tenha nomes antigos
             cursor_temp = conn.cursor()
             cursor_temp.execute("PRAGMA table_info(produtos)")
             cols_atuais = [col[1] for col in cursor_temp.fetchall()]
