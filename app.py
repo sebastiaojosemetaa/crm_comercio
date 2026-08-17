@@ -32,7 +32,7 @@ def adequar_banco_e_migrar():
             valor_venda REAL,
             valor_total REAL,
             forma_pagamento TEXT,
-            valor_recebido TEXT,
+            valor_recebido REAL,
             tipo TEXT DEFAULT 'PEDIDO',
             codigo TEXT DEFAULT 'PED',
             data TEXT
@@ -177,7 +177,7 @@ def salvar_pedido_ou_venda(cliente, produto, fornecedor, grupo, quantidade, valo
     cursor.execute("""
         INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, tipo, codigo, data)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (cliente.strip(), produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, tipo, cod_status, data_atual))
+    """, (cliente.strip(), produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, float(valor_recebido), tipo, cod_status, data_atual))
     conn.commit()
 
 def converter_pedido_completo_para_venda(cliente_nome):
@@ -209,7 +209,6 @@ def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo):
         VALUES (?, ?, ?, ?, ?, ?, ?)
     """, (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data_atual))
     
-    # Atualiza também o estoque atual do produto
     cursor.execute("""
         UPDATE produtos SET estoque_atual = estoque_atual + ? WHERE TRIM(nome) = TRIM(?)
     """, (quantidade, produto))
@@ -523,6 +522,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 df_registros = carregar_dados(query_filt)
                 
                 if not df_registros.empty:
+                    # Garantir os tipos corretos para evitar conflito no st.data_editor
+                    df_registros['quantidade'] = pd.to_numeric(df_registros['quantidade'], errors='coerce').fillna(0.0)
+                    df_registros['valor_venda'] = pd.to_numeric(df_registros['valor_venda'], errors='coerce').fillna(0.0)
+                    df_registros['valor_total'] = pd.to_numeric(df_registros['valor_total'], errors='coerce').fillna(0.0)
+                    df_registros['valor_recebido'] = pd.to_numeric(df_registros['valor_recebido'], errors='coerce').fillna(0.0)
+                    
                     st.caption("💡 **Dica:** Clique diretamente em qualquer célula para alterar valores. Marque **Deletar** e clique no botão abaixo para remover registros permanentemente.")
                     
                     df_registros.insert(0, "Deletar", False)
@@ -538,11 +543,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             "cliente": st.column_config.TextColumn("Cliente"),
                             "produto": st.column_config.TextColumn("Produto"),
                             "fornecedor": st.column_config.TextColumn("Fornecedor"),
+                            "grupo": st.column_config.TextColumn("Grupo"),
                             "quantidade": st.column_config.NumberColumn("Qtd", min_value=0.0, format="%.2f"),
                             "valor_venda": st.column_config.NumberColumn("Valor Venda", min_value=0.0, format="R$ %.2f"),
                             "valor_total": st.column_config.NumberColumn("Valor Total", disabled=True, format="R$ %.2f"),
                             "forma_pagamento": st.column_config.SelectboxColumn("Forma Pagamento", options=["Dinheiro", "Crediário / Fiado", "Pix"]),
-                            "valor_recebido": st.column_config.TextColumn("Valor Recebido"),
+                            "valor_recebido": st.column_config.NumberColumn("Valor Recebido", min_value=0.0, format="R$ %.2f"),
                             "tipo": st.column_config.TextColumn("Tipo"),
                             "codigo": st.column_config.TextColumn("Código"),
                             "data": st.column_config.TextColumn("Data", disabled=True),
@@ -572,7 +578,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         float(row["valor_venda"]),
                                         v_tot,
                                         str(row["forma_pagamento"]),
-                                        str(row["valor_recebido"]),
+                                        float(row["valor_recebido"]),
                                         str(row["grupo"]),
                                         str(row["tipo"]),
                                         str(row["codigo"]),
