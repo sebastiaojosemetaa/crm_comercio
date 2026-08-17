@@ -79,7 +79,11 @@ def salvar_pedido_ou_venda(cliente, produto, fornecedor, grupo, quantidade, valo
 st.sidebar.title("🔑 Acesso ao Sistema")
 perfil_selecionado = st.sidebar.radio("Selecione o Perfil:", ["👤 Portal do Cliente", "🔒 Administração / Vendedor"])
 
-if perfil_selecionado == "🔒 Administração / Vendedor":
+if perfil_selecionado == "👤 Portal do Cliente":
+    st.title("🛍️ Portal do Cliente")
+    st.info("Faça login na barra lateral para ver seus pedidos.")
+
+elif perfil_selecionado == "🔒 Administração / Vendedor":
     if 'admin_logged' not in st.session_state: st.session_state.admin_logged = False
     
     if not st.session_state.admin_logged:
@@ -87,9 +91,24 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
         if st.sidebar.button("Entrar"):
             if senha == "1234": st.session_state.admin_logged = True; st.rerun()
     else:
-        menu_admin = st.sidebar.radio("Navegação", ["🛒 Registrar Venda", "📋 Pedidos / Orçamentos", "📦 Estoque de Produtos"])
+        menu_admin = st.sidebar.radio("Navegação", [
+            "📊 Fechamento & Financeiro",
+            "🛒 Registrar Venda",
+            "📋 Pedidos / Orçamentos",
+            "📥 Entrada de Estoque (Compras)",
+            "📦 Estoque de Produtos",
+            "👥 Cadastros (Clientes / Fornecedores / Grupos)"
+        ])
         
-        if menu_admin in ["🛒 Registrar Venda", "📋 Pedidos / Orçamentos"]:
+        if menu_admin == "📊 Fechamento & Financeiro":
+            st.title("📊 Painel Financeiro & Fechamento")
+            df_v = carregar_dados("SELECT * FROM vendas")
+            if not df_v.empty:
+                st.dataframe(df_v, use_container_width=True)
+            else:
+                st.info("Nenhuma venda registrada.")
+
+        elif menu_admin in ["🛒 Registrar Venda", "📋 Pedidos / Orçamentos"]:
             st.title(f"📋 {menu_admin}")
             aba_cad, aba_list = st.tabs(["➕ Novo Registro", "✏️ Tabela Editável"])
             
@@ -97,10 +116,8 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                 df_registros = carregar_dados("SELECT * FROM vendas")
                 if not df_registros.empty:
                     df_registros.insert(0, "Deletar", False)
-                    
                     df_editado = st.data_editor(df_registros, use_container_width=True, hide_index=True)
                     
-                    # Recalculo automático e botão de atualização
                     c_btn1, c_btn2 = st.columns([1, 1])
                     with c_btn1:
                         if st.button("🔄 Atualizar Valores Totais da Tabela"):
@@ -121,7 +138,7 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
 
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Gestão de Estoque")
-            df_prod = carregar_dados("SELECT * FROM produtos")
+            df_prod = carregar_dados("SELECT id, nome, fornecedor, grupo, preco_custo, preco_venda, estoque_atual FROM produtos")
             if not df_prod.empty:
                 df_prod.insert(0, "Deletar", False)
                 df_prod_edit = st.data_editor(df_prod, hide_index=True, use_container_width=True)
@@ -137,3 +154,11 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                     conn.commit()
                     st.success("Estoque atualizado!")
                     st.rerun()
+
+        elif menu_admin == "📥 Entrada de Estoque (Compras)":
+            st.title("📥 Entrada de Estoque (Compras)")
+            st.info("Módulo de compras e entrada de mercadorias.")
+
+        elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
+            st.title("👥 Cadastros Gerais")
+            st.info("Gerenciamento de clientes, fornecedores e grupos.")
