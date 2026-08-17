@@ -73,6 +73,16 @@ def salvar_pedido_ou_venda(cliente, produto, fornecedor, grupo, quantidade, valo
     """, (cliente.strip(), produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, str(valor_recebido), tipo, cod_status, data_atual))
     conn.commit()
 
+def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo):
+    cursor = conn.cursor()
+    valor_total = quantidade * valor_custo
+    data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cursor.execute("""
+        INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data_atual))
+    conn.commit()
+
 # -----------------------------------------------------------------------------
 # INTERFACE PRINCIPAL
 # -----------------------------------------------------------------------------
@@ -101,12 +111,24 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         ])
         
         if menu_admin == "📊 Fechamento & Financeiro":
-            st.title("📊 Painel Financeiro & Fechamento")
-            df_v = carregar_dados("SELECT * FROM vendas")
-            if not df_v.empty:
-                st.dataframe(df_v, use_container_width=True)
+            st.title("📊 Painel Financeiro & Fechamento por Data")
+            col_d1, col_d2, col_d3 = st.columns(3)
+            with col_d1: data_inicio = st.date_input("Data Inicial", value=date(2025, 1, 1))
+            with col_d2: data_fim = st.date_input("Data Final", value=date.today())
+            with col_d3: status_filtro = st.selectbox("Status", ["Todos", "Somente Vendas Concluídas", "Incluir Pedidos Pendentes"])
+            
+            str_d1 = data_inicio.strftime("%Y-%m-%d")
+            str_d2 = data_fim.strftime("%Y-%m-%d")
+            
+            query_fin = f"SELECT * FROM vendas WHERE (substr(data, 1, 10) >= '{str_d1}' AND substr(data, 1, 10) <= '{str_d2}' OR data IS NULL OR data = '')"
+            df_vendas = carregar_dados(query_fin)
+            
+            if not df_vendas.empty:
+                faturamento = df_vendas['valor_total'].sum() if 'valor_total' in df_vendas.columns else 0.0
+                st.metric("Faturamento do Período", f"R$ {faturamento:,.2f}")
+                st.dataframe(df_vendas, use_container_width=True)
             else:
-                st.info("Nenhuma venda registrada.")
+                st.info("Nenhum registro encontrado para este período.")
 
         elif menu_admin in ["🛒 Registrar Venda", "📋 Pedidos / Orçamentos"]:
             st.title(f"📋 {menu_admin}")
@@ -136,13 +158,38 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             st.success("Salvo com sucesso!")
                             st.rerun()
 
+        elif menu_admin == "📥 Entrada de Estoque (Compras)":
+            st.title("📥 Entrada de Estoque (Compras)")
+            aba_compra, aba_hist = st.tabs(["➕ Dar Entrada", "📜 Histórico"])
+            produtos_opt = carregar_coluna("produtos", "nome") or ["ABACATE"]
+            fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
+            grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
+            
+            with aba_compra:
+                with st.form("form_compra"):
+                    p = st.selectbox("Produto", produtos_opt)
+                    f = st.selectbox("Fornecedor", fornecedores_opt)
+                    g = st.selectbox("Grupo", grupos_opt)
+                    q = st.number_input("Quantidade", min_value=0.1, value=10.0)
+                    vc = st.number_input("Valor Custo Unitário", min_value=0.0, value=50.0)
+                    if st.form_submit_button("Registrar Entrada"):
+                        registrar_compra(p, f, g, q, vc)
+                        cursor = conn.cursor()
+                        cursor.execute("UPDATE produtos SET estoque_atual = COALESCE(estoque_atual, 0) + ? WHERE TRIM(nome) = TRIM(?)", (q, p))
+                        conn.commit()
+                        st.success("Entrada registrada!")
+                        st.rerun()
+            with aba_hist:
+                df_c = carregar_dados("SELECT * FROM compras")
+                if not df_c.empty: st.dataframe(df_c, use_container_width=True)
+                else: st.info("Nenhuma compra registrada.")
+
         elif menu_admin == "📦 Estoque de Produtos":
-            st.title("📦 Gestão de Estoque")
+            st.title("📦 Gestão de Estoque e Produtos")
             df_prod = carregar_dados("SELECT id, nome, fornecedor, grupo, preco_custo, preco_venda, estoque_atual FROM produtos")
             if not df_prod.empty:
                 df_prod.insert(0, "Deletar", False)
                 df_prod_edit = st.data_editor(df_prod, hide_index=True, use_container_width=True)
-                
                 if st.button("💾 Salvar Estoque"):
                     cursor = conn.cursor()
                     for _, row in df_prod_edit.iterrows():
@@ -155,10 +202,36 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.success("Estoque atualizado!")
                     st.rerun()
 
-        elif menu_admin == "📥 Entrada de Estoque (Compras)":
-            st.title("📥 Entrada de Estoque (Compras)")
-            st.info("Módulo de compras e entrada de mercadorias.")
-
         elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
             st.title("👥 Cadastros Gerais")
-            st.info("Gerenciamento de clientes, fornecedores e grupos.")
+            aba_cli, aba_forn, aba_grp = st.tabs(["👤 Clientes", "🚚 Fornecedores", "🏷️ Grupos"])
+            with aba_cli:
+                with st.form("fc"):
+                    cn = st.text_input("Nome do Cliente")
+                    if st.form_submit_button("Salvar"):
+                        if cn:
+                            cursor = conn.cursor()
+                            cursor.execute("INSERT OR IGNORE INTO clientes (nome) VALUES (?)", (cn,))
+                            conn.commit()
+                            st.success("Cliente salvo!")
+                            st.rerun()
+            with aba_forn:
+                with st.form("ff"):
+                    fn = st.text_input("Nome do Fornecedor")
+                    if st.form_submit_button("Salvar"):
+                        if fn:
+                            cursor = conn.cursor()
+                            cursor.execute("INSERT OR IGNORE INTO fornecedores (fornecedor) VALUES (?)", (fn,))
+                            conn.commit()
+                            st.success("Fornecedor salvo!")
+                            st.rerun()
+            with aba_grp:
+                with st.form("fg"):
+                    gn = st.text_input("Nome do Grupo")
+                    if st.form_submit_button("Salvar"):
+                        if gn:
+                            cursor = conn.cursor()
+                            cursor.execute("INSERT OR IGNORE INTO grupos (grupo) VALUES (?)", (gn,))
+                            conn.commit()
+                            st.success("Grupo salvo!")
+                            st.rerun()
