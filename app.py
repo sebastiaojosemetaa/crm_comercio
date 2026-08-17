@@ -174,6 +174,7 @@ def salvar_produto_completo(nome, fornecedor, grupo, preco_custo, preco_venda, e
 def salvar_simples(tabela, coluna, valor):
     cursor = conn.cursor()
     cursor.execute(f"CREATE TABLE IF NOT EXISTS {tabela} (id INTEGER PRIMARY KEY AUTOINCREMENT, {coluna} TEXT UNIQUE)")
+    conn.commit() # Garante que a tabela criada seja efetivada antes do insert
     try:
         cursor.execute(f"INSERT INTO {tabela} ({coluna}) VALUES (?)", (valor.strip(),))
         conn.commit()
