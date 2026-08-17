@@ -40,7 +40,7 @@ def adequar_banco_e_migrar():
         )
     """)
 
-    # Criar Tabela Produtos se não existir
+    # Garantir tabela produtos e suas colunas corretas sem perder dados antigos
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS produtos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -53,15 +53,24 @@ def adequar_banco_e_migrar():
         )
     """)
 
-    # MIGRAÇÃO AUTOMÁTICA: Garantir que a coluna 'fornecedor' existe na tabela produtos antiga
+    # Verificar se faltam colunas na tabela produtos existente e adicioná-las se necessário
     cursor.execute("PRAGMA table_info(produtos)")
-    colunas_produtos = [col[1] for col in cursor.fetchall()]
-    if "fornecedor" not in colunas_produtos:
-        try:
-            cursor.execute("ALTER TABLE produtos ADD COLUMN fornecedor TEXT")
-            conn.commit()
-        except Exception:
-            pass
+    colunas_existentes = [col[1] for col in cursor.fetchall()]
+    
+    colunas_necessarias = {
+        "fornecedor": "TEXT",
+        "grupo": "TEXT",
+        "preco_custo": "REAL",
+        "preco_venda": "REAL",
+        "estoque_atual": "REAL"
+    }
+    
+    for col_nome, col_tipo in colunas_necessarias.items():
+        if col_nome not in colunas_existentes:
+            try:
+                cursor.execute(f"ALTER TABLE produtos ADD COLUMN {col_nome} {col_tipo}")
+            except Exception:
+                pass
 
     conn.commit()
 
@@ -112,6 +121,16 @@ def salvar_produto_completo(nome, fornecedor, grupo, preco_custo, preco_venda, e
         conn.commit()
         return True
     except sqlite3.IntegrityError:
+        # Se já existe o produto pelo nome, fazemos um UPDATE para atualizar os dados em vez de dar erro
+        cursor.execute("""
+            UPDATE produtos 
+            SET fornecedor = ?, grupo = ?, preco_custo = ?, preco_venda = ?, estoque_atual = ?
+            WHERE TRIM(nome) = TRIM(?)
+        """, (fornecedor, grupo, preco_custo, preco_venda, estoque_inicial, nome.strip()))
+        conn.commit()
+        return True
+    except Exception as e:
+        st.error(f"Erro ao salvar produto: {e}")
         return False
 
 def salvar_simples(tabela, coluna, valor):
