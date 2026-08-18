@@ -113,6 +113,29 @@ def carregar_coluna(tabela, coluna):
 # -----------------------------------------------------------------------------
 # FUNÇÕES DE REGISTRO E BANCO
 # -----------------------------------------------------------------------------
+# --- FUNÇÃO DE ATUALIZAÇÃO ---
+def sincronizar_valores_com_estoque(tabela_alvo, tipo_preco="venda"):
+    cursor = conn.cursor()
+    df_produtos = carregar_dados("SELECT nome, preco_venda, preco_custo FROM produtos")
+    df_registros = carregar_dados(f"SELECT id, produto, qtd FROM {tabela_alvo}")
+    
+    for _, row in df_registros.iterrows():
+        prod_nome = row['produto']
+        preco_atual = df_produtos.loc[df_produtos['nome'] == prod_nome, 
+                                      'preco_venda' if tipo_preco == "venda" else 'preco_custo']
+        
+        if not preco_atual.empty:
+            p = float(preco_atual.iloc[0])
+            total = p * row['qtd']
+            
+            if tipo_preco == "venda":
+                cursor.execute(f"UPDATE {tabela_alvo} SET valor_venda = ?, valor_total = ? WHERE id = ?", (p, total, row['id']))
+            else:
+                cursor.execute(f"UPDATE {tabela_alvo} SET valor_compra = ?, valor_total = ? WHERE id = ?", (p, total, row['id']))
+    
+    conn.commit()
+
+# ... (o restante das suas funções como salvar_cliente_completo continua aqui)
 def salvar_cliente_completo(nome, telefone, doc, endereco, cidade):
     cursor = conn.cursor()
     try:
@@ -345,6 +368,16 @@ if perfil_selecionado == "👤 Portal do Cliente":
             if not df_pedidos.empty:
                 soma_total = df_pedidos['valor_total'].sum() if 'valor_total' in df_pedidos.columns else 0.0
                 st.markdown(f"**Itens Registrados:** {len(df_pedidos)} | **Soma dos Valores:** R$ {soma_total:,.2f}")
+    
+    # --- COLE O BOTÃO AQUI ---
+    if st.button("🔄 Atualizar Valores com Estoque Atual"):
+        # Como aqui você já tem df_pedidos, a função vai rodar para essa tabela
+        sincronizar_valores_com_estoque("vendas", "venda") 
+        st.success("Tabela atualizada com os preços atuais!")
+        st.rerun()
+    # --------------------------
+
+    st.dataframe(df_pedidos, use_container_width=True)
                 st.dataframe(df_pedidos, use_container_width=True)
                 
                 st.markdown("---")
