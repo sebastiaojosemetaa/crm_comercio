@@ -604,7 +604,7 @@ with c_btn1:
                             st.success("Todas as edições na tabela foram salvas no banco de dados!")
                             st.rerun()
 
-                    with c_btn2:
+                        with c_btn2:
                         itens_para_deletar = df_editado[df_editado["Deletar"] == True]
                         if not itens_para_deletar.empty:
                             if st.button(f"🗑️ Confirmar Exclusão de ({len(itens_para_deletar)}) Item(ns) Marcados"):
