@@ -619,7 +619,7 @@ if not itens_para_deletar.empty:
                                 st.rerun()
 
 st.markdown("---")
-                    st.subheader(f"📄 Relatório e Exclusão Total ({nome_relatorio})")
+st.subheader(f"📄 Relatório e Exclusão Total ({nome_relatorio})")
                     
                     col_b1, col_b2 = st.columns(2)
                     with col_b1:
