@@ -111,8 +111,8 @@ def carregar_coluna(tabela, coluna):
     try:
         cursor = conn.cursor()
         cursor.execute(f"PRAGMA table_info({tabela})")
-        cols = [col[1] for col in cursor.fetchall()]
-        col_alvo = coluna if coluna in cols else (cols[1] if len(cols) > 1 else coluna)
+        cols = [col for col in cursor.fetchall()]
+        col_alvo = coluna if coluna in cols else (cols if len(cols) > 1 else coluna)
         
         df = carregar_dados(f"SELECT DISTINCT TRIM({col_alvo}) as {col_alvo} FROM {tabela} WHERE {col_alvo} IS NOT NULL AND {col_alvo} != ''")
         if not df.empty:
@@ -126,7 +126,7 @@ def obter_preco_produto(nome_produto, campo="preco_venda"):
         cursor = conn.cursor()
         cursor.execute(f"SELECT {campo} FROM produtos WHERE TRIM(nome) = TRIM(?)", (nome_produto.strip(),))
         res = cursor.fetchone()
-        return res[0] if res else 0.0
+        return res if res else 0.0
     except Exception:
         return 0.0
 
@@ -143,13 +143,13 @@ def salvar_cliente_completo(nome, telefone, doc, endereco, city):
     except sqlite3.IntegrityError:
         return False
 
-def salvar_produto_completo(nome, fornecedor, grupo, preco_custo, preco_venda, estoque_inicial):
+def salvar_produto_completo(nome, fornecedor, group, preco_custo, preco_venda, estoque_inicial):
     cursor = conn.cursor()
     try:
         cursor.execute("""
             INSERT INTO produtos (nome, fornecedor, grupo, preco_custo, preco_venda, estoque_atual) 
             VALUES (?, ?, ?, ?, ?, ?)
-        """, (nome.strip(), fornecedor, grupo, preco_custo, preco_venda, estoque_inicial))
+        """, (nome.strip(), fornecedor, group, preco_custo, preco_venda, estoque_inicial))
         conn.commit()
         return True
     except sqlite3.IntegrityError:
@@ -157,7 +157,7 @@ def salvar_produto_completo(nome, fornecedor, grupo, preco_custo, preco_venda, e
             UPDATE produtos 
             SET fornecedor = ?, grupo = ?, preco_custo = ?, preco_venda = ?, estoque_atual = ?
             WHERE TRIM(nome) = TRIM(?)
-        """, (fornecedor, grupo, preco_custo, preco_venda, estoque_inicial, nome.strip()))
+        """, (fornecedor, group, preco_custo, preco_venda, estoque_inicial, nome.strip()))
         conn.commit()
         return True
 
@@ -203,7 +203,7 @@ def salvar_alteracoes_lote_compras(df_editado):
             """, (qtd, v_custo, v_total, int(row["id"])))
     conn.commit()
 
-def salvar_pedido_ou_venda(cliente, produto, fornecedor, grupo, quantidade, valor_venda, forma_pagamento, valor_recebido, tipo="PEDIDO"):
+def salvar_pedido_ou_venda(cliente, produto, fornecedor, group, quantidade, valor_venda, forma_pagamento, valor_recebido, tipo="PEDIDO"):
     cursor = conn.cursor()
     valor_total = quantidade * valor_venda
     try:
@@ -218,7 +218,7 @@ def salvar_pedido_ou_venda(cliente, produto, fornecedor, grupo, quantidade, valo
     cursor.execute("""
         INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, troco, restante, tipo, codigo, data)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (cliente.strip(), produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, v_rec, troco, restante, tipo, cod_status, data_atual))
+    """, (cliente.strip(), produto, fornecedor, group, quantidade, valor_venda, valor_total, forma_pagamento, v_rec, troco, restante, tipo, cod_status, data_atual))
     conn.commit()
 
 # -----------------------------------------------------------------------------
@@ -249,10 +249,11 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
             str(r.get('forma_pagamento', ''))
         ])
         
-    t = Table(lista_dados, colWidths=[40, 150, 50, 80, 80, 100])
+    t = Table(lista_dados, colWidths=[40, 160, 50, 80, 80, 110])
     t.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.grey),
         ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
         ('ALIGN', (0,0), (-1,-1), 'CENTER'),
         ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
         ('BOTTOMPADDING', (0,0), (-1,0), 6),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.black)
