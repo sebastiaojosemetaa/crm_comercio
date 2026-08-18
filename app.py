@@ -677,7 +677,7 @@ with col2:
                         v_custo = st.number_input("Valor do Custo Unitário (R$)", min_value=0.0, step=1.0, value=50.0)
                         st.markdown(f"**Custo Total do Lote:** R$ {qtd * v_custo:,.2f}")
                     
-            if st.form_submit_button("Registrar Entrada no Estoque"):
+if st.form_submit_button("Registrar Entrada no Estoque"):
                         registrar_compra(prod, fornec, grupo, qtd, v_custo)
                         st.success("Entrada de estoque gravada com sucesso!")
                         st.rerun()
