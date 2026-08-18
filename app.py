@@ -657,7 +657,7 @@ with col_b2:
                     linhas_afetadas = converter_pedido_completo_para_venda(cliente_sel)
                     st.success(f"Sucesso! {linhas_afetadas} registro(s) do cliente {cliente_sel} foram convertidos para VENDA!")
                     st.rerun()      
-        elif menu_admin == "📥 Entrada de Estoque (Compras)":
+elif menu_admin == "📥 Entrada de Estoque (Compras)":
     st.title("📥 Entrada de Estoque (Compras)")
     aba_compra, aba_historico_compras = st.tabs(["➕ Dar Entrada em Estoque", "📜 Histórico de Entradas / Compras"])
             
