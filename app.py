@@ -524,7 +524,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     clientes_filtro = ["TODOS"] + (carregar_coluna("clientes", "nome") or carregar_coluna("vendas", "cliente"))
                     cliente_sel = st.selectbox("Filtrar por Cliente:", clientes_filtro)
                 with col_f2:
-                    with col_f2:
+                with col_f2:
                     d_inicio = st.date_input("Data Inicial do Filtro", value=date(2025, 1, 1))
                 with col_f3:
                     d_fim = st.date_input("Data Final do Filtro", value=date.today())
