@@ -525,11 +525,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     cliente_sel = st.selectbox("Filtrar por Cliente:", clientes_filtro)
                 with col_f2:
                     with col_f2:
-    d_inicio = st.date_input("Data Inicial do Filtro", value=date(2025, 1, 1))
+                    d_inicio = st.date_input("Data Inicial do Filtro", value=date(2025, 1, 1))
                 with col_f3:
                     d_fim = st.date_input("Data Final do Filtro", value=date.today())
-s_d1 = d_inicio.strftime("%Y-%m-%d")
-s_d2 = d_fim.strftime("%Y-%m-%d")
+                    s_d1 = d_inicio.strftime("%Y-%m-%d")
+                    s_d2 = d_fim.strftime("%Y-%m-%d")
 
 query_filt = f"SELECT * FROM vendas WHERE substr(data, 1, 10) >= '{s_d1}' AND substr(data, 1, 10) <= '{s_d2}'"
 
