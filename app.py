@@ -2,11 +2,6 @@ import streamlit as st
 import sqlite3
 import pandas as pd
 from datetime import datetime
-import io
-from reportlab.lib.pagesizes import letter
-from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
 # -----------------------------------------------------------------------------
 # 1. CONFIGURAÇÃO E CONEXÃO COM O BANCO DE DADOS
@@ -111,8 +106,8 @@ def carregar_coluna(tabela, coluna):
     try:
         cursor = conn.cursor()
         cursor.execute(f"PRAGMA table_info({tabela})")
-        cols = [col for col in cursor.fetchall()]
-        col_alvo = coluna if coluna in cols else (cols if len(cols) > 1 else coluna)
+        cols = [col[1] for col in cursor.fetchall()]
+        col_alvo = coluna if coluna in cols else (cols[1] if len(cols) > 1 else coluna)
         
         df = carregar_dados(f"SELECT DISTINCT TRIM({col_alvo}) as {col_alvo} FROM {tabela} WHERE {col_alvo} IS NOT NULL AND {col_alvo} != ''")
         if not df.empty:
@@ -126,12 +121,12 @@ def obter_preco_produto(nome_produto, campo="preco_venda"):
         cursor = conn.cursor()
         cursor.execute(f"SELECT {campo} FROM produtos WHERE TRIM(nome) = TRIM(?)", (nome_produto.strip(),))
         res = cursor.fetchone()
-        return res if res else 0.0
+        return res[0] if res else 0.0
     except Exception:
         return 0.0
 
 # -----------------------------------------------------------------------------
-# 3. FUNÇÕES DE SALVAMENTO E ATUALIZAÇÃO EM LOTE
+# 3. FUNÇÕES DE SALVAMENTO AND ATUALIZAÇÃO EM LOTE
 # -----------------------------------------------------------------------------
 def salvar_cliente_completo(nome, telefone, doc, endereco, city):
     cursor = conn.cursor()
@@ -222,38 +217,44 @@ def salvar_pedido_ou_venda(cliente, produto, fornecedor, group, quantidade, valo
     conn.commit()
 
 # -----------------------------------------------------------------------------
-# 4. GERADOR DE PDF
+# 4. INTERFACE DO USUÁRIO (STREAMLIT)
 # -----------------------------------------------------------------------------
-def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
-    elements = []
-    styles = getSampleStyleSheet()
-    
-    style_empresa = ParagraphStyle('EmpresaStyle', parent=styles['Heading1'], fontName='Helvetica-Bold', fontSize=20, leading=22, alignment=1, textColor=colors.black)
-    style_sub = ParagraphStyle('SubStyle', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=10, leading=12, alignment=1)
-    
-    elements.append(Paragraph("<b>REY DA CEBOLA - CRM COMÉRCIO</b>", style_empresa))
-    elements.append(Spacer(1, 10))
-    elements.append(Paragraph(f"Relatório de Movimentações - Cliente: {cliente_nome}", style_sub))
-    elements.append(Spacer(1, 15))
-    
-    lista_dados = [["ID", "Produto", "Qtd", "Preço Un.", "Total", "Forma Pag."]]
-    for _, r in df_dados.iterrows():
-        lista_dados.append([
-            str(r.get('id', '')),
-            str(r.get('produto', '')),
-            str(r.get('quantidade', '')),
-            f"R$ {r.get('valor_venda', 0):.2f}",
-            f"R$ {r.get('valor_total', 0):.2f}",
-            str(r.get('forma_pagamento', ''))
-        ])
+st.sidebar.title("🔑 Acesso ao Sistema")
+perfil = st.sidebar.radio("Selecione o Perfil:", ["Portal do Cliente", "Administração/Vendedor"])
+
+if perfil == "Administração/Vendedor":
+    st.sidebar.markdown("### 🖥️ Área Restrita")
+    navegacao = st.sidebar.radio(
+        "Navegação",
+        ["📊 Fechamento & Financeiro", "📌 Pedidos / Orçamentos", "🛒 Registrar Venda", "📦 Entrada de Estoque (Compras)", "🥦 Estoque de Produtos", "🗂️ Cadastros"]
+    )
+
+    # -------------------------------------------------------------------------
+    # TELA: PEDIDOS / ORÇAMENTOS
+    # -------------------------------------------------------------------------
+    if navegacao == "📌 Pedidos / Orçamentos":
+        st.title("📌 Gerenciamento de Pedidos e Orçamentos")
         
-    t = Table(lista_dados, colWidths=[40, 160, 50, 80, 80, 110])
-    t.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.grey),
-        ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
-        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('BOTTOMPADDING', (0,0), (-1,0), 6),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.black)
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            clientes_lista = ["TODOS"] + carregar_coluna("vendas", "cliente")
+            filtro_cliente = st.selectbox("Filtrar por Cliente:", clientes_lista)
+        with c2:
+            data_ini = st.date_input("Data Inicial do Filtro", datetime(2025, 1, 1))
+        with c3:
+            data_fim = st.date_input("Data Final do Filtro", datetime(2026, 12, 18))
+            
+        st.info("💡 Dica: Altere os valores direto na tabela e clique nos botões de ação abaixo.")
+        
+        query = "SELECT id, cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, troco, restante, data FROM vendas WHERE tipo = 'PEDIDO'"
+        params = []
+        if filtro_cliente != "TODOS":
+            query += " AND TRIM(cliente) = TRIM(?)"
+            params.append(filtro_cliente)
+            
+        df_vendas = carregar_dados(query, params)
+        
+        if not df_vendas.empty:
+            df_vendas.insert(0, "Deletar", False)
+            
+            col_b1, col_b2 = st.columns(2)
