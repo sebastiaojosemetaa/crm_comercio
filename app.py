@@ -531,7 +531,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 s_d1 = d_inicio.strftime("%Y-%m-%d")
                 s_d2 = d_fim.strftime("%Y-%m-%d")
                 
-                query_filt = f"SELECT * FROM vendas WHERE (substr(data, 1, 10) >= '{s_d1}' AND substr(data, 1, 10) <= '{s_d2}' OR data IS NULL OR data = '')"
+                query_filt = f"SELECT * FROM vendas WHERE (substr(data, 1, 10) >= '{s_d1}' AND substr(data, 1, 10) <= '{s_d2}'
                 if cliente_sel != "TODOS":
                     query_filt += f" AND TRIM(cliente) = TRIM('{cliente_sel}')"
                 nome_relatorio = cliente_sel
