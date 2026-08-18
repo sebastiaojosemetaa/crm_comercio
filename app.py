@@ -621,8 +621,8 @@ if not itens_para_deletar.empty:
 st.markdown("---")
 st.subheader(f"📄 Relatório e Exclusão Total ({nome_relatorio})")
                     
-                    col_b1, col_b2 = st.columns(2)
-                    with col_b1:
+col_b1, col_b2 = st.columns(2)
+with col_b1:
                         pdf_gerado = gerar_pdf_tabela_pedidos(df_registros, cliente_nome=nome_relatorio, d_inicio=d_inicio, d_fim=d_fim)
                         st.download_button(
                             label=f"📥 Baixar Relatório - {nome_relatorio} (PDF)",
