@@ -866,7 +866,7 @@ if st.form_submit_button("Salvar Cliente"):
                 st.markdown("---")
                 st.dataframe(carregar_dados("SELECT * FROM fornecedores"), use_container_width=True)
 
-            with tab_grup:
+                with tab_grup:
                 st.subheader("Cadastrar Novo Grupo")
                 with st.form("form_cad_grupo"):
                     novo_grup = st.text_input("Nome do Grupo")
