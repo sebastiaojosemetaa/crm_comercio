@@ -665,12 +665,11 @@ if st.button(f"🔄 Converter Pedido Completo de {cliente_sel} para VENDA", key=
                     st.rerun()
 if menu_admin == "📥 Entrada de Estoque (Compras)":
     st.title("📥 Entrada de Estoque (Compras)")
-    aba_compra, aba_historico_compras = st.tabs(["➕ Dar Entrada em Estoque", "📜 Histórico de Entradas / Compras"])
-            
+    aba_compra, aba_historico_compras = st.tabs(["📦 Dar Entrada em Estoque", "📋 Histórico de Entradas / Compras"])
+
     produtos_opt = carregar_coluna("produtos", "nome") or ["AMEIXA IMPORTADA", "ABACATE"]
     fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
     grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
-            
 with aba_compra:
     with st.form("form_entrada_estoque"):
         col1, col2 = st.columns(2)
