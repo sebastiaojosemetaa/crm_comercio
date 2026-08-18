@@ -520,14 +520,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.subheader("🔍 Edição Direta na Tabela & Gestão por Cliente")
                 
                 col_f1, col_f2, col_f3 = st.columns(3)
-                with col_f1:
-                    clientes_filtro = ["TODOS"] + (carregar_coluna("clientes", "nome") or carregar_coluna("vendas", "cliente"))
-                    cliente_sel = st.selectbox("Filtrar por Cliente:", clientes_filtro)
-                with col_f2:
-                with col_f2:
-                    d_inicio = st.date_input("Data Inicial do Filtro", value=date(2025, 1, 1))
-                with col_f3:
-                    d_fim = st.date_input("Data Final do Filtro", value=date.today())
+with col_f1:
+    clientes_filtro = ["TODOS"] + (carregar_coluna("clientes", "nome") or carregar_coluna("vendas", "cliente"))
+    cliente_sel = st.selectbox("Filtrar por Cliente:", clientes_filtro)
+with col_f2:
+    d_inicio = st.date_input("Data Inicial do Filtro", value=date(2025, 1, 1))
+with col_f3:
+    d_fim = st.date_input("Data Final do Filtro", value=date.today())
                     s_d1 = d_inicio.strftime("%Y-%m-%d")
                     s_d2 = d_fim.strftime("%Y-%m-%d")
 
