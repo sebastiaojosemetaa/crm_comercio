@@ -203,15 +203,11 @@ def salvar_pedido_ou_venda(cliente, produto, fornecedor, grupo, quantidade, valo
     cursor.execute("""
         INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, tipo, codigo, data)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (cliente.strip(), produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, tipo, cod_status, data_atual))
+    """, (cliente.strip(), produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, str(valor_recebido), tipo, cod_status, data_atual))
     conn.commit()
 
 def baixar_debito_cliente(cliente_nome, valor_haver):
-    """
-    Abate o valor_haver pago pelo cliente nas compras pendentes (ordenadas da mais antiga para a mais nova).
-    """
     cursor = conn.cursor()
-    # Busca vendas/pedidos do cliente ordenados por data
     cursor.execute("""
         SELECT id, valor_total, valor_recebido 
         FROM vendas 
@@ -225,16 +221,13 @@ def baixar_debito_cliente(cliente_nome, valor_haver):
         reg_id, v_total, v_rec_atual = reg
         v_rec_atual = float(v_rec_atual) if v_rec_atual else 0.0
         
-        # Quanto falta pagar nesta linha específica
         pendente_linha = v_total - v_rec_atual
         
         if pendente_linha > 0 and saldo_haver > 0:
             if saldo_haver >= pendente_linha:
-                # O haver cobre todo o saldo pendente desta linha
                 novo_recebido = v_total
                 saldo_haver -= pendente_linha
             else:
-                # O haver cobre parte do saldo pendente desta linha
                 novo_recebido = v_rec_atual + saldo_haver
                 saldo_haver = 0.0
             
@@ -506,7 +499,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 col1, col2, col3 = st.columns(3)
                 faturamento = df_vendas['valor_total'].sum() if 'valor_total' in df_vendas.columns else 0.0
                 
-                # Tratamento robusto para valor_recebido somando numérico
                 if 'valor_recebido' in df_vendas.columns:
                     valor_rec = pd.to_numeric(df_vendas['valor_recebido'], errors='coerce').sum()
                 else:
@@ -543,7 +535,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             is_modo_pedido = (menu_admin == "📋 Pedidos / Orçamentos")
             st.title(f"📋 {menu_admin}")
             
-            # Aba extra para receber débitos/haver se estiver em Registrar Venda
             if not is_modo_pedido:
                 aba_cad, aba_baixa, aba_list = st.tabs(["➕ Novo Registro", "💵 Baixa de Débito / Haver", "✏️ Tabela Editável (Edição Direta & Exclusão)"])
             else:
@@ -581,7 +572,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.success(f"{tipo_registro} gravado com sucesso!")
                         st.rerun()
 
-            # ABA DE BAIXA DE DÉBITOS / HAVER
             if aba_baixa is not None:
                 with aba_baixa:
                     st.subheader("💵 Baixa de Débitos & Lançamento de Haver (Pagamento Parcial ou Total)")
@@ -591,7 +581,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     if clientes_com_divida:
                         cliente_baixa = st.selectbox("Selecione o Cliente para Baixa:", clientes_com_divida, key="sel_cli_baixa")
                         
-                        # Calcula débitos do cliente
                         df_cli_vendas = carregar_dados(f"SELECT * FROM vendas WHERE TRIM(cliente) = TRIM('{cliente_baixa}')")
                         if not df_cli_vendas.empty:
                             tot_vendas = df_cli_vendas['valor_total'].sum()
@@ -653,6 +642,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     
                     df_registros.insert(0, "Deletar", False)
                     
+                    # CORREÇÃO CRUCIAL PARA O TIPO DE DADO NO EDITOR
+                    if 'valor_recebido' in df_registros.columns:
+                        df_registros['valor_recebido'] = pd.to_numeric(df_registros['valor_recebido'], errors='coerce').fillna(0.0)
+                    
                     config_cols = {
                         "Deletar": st.column_config.CheckboxColumn("Deletar", help="Marque para excluir o item"),
                         "id": st.column_config.NumberColumn("ID", disabled=True),
@@ -672,7 +665,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     else:
                         config_cols["valor_venda"] = st.column_config.NumberColumn("Valor Venda", min_value=0.0, format="R$ %.2f")
                         config_cols["forma_pagamento"] = st.column_config.SelectboxColumn("Forma Pagamento", options=["Dinheiro", "Crediário / Fiado", "Pix"])
-                        config_cols["valor_recebido"] = st.column_config.TextColumn("Valor Recebido / Haver")
+                        config_cols["valor_recebido"] = st.column_config.NumberColumn("Valor Recebido / Haver", min_value=0.0, format="R$ %.2f")
 
                     df_editado = st.data_editor(
                         df_registros,
@@ -701,7 +694,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     v_tot = float(row["quantidade"]) * float(row["valor_venda"])
                                     
                                     f_pag = str(row["forma_pagamento"]) if "forma_pagamento" in row else ""
-                                    v_rec = str(row["valor_recebido"]) if "valor_recebido" in row else "0.0"
+                                    v_rec = float(row["valor_recebido"]) if "valor_recebido" in row else 0.0
                                     g_val = str(row["grupo"]) if "grupo" in row else ""
                                     t_val = str(row["tipo"]) if "tipo" in row else ""
                                     c_val = str(row["codigo"]) if "codigo" in row else ""
