@@ -376,7 +376,6 @@ if perfil_selecionado == "👤 Portal do Cliente":
         st.success("Tabela atualizada com os preços atuais!")
         st.rerun()
     # --------------------------
-
     st.dataframe(df_pedidos, use_container_width=True)
                 st.dataframe(df_pedidos, use_container_width=True)
                 
