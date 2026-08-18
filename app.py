@@ -672,7 +672,7 @@ with col1:
                         prod = st.selectbox("Selecione o Produto", produtos_opt)
                         fornec = st.selectbox("Selecione o Fornecedor", fornecedores_opt)
                         grupo = st.selectbox("Selecione o Grupo", grupos_opt)
-            with col2:
+with col2:
                         qtd = st.number_input("Quantidade Comprada", min_value=0.1, step=0.5, value=10.0)
                         v_custo = st.number_input("Valor do Custo Unitário (R$)", min_value=0.0, step=1.0, value=50.0)
                         st.markdown(f"**Custo Total do Lote:** R$ {qtd * v_custo:,.2f}")
