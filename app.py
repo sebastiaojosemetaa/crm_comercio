@@ -667,7 +667,7 @@ if menu_admin == "📥 Entrada de Estoque (Compras)":
             
 with aba_compra:
     with st.form("form_entrada_estoque"):
-    col1, col2 = st.columns(2)
+        col1, col2 = st.columns(2)
 with col1:
                         prod = st.selectbox("Selecione o Produto", produtos_opt)
                         fornec = st.selectbox("Selecione o Fornecedor", fornecedores_opt)
