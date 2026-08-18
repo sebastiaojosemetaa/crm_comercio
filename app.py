@@ -632,11 +632,11 @@ with col_b1:
                         )
                     
 with col_b2:
-    if cliente_sel != "TODOS":
-    if st.button(f"🚨 Apagar Pedido / Venda INTEIRA de {cliente_sel}"):
-                            qtd_del = deletar_pedidos_cliente(cliente_sel, s_d1, s_d2)
-                            st.success(f"Foram deletados {qtd_del} registro(s) de {cliente_sel} com sucesso!")
-                            st.rerun()
+        if cliente_sel != "TODOS":
+            if st.button(f"🗑️ Apagar Pedido / Venda INTEIRA de {cliente_sel}"):
+                qtd_del = deletar_pedidos_cliente(cliente_sel, s_d1, s_d2)
+                st.success(f"Foram deletados {qtd_del} registro(s) de {cliente_sel} com sucesso!")
+                st.rerun()
 
                     st.markdown("---")
                     
