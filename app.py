@@ -519,7 +519,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             with aba_list:
                 st.subheader("🔍 Edição Direta na Tabela & Gestão por Cliente")
                 
-                col_f1, col_f2, col_f3 = st.columns(3)
+col_f1, col_f2, col_f3 = st.columns(3)
 with col_f1:
     clientes_filtro = ["TODOS"] + (carregar_coluna("clientes", "nome") or carregar_coluna("vendas", "cliente"))
     cliente_sel = st.selectbox("Filtrar por Cliente:", clientes_filtro)
