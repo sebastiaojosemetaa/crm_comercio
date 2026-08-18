@@ -533,10 +533,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 
                 query_filt = f"SELECT * FROM vendas WHERE (substr(data, 1, 10) >= '{s_d1}' AND substr(data, 1, 10) <= '{s_d2}' OR data IS NULL OR data = '')"
                 if cliente_sel != "TODOS":
-                    query_filt += f" AND TRIM(cliente) = TRIM('{cliente_sel}')"
-                    nome_relatorio = cliente_sel
+                query_filt += f" AND TRIM(cliente) = TRIM('{cliente_sel}')"
+                nome_relatorio = cliente_sel
                 else:
-                    nome_relatorio = "Geral"
+                nome_relatorio = "Geral"
                     
                 df_registros = carregar_dados(query_filt)
                 
