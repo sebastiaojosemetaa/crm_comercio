@@ -115,13 +115,24 @@ def carregar_coluna(tabela, coluna):
 # -----------------------------------------------------------------------------
 def sincronizar_valores_com_estoque(tabela_alvo, tipo_preco="venda"):
     cursor = conn.cursor()
-    df_produtos = carregar_dados("SELECT nome, preco_venda, preco_custo FROM produtos")
+    df_produtos = carregar_dados("SELECT * FROM produtos")
+    if df_produtos.empty:
+        return
+    
+    cols_prod = df_produtos.columns.tolist()
+    col_p_nome = 'nome' if 'nome' in cols_prod else cols_prod[1]
+    
+    if tipo_preco == "venda":
+        col_p_preco = 'preco_venda' if 'preco_venda' in cols_prod else [c for c in cols_prod if 'venda' in c or 'preco' in c][-1]
+    else:
+        col_p_preco = 'preco_custo' if 'preco_custo' in cols_prod else [c for c in cols_prod if 'custo' in c or 'compra' in c][-1]
+
     df_registros = carregar_dados(f"SELECT id, produto, quantidade as qtd FROM {tabela_alvo}")
     
     for _, row in df_registros.iterrows():
         prod_nome = row['produto']
-        preco_atual = df_produtos.loc[df_produtos['nome'] == prod_nome, 
-                                      'preco_venda' if tipo_preco == "venda" else 'preco_custo']
+        mask = df_produtos[col_p_nome].astype(str).str.strip() == str(prod_nome).strip()
+        preco_atual = df_produtos.loc[mask, col_p_preco]
         
         if not preco_atual.empty:
             p = float(preco_atual.iloc[0])
@@ -682,7 +693,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     enviado = st.form_submit_button("Registrar Entrada no Estoque")
                     if enviado:
                         registrar_compra(produto_escolhido, fornecedor_escolhido, grupo_escolhido, quantidade, preco_custo)
-                        # Atualiza estoque atual do produto
                         cursor = conn.cursor()
                         cursor.execute("UPDATE produtos SET estoque_atual = COALESCE(estoque_atual, 0) + ? WHERE TRIM(nome) = TRIM(?)", (quantidade, produto_escolhido))
                         conn.commit()
