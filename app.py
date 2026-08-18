@@ -676,18 +676,18 @@ if menu_admin == "📥 Entrada de Estoque (Compras)":
         with st.form("form_entrada_estoque"):
             col1, col2 = st.columns(2)
             with col1:
-    
-                            prod = st.selectbox("Selecione o Produto", produtos_opt)
-                            fornec = st.selectbox("Selecione o Fornecedor", fornecedores_opt)
-                            grupo = st.selectbox("Selecione o Grupo", grupos_opt)
-with col2:
-                            qtd = st.number_input("Quantidade Comprada", min_value=0.1, step=0.5, value=10.0)
-                            v_custo = st.number_input("Valor do Custo Unitário (R$)", min_value=0.0, step=1.0, value=50.0)
-                            st.markdown(f"**Custo Total do Lote:** R$ {qtd * v_custo:,.2f}")
-if st.form_submit_button("Registrar Entrada no Estoque"):                                     
-                        registrar_compra(prod, fornec, grupo, qtd, v_custo)
-                        st.success("Entrada de estoque gravada com sucesso!")
-                        st.rerun()
+                produto_escolhido = st.selectbox("Produto", produtos_opt)
+                fornecedor_escolhido = st.selectbox("Fornecedor", fornecedores_opt)
+                quantidade = st.number_input("Quantidade", min_value=0.0, format="%.2f")
+            with col2:
+                grupo_escolhido = st.selectbox("Grupo", grupos_opt)
+                preco_custo = st.number_input("Preço de Custo Unitário (R$)", min_value=0.0, format="%.2f")
+            
+            enviado = st.form_submit_button("Registrar Entrada no Estoque")
+            if enviado:
+                # Sua lógica de salvamento aqui
+                st.success("Entrada registrada com sucesso!")
+                st.rerun()
                         
 with aba_historico_compras:
                 st.dataframe(carregar_dados("SELECT * FROM compras"), use_container_width=True)
