@@ -855,7 +855,7 @@ if st.form_submit_button("Salvar Cliente"):
                 st.markdown("---")
                 st.dataframe(carregar_dados("SELECT * FROM produtos"), use_container_width=True)
 
-            with tab_forn:
+                with tab_forn:
                 st.subheader("Cadastrar Novo Fornecedor")
                 with st.form("form_cad_fornecedor"):
                     novo_forn = st.text_input("Nome do Fornecedor")
