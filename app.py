@@ -660,13 +660,13 @@ if not pedidos_pendentes.empty:
             st.write(f"O cliente **{cliente_sel}** possui **{qtd_itens} item(ns)** pendente(s) como pedido, somando **R$ {total_ped:,.2f}**.")
                             
 if st.button(f"🔄 Converter Pedido Completo de {cliente_sel} para VENDA", key="btn_converter_venda"):
-                    linhas_afetadas = converter_pedido_completo_para_venda(cliente_sel)
-                    st.success(f"Sucesso! {linhas_afetadas} registro(s) do cliente {cliente_sel} foram convertidos para VENDA!")
-                    st.rerun()
+    linhas_afetadas = converter_pedido_completo_para_venda(cliente_sel)
+    st.success(f"Sucesso! {linhas_afetadas} registro(s) do cliente {cliente_sel} foram convertidos para VENDA!")
+    st.rerun()
+
 if menu_admin == "📥 Entrada de Estoque (Compras)":
-        st.title("📥 Entrada de Estoque (Compras)")
-        aba_compra, aba_historico_compras = st.tabs(["📦 Dar Entrada em Estoque", "📋 Histórico de Entradas / Compras"])
-    
+    st.title("📥 Entrada de Estoque (Compras)")
+    aba_compra, aba_historico_compras = st.tabs(["📦 Dar Entrada em Estoque", "📋 Histórico de Entradas / Compras"])
         produtos_opt = carregar_coluna("produtos", "nome") or ["AMEIXA IMPORTADA", "ABACATE"]
         fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
         grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
