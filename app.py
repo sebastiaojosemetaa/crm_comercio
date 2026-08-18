@@ -813,17 +813,17 @@ else:
 if menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
     st.title("👥 Cadastros Gerais")
     tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["👥 Clientes", "📦 Produtos", "🏢 Fornecedores", "🏷️ Grupos"])            
-                with tab_cli:
+    with tab_cli:
                 st.subheader("Cadastrar Novo Cliente")
-                with st.form("form_cad_cliente_completo"):
-                    col1, col2 = st.columns(2)
-                with col1:
-                        novo_cli = st.text_input("Nome do Cliente / Razão Social")
-                        telefone = st.text_input("Telefone / WhatsApp")
-                        doc = st.text_input("CPF / CNPJ")
-                with col2:
-                        endereco = st.text_input("Endereço / Logradouro")
-                        cidade = st.text_input("Cidade / UF")
+    with st.form("form_cad_cliente_completo"):
+        col1, col2 = st.columns(2)
+    with col1:
+        novo_cli = st.text_input("Nome do Cliente / Razão Social")
+        telefone = st.text_input("Telefone / WhatsApp")
+        doc = st.text_input("CPF / CNPJ")
+    with col2:
+        endereco = st.text_input("Endereço / Logradouro")
+        cidade = st.text_input("Cidade / UF")
                     
                     if st.form_submit_button("Salvar Cliente"):
                         if novo_cli.strip() and salvar_cliente_completo(novo_cli.strip(), telefone, doc, endereco, cidade):
