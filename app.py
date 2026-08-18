@@ -368,16 +368,14 @@ if perfil_selecionado == "👤 Portal do Cliente":
             if not df_pedidos.empty:
                 soma_total = df_pedidos['valor_total'].sum() if 'valor_total' in df_pedidos.columns else 0.0
                 st.markdown(f"**Itens Registrados:** {len(df_pedidos)} | **Soma dos Valores:** R$ {soma_total:,.2f}")
+   
+st.markdown(f"**Itens Registrados:** {len(df_pedidos)} | **Soma dos Valores:** R$ {soma_total:,.2f}")
     
-    # --- COLE O BOTÃO AQUI ---
-# ... (código anterior)
-    st.markdown(f"**Itens Registrados:** {len(df_pedidos)} | **Soma dos Valores:** R$ {soma_total:,.2f}")
-    
-    # O botão deve estar alinhado com o st.markdown de cima
-    if st.button("🔄 Atualizar Valores com Estoque"):
-        sincronizar_valores_com_estoque("vendas", "venda")
-        st.success("Tabela atualizada!")
-        st.rerun()
+# O botão deve estar alinhado com o st.markdown de cima
+if st.button("🔄 Atualizar Valores com Estoque"):
+    sincronizar_valores_com_estoque("vendas", "venda")
+    st.success("Tabela atualizada!")
+    st.rerun()
 
     # O st.markdown e o st.dataframe devem estar alinhados com o 'if' acima
     st.markdown("---")
