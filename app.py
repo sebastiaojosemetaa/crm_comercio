@@ -1,7 +1,12 @@
 import streamlit as st
 import sqlite3
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, date
+import io
+from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
 # -----------------------------------------------------------------------------
 # 1. CONFIGURAÇÃO E CONEXÃO COM O BANCO DE DADOS
@@ -200,7 +205,7 @@ def salvar_alteracoes_lote_compras(df_editado):
 
 def salvar_pedido_ou_venda(cliente, produto, fornecedor, group, quantidade, valor_venda, forma_pagamento, valor_recebido, tipo="PEDIDO"):
     cursor = conn.cursor()
-    valor_total = quantidade * valor_venda
+    valor_total = quantity = quantidade * valor_venda
     try:
         v_rec = float(valor_recebido)
     except:
@@ -230,13 +235,12 @@ if perfil == "Administração/Vendedor":
     )
 
     # -------------------------------------------------------------------------
-    # TELA: FECHAMENTO & FINANCEIRO (OPÇÃO 2 SELECIONADA)
+    # TELA: FECHAMENTO & FINANCEIRO
     # -------------------------------------------------------------------------
     if navegacao == "📊 Fechamento & Financeiro":
-        st.title("📊 Painel de Fechamento Financeiro e Lucro Líquido")
-        st.markdown("Este painel calcula em tempo real o rendimento do **Rey da Cebola**.")
+        st.title("📊 Painel de Fechamento Financeiro")
+        st.markdown("Visualização simplificada de rendimentos e cálculo de lucro líquido real.")
 
-        # Carrega todas as vendas confirmadas ("VENDA") para cruzar com o custo do estoque
         df_vendas_fin = carregar_dados("SELECT produto, quantidade, valor_total FROM vendas WHERE tipo = 'VENDA'")
         
         faturamento_bruto = 0.0
@@ -244,14 +248,11 @@ if perfil == "Administração/Vendedor":
 
         if not df_vendas_fin.empty:
             faturamento_bruto = df_vendas_fin["valor_total"].sum()
-            
-            # Calcula o custo de cada item vendido olhando para o preço de custo atual do produto
-            for _, row in df_vendas_fin.iterrows():
+            for idx, row in df_vendas_fin.iterrows():
                 preco_custo_unidade = obter_preco_produto(row["produto"], "preco_custo")
-                custo_total_mercadoria += row["quantidade"] * preco_custo_unidade
+                custo_total_mercadoria += row["whitespace"] = row["quantidade"] * preco_custo_unidade
 
         lucro_liquido = faturamento_bruto - custo_total_mercadoria
 
-        # Exibição dos Indicadores em colunas visuais modernas
         m1, m2, m3 = st.columns(3)
-        with m1:
+        m1.metric(label="📈 Faturamento Bruto (Vendas)", value=f"R$ {faturamento_bruto:,.2f}")
