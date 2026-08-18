@@ -810,10 +810,9 @@ if not df_prods.empty:
 else:
                 st.info("Nenhum produto cadastrado no banco de dados.")
 
-elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
-            st.title("👥 Cadastros Gerais")
-            tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["👥 Clientes", "📦 Produtos", "🏭 Fornecedores", "🏷️ Grupos"])
-            
+if menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
+    st.title("👥 Cadastros Gerais")
+    tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["👥 Clientes", "📦 Produtos", "🏢 Fornecedores", "🏷️ Grupos"])            
             with tab_cli:
                 st.subheader("Cadastrar Novo Cliente")
                 with st.form("form_cad_cliente_completo"):
