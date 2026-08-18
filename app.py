@@ -660,7 +660,7 @@ with col_b2:
         else:
                     st.info("Nenhum registro encontrado para o período e cliente selecionados.")
 
-    elif menu_admin == "📥 Entrada de Estoque (Compras)":
+        elif menu_admin == "📥 Entrada de Estoque (Compras)":
             st.title("📥 Entrada de Estoque (Compras)")
             aba_compra, aba_historico_compras = st.tabs(["➕ Dar Entrada em Estoque", "📜 Histórico de Entradas / Compras"])
             
@@ -680,7 +680,7 @@ with col_b2:
                         v_custo = st.number_input("Valor do Custo Unitário (R$)", min_value=0.0, step=1.0, value=50.0)
                         st.markdown(f"**Custo Total do Lote:** R$ {qtd * v_custo:,.2f}")
                     
-                    if st.form_submit_button("Registrar Entrada no Estoque"):
+        if st.form_submit_button("Registrar Entrada no Estoque"):
                         registrar_compra(prod, fornec, grupo, qtd, v_custo)
                         st.success("Entrada de estoque gravada com sucesso!")
                         st.rerun()
