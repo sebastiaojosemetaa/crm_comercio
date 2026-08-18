@@ -45,8 +45,8 @@ def adequar_banco_e_migrar():
             nome TEXT UNIQUE,
             fornecedor TEXT,
             grupo TEXT,
-            preco_custo REAL,
-            preco_venda REAL,
+            valor_compra REAL,
+            valor_venda REAL,
             estoque_atual REAL
         )
     """)
@@ -123,9 +123,9 @@ def sincronizar_valores_com_estoque(tabela_alvo, tipo_preco="venda"):
     col_p_nome = 'nome' if 'nome' in cols_prod else cols_prod[1]
     
     if tipo_preco == "venda":
-        col_p_preco = 'preco_venda' if 'preco_venda' in cols_prod else [c for c in cols_prod if 'venda' in c or 'preco' in c][-1]
+        col_p_preco = 'valor_venda' if 'valor_venda' in cols_prod else ('preco_venda' if 'preco_venda' in cols_prod else [c for c in cols_prod if 'venda' in c or 'preco' in c][-1])
     else:
-        col_p_preco = 'preco_custo' if 'preco_custo' in cols_prod else [c for c in cols_prod if 'custo' in c or 'compra' in c][-1]
+        col_p_preco = 'valor_compra' if 'valor_compra' in cols_prod else ('preco_custo' if 'preco_custo' in cols_prod else [c for c in cols_prod if 'custo' in c or 'compra' in c][-1])
 
     df_registros = carregar_dados(f"SELECT id, produto, quantidade as qtd FROM {tabela_alvo}")
     
@@ -159,7 +159,7 @@ def salvar_produto_completo(nome, fornecedor, grupo, preco_custo, preco_venda, e
     cursor = conn.cursor()
     try:
         cursor.execute("""
-            INSERT INTO produtos (nome, fornecedor, grupo, preco_custo, preco_venda, estoque_atual) 
+            INSERT INTO produtos (nome, fornecedor, grupo, valor_compra, valor_venda, estoque_atual) 
             VALUES (?, ?, ?, ?, ?, ?)
         """, (nome.strip(), fornecedor, grupo, preco_custo, preco_venda, estoque_inicial))
         conn.commit()
@@ -167,7 +167,7 @@ def salvar_produto_completo(nome, fornecedor, grupo, preco_custo, preco_venda, e
     except sqlite3.IntegrityError:
         cursor.execute("""
             UPDATE produtos 
-            SET fornecedor = ?, grupo = ?, preco_custo = ?, preco_venda = ?, estoque_atual = ?
+            SET fornecedor = ?, grupo = ?, valor_compra = ?, valor_venda = ?, estoque_atual = ?
             WHERE TRIM(nome) = TRIM(?)
         """, (fornecedor, grupo, preco_custo, preco_venda, estoque_inicial, nome.strip()))
         conn.commit()
@@ -712,8 +712,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 col_nome = 'nome' if 'nome' in cols_atuais else (cols_atuais[1] if len(cols_atuais) > 1 else col_id)
                 col_forn = 'fornecedor' if 'fornecedor' in cols_atuais else None
                 col_grupo = 'grupo' if 'grupo' in cols_atuais else None
-                col_pcusto = 'preco_custo' if 'preco_custo' in cols_atuais else ('preco_compra' if 'preco_compra' in cols_atuais else None)
-                col_pvenda = 'preco_venda' if 'preco_venda' in cols_atuais else None
+                
+                # Identificação correta das colunas de preço com base na estrutura real do banco
+                col_pcusto = 'valor_compra' if 'valor_compra' in cols_atuais else ('preco_custo' if 'preco_custo' in cols_atuais else ('preco_compra' if 'preco_compra' in cols_atuais else None))
+                col_pvenda = 'valor_venda' if 'valor_venda' in cols_atuais else ('preco_venda' if 'preco_venda' in cols_atuais else None)
                 col_estoque = 'estoque_atual' if 'estoque_atual' in cols_atuais else ('quantidade' if 'quantidade' in cols_atuais else None)
 
                 col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
