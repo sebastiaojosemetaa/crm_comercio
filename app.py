@@ -833,7 +833,7 @@ if st.form_submit_button("Salvar Cliente"):
         st.dataframe(carregar_dados("SELECT * FROM clientes"), use_container_width=True)
 
     with tab_prod:
-    st.subheader("Cadastrar Novo Produto e Estoque")
+                st.subheader("Cadastrar Novo Produto e Estoque")
                 grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
                 fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
                 
