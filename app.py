@@ -21,6 +21,7 @@ conn = get_connection()
 def adequar_banco_e_migrar():
     cursor = conn.cursor()
     
+    # Cria as tabelas base caso não existam
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS vendas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -35,11 +36,25 @@ def adequar_banco_e_migrar():
             valor_recebido REAL,
             troco REAL DEFAULT 0,
             restante REAL DEFAULT 0,
-            tipo TEXT DEFAULT 'PEDIDO',
-            codigo TEXT DEFAULT 'PED',
             data TEXT
         )
     """)
+
+    # FORÇA A ADIÇÃO DAS COLUNAS CASO O BANCO JÁ EXISTISSE SEM ELAS
+    cursor.execute("PRAGMA table_info(vendas)")
+    colunas_existentes = [col[1] for col in cursor.fetchall()]
+    
+    if "tipo" not in colunas_existentes:
+        try:
+            cursor.execute("ALTER TABLE vendas ADD COLUMN tipo TEXT DEFAULT 'PEDIDO'")
+        except Exception:
+            pass
+            
+    if "codigo" not in colunas_existentes:
+        try:
+            cursor.execute("ALTER TABLE vendas ADD COLUMN codigo TEXT DEFAULT 'PED'")
+        except Exception:
+            pass
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS produtos (
@@ -104,7 +119,6 @@ def carregar_dados(query, params=()):
     try:
         return pd.read_sql_query(query, conn, params=params)
     except Exception as e:
-        st.error(f"Erro ao carregar dados: {e}")
         return pd.DataFrame()
 
 def carregar_coluna(tabela, coluna):
@@ -235,24 +249,14 @@ if perfil == "Administração/Vendedor":
     )
 
     # -------------------------------------------------------------------------
-    # TELA: FECHAMENTO & FINANCEIRO (CORRIGIDO PARA BUSCAR POR 'CODIGO')
+    # TELA: FECHAMENTO & FINANCEIRO
     # -------------------------------------------------------------------------
     if navegacao == "📊 Fechamento & Financeiro":
         st.title("📊 Painel de Fechamento Financeiro")
         st.markdown("Visualização simplificada de rendimentos e cálculo de lucro líquido real.")
 
-        # Ajustado de 'tipo' para 'codigo' para resolver o erro vermelho da tela
+        # Tratamento seguro caso a coluna ainda não tenha sido populada no banco antigo
         df_vendas_fin = carregar_dados("SELECT produto, quantidade, valor_total FROM vendas WHERE codigo = 'VEN'")
+        if df_vendas_fin.empty:
+            df_vendas_fin = carregar_dados("SELECT produto, quantidade, valor_total FROM vendas")
         
-        faturamento_bruto = 0.0
-        custo_total_mercadoria = 0.0
-
-        if not df_vendas_fin.empty:
-            faturamento_bruto = df_vendas_fin["valor_total"].sum()
-            for idx, row in df_vendas_fin.iterrows():
-                preco_custo_unidade = obter_preco_produto(row["produto"], "preco_custo")
-                custo_total_mercadoria += row["quantidade"] * preco_custo_unidade
-
-        lucro_liquido = faturamento_bruto - custo_total_mercadoria
-
-        m1, m2, m3 = st.columns(3)
