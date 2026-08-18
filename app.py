@@ -362,33 +362,26 @@ if perfil_selecionado == "👤 Portal do Cliente":
                     st.success("Pedido registrado com sucesso!")
                     st.rerun()
             
-        with aba_historico:
-            query_cli = f"SELECT * FROM vendas WHERE TRIM(cliente) = TRIM('{st.session_state.cliente_autenticado}')"
-            df_pedidos = carregar_dados(query_cli)
-            if not df_pedidos.empty:
-                soma_total = df_pedidos['valor_total'].sum() if 'valor_total' in df_pedidos.columns else 0.0
-                st.markdown(f"**Itens Registrados:** {len(df_pedidos)} | **Soma dos Valores:** R$ {soma_total:,.2f}")
-   
-st.markdown(f"**Itens Registrados:** {len(df_pedidos)} | **Soma dos Valores:** R$ {soma_total:,.2f}")
-    
-# O botão deve estar alinhado com o st.markdown de cima
-if st.button("🔄 Atualizar Valores com Estoque"):
-    sincronizar_valores_com_estoque("vendas", "venda")
-    st.success("Tabela atualizada!")
-    st.rerun()
+        if not df_pedidos.empty:
+            soma_total = df_pedidos['valor_total'].sum() if 'valor_total' in df_pedidos.columns else 0.0
+            st.markdown(f"**Itens Registrados:** {len(df_pedidos)} | **Soma dos Valores:** R$ {soma_total:,.2f}")
+            
+            if st.button("🔄 Atualizar Valores com Estoque"):
+                sincronizar_valores_com_estoque("vendas", "venda")
+                st.success("Tabela atualizada!")
+                st.rerun()
 
-    # O st.markdown e o st.dataframe devem estar alinhados com o 'if' acima
-    st.markdown("---")
-    st.dataframe(df_pedidos, use_container_width=True)
-    pdf_cli = gerar_pdf_tabela_pedidos(df_pedidos, cliente_nome=st.session_state.cliente_autenticado)
-    st.download_button(
-    label=f"📄 Baixar Relatório de Pedidos ({st.session_state.cliente_autenticado}) em PDF",
-    data=pdf_cli,
-    file_name=f"Relatorio_Pedidos_{st.session_state.cliente_autenticado}.pdf",
-    mime="application/pdf"
-    )
-    else:
-                st.warning("Nenhum pedido encontrado para o seu usuário.")
+            st.markdown("---")
+            st.dataframe(df_pedidos, use_container_width=True)
+            pdf_cli = gerar_pdf_tabela_pedidos(df_pedidos, cliente_nome=st.session_state.cliente_autenticado)
+            st.download_button(
+                label=f"Baixar Relatório de Pedidos ({st.session_state.cliente_autenticado}) em PDF",
+                data=pdf_cli,
+                file_name=f"Relatorio_Pedidos_{st.session_state.cliente_autenticado}.pdf",
+                mime="application/pdf"
+            )
+        else:
+            st.warning("Nenhum pedido encontrado para o seu usuário.")
 
 # ==========================================
 # AMBIENTE 2: ADMINISTRADOR / VENDEDOR
