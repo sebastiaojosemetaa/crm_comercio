@@ -685,7 +685,6 @@ with col2:
                             v_custo = st.number_input("Valor do Custo Unitário (R$)", min_value=0.0, step=1.0, value=50.0)
                             st.markdown(f"**Custo Total do Lote:** R$ {qtd * v_custo:,.2f}")
                         
-File "/mount/src/crm_comercio/app.py", line 688
       if st.form_submit_button("Registrar Entrada no Estoque"):
                                                                ^
 IndentationError: unindent does not match any outer indentation level
