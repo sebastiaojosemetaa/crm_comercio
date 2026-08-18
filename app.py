@@ -14,7 +14,6 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 st.set_page_config(page_title="CRM Comércio - Rey da Cebola", layout="wide")
 
 def get_connection():
-    # Usar './' garante que o banco seja criado no diretório correto do servidor
     return sqlite3.connect("./crm_comercio.db", check_same_thread=False)
 
 conn = get_connection()
@@ -93,11 +92,10 @@ def adequar_banco_e_migrar():
     """)
     conn.commit()
 
-# Proteção para que erros de banco de dados não deixem a tela escura/preta
 try:
     adequar_banco_e_migrar()
 except Exception as e:
-    st.error(f"Erro ao inicializar ou migrar o Banco de Dados: {e}")
+    st.error(f"Erro ao inicializar o Banco de Dados: {e}")
 
 # -----------------------------------------------------------------------------
 # 2. FUNÇÕES DE SUPORTE E CONSULTAS DO BANCO
@@ -251,7 +249,10 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
             str(r.get('forma_pagamento', ''))
         ])
         
-    t = Table(lista_dados, colWidths=[40, 180, 50, 70, 80, 100])
+    t = Table(lista_dados, colWidths=[40, 150, 50, 80, 80, 100])
     t.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.grey),
         ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('BOTTOMPADDING', (0,0), (-1,0), 6),
