@@ -568,6 +568,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         hide_index=True
                     )
                     
+                    if st.button("🔄 Atualizar Valores com Estoque Atual"):
+        sincronizar_valores_com_estoque("vendas", "venda")
+        st.success("Tabela atualizada com os preços atuais!")
+        st.rerun()
                     c_btn1, c_btn2 = st.columns([1, 1])
                     
                     with c_btn1:
