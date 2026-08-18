@@ -638,7 +638,7 @@ with col_b2:
                 st.success(f"Foram deletados {qtd_del} registro(s) de {cliente_sel} com sucesso!")
                 st.rerun()
 
-                    st.markdown("---")
+                st.markdown("---")
                     
                     if cliente_sel != "TODOS":
                         tipo_str = df_registros['tipo'].fillna('').astype(str).str.strip().str.upper() if 'tipo' in df_registros.columns else pd.Series([''] * len(df_registros))
