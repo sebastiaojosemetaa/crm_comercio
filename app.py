@@ -205,7 +205,7 @@ def salvar_alteracoes_lote_compras(df_editado):
 
 def salvar_pedido_ou_venda(cliente, produto, fornecedor, group, quantidade, valor_venda, forma_pagamento, valor_recebido, tipo="PEDIDO"):
     cursor = conn.cursor()
-    valor_total = quantity = quantidade * valor_venda
+    valor_total = quantidade * valor_venda
     try:
         v_rec = float(valor_recebido)
     except:
@@ -250,7 +250,7 @@ if perfil == "Administração/Vendedor":
             faturamento_bruto = df_vendas_fin["valor_total"].sum()
             for idx, row in df_vendas_fin.iterrows():
                 preco_custo_unidade = obter_preco_produto(row["produto"], "preco_custo")
-                custo_total_mercadoria += row["whitespace"] = row["quantidade"] * preco_custo_unidade
+                custo_total_mercadoria += row["quantidade"] * preco_custo_unidade
 
         lucro_liquido = faturamento_bruto - custo_total_mercadoria
 
