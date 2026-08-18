@@ -14,7 +14,8 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 st.set_page_config(page_title="CRM Comércio - Rey da Cebola", layout="wide")
 
 def get_connection():
-    return sqlite3.connect("crm_comercio.db", check_same_thread=False)
+    # Usar './' garante que o banco seja criado no diretório correto do servidor
+    return sqlite3.connect("./crm_comercio.db", check_same_thread=False)
 
 conn = get_connection()
 
@@ -92,7 +93,11 @@ def adequar_banco_e_migrar():
     """)
     conn.commit()
 
-adequar_banco_e_migrar()
+# Proteção para que erros de banco de dados não deixem a tela escura/preta
+try:
+    adequar_banco_e_migrar()
+except Exception as e:
+    st.error(f"Erro ao inicializar ou migrar o Banco de Dados: {e}")
 
 # -----------------------------------------------------------------------------
 # 2. FUNÇÕES DE SUPORTE E CONSULTAS DO BANCO
@@ -105,21 +110,27 @@ def carregar_dados(query, params=()):
         return pd.DataFrame()
 
 def carregar_coluna(tabela, coluna):
-    cursor = conn.cursor()
-    cursor.execute(f"PRAGMA table_info({tabela})")
-    cols = [col[1] for col in cursor.fetchall()]
-    col_alvo = coluna if coluna in cols else (cols[1] if len(cols) > 1 else coluna)
-    
-    df = carregar_dados(f"SELECT DISTINCT TRIM({col_alvo}) as {col_alvo} FROM {tabela} WHERE {col_alvo} IS NOT NULL AND {col_alvo} != ''")
-    if not df.empty:
-        return df[col_alvo].tolist()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(f"PRAGMA table_info({tabela})")
+        cols = [col[1] for col in cursor.fetchall()]
+        col_alvo = coluna if coluna in cols else (cols[1] if len(cols) > 1 else coluna)
+        
+        df = carregar_dados(f"SELECT DISTINCT TRIM({col_alvo}) as {col_alvo} FROM {tabela} WHERE {col_alvo} IS NOT NULL AND {col_alvo} != ''")
+        if not df.empty:
+            return df[col_alvo].tolist()
+    except Exception:
+        pass
     return []
 
 def obter_preco_produto(nome_produto, campo="preco_venda"):
-    cursor = conn.cursor()
-    cursor.execute(f"SELECT {campo} FROM produtos WHERE TRIM(nome) = TRIM(?)", (nome_produto.strip(),))
-    res = cursor.fetchone()
-    return res[0] if res else 0.0
+    try:
+        cursor = conn.cursor()
+        cursor.execute(f"SELECT {campo} FROM produtos WHERE TRIM(nome) = TRIM(?)", (nome_produto.strip(),))
+        res = cursor.fetchone()
+        return res[0] if res else 0.0
+    except Exception:
+        return 0.0
 
 # -----------------------------------------------------------------------------
 # 3. FUNÇÕES DE SALVAMENTO E ATUALIZAÇÃO EM LOTE
@@ -213,7 +224,7 @@ def salvar_pedido_ou_venda(cliente, produto, fornecedor, grupo, quantidade, valo
     conn.commit()
 
 # -----------------------------------------------------------------------------
-# 4. GERADOR DE PDF (CORRIGIDO)
+# 4. GERADOR DE PDF
 # -----------------------------------------------------------------------------
 def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
     buffer = io.BytesIO()
@@ -240,19 +251,7 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
             str(r.get('forma_pagamento', ''))
         ])
         
-    t = Table(lista_dados, colWidths=[40, 150, 50, 80, 80, 120])
+    t = Table(lista_dados, colWidths=[40, 180, 50, 70, 80, 100])
     t.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.grey),
         ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
-        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('BOTTOMPADDING', (0,0), (-1,0), 6),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.black)
-    ]))
-    elements.append(t)
-    doc.build(elements)
-    buffer.seek(0)
-    return buffer
-
-# -----------------------------------------------------------------------------
-# 5. INTERFACE DO USUÁRIO (STREAMLIT)
