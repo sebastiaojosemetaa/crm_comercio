@@ -657,7 +657,7 @@ with col_b2:
                     linhas_afetadas = converter_pedido_completo_para_venda(cliente_sel)
                     st.success(f"Sucesso! {linhas_afetadas} registro(s) do cliente {cliente_sel} foram convertidos para VENDA!")
                     st.rerun()
-                else:
+else:
                     st.info("Nenhum registro encontrado para o período e cliente selecionados.")
 
         elif menu_admin == "📥 Entrada de Estoque (Compras)":
