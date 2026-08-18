@@ -370,15 +370,18 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 st.markdown(f"**Itens Registrados:** {len(df_pedidos)} | **Soma dos Valores:** R$ {soma_total:,.2f}")
     
     # --- COLE O BOTÃO AQUI ---
-    if st.button("🔄 Atualizar Valores com Estoque Atual"):
-        # Como aqui você já tem df_pedidos, a função vai rodar para essa tabela
-        sincronizar_valores_com_estoque("vendas", "venda") 
-        st.success("Tabela atualizada com os preços atuais!")
+# ... (código anterior)
+    st.markdown(f"**Itens Registrados:** {len(df_pedidos)} | **Soma dos Valores:** R$ {soma_total:,.2f}")
+    
+    # O botão deve estar alinhado com o st.markdown de cima
+    if st.button("🔄 Atualizar Valores com Estoque"):
+        sincronizar_valores_com_estoque("vendas", "venda")
+        st.success("Tabela atualizada!")
         st.rerun()
-    # --------------------------
+
+    # O st.markdown e o st.dataframe devem estar alinhados com o 'if' acima
+    st.markdown("---")
     st.dataframe(df_pedidos, use_container_width=True)
-                
-                st.markdown("---")
                 pdf_cli = gerar_pdf_tabela_pedidos(df_pedidos, cliente_nome=st.session_state.cliente_autenticado)
                 st.download_button(
                     label=f"📄 Baixar Relatório de Pedidos ({st.session_state.cliente_autenticado}) em PDF",
