@@ -74,21 +74,24 @@ def criar_tabelas():
                 produto TEXT,
                 fornecedor TEXT,
                 grupo TEXT,
-                quantidade REAL,
-                preco_unitario REAL,
-                preco_total REAL,
+                quantidade REAL DEFAULT 0,
+                preco_unitario REAL DEFAULT 0,
+                preco_total REAL DEFAULT 0,
                 forma_pagamento TEXT,
-                valor_recebido REAL,
-                troco REAL,
+                valor_recebido REAL DEFAULT 0,
+                troco REAL DEFAULT 0,
                 tipo TEXT DEFAULT 'VENDA'
             )
         """)
         
-        # Migração segura: garante que a coluna 'tipo' exista em bancos antigos
+        # Migração segura: garante que as colunas 'tipo' e 'preco_total' existam em bancos antigos
         cursor.execute("PRAGMA table_info(vendas)")
-        colunas = [col[1] for col in cursor.fetchall()]
+        colunas = [col[1].lower() for col in cursor.fetchall()]
+        
         if "tipo" not in colunas:
             cursor.execute("ALTER TABLE vendas ADD COLUMN tipo TEXT DEFAULT 'VENDA'")
+        if "preco_total" not in colunas:
+            cursor.execute("ALTER TABLE vendas ADD COLUMN preco_total REAL DEFAULT 0")
             
         conn.commit()
 
@@ -108,7 +111,9 @@ def carregar_coluna(tabela, coluna):
 
 def carregar_dados(tabela):
     with get_connection() as conn:
-        return pd.read_sql_query(f"SELECT * FROM {tabela}", conn)
+        df = pd.read_sql_query(f"SELECT * FROM {tabela}", conn)
+        df.columns = df.columns.str.lower() # Normaliza nomes de colunas para minúsculas
+        return df
 
 def salvar_pedido_ou_venda(cliente, produto, fornecedor, grupo, quantidade, preco_unitario, forma_pagamento, valor_recebido, tipo="VENDA"):
     data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -158,7 +163,6 @@ if menu_admin in ["📋 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
         is_venda = (menu_admin == "🛒 Registrar Venda")
         tipo_registro = "VENDA" if is_venda else "PEDIDO"
         
-        # Estado inicial para armazenar os valores buscados dinamicamente
         if 'unit_price_admin' not in st.session_state:
             st.session_state.unit_price_admin = 0.0
         if 'total_price_admin' not in st.session_state:
@@ -170,7 +174,7 @@ if menu_admin in ["📋 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
         with col_qtd:
             qtd = st.number_input("Quantidade", min_value=0.1, step=0.5, value=1.0, key="qtd_admin_input")
         with col_btn:
-            st.write("") # Espaçamento visual
+            st.write("")
             st.write("")
             btn_label = "🔄 Buscar Preço de Venda" if is_venda else "🔄 Buscar Preço de Custo"
             if st.button(btn_label, key="btn_recalcular_admin"):
@@ -292,11 +296,11 @@ elif menu_admin == "📊 Dashboard":
     st.title("📊 Dashboard Financeiro")
     df_vendas = carregar_dados("vendas")
     
-    if not df_vendas.empty and 'tipo' in df_vendas.columns:
+    if not df_vendas.empty and 'tipo' in df_vendas.columns and 'preco_total' in df_vendas.columns:
         col1, col2, col3 = st.columns(3)
         total_vendas = df_vendas[df_vendas['tipo'] == 'VENDA']['preco_total'].sum()
         total_pedidos = df_vendas[df_vendas['tipo'] == 'PEDIDO']['preco_total'].sum()
-        qtd_total = df_vendas['quantidade'].sum()
+        qtd_total = df_vendas['quantidade'].sum() if 'quantidade' in df_vendas.columns else 0.0
         
         col1.metric("Total em Vendas", f"R$ {total_vendas:,.2f}")
         col2.metric("Total em Pedidos/Orçamentos", f"R$ {total_pedidos:,.2f}")
