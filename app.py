@@ -203,9 +203,9 @@ def salvar_alteracoes_lote_compras(df_editado):
             """, (qtd, v_custo, v_total, int(row["id"])))
     conn.commit()
 
-def salvar_pedido_ou_venda(cliente, produto, fornecedor, group, quantidade, valor_venda, forma_pagamento, valor_recebido, tipo="PEDIDO"):
+def salvar_pedido_ou_venda(cliente, produto, fornecedor, group, quantity, valor_venda, forma_pagamento, valor_recebido, tipo="PEDIDO"):
     cursor = conn.cursor()
-    valor_total = quantidade * valor_venda
+    valor_total = quantity * valor_venda
     try:
         v_rec = float(valor_recebido)
     except:
@@ -218,7 +218,7 @@ def salvar_pedido_ou_venda(cliente, produto, fornecedor, group, quantidade, valo
     cursor.execute("""
         INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, troco, restante, tipo, codigo, data)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (cliente.strip(), produto, fornecedor, group, quantidade, valor_venda, valor_total, forma_pagamento, v_rec, troco, restante, tipo, cod_status, data_atual))
+    """, (cliente.strip(), produto, fornecedor, group, quantity, valor_venda, valor_total, forma_pagamento, v_rec, troco, restante, tipo, cod_status, data_atual))
     conn.commit()
 
 # -----------------------------------------------------------------------------
@@ -235,13 +235,14 @@ if perfil == "Administração/Vendedor":
     )
 
     # -------------------------------------------------------------------------
-    # TELA: FECHAMENTO & FINANCEIRO
+    # TELA: FECHAMENTO & FINANCEIRO (CORRIGIDO PARA BUSCAR POR 'CODIGO')
     # -------------------------------------------------------------------------
     if navegacao == "📊 Fechamento & Financeiro":
         st.title("📊 Painel de Fechamento Financeiro")
         st.markdown("Visualização simplificada de rendimentos e cálculo de lucro líquido real.")
 
-        df_vendas_fin = carregar_dados("SELECT produto, quantidade, valor_total FROM vendas WHERE tipo = 'VENDA'")
+        # Ajustado de 'tipo' para 'codigo' para resolver o erro vermelho da tela
+        df_vendas_fin = carregar_dados("SELECT produto, quantidade, valor_total FROM vendas WHERE codigo = 'VEN'")
         
         faturamento_bruto = 0.0
         custo_total_mercadoria = 0.0
@@ -255,4 +256,3 @@ if perfil == "Administração/Vendedor":
         lucro_liquido = faturamento_bruto - custo_total_mercadoria
 
         m1, m2, m3 = st.columns(3)
-        m1.metric(label="📈 Faturamento Bruto (Vendas)", value=f"R$ {faturamento_bruto:,.2f}")
