@@ -137,7 +137,6 @@ def sincronizar_valores_com_estoque(tabela_alvo, tipo_preco="venda"):
         if not preco_atual.empty:
             p = float(preco_atual.iloc[0])
             total = p * row['qtd']
-            
             cursor.execute(f"UPDATE {tabela_alvo} SET valor_venda = ?, valor_total = ? WHERE id = ?", (p, total, row['id']))
     
     conn.commit()
@@ -205,6 +204,46 @@ def salvar_pedido_ou_venda(cliente, produto, fornecedor, grupo, quantidade, valo
         INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, tipo, codigo, data)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (cliente.strip(), produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, tipo, cod_status, data_atual))
+    conn.commit()
+
+def baixar_debito_cliente(cliente_nome, valor_haver):
+    """
+    Abate o valor_haver pago pelo cliente nas compras pendentes (ordenadas da mais antiga para a mais nova).
+    """
+    cursor = conn.cursor()
+    # Busca vendas/pedidos do cliente ordenados por data
+    cursor.execute("""
+        SELECT id, valor_total, valor_recebido 
+        FROM vendas 
+        WHERE TRIM(cliente) = TRIM(?)
+    """, (cliente_nome,))
+    registros = cursor.fetchall()
+    
+    saldo_haver = float(valor_haver)
+    
+    for reg in registros:
+        reg_id, v_total, v_rec_atual = reg
+        v_rec_atual = float(v_rec_atual) if v_rec_atual else 0.0
+        
+        # Quanto falta pagar nesta linha específica
+        pendente_linha = v_total - v_rec_atual
+        
+        if pendente_linha > 0 and saldo_haver > 0:
+            if saldo_haver >= pendente_linha:
+                # O haver cobre todo o saldo pendente desta linha
+                novo_recebido = v_total
+                saldo_haver -= pendente_linha
+            else:
+                # O haver cobre parte do saldo pendente desta linha
+                novo_recebido = v_rec_atual + saldo_haver
+                saldo_haver = 0.0
+            
+            cursor.execute("""
+                UPDATE vendas 
+                SET valor_recebido = ? 
+                WHERE id = ?
+            """, (str(novo_recebido), reg_id))
+            
     conn.commit()
 
 def converter_pedido_completo_para_venda(cliente_nome):
@@ -466,7 +505,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             if not df_vendas.empty:
                 col1, col2, col3 = st.columns(3)
                 faturamento = df_vendas['valor_total'].sum() if 'valor_total' in df_vendas.columns else 0.0
-                valor_rec = df_vendas['valor_recebido'].sum() if 'valor_recebido' in df_vendas.columns else 0.0
+                
+                # Tratamento robusto para valor_recebido somando numérico
+                if 'valor_recebido' in df_vendas.columns:
+                    valor_rec = pd.to_numeric(df_vendas['valor_recebido'], errors='coerce').sum()
+                else:
+                    valor_rec = 0.0
+                    
                 col1.metric("Faturamento do Período", f"R$ {faturamento:,.2f}")
                 col2.metric("Total Recebido em Caixa", f"R$ {valor_rec:,.2f}")
                 col3.metric("Total Pendente / Fiado", f"R$ {faturamento - valor_rec:,.2f}")
@@ -497,7 +542,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         elif menu_admin in ["📋 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
             is_modo_pedido = (menu_admin == "📋 Pedidos / Orçamentos")
             st.title(f"📋 {menu_admin}")
-            aba_cad, aba_list = st.tabs(["➕ Novo Registro / Pedido", "✏️ Tabela Editável (Edição Direta & Exclusão)"])
+            
+            # Aba extra para receber débitos/haver se estiver em Registrar Venda
+            if not is_modo_pedido:
+                aba_cad, aba_baixa, aba_list = st.tabs(["➕ Novo Registro", "💵 Baixa de Débito / Haver", "✏️ Tabela Editável (Edição Direta & Exclusão)"])
+            else:
+                aba_cad, aba_list = st.tabs(["➕ Novo Registro / Pedido", "✏️ Tabela Editável (Edição Direta & Exclusão)"])
+                aba_baixa = None
             
             with aba_cad:
                 clientes_opt = carregar_coluna("clientes", "nome") or ["Carlos Alberto"]
@@ -530,6 +581,48 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.success(f"{tipo_registro} gravado com sucesso!")
                         st.rerun()
 
+            # ABA DE BAIXA DE DÉBITOS / HAVER
+            if aba_baixa is not None:
+                with aba_baixa:
+                    st.subheader("💵 Baixa de Débitos & Lançamento de Haver (Pagamento Parcial ou Total)")
+                    st.info("Selecione um cliente para ver o total em aberto. Digite o valor do 'haver' (pagamento dado pelo cliente) para abater automaticamente nas compras pendentes mais antigas, deixando o restante correto.")
+                    
+                    clientes_com_divida = carregar_coluna("vendas", "cliente") or []
+                    if clientes_com_divida:
+                        cliente_baixa = st.selectbox("Selecione o Cliente para Baixa:", clientes_com_divida, key="sel_cli_baixa")
+                        
+                        # Calcula débitos do cliente
+                        df_cli_vendas = carregar_dados(f"SELECT * FROM vendas WHERE TRIM(cliente) = TRIM('{cliente_baixa}')")
+                        if not df_cli_vendas.empty:
+                            tot_vendas = df_cli_vendas['valor_total'].sum()
+                            df_cli_vendas['v_rec_num'] = pd.to_numeric(df_cli_vendas['valor_recebido'], errors='coerce').fillna(0.0)
+                            tot_recebido = df_cli_vendas['v_rec_num'].sum()
+                            total_pendente = tot_vendas - tot_recebido
+                            
+                            col_m1, col_m2, col_m3 = st.columns(3)
+                            col_m1.metric("Total de Compras", f"R$ {tot_vendas:,.2f}")
+                            col_m2.metric("Total Já Pago", f"R$ {tot_recebido:,.2f}")
+                            col_m3.metric("Saldo Devedor Restante", f"R$ {total_pendente:,.2f}", delta_color="inverse")
+                            
+                            st.markdown("---")
+                            with st.form("form_lancar_haver"):
+                                valor_haver = st.number_input("Valor do Haver / Pagamento Recebido (R$)", min_value=0.0, step=1.0, value=0.0)
+                                if st.form_submit_button("Aplicar Haver / Dar Baixa no Débito"):
+                                    if valor_haver > 0:
+                                        baixar_debito_cliente(cliente_baixa, valor_haver)
+                                        st.success(f"Haver de R$ {valor_haver:,.2f} aplicado com sucesso para {cliente_baixa}!")
+                                        st.rerun()
+                                    else:
+                                        st.warning("Insira um valor de haver maior que zero.")
+                                        
+                            st.markdown("#### Detalhamento das Compras do Cliente")
+                            cols_ver = [c for c in ['id', 'produto', 'quantidade', 'valor_total', 'valor_recebido', 'forma_pagamento', 'data'] if c in df_cli_vendas.columns]
+                            st.dataframe(df_cli_vendas[cols_ver], use_container_width=True)
+                        else:
+                            st.warning("Este cliente não possui registros de vendas.")
+                    else:
+                        st.info("Nenhum cliente com registros cadastrados no momento.")
+
             with aba_list:
                 st.subheader("🔍 Edição Direta na Tabela & Gestão por Cliente")
                 
@@ -560,7 +653,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     
                     df_registros.insert(0, "Deletar", False)
                     
-                    # Configuração dinâmica das colunas dependendo da tela
                     config_cols = {
                         "Deletar": st.column_config.CheckboxColumn("Deletar", help="Marque para excluir o item"),
                         "id": st.column_config.NumberColumn("ID", disabled=True),
@@ -574,14 +666,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     
                     if is_modo_pedido:
                         config_cols["valor_venda"] = st.column_config.NumberColumn("Preço Custo / Valor Compra", min_value=0.0, format="R$ %.2f")
-                        # Oculta colunas financeiras irrelevantes para orçamentos/pedidos
                         for col_ocultar in ["forma_pagamento", "valor_recebido", "troco", "restante"]:
                             if col_ocultar in df_registros.columns:
                                 df_registros = df_registros.drop(columns=[col_ocultar])
                     else:
                         config_cols["valor_venda"] = st.column_config.NumberColumn("Valor Venda", min_value=0.0, format="R$ %.2f")
                         config_cols["forma_pagamento"] = st.column_config.SelectboxColumn("Forma Pagamento", options=["Dinheiro", "Crediário / Fiado", "Pix"])
-                        config_cols["valor_recebido"] = st.column_config.NumberColumn("Valor Recebido", min_value=0.0, format="R$ %.2f")
+                        config_cols["valor_recebido"] = st.column_config.TextColumn("Valor Recebido / Haver")
 
                     df_editado = st.data_editor(
                         df_registros,
@@ -610,7 +701,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     v_tot = float(row["quantidade"]) * float(row["valor_venda"])
                                     
                                     f_pag = str(row["forma_pagamento"]) if "forma_pagamento" in row else ""
-                                    v_rec = float(row["valor_recebido"]) if "valor_recebido" in row else 0.0
+                                    v_rec = str(row["valor_recebido"]) if "valor_recebido" in row else "0.0"
                                     g_val = str(row["grupo"]) if "grupo" in row else ""
                                     t_val = str(row["tipo"]) if "tipo" in row else ""
                                     c_val = str(row["codigo"]) if "codigo" in row else ""
@@ -629,7 +720,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         float(row["valor_venda"]),
                                         v_tot,
                                         f_pag,
-                                        v_rec,
+                                        str(v_rec),
                                         g_val,
                                         t_val,
                                         c_val,
