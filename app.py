@@ -618,7 +618,7 @@ if not itens_para_deletar.empty:
                                 st.warning(f"{len(ids_del)} registro(s) foram apagados do banco com sucesso!")
                                 st.rerun()
 
-                    st.markdown("---")
+st.markdown("---")
                     st.subheader(f"📄 Relatório e Exclusão Total ({nome_relatorio})")
                     
                     col_b1, col_b2 = st.columns(2)
