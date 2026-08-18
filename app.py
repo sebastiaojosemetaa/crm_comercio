@@ -665,8 +665,8 @@ if menu_admin == "📥 Entrada de Estoque (Compras)":
     fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
     grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
             
-                with aba_compra:
-                with st.form("form_entrada_estoque"):
+                    with aba_compra:
+                    with st.form("form_entrada_estoque"):
                     col1, col2 = st.columns(2)
                     with col1:
                         prod = st.selectbox("Selecione o Produto", produtos_opt)
