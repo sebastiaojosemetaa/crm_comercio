@@ -807,7 +807,7 @@ if not df_prods.empty:
                             conn.commit()
                             st.warning(f"{len(ids_del)} produto(s) excluído(s) com sucesso!")
                             st.rerun()
-        else:
+else:
                 st.info("Nenhum produto cadastrado no banco de dados.")
 
         elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
