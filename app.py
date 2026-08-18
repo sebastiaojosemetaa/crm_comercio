@@ -377,7 +377,6 @@ if perfil_selecionado == "👤 Portal do Cliente":
         st.rerun()
     # --------------------------
     st.dataframe(df_pedidos, use_container_width=True)
-                st.dataframe(df_pedidos, use_container_width=True)
                 
                 st.markdown("---")
                 pdf_cli = gerar_pdf_tabela_pedidos(df_pedidos, cliente_nome=st.session_state.cliente_autenticado)
