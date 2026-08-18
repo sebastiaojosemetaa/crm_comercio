@@ -686,8 +686,7 @@ with col2:
                             st.markdown(f"**Custo Total do Lote:** R$ {qtd * v_custo:,.2f}")
                         
       if st.form_submit_button("Registrar Entrada no Estoque"):
-                                                               ^
-IndentationError: unindent does not match any outer indentation level
+                                                               
                         registrar_compra(prod, fornec, grupo, qtd, v_custo)
                         st.success("Entrada de estoque gravada com sucesso!")
                         st.rerun()
