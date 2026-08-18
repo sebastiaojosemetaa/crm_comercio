@@ -827,10 +827,10 @@ if menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
                     
 if st.form_submit_button("Salvar Cliente"):
     if novo_cli.strip() and salvar_cliente_completo(novo_cli.strip(), telefone, doc, endereco, cidade):
-    st.success("Cliente cadastrado com sucesso!")
-    st.rerun()
-    st.markdown("---")
-    st.dataframe(carregar_dados("SELECT * FROM clientes"), use_container_width=True)
+        st.success("Cliente cadastrado com sucesso!")
+        st.rerun()
+        st.markdown("---")
+        st.dataframe(carregar_dados("SELECT * FROM clientes"), use_container_width=True)
 
     with tab_prod:
     st.subheader("Cadastrar Novo Produto e Estoque")
