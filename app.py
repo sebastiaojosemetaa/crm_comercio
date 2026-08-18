@@ -83,6 +83,13 @@ def criar_tabelas():
                 tipo TEXT DEFAULT 'VENDA'
             )
         """)
+        
+        # Migração segura: garante que a coluna 'tipo' exista em bancos antigos
+        cursor.execute("PRAGMA table_info(vendas)")
+        colunas = [col[1] for col in cursor.fetchall()]
+        if "tipo" not in colunas:
+            cursor.execute("ALTER TABLE vendas ADD COLUMN tipo TEXT DEFAULT 'VENDA'")
+            
         conn.commit()
 
 criar_tabelas()
@@ -200,7 +207,7 @@ if menu_admin in ["📋 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
 
     with aba_list:
         df_vendas = carregar_dados("vendas")
-        if not df_vendas.empty:
+        if not df_vendas.empty and 'tipo' in df_vendas.columns:
             df_filtrado = df_vendas[df_vendas['tipo'] == tipo_registro]
             st.data_editor(df_filtrado, num_rows="dynamic", use_container_width=True)
         else:
@@ -284,7 +291,8 @@ elif menu_admin == "🏷️ Grupos":
 elif menu_admin == "📊 Dashboard":
     st.title("📊 Dashboard Financeiro")
     df_vendas = carregar_dados("vendas")
-    if not df_vendas.empty:
+    
+    if not df_vendas.empty and 'tipo' in df_vendas.columns:
         col1, col2, col3 = st.columns(3)
         total_vendas = df_vendas[df_vendas['tipo'] == 'VENDA']['preco_total'].sum()
         total_pedidos = df_vendas[df_vendas['tipo'] == 'PEDIDO']['preco_total'].sum()
@@ -297,4 +305,4 @@ elif menu_admin == "📊 Dashboard":
         st.subheader("Histórico de Transações")
         st.dataframe(df_vendas, use_container_width=True)
     else:
-        st.info("Sem dados de transações registrados.")
+        st.info("Sem dados de transações registrados ou tabela pendente de atualização.")
