@@ -870,7 +870,7 @@ if st.form_submit_button("Salvar Cliente"):
                      st.subheader("Cadastrar Novo Grupo")
                 with st.form("form_cad_grupo"):
                      novo_grup = st.text_input("Nome do Grupo")
-                    if st.form_submit_button("Salvar Grupo"):
+                     if st.form_submit_button("Salvar Grupo"):
                         if novo_grup.strip() and salvar_simples("grupos", "grupo", novo_grup.strip()):
                             st.success("Grupo cadastrado com sucesso!")
                             st.rerun()
