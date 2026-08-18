@@ -540,7 +540,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     
 df_registros = carregar_dados(query_filt)
                 
-                if not df_registros.empty:
+if not df_registros.empty:
                     st.caption("💡 **Dica:** Clique diretamente em qualquer célula para alterar valores. Marque **Deletar** e clique no botão abaixo para remover registros permanentemente.")
                     
                     df_registros.insert(0, "Deletar", False)
