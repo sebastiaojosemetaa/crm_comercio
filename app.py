@@ -682,7 +682,7 @@ if st.form_submit_button("Registrar Entrada no Estoque"):
                         st.success("Entrada de estoque gravada com sucesso!")
                         st.rerun()
                         
-            with aba_historico_compras:
+with aba_historico_compras:
                 st.dataframe(carregar_dados("SELECT * FROM compras"), use_container_width=True)
 
         elif menu_admin == "📦 Estoque de Produtos":
