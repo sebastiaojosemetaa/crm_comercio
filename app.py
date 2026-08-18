@@ -826,7 +826,7 @@ if menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
         cidade = st.text_input("Cidade / UF")
                     
 if st.form_submit_button("Salvar Cliente"):
-if novo_cli.strip() and salvar_cliente_completo(novo_cli.strip(), telefone, doc, endereco, cidade):
+    if novo_cli.strip() and salvar_cliente_completo(novo_cli.strip(), telefone, doc, endereco, cidade):
     st.success("Cliente cadastrado com sucesso!")
     st.rerun()
     st.markdown("---")
