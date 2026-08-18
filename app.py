@@ -568,7 +568,7 @@ if not df_registros.empty:
                         hide_index=True
                     )
                     
-    if st.button("🔄 Atualizar Valores com Estoque Atual"):
+if st.button("🔄 Atualizar Valores com Estoque Atual"):
         sincronizar_valores_com_estoque("vendas", "venda")
         st.success("Tabela atualizada com os preços atuais!")
         st.rerun()
