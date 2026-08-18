@@ -106,8 +106,8 @@ def carregar_coluna(tabela, coluna):
     try:
         cursor = conn.cursor()
         cursor.execute(f"PRAGMA table_info({tabela})")
-        cols = [col[1] for col in cursor.fetchall()]
-        col_alvo = coluna if coluna in cols else (cols[1] if len(cols) > 1 else coluna)
+        cols = [col for col in cursor.fetchall()]
+        col_alvo = coluna if coluna in cols else (cols if len(cols) > 1 else coluna)
         
         df = carregar_dados(f"SELECT DISTINCT TRIM({col_alvo}) as {col_alvo} FROM {tabela} WHERE {col_alvo} IS NOT NULL AND {col_alvo} != ''")
         if not df.empty:
@@ -121,12 +121,12 @@ def obter_preco_produto(nome_produto, campo="preco_venda"):
         cursor = conn.cursor()
         cursor.execute(f"SELECT {campo} FROM produtos WHERE TRIM(nome) = TRIM(?)", (nome_produto.strip(),))
         res = cursor.fetchone()
-        return res[0] if res else 0.0
+        return res if res else 0.0
     except Exception:
         return 0.0
 
 # -----------------------------------------------------------------------------
-# 3. FUNÇÕES DE SALVAMENTO AND ATUALIZAÇÃO EM LOTE
+# 3. FUNÇÕES DE SALVAMENTO E ATUALIZAÇÃO EM LOTE
 # -----------------------------------------------------------------------------
 def salvar_cliente_completo(nome, telefone, doc, endereco, city):
     cursor = conn.cursor()
@@ -230,31 +230,28 @@ if perfil == "Administração/Vendedor":
     )
 
     # -------------------------------------------------------------------------
-    # TELA: PEDIDOS / ORÇAMENTOS
+    # TELA: FECHAMENTO & FINANCEIRO (OPÇÃO 2 SELECIONADA)
     # -------------------------------------------------------------------------
-    if navegacao == "📌 Pedidos / Orçamentos":
-        st.title("📌 Gerenciamento de Pedidos e Orçamentos")
+    if navegacao == "📊 Fechamento & Financeiro":
+        st.title("📊 Painel de Fechamento Financeiro e Lucro Líquido")
+        st.markdown("Este painel calcula em tempo real o rendimento do **Rey da Cebola**.")
+
+        # Carrega todas as vendas confirmadas ("VENDA") para cruzar com o custo do estoque
+        df_vendas_fin = carregar_dados("SELECT produto, quantidade, valor_total FROM vendas WHERE tipo = 'VENDA'")
         
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            clientes_lista = ["TODOS"] + carregar_coluna("vendas", "cliente")
-            filtro_cliente = st.selectbox("Filtrar por Cliente:", clientes_lista)
-        with c2:
-            data_ini = st.date_input("Data Inicial do Filtro", datetime(2025, 1, 1))
-        with c3:
-            data_fim = st.date_input("Data Final do Filtro", datetime(2026, 12, 18))
+        faturamento_bruto = 0.0
+        custo_total_mercadoria = 0.0
+
+        if not df_vendas_fin.empty:
+            faturamento_bruto = df_vendas_fin["valor_total"].sum()
             
-        st.info("💡 Dica: Altere os valores direto na tabela e clique nos botões de ação abaixo.")
-        
-        query = "SELECT id, cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, troco, restante, data FROM vendas WHERE tipo = 'PEDIDO'"
-        params = []
-        if filtro_cliente != "TODOS":
-            query += " AND TRIM(cliente) = TRIM(?)"
-            params.append(filtro_cliente)
-            
-        df_vendas = carregar_dados(query, params)
-        
-        if not df_vendas.empty:
-            df_vendas.insert(0, "Deletar", False)
-            
-            col_b1, col_b2 = st.columns(2)
+            # Calcula o custo de cada item vendido olhando para o preço de custo atual do produto
+            for _, row in df_vendas_fin.iterrows():
+                preco_custo_unidade = obter_preco_produto(row["produto"], "preco_custo")
+                custo_total_mercadoria += row["quantidade"] * preco_custo_unidade
+
+        lucro_liquido = faturamento_bruto - custo_total_mercadoria
+
+        # Exibição dos Indicadores em colunas visuais modernas
+        m1, m2, m3 = st.columns(3)
+        with m1:
