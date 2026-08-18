@@ -653,7 +653,7 @@ if cliente_sel != "TODOS":
                 mask_pedidos = (~tipo_str.isin(['VENDA', 'VENDAS', 'VEN'])) & (~codigo_str.isin(['VEN', 'VENDA']))
                 pedidos_pendentes = df_registros[mask_pedidos]
                         
-        if not pedidos_pendentes.empty:
+if not pedidos_pendentes.empty:
             st.subheader("⚙️ Converter Pedido Completo em Venda")
             total_ped = pedidos_pendentes['valor_total'].sum()
             qtd_itens = len(pedidos_pendentes)
