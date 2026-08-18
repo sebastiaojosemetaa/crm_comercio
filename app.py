@@ -13,226 +13,236 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 # -----------------------------------------------------------------------------
 st.set_page_config(page_title="CRM Comércio - Rey da Cebola", layout="wide")
 
-def get_connection():
-    return sqlite3.connect("crm_comercio.db", check_same_thread=False)
+DB_FILE = "crm_comercio.db"
 
-conn = get_connection()
+def get_connection():
+    return sqlite3.connect(DB_FILE, check_same_thread=False)
 
 def adequar_banco_e_migrar():
-    cursor = conn.cursor()
-    
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS vendas (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            cliente TEXT,
-            produto TEXT,
-            fornecedor TEXT,
-            grupo TEXT,
-            quantidade REAL,
-            valor_venda REAL,
-            valor_total REAL,
-            forma_pagamento TEXT,
-            valor_recebido REAL,
-            tipo TEXT DEFAULT 'PEDIDO',
-            codigo TEXT DEFAULT 'PED',
-            data TEXT
-        )
-    """)
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS vendas (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                cliente TEXT,
+                produto TEXT,
+                fornecedor TEXT,
+                grupo TEXT,
+                quantidade REAL,
+                valor_venda REAL,
+                valor_total REAL,
+                forma_pagamento TEXT,
+                valor_recebido REAL,
+                tipo TEXT DEFAULT 'PEDIDO',
+                codigo TEXT DEFAULT 'PED',
+                data TEXT
+            )
+        """)
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS produtos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT UNIQUE,
-            produto TEXT,
-            fornecedor TEXT,
-            grupo TEXT,
-            preco_custo REAL,
-            preco_venda REAL,
-            estoque_atual REAL,
-            quantidade REAL,
-            valor_compra REAL
-        )
-    """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS produtos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome TEXT UNIQUE,
+                produto TEXT,
+                fornecedor TEXT,
+                grupo TEXT,
+                preco_custo REAL,
+                preco_venda REAL,
+                estoque_atual REAL,
+                quantidade REAL,
+                valor_compra REAL
+            )
+        """)
 
-    cursor.execute("PRAGMA table_info(produtos)")
-    cols_prod = [col[1] for col in cursor.fetchall()]
-    if "preco_custo" not in cols_prod:
-        cursor.execute("ALTER TABLE produtos ADD COLUMN preco_custo REAL DEFAULT 0.0")
-    if "preco_venda" not in cols_prod:
-        cursor.execute("ALTER TABLE produtos ADD COLUMN preco_venda REAL DEFAULT 0.0")
-    if "estoque_atual" not in cols_prod:
-        cursor.execute("ALTER TABLE produtos ADD COLUMN estoque_atual REAL DEFAULT 0.0")
+        cursor.execute("PRAGMA table_info(produtos)")
+        cols_prod = [col[1] for col in cursor.fetchall()]
+        if "preco_custo" not in cols_prod:
+            cursor.execute("ALTER TABLE produtos ADD COLUMN preco_custo REAL DEFAULT 0.0")
+        if "preco_venda" not in cols_prod:
+            cursor.execute("ALTER TABLE produtos ADD COLUMN preco_venda REAL DEFAULT 0.0")
+        if "estoque_atual" not in cols_prod:
+            cursor.execute("ALTER TABLE produtos ADD COLUMN estoque_atual REAL DEFAULT 0.0")
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS clientes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT UNIQUE,
-            telefone TEXT,
-            doc TEXT,
-            endereco TEXT,
-            cidade TEXT
-        )
-    """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS clientes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome TEXT UNIQUE,
+                telefone TEXT,
+                doc TEXT,
+                endereco TEXT,
+                cidade TEXT
+            )
+        """)
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS fornecedores (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            fornecedor TEXT UNIQUE
-        )
-    """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS fornecedores (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                fornecedor TEXT UNIQUE
+            )
+        """)
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS grupos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            grupo TEXT UNIQUE
-        )
-    """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS grupos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                grupo TEXT UNIQUE
+            )
+        """)
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS compras (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            produto TEXT,
-            fornecedor TEXT,
-            grupo TEXT,
-            quantidade REAL,
-            valor_custo REAL,
-            valor_total REAL,
-            data TEXT
-        )
-    """)
-
-    conn.commit()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS compras (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                produto TEXT,
+                fornecedor TEXT,
+                grupo TEXT,
+                quantidade REAL,
+                valor_custo REAL,
+                valor_total REAL,
+                data TEXT
+            )
+        """)
+        conn.commit()
 
 adequar_banco_e_migrar()
 
-def carregar_dados(query):
-    try:
-        return pd.read_sql_query(query, conn)
-    except Exception:
-        return pd.DataFrame()
+def carregar_dados(query, params=()):
+    with get_connection() as conn:
+        try:
+            return pd.read_sql_query(query, conn, params=params)
+        except Exception:
+            return pd.DataFrame()
 
 def carregar_coluna(tabela, coluna):
-    cursor = conn.cursor()
-    cursor.execute(f"PRAGMA table_info({tabela})")
-    cols = [col[1] for col in cursor.fetchall()]
-    if not cols:
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(f"PRAGMA table_info({tabela})")
+        cols = [col[1] for col in cursor.fetchall()]
+        if not cols:
+            return []
+        col_alvo = coluna if coluna in cols else cols[1]
+        
+        df = pd.read_sql_query(f"SELECT DISTINCT TRIM({col_alvo}) as {col_alvo} FROM {tabela} WHERE {col_alvo} IS NOT NULL AND {col_alvo} != ''", conn)
+        if not df.empty:
+            return df[col_alvo].tolist()
         return []
-    col_alvo = coluna if coluna in cols else cols[1]
-    
-    df = carregar_dados(f"SELECT DISTINCT TRIM({col_alvo}) as {col_alvo} FROM {tabela} WHERE {col_alvo} IS NOT NULL AND {col_alvo} != ''")
-    if not df.empty:
-        return df[col_alvo].tolist()
-    return []
 
 def obter_preco_produto(nome_produto):
-    cursor = conn.cursor()
-    cursor.execute("SELECT preco_venda FROM produtos WHERE TRIM(nome) = TRIM(?) OR TRIM(produto) = TRIM(?)", (nome_produto, nome_produto))
-    res = cursor.fetchone()
-    if res and res[0] is not None:
-        return float(res[0])
-    return 0.0
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT preco_venda FROM produtos WHERE TRIM(nome) = TRIM(?) OR TRIM(produto) = TRIM(?)", (nome_produto, nome_produto))
+        res = cursor.fetchone()
+        if res and res[0] is not None:
+            return float(res[0])
+        return 0.0
 
 # -----------------------------------------------------------------------------
 # FUNÇÕES DE REGISTRO E BANCO
 # -----------------------------------------------------------------------------
 def salvar_cliente_completo(nome, telefone, doc, endereco, cidade):
-    cursor = conn.cursor()
-    try:
-        cursor.execute("INSERT INTO clientes (nome, telefone, doc, endereco, cidade) VALUES (?, ?, ?, ?, ?)",
-                       (nome.strip().upper(), telefone, doc, endereco, cidade))
-        conn.commit()
-        return True
-    except sqlite3.IntegrityError:
-        return False
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        try:
+            cursor.execute("INSERT INTO clientes (nome, telefone, doc, endereco, cidade) VALUES (?, ?, ?, ?, ?)",
+                           (nome.strip().upper(), telefone, doc, endereco, cidade))
+            conn.commit()
+            return True
+        except sqlite3.IntegrityError:
+            return False
 
 def salvar_produto_completo(nome, fornecedor, grupo, preco_custo, preco_venda, estoque_inicial):
-    cursor = conn.cursor()
-    try:
-        cursor.execute("""
-            INSERT INTO produtos (nome, produto, fornecedor, grupo, preco_custo, preco_venda, estoque_atual, quantidade, valor_compra) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (nome.strip().upper(), nome.strip().upper(), fornecedor, grupo, preco_custo, preco_venda, estoque_inicial, estoque_inicial, preco_custo))
-        conn.commit()
-        return True
-    except sqlite3.IntegrityError:
-        cursor.execute("""
-            UPDATE produtos 
-            SET fornecedor = ?, grupo = ?, preco_custo = ?, preco_venda = ?, estoque_atual = ?, quantidade = ?, valor_compra = ?
-            WHERE TRIM(nome) = TRIM(?) OR TRIM(produto) = TRIM(?)
-        """, (fornecedor, grupo, preco_custo, preco_venda, estoque_inicial, estoque_inicial, preco_custo, nome.strip().upper(), nome.strip().upper()))
-        conn.commit()
-        return True
-    except Exception as e:
-        st.error(f"Erro ao salvar produto: {e}")
-        return False
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        try:
+            cursor.execute("""
+                INSERT INTO produtos (nome, produto, fornecedor, grupo, preco_custo, preco_venda, estoque_atual, quantidade, valor_compra) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (nome.strip().upper(), nome.strip().upper(), fornecedor, grupo, preco_custo, preco_venda, estoque_inicial, estoque_inicial, preco_custo))
+            conn.commit()
+            return True
+        except sqlite3.IntegrityError:
+            cursor.execute("""
+                UPDATE produtos 
+                SET fornecedor = ?, grupo = ?, preco_custo = ?, preco_venda = ?, estoque_atual = ?, quantidade = ?, valor_compra = ?
+                WHERE TRIM(nome) = TRIM(?) OR TRIM(produto) = TRIM(?)
+            """, (fornecedor, grupo, preco_custo, preco_venda, estoque_inicial, estoque_inicial, preco_custo, nome.strip().upper(), nome.strip().upper()))
+            conn.commit()
+            return True
+        except Exception as e:
+            st.error(f"Erro ao salvar produto: {e}")
+            return False
 
 def salvar_simples(tabela, coluna, valor):
-    cursor = conn.cursor()
-    try:
-        cursor.execute(f"PRAGMA table_info({tabela})")
-        colunas_existentes = [col[1] for col in cursor.fetchall()]
-        
-        if not colunas_existentes:
-            cursor.execute(f"CREATE TABLE IF NOT EXISTS {tabela} (id INTEGER PRIMARY KEY AUTOINCREMENT, {coluna} TEXT UNIQUE)")
-            conn.commit()
-            coluna_alvo = coluna
-        else:
-            coluna_alvo = coluna if coluna in colunas_existentes else colunas_existentes[-1]
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        try:
+            cursor.execute(f"PRAGMA table_info({tabela})")
+            colunas_existentes = [col[1] for col in cursor.fetchall()]
+            
+            if not colunas_existentes:
+                cursor.execute(f"CREATE TABLE IF NOT EXISTS {tabela} (id INTEGER PRIMARY KEY AUTOINCREMENT, {coluna} TEXT UNIQUE)")
+                conn.commit()
+                coluna_alvo = coluna
+            else:
+                coluna_alvo = coluna if coluna in colunas_existentes else colunas_existentes[-1]
 
-        cursor.execute(f"INSERT INTO {tabela} ({coluna_alvo}) VALUES (?)", (valor.strip().upper(),))
-        conn.commit()
-        return True
-    except sqlite3.IntegrityError:
-        return False
-    except Exception as e:
-        st.error(f"Erro ao salvar em {tabela}: {e}")
-        return False
+            cursor.execute(f"INSERT INTO {tabela} ({coluna_alvo}) VALUES (?)", (valor.strip().upper(),))
+            conn.commit()
+            return True
+        except sqlite3.IntegrityError:
+            return False
+        except Exception as e:
+            st.error(f"Erro ao salvar em {tabela}: {e}")
+            return False
 
 def salvar_pedido_ou_venda(cliente, produto, fornecedor, grupo, quantidade, valor_venda, forma_pagamento, valor_recebido, tipo="PEDIDO"):
-    cursor = conn.cursor()
-    valor_total = quantidade * valor_venda
-    data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    cod_status = "VEN" if tipo.upper() in ["VENDA", "VENDAS", "VEN"] else "PED"
-    
-    cursor.execute("""
-        INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, tipo, codigo, data)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (cliente.strip(), produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, float(valor_recebido), tipo, cod_status, data_atual))
-    conn.commit()
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        valor_total = quantidade * valor_venda
+        data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        cod_status = "VEN" if tipo.upper() in ["VENDA", "VENDAS", "VEN"] else "PED"
+        
+        cursor.execute("""
+            INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, tipo, codigo, data)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (cliente.strip(), produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, float(valor_recebido), tipo, cod_status, data_atual))
+        conn.commit()
 
 def converter_pedido_completo_para_venda(cliente_nome):
-    cursor = conn.cursor()
-    cursor.execute("""
-        UPDATE vendas 
-        SET tipo = 'VENDA', codigo = 'VEN' 
-        WHERE TRIM(cliente) = TRIM(?)
-    """, (cliente_nome,))
-    conn.commit()
-    return cursor.rowcount
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE vendas 
+            SET tipo = 'VENDA', codigo = 'VEN' 
+            WHERE TRIM(cliente) = TRIM(?)
+        """, (cliente_nome,))
+        conn.commit()
+        return cursor.rowcount
 
 def deletar_pedidos_cliente(cliente_nome, s_d1, s_d2):
-    cursor = conn.cursor()
-    cursor.execute("""
-        DELETE FROM vendas 
-        WHERE TRIM(cliente) = TRIM(?) 
-          AND (substr(data, 1, 10) >= ? AND substr(data, 1, 10) <= ? OR data IS NULL OR data = '')
-    """, (cliente_nome, s_d1, s_d2))
-    conn.commit()
-    return cursor.rowcount
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            DELETE FROM vendas 
+            WHERE TRIM(cliente) = TRIM(?) 
+              AND (substr(data, 1, 10) >= ? AND substr(data, 1, 10) <= ? OR data IS NULL OR data = '')
+        """, (cliente_nome, s_d1, s_d2))
+        conn.commit()
+        return cursor.rowcount
 
 def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo):
-    cursor = conn.cursor()
-    valor_total = quantidade * valor_custo
-    data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    cursor.execute("""
-        INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data_atual))
-    
-    cursor.execute("""
-        UPDATE produtos SET estoque_atual = estoque_atual + ?, quantidade = quantidade + ? WHERE TRIM(nome) = TRIM(?) OR TRIM(produto) = TRIM(?)
-    """, (quantidade, quantidade, produto, produto))
-    conn.commit()
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        valor_total = quantidade * valor_custo
+        data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        cursor.execute("""
+            INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data_atual))
+        
+        cursor.execute("""
+            UPDATE produtos SET estoque_atual = estoque_atual + ?, quantidade = quantidade + ? WHERE TRIM(nome) = TRIM(?) OR TRIM(produto) = TRIM(?)
+        """, (quantidade, quantidade, produto, produto))
+        conn.commit()
 
 # -----------------------------------------------------------------------------
 # GERADOR DE PDF
@@ -355,12 +365,12 @@ if perfil_selecionado == "👤 Portal do Cliente":
             fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["GERAL"]
             grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
             
-            with st.form("form_novo_pedido_cliente"):
-                prod = st.selectbox("Selecione o Produto", produtos_opt)
-                if st.form_submit_button("🔄 Buscar Preço Atualizado do Estoque"):
-                    st.session_state.preco_selecionado_manual = obter_preco_produto(prod)
-                    st.rerun()
+            prod = st.selectbox("Selecione o Produto", produtos_opt, key="prod_cli_sel")
+            if st.button("🔄 Buscar Preço Atualizado do Estoque", key="btn_preco_cli"):
+                st.session_state.preco_selecionado_manual = obter_preco_produto(prod)
+                st.rerun()
 
+            with st.form("form_novo_pedido_cliente"):
                 fornec = st.selectbox("Selecione o Fornecedor", fornecedores_opt)
                 grupo = st.selectbox("Selecione o Grupo", grupos_opt)
                 qtd = st.number_input("Quantidade", min_value=0.1, step=0.5, value=1.0)
@@ -373,8 +383,8 @@ if perfil_selecionado == "👤 Portal do Cliente":
                     st.rerun()
             
         with aba_historico:
-            query_cli = f"SELECT * FROM vendas WHERE TRIM(cliente) = TRIM('{st.session_state.cliente_autenticado}')"
-            df_pedidos = carregar_dados(query_cli)
+            query_cli = "SELECT * FROM vendas WHERE TRIM(cliente) = TRIM(?)"
+            df_pedidos = carregar_dados(query_cli, params=(st.session_state.cliente_autenticado,))
             if not df_pedidos.empty:
                 soma_total = df_pedidos['valor_total'].sum() if 'valor_total' in df_pedidos.columns else 0.0
                 st.markdown(f"**Itens Registrados:** {len(df_pedidos)} | **Soma dos Valores:** R$ {soma_total:,.2f}")
@@ -506,12 +516,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 
                 tipo_registro = "VENDA" if menu_admin == "🛒 Registrar Venda" else "PEDIDO"
                 
-                with st.form("form_admin_pedido"):
-                    prod = st.selectbox("Selecione o Produto", produtos_opt)
-                    if st.form_submit_button("🔄 Buscar Preço Atualizado do Estoque"):
-                        st.session_state.preco_selecionado_manual = obter_preco_produto(prod)
-                        st.rerun()
+                prod = st.selectbox("Selecione o Produto", produtos_opt, key="prod_admin_sel")
+                if st.button("🔄 Buscar Preço Atualizado do Estoque", key="btn_preco_admin"):
+                    st.session_state.preco_selecionado_manual = obter_preco_produto(prod)
+                    st.rerun()
 
+                with st.form("form_admin_pedido"):
                     col_a, col_b = st.columns(2)
                     with col_a:
                         cli = st.selectbox("Selecione o Cliente", clientes_opt)
@@ -543,14 +553,16 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 s_d1 = d_inicio.strftime("%Y-%m-%d")
                 s_d2 = d_fim.strftime("%Y-%m-%d")
                 
-                query_filt = f"SELECT * FROM vendas WHERE (substr(data, 1, 10) >= '{s_d1}' AND substr(data, 1, 10) <= '{s_d2}' OR data IS NULL OR data = '')"
                 if cliente_sel != "TODOS":
-                    query_filt += f" AND TRIM(cliente) = TRIM('{cliente_sel}')"
+                    query_filt = "SELECT * FROM vendas WHERE (substr(data, 1, 10) >= ? AND substr(data, 1, 10) <= ? OR data IS NULL OR data = '') AND TRIM(cliente) = TRIM(?)"
+                    params_filt = (s_d1, s_d2, cliente_sel)
                     nome_relatorio = cliente_sel
                 else:
+                    query_filt = "SELECT * FROM vendas WHERE (substr(data, 1, 10) >= ? AND substr(data, 1, 10) <= ? OR data IS NULL OR data = '')"
+                    params_filt = (s_d1, s_d2)
                     nome_relatorio = "Geral"
                     
-                df_registros = carregar_dados(query_filt)
+                df_registros = carregar_dados(query_filt, params=params_filt)
                 
                 if not df_registros.empty:
                     df_registros['quantidade'] = pd.to_numeric(df_registros['quantidade'], errors='coerce').fillna(0.0)
@@ -590,31 +602,32 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     
                     with c_btn1:
                         if st.button("💾 Salvar Alterações Feitas na Tabela", type="primary"):
-                            cursor = conn.cursor()
-                            for _, row in df_editado.iterrows():
-                                if not row["Deletar"]:
-                                    v_tot = float(row["quantidade"]) * float(row["valor_venda"])
-                                    cursor.execute("""
-                                        UPDATE vendas 
-                                        SET cliente = ?, produto = ?, fornecedor = ?, quantidade = ?, 
-                                            valor_venda = ?, valor_total = ?, forma_pagamento = ?, 
-                                            valor_recebido = ?, grupo = ?, tipo = ?, codigo = ?
-                                        WHERE id = ?
-                                    """, (
-                                        str(row["cliente"]).strip(),
-                                        str(row["produto"]),
-                                        str(row["fornecedor"]),
-                                        float(row["quantidade"]),
-                                        float(row["valor_venda"]),
-                                        v_tot,
-                                        str(row["forma_pagamento"]),
-                                        float(row["valor_recebido"]),
-                                        str(row["grupo"]),
-                                        str(row["tipo"]),
-                                        str(row["codigo"]),
-                                        int(row["id"])
-                                    ))
-                            conn.commit()
+                            with get_connection() as conn:
+                                cursor = conn.cursor()
+                                for _, row in df_editado.iterrows():
+                                    if not row["Deletar"]:
+                                        v_tot = float(row["quantidade"]) * float(row["valor_venda"])
+                                        cursor.execute("""
+                                            UPDATE vendas 
+                                            SET cliente = ?, produto = ?, fornecedor = ?, quantidade = ?, 
+                                                valor_venda = ?, valor_total = ?, forma_pagamento = ?, 
+                                                valor_recebido = ?, grupo = ?, tipo = ?, codigo = ?
+                                            WHERE id = ?
+                                        """, (
+                                            str(row["cliente"]).strip(),
+                                            str(row["produto"]),
+                                            str(row["fornecedor"]),
+                                            float(row["quantidade"]),
+                                            float(row["valor_venda"]),
+                                            v_tot,
+                                            str(row["forma_pagamento"]),
+                                            float(row["valor_recebido"]),
+                                            str(row["grupo"]),
+                                            str(row["tipo"]),
+                                            str(row["codigo"]),
+                                            int(row["id"])
+                                        ))
+                                conn.commit()
                             st.success("Todas as edições na tabela foram salvas no banco de dados!")
                             st.rerun()
 
@@ -623,12 +636,14 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         if not itens_para_deletar.empty:
                             if st.button(f"🗑️ Confirmar Exclusão de ({len(itens_para_deletar)}) Item(ns) Marcados"):
                                 ids_del = tuple(itens_para_deletar["id"].tolist())
-                                cursor = conn.cursor()
-                                if len(ids_del) == 1:
-                                    cursor.execute("DELETE FROM vendas WHERE id = ?", (ids_del[0],))
-                                else:
-                                    cursor.execute(f"DELETE FROM vendas WHERE id IN {ids_del}")
-                                conn.commit()
+                                with get_connection() as conn:
+                                    cursor = conn.cursor()
+                                    if len(ids_del) == 1:
+                                        cursor.execute("DELETE FROM vendas WHERE id = ?", (ids_del[0],))
+                                    else:
+                                        placeholders = ', '.join(['?'] * len(ids_del))
+                                        cursor.execute(f"DELETE FROM vendas WHERE id IN ({placeholders})", ids_del)
+                                    conn.commit()
                                 st.warning(f"{len(ids_del)} registro(s) foram apagados do banco com sucesso!")
                                 st.rerun()
 
@@ -741,73 +756,70 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 )
                 
                 if st.button("💾 Salvar Alterações de Estoque", type="primary"):
-                    cursor = conn.cursor()
-                    for _, row in df_prod_editado.iterrows():
-                        nome_val = str(row.get("nome", row.get("produto", "PRODUTO"))).strip().upper()
-                        fornec_val = str(row.get("fornecedor", "GERAL"))
-                        grupo_val = str(row.get("grupo", "GERAL"))
-                        p_custo = float(row.get("preco_custo", row.get("valor_compra", 0.0)))
-                        p_venda = float(row.get("preco_venda", 0.0))
-                        est_atual = float(row.get("estoque_atual", row.get("quantidade", 0.0)))
-                        prod_id = row.get("id")
+                    with get_connection() as conn:
+                        cursor = conn.cursor()
+                        for _, row in df_prod_editado.iterrows():
+                            nome_val = str(row.get("nome", row.get("produto", "PRODUTO"))).strip().upper()
+                            fornec_val = str(row.get("fornecedor", "GERAL"))
+                            grupo_val = str(row.get("grupo", "GERAL"))
+                            p_custo = float(row.get("preco_custo", row.get("valor_compra", 0.0)))
+                            p_venda = float(row.get("preco_venda", 0.0))
+                            est_atual = float(row.get("estoque_atual", row.get("quantidade", 0.0)))
+                            prod_id = row.get("id")
 
-                        # Verificação rigorosa do dicionário de colunas e mapeamento por ID ou INSERT
-                        cursor.execute("PRAGMA table_info(produtos)")
-                        db_cols = [c[1] for c in cursor.fetchall()]
+                            cursor.execute("PRAGMA table_info(produtos)")
+                            db_cols = [c[1] for c in cursor.fetchall()]
 
-                        if pd.notna(prod_id):
-                            # Monta o UPDATE dinâmico ou seguro baseado nas colunas existentes na tabela física
-                            update_parts = []
-                            vals = []
-                            
-                            colunas_mapeadas = {
-                                "nome": nome_val,
-                                "produto": nome_val,
-                                "fornecedor": fornec_val,
-                                "grupo": grupo_val,
-                                "preco_custo": p_custo,
-                                "preco_venda": p_venda,
-                                "estoque_atual": est_atual,
-                                "quantidade": est_atual,
-                                "valor_compra": p_custo
-                            }
-                            
-                            for col_db in db_cols:
-                                if col_db in colunas_mapeadas and col_db != "id":
-                                    update_parts.append(f"{col_db} = ?")
-                                    vals.append(colunas_mapeadas[col_db])
-                            
-                            if update_parts:
-                                vals.append(int(prod_id))
-                                query_update = f"UPDATE produtos SET {', '.join(update_parts)} WHERE id = ?"
-                                cursor.execute(query_update, vals)
-                        else:
-                            # Tratamento para nova linha adicionada no editor dinâmico
-                            insert_cols = []
-                            insert_vals = []
-                            colunas_mapeadas = {
-                                "nome": nome_val,
-                                "produto": nome_val,
-                                "fornecedor": fornec_val,
-                                "grupo": grupo_val,
-                                "preco_custo": p_custo,
-                                "preco_venda": p_venda,
-                                "estoque_atual": est_atual,
-                                "quantidade": est_atual,
-                                "valor_compra": p_custo
-                            }
-                            for col_db in db_cols:
-                                if col_db in colunas_mapeadas and col_db != "id":
-                                    insert_cols.append(col_db)
-                                    insert_vals.append(colunas_mapeadas[col_db])
-                            
-                            if insert_cols:
-                                placeholders = ", ".join(["?"] * len(insert_cols))
-                                cols_str = ", ".join(insert_cols)
-                                query_insert = f"INSERT INTO produtos ({cols_str}) VALUES ({placeholders})"
-                                cursor.execute(query_insert, insert_vals)
-                            
-                    conn.commit()
+                            if pd.notna(prod_id):
+                                update_parts = []
+                                vals = []
+                                
+                                colunas_mapeadas = {
+                                    "nome": nome_val,
+                                    "produto": nome_val,
+                                    "fornecedor": fornec_val,
+                                    "grupo": grupo_val,
+                                    "preco_custo": p_custo,
+                                    "preco_venda": p_venda,
+                                    "estoque_atual": est_atual,
+                                    "quantidade": est_atual,
+                                    "valor_compra": p_custo
+                                }
+                                
+                                for col_db in db_cols:
+                                    if col_db in colunas_mapeadas and col_db != "id":
+                                        update_parts.append(f"{col_db} = ?")
+                                        vals.append(colunas_mapeadas[col_db])
+                                
+                                if update_parts:
+                                    vals.append(int(prod_id))
+                                    query_update = f"UPDATE produtos SET {', '.join(update_parts)} WHERE id = ?"
+                                    cursor.execute(query_update, vals)
+                            else:
+                                insert_cols = []
+                                insert_vals = []
+                                colunas_mapeadas = {
+                                    "nome": nome_val,
+                                    "produto": nome_val,
+                                    "fornecedor": fornec_val,
+                                    "grupo": grupo_val,
+                                    "preco_custo": p_custo,
+                                    "preco_venda": p_venda,
+                                    "estoque_atual": est_atual,
+                                    "quantidade": est_atual,
+                                    "valor_compra": p_custo
+                                }
+                                for col_db in db_cols:
+                                    if col_db in colunas_mapeadas and col_db != "id":
+                                        insert_cols.append(col_db)
+                                        insert_vals.append(colunas_mapeadas[col_db])
+                                
+                                if insert_cols:
+                                    placeholders = ", ".join(["?"] * len(insert_cols))
+                                    cols_str = ", ".join(insert_cols)
+                                    query_insert = f"INSERT INTO produtos ({cols_str}) VALUES ({placeholders})"
+                                    cursor.execute(query_insert, insert_vals)
+                        conn.commit()
                     st.success("Estoque e preços atualizados com sucesso!")
                     st.rerun()
             else:
