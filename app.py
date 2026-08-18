@@ -1,12 +1,7 @@
 import streamlit as st
 import sqlite3
 import pandas as pd
-from datetime import datetime, date
-import io
-from reportlab.lib.pagesizes import letter
-from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from datetime import datetime
 
 # ------------------------------------------------------------------------------
 # 1. CONFIGURAÇÃO E CONEXÃO COM O BANCO DE DADOS
@@ -23,7 +18,6 @@ def criar_tabelas():
     with get_connection() as conn:
         cursor = conn.cursor()
         
-        # Tabela Clientes
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS clientes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -34,7 +28,6 @@ def criar_tabelas():
             )
         """)
         
-        # Tabela Fornecedores
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS fornecedores (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -43,7 +36,6 @@ def criar_tabelas():
             )
         """)
         
-        # Tabela Grupos
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS grupos (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,7 +43,6 @@ def criar_tabelas():
             )
         """)
         
-        # Tabela Produtos (Estoque)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS produtos (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -65,7 +56,6 @@ def criar_tabelas():
             )
         """)
         
-        # Tabela Vendas / Pedidos
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS vendas (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -84,10 +74,9 @@ def criar_tabelas():
             )
         """)
         
-        # Migração segura: garante que as colunas 'tipo' e 'preco_total' existam em bancos antigos
+        # Migrações seguras de colunas
         cursor.execute("PRAGMA table_info(vendas)")
         colunas = [col[1].lower() for col in cursor.fetchall()]
-        
         if "tipo" not in colunas:
             cursor.execute("ALTER TABLE vendas ADD COLUMN tipo TEXT DEFAULT 'VENDA'")
         if "preco_total" not in colunas:
@@ -112,7 +101,7 @@ def carregar_coluna(tabela, coluna):
 def carregar_dados(tabela):
     with get_connection() as conn:
         df = pd.read_sql_query(f"SELECT * FROM {tabela}", conn)
-        df.columns = df.columns.str.lower() # Normaliza nomes de colunas para minúsculas
+        df.columns = df.columns.str.lower()
         return df
 
 def salvar_pedido_ou_venda(cliente, produto, fornecedor, grupo, quantidade, preco_unitario, forma_pagamento, valor_recebido, tipo="VENDA"):
@@ -127,6 +116,44 @@ def salvar_pedido_ou_venda(cliente, produto, fornecedor, grupo, quantidade, prec
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (data_atual, cliente, produto, fornecedor, grupo, quantidade, preco_unitario, preco_total, forma_pagamento, valor_recebido, troco, tipo))
         conn.commit()
+
+def atualizar_precos_na_tabela(tipo_registro):
+    """Atualiza o valor unitario e recala o preco total na tabela de vendas com base no estoque atual"""
+    is_venda = (tipo_registro == "VENDA")
+    coluna_busca = "preco_venda" if is_venda else "preco_custo"
+    
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        # Busca produtos cadastrados no estoque
+        cursor.execute(f"SELECT nome, produto, {coluna_busca} FROM produtos")
+        produtos = cursor.fetchall()
+        
+        mapa_precos = {}
+        for row in produtos:
+            p_nome, p_prod, p_valor = row[0], row[1], row[2]
+            if p_nome: mapa_precos[str(p_nome).strip().lower()] = float(p_valor or 0.0)
+            if p_prod: mapa_precos[str(p_prod).strip().lower()] = float(p_valor or 0.0)
+            
+        # Busca os registros de vendas/pedidos do tipo correspondente
+        cursor.execute("SELECT id, produto, quantidade FROM vendas WHERE tipo = ?", (tipo_registro,))
+        vendas = cursor.fetchall()
+        
+        qtd_atualizados = 0
+        for v_id, v_prod, v_qtd in vendas:
+            prod_key = str(v_prod).strip().lower() if v_prod else ""
+            if prod_key in mapa_precos:
+                novo_preco_unit = mapa_precos[prod_key]
+                novo_preco_total = novo_preco_unit * float(v_qtd or 0.0)
+                
+                cursor.execute("""
+                    UPDATE vendas 
+                    SET preco_unitario = ?, preco_total = ? 
+                    WHERE id = ?
+                """, (novo_preco_unit, novo_preco_total, v_id))
+                qtd_atualizados += 1
+                
+        conn.commit()
+    return qtd_atualizados
 
 # ------------------------------------------------------------------------------
 # 3. INTERFACE PRINCIPAL E NAVEGAÇÃO
@@ -151,8 +178,11 @@ menu_admin = st.sidebar.radio(
 # ------------------------------------------------------------------------------
 
 if menu_admin in ["📋 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
-    st.title(f"📋 {menu_admin}")
+    st.title(f"{menu_admin}")
     aba_cad, aba_list = st.tabs(["➕ Novo Registro / Pedido", "✏️ Tabela Editável (Edição Direta & Exclusão)"])
+    
+    is_venda = (menu_admin == "🛒 Registrar Venda")
+    tipo_registro = "VENDA" if is_venda else "PEDIDO"
     
     with aba_cad:
         clientes_opt = carregar_coluna("clientes", "nome") or ["CLIENTE PADRÃO"]
@@ -160,60 +190,62 @@ if menu_admin in ["📋 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
         fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["GERAL"]
         grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
         
-        is_venda = (menu_admin == "🛒 Registrar Venda")
-        tipo_registro = "VENDA" if is_venda else "PEDIDO"
-        
-        if 'unit_price_admin' not in st.session_state:
-            st.session_state.unit_price_admin = 0.0
-        if 'total_price_admin' not in st.session_state:
-            st.session_state.total_price_admin = 0.0
-
-        col_prod, col_qtd, col_btn = st.columns([2, 1, 1.5])
-        with col_prod:
-            prod = st.selectbox("Selecione o Produto", produtos_opt, key="prod_admin_sel")
-        with col_qtd:
-            qtd = st.number_input("Quantidade", min_value=0.1, step=0.5, value=1.0, key="qtd_admin_input")
-        with col_btn:
-            st.write("")
-            st.write("")
-            btn_label = "🔄 Buscar Preço de Venda" if is_venda else "🔄 Buscar Preço de Custo"
-            if st.button(btn_label, key="btn_recalcular_admin"):
-                with get_connection() as conn:
-                    cursor = conn.cursor()
-                    coluna_busca = "preco_venda" if is_venda else "preco_custo"
-                    cursor.execute(f"SELECT {coluna_busca} FROM produtos WHERE TRIM(nome) = TRIM(?) OR TRIM(produto) = TRIM(?)", (prod, prod))
-                    res = cursor.fetchone()
-                    val_unit = float(res[0]) if (res and res[0] is not None) else 0.0
-                
-                st.session_state.unit_price_admin = val_unit
-                st.session_state.total_price_admin = val_unit * qtd
-                st.success(f"Preço atualizado: R$ {val_unit:,.2f} | Total: R$ {val_unit * qtd:,.2f}")
-
         with st.form("form_admin_pedido"):
-            col_a, col_b = st.columns(2)
-            with col_a:
+            col1, col2 = st.columns(2)
+            with col1:
                 cli = st.selectbox("Selecione o Cliente", clientes_opt)
-                v_unit = st.number_input("Valor Unitário (R$)", min_value=0.0, step=1.0, value=st.session_state.unit_price_admin)
-                v_total_calc = v_unit * qtd
-                st.info(f"💰 **Valor Total Calculado:** R$ {v_total_calc:,.2f}")
-            with col_b:
+                prod = st.selectbox("Selecione o Produto", produtos_opt)
+                qtd = st.number_input("Quantidade", min_value=0.1, step=0.5, value=1.0)
+                v_unit = st.number_input("Valor Unitário (R$)", min_value=0.0, step=1.0, value=0.0)
+            with col2:
                 fornec = st.selectbox("Selecione o Fornecedor", fornecedores_opt)
                 grupo = st.selectbox("Selecione o Grupo", grupos_opt)
                 f_pag = st.selectbox("Forma de Pagamento", ["Dinheiro", "Crediário / Fiado", "Pix"])
-                v_rec = st.number_input("Valor Recebido (R$)", min_value=0.0, step=1.0, value=v_total_calc)
+                v_rec = st.number_input("Valor Recebido (R$)", min_value=0.0, step=1.0, value=0.0)
+            
+            v_total_calc = v_unit * qtd
+            st.info(f"💰 **Valor Total Calculado:** R$ {v_total_calc:,.2f}")
             
             if st.form_submit_button(f"Salvar como {tipo_registro}"):
                 salvar_pedido_ou_venda(cli, prod, fornec, grupo, qtd, v_unit, f_pag, v_rec, tipo=tipo_registro)
                 st.success(f"{tipo_registro} gravado com sucesso!")
-                st.session_state.unit_price_admin = 0.0
-                st.session_state.total_price_admin = 0.0
                 st.rerun()
 
     with aba_list:
+        st.subheader("✏️ Gerenciar Registros")
+        
+        # Botão posicionado dentro da Tabela Editável
+        lbl_btn = "🔄 Buscar Preço de Venda do Estoque e Recalcular Totais" if is_venda else "🔄 Buscar Preço de Custo do Estoque e Recalcular Totais"
+        if st.button(lbl_btn, type="primary"):
+            atualizados = atualizar_precos_na_tabela(tipo_registro)
+            st.success(f"Valores e totais recarregados com sucesso do estoque! ({atualizados} itens atualizados)")
+            st.rerun()
+            
+        st.write("---")
         df_vendas = carregar_dados("vendas")
+        
         if not df_vendas.empty and 'tipo' in df_vendas.columns:
             df_filtrado = df_vendas[df_vendas['tipo'] == tipo_registro]
-            st.data_editor(df_filtrado, num_rows="dynamic", use_container_width=True)
+            
+            # Tabela editável
+            df_editado = st.data_editor(
+                df_filtrado, 
+                num_rows="dynamic", 
+                use_container_width=True,
+                key=f"editor_{tipo_registro}"
+            )
+            
+            if st.button("💾 Salvar Alterações da Tabela"):
+                with get_connection() as conn:
+                    # Atualização simples das alterações feitas na grid
+                    df_editado.to_sql("vendas_temp", conn, if_exists="replace", index=False)
+                    cursor = conn.cursor()
+                    cursor.execute("DELETE FROM vendas WHERE tipo = ?", (tipo_registro,))
+                    cursor.execute("INSERT INTO vendas SELECT * FROM vendas_temp")
+                    cursor.execute("DROP TABLE vendas_temp")
+                    conn.commit()
+                st.success("Alterações salvas!")
+                st.rerun()
         else:
             st.info("Nenhum registro encontrado.")
 
@@ -309,4 +341,4 @@ elif menu_admin == "📊 Dashboard":
         st.subheader("Histórico de Transações")
         st.dataframe(df_vendas, use_container_width=True)
     else:
-        st.info("Sem dados de transações registrados ou tabela pendente de atualização.")
+        st.info("Sem dados de transações registrados.")
