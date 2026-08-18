@@ -664,25 +664,25 @@ if st.button(f"🔄 Converter Pedido Completo de {cliente_sel} para VENDA", key=
                     st.success(f"Sucesso! {linhas_afetadas} registro(s) do cliente {cliente_sel} foram convertidos para VENDA!")
                     st.rerun()
 if menu_admin == "📥 Entrada de Estoque (Compras)":
-    st.title("📥 Entrada de Estoque (Compras)")
-    aba_compra, aba_historico_compras = st.tabs(["📦 Dar Entrada em Estoque", "📋 Histórico de Entradas / Compras"])
-
-    produtos_opt = carregar_coluna("produtos", "nome") or ["AMEIXA IMPORTADA", "ABACATE"]
-    fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
-    grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
-with aba_compra:
-    with st.form("form_entrada_estoque"):
-        col1, col2 = st.columns(2)
-with col1:
-                        prod = st.selectbox("Selecione o Produto", produtos_opt)
-                        fornec = st.selectbox("Selecione o Fornecedor", fornecedores_opt)
-                        grupo = st.selectbox("Selecione o Grupo", grupos_opt)
-with col2:
-                        qtd = st.number_input("Quantidade Comprada", min_value=0.1, step=0.5, value=10.0)
-                        v_custo = st.number_input("Valor do Custo Unitário (R$)", min_value=0.0, step=1.0, value=50.0)
-                        st.markdown(f"**Custo Total do Lote:** R$ {qtd * v_custo:,.2f}")
-                    
-if st.form_submit_button("Registrar Entrada no Estoque"):
+        st.title("📥 Entrada de Estoque (Compras)")
+        aba_compra, aba_historico_compras = st.tabs(["📦 Dar Entrada em Estoque", "📋 Histórico de Entradas / Compras"])
+    
+        produtos_opt = carregar_coluna("produtos", "nome") or ["AMEIXA IMPORTADA", "ABACATE"]
+        fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
+        grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
+    with aba_compra:
+        with st.form("form_entrada_estoque"):
+            col1, col2 = st.columns(2)
+    with col1:
+                            prod = st.selectbox("Selecione o Produto", produtos_opt)
+                            fornec = st.selectbox("Selecione o Fornecedor", fornecedores_opt)
+                            grupo = st.selectbox("Selecione o Grupo", grupos_opt)
+    with col2:
+                            qtd = st.number_input("Quantidade Comprada", min_value=0.1, step=0.5, value=10.0)
+                            v_custo = st.number_input("Valor do Custo Unitário (R$)", min_value=0.0, step=1.0, value=50.0)
+                            st.markdown(f"**Custo Total do Lote:** R$ {qtd * v_custo:,.2f}")
+                        
+    if st.form_submit_button("Registrar Entrada no Estoque"):
                         registrar_compra(prod, fornec, grupo, qtd, v_custo)
                         st.success("Entrada de estoque gravada com sucesso!")
                         st.rerun()
