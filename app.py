@@ -138,10 +138,7 @@ def sincronizar_valores_com_estoque(tabela_alvo, tipo_preco="venda"):
             p = float(preco_atual.iloc[0])
             total = p * row['qtd']
             
-            if tipo_preco == "venda":
-                cursor.execute(f"UPDATE {tabela_alvo} SET valor_venda = ?, valor_total = ? WHERE id = ?", (p, total, row['id']))
-            else:
-                cursor.execute(f"UPDATE {tabela_alvo} SET valor_compra = ?, valor_total = ? WHERE id = ?", (p, total, row['id']))
+            cursor.execute(f"UPDATE {tabela_alvo} SET valor_venda = ?, valor_total = ? WHERE id = ?", (p, total, row['id']))
     
     conn.commit()
 
@@ -198,7 +195,7 @@ def salvar_simples(tabela, coluna, valor):
         st.error(f"Erro ao salvar em {tabela}: {e}")
         return False
 
-def salvar_pedido_ou_venda(cliente, produto, fornecedor, grupo, quantidade, valor_venda, forma_pagamento, valor_recebido, tipo="PEDIDO"):
+def salvar_pedido_ou_venda(cliente, produto, fornecedor, grupo, quantidade, valor_venda, forma_pagamento="", valor_recebido=0.0, tipo="PEDIDO"):
     cursor = conn.cursor()
     valor_total = quantidade * valor_venda
     data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -259,7 +256,7 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral", d_inicio=None, d_fi
     elements.append(Paragraph("CONTATO: (99) 98814-9722 OU (99) 98414-3943", style_sub))
     elements.append(Spacer(1, 10))
     
-    titulo_doc = titulo_custom if titulo_custom else f"Relatório de Pedidos / Vendas - {cliente_nome}"
+    titulo_doc = titulo_custom if titulo_custom else f"Relatório de Pedidos / Orçamentos - {cliente_nome}"
     elements.append(Paragraph(titulo_doc, style_titulo_relatorio))
     periodo_str = f"Período: {d_inicio.strftime('%d/%m/%Y')} até {d_fim.strftime('%d/%m/%Y')}" if d_inicio and d_fim else f"Data de Emissão: {datetime.now().strftime('%d/%m/%Y %H:%M')}"
     elements.append(Spacer(1, 4))
@@ -275,7 +272,7 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral", d_inicio=None, d_fi
     else:
         df_resumo = pd.DataFrame(columns=['produto', 'quantidade', 'valor_venda', 'valor_total'])
 
-    table_data = [["Produto", "Qtd Total", "Valor Unit. Médio (R$)", "Valor Total (R$)"]]
+    table_data = [["Produto", "Qtd Total", "Preço Custo Médio (R$)", "Valor Total (R$)"]]
     valor_total_geral = 0.0
     for _, row in df_resumo.iterrows():
         prod = str(row['produto'])
@@ -363,11 +360,10 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 fornec = st.selectbox("Selecione o Fornecedor", fornecedores_opt)
                 grupo = st.selectbox("Selecione o Grupo", grupos_opt)
                 qtd = st.number_input("Quantidade", min_value=0.1, step=0.5, value=1.0)
-                v_unit = st.number_input("Valor Unitário (R$)", min_value=0.0, step=1.0, value=100.0)
-                f_pag = st.selectbox("Forma de Pagamento", ["Dinheiro", "Crediário / Fiado", "Pix"])
+                v_unit = st.number_input("Preço de Custo (R$)", min_value=0.0, step=1.0, value=100.0)
                 
                 if st.form_submit_button("Confirmar Pedido"):
-                    salvar_pedido_ou_venda(st.session_state.cliente_autenticado, prod, fornec, grupo, qtd, v_unit, f_pag, v_unit * qtd, tipo="PEDIDO")
+                    salvar_pedido_ou_venda(st.session_state.cliente_autenticado, prod, fornec, grupo, qtd, v_unit, tipo="PEDIDO")
                     st.success("Pedido registrado com sucesso!")
                     st.rerun()
 
@@ -377,13 +373,14 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 soma_total = df_pedidos['valor_total'].sum() if 'valor_total' in df_pedidos.columns else 0.0
                 st.markdown(f"**Itens Registrados:** {len(df_pedidos)} | **Soma dos Valores:** R$ {soma_total:,.2f}")
                 
-                if st.button("🔄 Atualizar Valores com Estoque"):
-                    sincronizar_valores_com_estoque("vendas", "venda")
-                    st.success("Tabela atualizada!")
+                if st.button("🔄 Atualizar Valores com Estoque (Preço Custo)"):
+                    sincronizar_valores_com_estoque("vendas", "compra")
+                    st.success("Tabela atualizada com o Preço de Custo!")
                     st.rerun()
 
                 st.markdown("---")
-                st.dataframe(df_pedidos, use_container_width=True)
+                cols_exibir = [c for c in ['id', 'cliente', 'produto', 'fornecedor', 'quantidade', 'valor_venda', 'valor_total', 'data'] if c in df_pedidos.columns]
+                st.dataframe(df_pedidos[cols_exibir], use_container_width=True)
                 pdf_cli = gerar_pdf_tabela_pedidos(df_pedidos, cliente_nome=st.session_state.cliente_autenticado)
                 st.download_button(
                     label=f"Baixar Relatório de Pedidos ({st.session_state.cliente_autenticado}) em PDF",
@@ -498,6 +495,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.info("Nenhum registro encontrado para os filtros selecionados.")
 
         elif menu_admin in ["📋 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
+            is_modo_pedido = (menu_admin == "📋 Pedidos / Orçamentos")
             st.title(f"📋 {menu_admin}")
             aba_cad, aba_list = st.tabs(["➕ Novo Registro / Pedido", "✏️ Tabela Editável (Edição Direta & Exclusão)"])
             
@@ -507,7 +505,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
                 grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
                 
-                tipo_registro = "VENDA" if menu_admin == "🛒 Registrar Venda" else "PEDIDO"
+                tipo_registro = "PEDIDO" if is_modo_pedido else "VENDA"
                 
                 with st.form("form_admin_pedido"):
                     col_a, col_b = st.columns(2)
@@ -515,12 +513,17 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         cli = st.selectbox("Selecione o Cliente", clientes_opt)
                         prod = st.selectbox("Selecione o Produto", produtos_opt)
                         qtd = st.number_input("Quantidade", min_value=0.1, step=0.5, value=1.0)
-                        v_unit = st.number_input("Valor Unitário (R$)", min_value=0.0, step=1.0, value=100.0)
+                        label_preco = "Preço Custo / Valor Compra (R$)" if is_modo_pedido else "Valor Venda (R$)"
+                        v_unit = st.number_input(label_preco, min_value=0.0, step=1.0, value=100.0)
                     with col_b:
                         fornec = st.selectbox("Selecione o Fornecedor", fornecedores_opt)
                         grupo = st.selectbox("Selecione o Grupo", grupos_opt)
-                        f_pag = st.selectbox("Forma de Pagamento", ["Dinheiro", "Crediário / Fiado", "Pix"])
-                        v_rec = st.number_input("Valor Recebido (R$)", min_value=0.0, step=1.0, value=v_unit * qtd)
+                        if not is_modo_pedido:
+                            f_pag = st.selectbox("Forma de Pagamento", ["Dinheiro", "Crediário / Fiado", "Pix"])
+                            v_rec = st.number_input("Valor Recebido (R$)", min_value=0.0, step=1.0, value=v_unit * qtd)
+                        else:
+                            f_pag = ""
+                            v_rec = 0.0
                     
                     if st.form_submit_button(f"Salvar como {tipo_registro}"):
                         salvar_pedido_ou_venda(cli, prod, fornec, grupo, qtd, v_unit, f_pag, v_rec, tipo=tipo_registro)
@@ -557,32 +560,44 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     
                     df_registros.insert(0, "Deletar", False)
                     
+                    # Configuração dinâmica das colunas dependendo da tela
+                    config_cols = {
+                        "Deletar": st.column_config.CheckboxColumn("Deletar", help="Marque para excluir o item"),
+                        "id": st.column_config.NumberColumn("ID", disabled=True),
+                        "cliente": st.column_config.TextColumn("Cliente"),
+                        "produto": st.column_config.TextColumn("Produto"),
+                        "fornecedor": st.column_config.TextColumn("Fornecedor"),
+                        "quantidade": st.column_config.NumberColumn("Qtd", min_value=0.0, format="%.2f"),
+                        "valor_total": st.column_config.NumberColumn("Valor Total", disabled=True, format="R$ %.2f"),
+                        "data": st.column_config.TextColumn("Data", disabled=True),
+                    }
+                    
+                    if is_modo_pedido:
+                        config_cols["valor_venda"] = st.column_config.NumberColumn("Preço Custo / Valor Compra", min_value=0.0, format="R$ %.2f")
+                        # Oculta colunas financeiras irrelevantes para orçamentos/pedidos
+                        for col_ocultar in ["forma_pagamento", "valor_recebido", "troco", "restante"]:
+                            if col_ocultar in df_registros.columns:
+                                df_registros = df_registros.drop(columns=[col_ocultar])
+                    else:
+                        config_cols["valor_venda"] = st.column_config.NumberColumn("Valor Venda", min_value=0.0, format="R$ %.2f")
+                        config_cols["forma_pagamento"] = st.column_config.SelectboxColumn("Forma Pagamento", options=["Dinheiro", "Crediário / Fiado", "Pix"])
+                        config_cols["valor_recebido"] = st.column_config.NumberColumn("Valor Recebido", min_value=0.0, format="R$ %.2f")
+
                     df_editado = st.data_editor(
                         df_registros,
-                        key="editor_registros_vendas",
+                        key=f"editor_registros_{menu_admin}",
                         use_container_width=True,
                         num_rows="fixed",
-                        column_config={
-                            "Deletar": st.column_config.CheckboxColumn("Deletar", help="Marque para excluir o item"),
-                            "id": st.column_config.NumberColumn("ID", disabled=True),
-                            "cliente": st.column_config.TextColumn("Cliente"),
-                            "produto": st.column_config.TextColumn("Produto"),
-                            "fornecedor": st.column_config.TextColumn("Fornecedor"),
-                            "quantidade": st.column_config.NumberColumn("Qtd", min_value=0.0, format="%.2f"),
-                            "valor_venda": st.column_config.NumberColumn("Valor Venda", min_value=0.0, format="R$ %.2f"),
-                            "valor_total": st.column_config.NumberColumn("Valor Total", disabled=True, format="R$ %.2f"),
-                            "forma_pagamento": st.column_config.SelectboxColumn("Forma Pagamento", options=["Dinheiro", "Crediário / Fiado", "Pix"]),
-                            "valor_recebido": st.column_config.NumberColumn("Valor Recebido", min_value=0.0, format="R$ %.2f"),
-                            "tipo": st.column_config.TextColumn("Tipo"),
-                            "codigo": st.column_config.TextColumn("Código"),
-                            "data": st.column_config.TextColumn("Data", disabled=True),
-                        },
+                        column_config=config_cols,
                         hide_index=True
                     )
                     
-                    if st.button("🔄 Atualizar Valores com Estoque Atual"):
-                        sincronizar_valores_com_estoque("vendas", "venda")
-                        st.success("Tabela atualizada com os preços atuais!")
+                    label_btn_sync = "🔄 Atualizar Preço de Custo / Valor da Compra" if is_modo_pedido else "🔄 Atualizar Valores com Estoque Atual"
+                    tipo_sync = "compra" if is_modo_pedido else "venda"
+                    
+                    if st.button(label_btn_sync):
+                        sincronizar_valores_com_estoque("vendas", tipo_sync)
+                        st.success("Tabela atualizada com os valores de estoque com sucesso!")
                         st.rerun()
 
                     c_btn1, c_btn2 = st.columns([1, 1])
@@ -593,6 +608,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             for _, row in df_editado.iterrows():
                                 if not row["Deletar"]:
                                     v_tot = float(row["quantidade"]) * float(row["valor_venda"])
+                                    
+                                    f_pag = str(row["forma_pagamento"]) if "forma_pagamento" in row else ""
+                                    v_rec = float(row["valor_recebido"]) if "valor_recebido" in row else 0.0
+                                    g_val = str(row["grupo"]) if "grupo" in row else ""
+                                    t_val = str(row["tipo"]) if "tipo" in row else ""
+                                    c_val = str(row["codigo"]) if "codigo" in row else ""
+
                                     cursor.execute("""
                                         UPDATE vendas 
                                         SET cliente = ?, produto = ?, fornecedor = ?, quantidade = ?, 
@@ -606,15 +628,15 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         float(row["quantidade"]),
                                         float(row["valor_venda"]),
                                         v_tot,
-                                        str(row["forma_pagamento"]),
-                                        float(row["valor_recebido"]),
-                                        str(row["grupo"]),
-                                        str(row["tipo"]),
-                                        str(row["codigo"]),
+                                        f_pag,
+                                        v_rec,
+                                        g_val,
+                                        t_val,
+                                        c_val,
                                         int(row["id"])
                                     ))
                             conn.commit()
-                            st.success("Todas as edições na tabela foram salvas no banco de dados!")
+                            st.success("Todas as edições na tabela foram salvas com sucesso!")
                             st.rerun()
 
                     with c_btn2:
@@ -628,7 +650,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 else:
                                     cursor.execute(f"DELETE FROM vendas WHERE id IN {ids_del}")
                                 conn.commit()
-                                st.warning(f"{len(ids_del)} registro(s) foram apagados do banco com sucesso!")
+                                st.warning(f"{len(ids_del)} registro(s) foram apagados com sucesso!")
                                 st.rerun()
 
                     st.markdown("---")
@@ -713,7 +735,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 col_forn = 'fornecedor' if 'fornecedor' in cols_atuais else None
                 col_grupo = 'grupo' if 'grupo' in cols_atuais else None
                 
-                # Identificação correta das colunas de preço com base na estrutura real do banco
                 col_pcusto = 'valor_compra' if 'valor_compra' in cols_atuais else ('preco_custo' if 'preco_custo' in cols_atuais else ('preco_compra' if 'preco_compra' in cols_atuais else None))
                 col_pvenda = 'valor_venda' if 'valor_venda' in cols_atuais else ('preco_venda' if 'preco_venda' in cols_atuais else None)
                 col_estoque = 'estoque_atual' if 'estoque_atual' in cols_atuais else ('quantidade' if 'quantidade' in cols_atuais else None)
