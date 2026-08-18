@@ -657,12 +657,10 @@ with col_b2:
                     linhas_afetadas = converter_pedido_completo_para_venda(cliente_sel)
                     st.success(f"Sucesso! {linhas_afetadas} registro(s) do cliente {cliente_sel} foram convertidos para VENDA!")
                     st.rerun()
-        else:
-                    st.info("Nenhum registro encontrado para o período e cliente selecionados.")
-
-        elif menu_admin == "📥 Entrada de Estoque (Compras)":
-            st.title("📥 Entrada de Estoque (Compras)")
-            aba_compra, aba_historico_compras = st.tabs(["➕ Dar Entrada em Estoque", "📜 Histórico de Entradas / Compras"])
+       
+elif menu_admin == "📥 Entrada de Estoque (Compras)":
+    st.title("📥 Entrada de Estoque (Compras)")
+    aba_compra, aba_historico_compras = st.tabs(["➕ Dar Entrada em Estoque", "📜 Histórico de Entradas / Compras"])
             
             produtos_opt = carregar_coluna("produtos", "nome") or ["AMEIXA IMPORTADA", "ABACATE"]
             fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
