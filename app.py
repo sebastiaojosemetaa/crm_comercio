@@ -685,11 +685,9 @@ if st.form_submit_button("Registrar Entrada no Estoque"):
 with aba_historico_compras:
                 st.dataframe(carregar_dados("SELECT * FROM compras"), use_container_width=True)
 
-elif menu_admin == "📦 Estoque de Produtos":
-            st.title("📦 Estoque de Produtos e Preços")
-            
-            df_prods = carregar_dados("SELECT * FROM produtos")
-            
+if menu_admin == "📦 Estoque de Produtos":
+    st.title("📦 Estoque de Produtos e Preços")
+    df_prods = carregar_dados("SELECT * FROM produtos")            
             if not df_prods.empty:
                 cols_atuais = df_prods.columns.tolist()
                 
