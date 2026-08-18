@@ -688,7 +688,7 @@ with aba_historico_compras:
 if menu_admin == "📦 Estoque de Produtos":
     st.title("📦 Estoque de Produtos e Preços")
     df_prods = carregar_dados("SELECT * FROM produtos")            
-            if not df_prods.empty:
+if not df_prods.empty:
                 cols_atuais = df_prods.columns.tolist()
                 
                 col_id = 'id' if 'id' in cols_atuais else cols_atuais[0]
