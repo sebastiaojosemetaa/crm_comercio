@@ -117,7 +117,7 @@ def carregar_coluna(tabela, coluna):
 
 def obter_preco_produto(nome_produto, campo="preco_venda"):
     cursor = conn.cursor()
-    cursor.execute(f"SELECT {campo} FROM produtos WHERE TRIM(nome) = TRIM(?)", (nome_produto,))
+    cursor.execute(f"SELECT {campo} FROM produtos WHERE TRIM(nome) = TRIM(?)", (nome_produto.strip(),))
     res = cursor.fetchone()
     return res[0] if res else 0.0
 
@@ -155,11 +155,9 @@ def salvar_produto_completo(nome, fornecedor, grupo, preco_custo, preco_venda, e
 def salvar_alteracoes_lote_vendas(df_editado):
     cursor = conn.cursor()
     for _, row in df_editado.iterrows():
-        # Trata exclusão se marcado na tabela
         if "Deletar" in row and row["Deletar"] == True:
             cursor.execute("DELETE FROM vendas WHERE id = ?", (int(row["id"]),))
         else:
-            # Garante que os valores numéricos estejam corretos
             qtd = float(row.get("quantidade", 0))
             v_venda = float(row.get("valor_venda", 0))
             v_total = qtd * v_venda
@@ -214,18 +212,8 @@ def salvar_pedido_ou_venda(cliente, produto, fornecedor, grupo, quantidade, valo
     """, (cliente.strip(), produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, v_rec, troco, restante, tipo, cod_status, data_atual))
     conn.commit()
 
-def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo):
-    cursor = conn.cursor()
-    valor_total = quantidade * valor_custo
-    data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    cursor.execute("""
-        INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data_atual))
-    conn.commit()
-
 # -----------------------------------------------------------------------------
-# 4. GERADOR DE PDF (CORRIGIDO E FINALIZADO)
+# 4. GERADOR DE PDF (CORRIGIDO)
 # -----------------------------------------------------------------------------
 def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
     buffer = io.BytesIO()
@@ -233,7 +221,7 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
     elements = []
     styles = getSampleStyleSheet()
     
-    style_empresa = ParagraphStyle('EmpresaStyle', parent=styles['Heading1'], fontName='Helvetica-Boyd', fontSize=20, leading=22, alignment=1, textColor=colors.black)
+    style_empresa = ParagraphStyle('EmpresaStyle', parent=styles['Heading1'], fontName='Helvetica-Bold', fontSize=20, leading=22, alignment=1, textColor=colors.black)
     style_sub = ParagraphStyle('SubStyle', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=10, leading=12, alignment=1)
     
     elements.append(Paragraph("<b>REY DA CEBOLA - CRM COMÉRCIO</b>", style_empresa))
@@ -241,7 +229,6 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
     elements.append(Paragraph(f"Relatório de Movimentações - Cliente: {cliente_nome}", style_sub))
     elements.append(Spacer(1, 15))
     
-    # Montagem dos dados da tabela para o PDF
     lista_dados = [["ID", "Produto", "Qtd", "Preço Un.", "Total", "Forma Pag."]]
     for _, r in df_dados.iterrows():
         lista_dados.append([
@@ -251,3 +238,21 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
             f"R$ {r.get('valor_venda', 0):.2f}",
             f"R$ {r.get('valor_total', 0):.2f}",
             str(r.get('forma_pagamento', ''))
+        ])
+        
+    t = Table(lista_dados, colWidths=[40, 150, 50, 80, 80, 120])
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.grey),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('BOTTOMPADDING', (0,0), (-1,0), 6),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.black)
+    ]))
+    elements.append(t)
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
+
+# -----------------------------------------------------------------------------
+# 5. INTERFACE DO USUÁRIO (STREAMLIT)
