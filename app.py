@@ -569,11 +569,12 @@ if not df_registros.empty:
                     )
                     
 if st.button("🔄 Atualizar Valores com Estoque Atual"):
-        sincronizar_valores_com_estoque("vendas", "venda")
-        st.success("Tabela atualizada com os preços atuais!")
-        st.rerun()
-        c_btn1, c_btn2 = st.columns([1, 1])
-                    
+    sincronizar_valores_com_estoque("vendas", "venda")
+    st.success("Tabela atualizada com os preços atuais!")
+    st.rerun()
+
+c_btn1, c_btn2 = st.columns([1, 1])
+
 with c_btn1:
     if st.button("💾 Salvar Alterações Feitas na Tabela", type="primary"):
                             cursor = conn.cursor()
