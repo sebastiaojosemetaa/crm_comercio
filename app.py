@@ -51,6 +51,20 @@ def adequar_banco_e_migrar():
         )
     """)
 
+    # Garante que as colunas essenciais existam na tabela produtos caso o banco seja antigo
+    cursor.execute("PRAGMA table_info(produtos)")
+    cols_prod = [col[1] for col in cursor.fetchall()]
+    if "fornecedor" not in cols_prod:
+        cursor.execute("ALTER TABLE produtos ADD COLUMN fornecedor TEXT DEFAULT 'Geral'")
+    if "grupo" not in cols_prod:
+        cursor.execute("ALTER TABLE produtos ADD COLUMN grupo TEXT DEFAULT 'Geral'")
+    if "valor_compra" not in cols_prod:
+        cursor.execute("ALTER TABLE produtos ADD COLUMN valor_compra REAL DEFAULT 0.0")
+    if "valor_venda" not in cols_prod:
+        cursor.execute("ALTER TABLE produtos ADD COLUMN valor_venda REAL DEFAULT 0.0")
+    if "quantidade" not in cols_prod:
+        cursor.execute("ALTER TABLE produtos ADD COLUMN quantidade REAL DEFAULT 0.0")
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS clientes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -261,7 +275,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         )
         
         # ==========================================
-        # PDV — FRENTE DE CAIXA (COM MAPEAMENTO SEGURO)
+        # PDV — FRENTE DE CAIXA
         # ==========================================
         if menu_admin == "🛒 PDV — Frente de Caixa":
             st.title("🛒 PDV — Frente de Caixa (Balcão)")
@@ -272,11 +286,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.warning("⚠️ Nenhum produto cadastrado no estoque.")
             else:
                 cols_p = df_produtos_pdv.columns.tolist()
-                col_nome_prod = 'produto' if 'produto' in cols_p else ('nome' if 'nome' in cols_p else cols_p[1])
+                col_nome_prod = 'produto' if 'produto' in cols_p else cols_p[1]
                 p_venda_col = 'valor_venda' if 'valor_venda' in cols_p else cols_p[-2]
-                est_col = 'quantidade' if 'quantidade' in cols_p else ('estoque_atual' if 'estoque_atual' in cols_p else cols_p[2])
-                forn_col = 'fornecedor' if 'fornecedor' in cols_p else cols_p[min(3, len(cols_p)-1)]
-                grupo_col = 'grupo' if 'grupo' in cols_p else 'GERAL'
+                est_col = 'quantidade' if 'quantidade' in cols_p else cols_p[2]
 
                 col_pdv1, col_pdv2 = st.columns([1.2, 0.8])
                 with col_pdv1:
@@ -286,18 +298,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     
                     dados_p = df_produtos_pdv[df_produtos_pdv[col_nome_prod].astype(str).str.strip() == str(prod_escolhido).strip()].iloc[0]
                     
-                    try:
-                        preco_sugerido = float(dados_p[p_venda_col])
-                    except Exception:
-                        preco_sugerido = 0.0
-
-                    try:
-                        estoque_disp = float(dados_p[est_col])
-                    except Exception:
-                        estoque_disp = 0.0
-
-                    forn_prod = str(dados_p.get(forn_col, 'Geral'))
-                    grupo_prod = str(dados_p.get(grupo_col, 'GERAL'))
+                    preco_sugerido = float(dados_p.get(p_venda_col, 0.0))
+                    estoque_disp = float(dados_p.get(est_col, 0.0))
+                    forn_prod = str(dados_p.get('fornecedor', 'Geral'))
+                    grupo_prod = str(dados_p.get('grupo', 'Geral'))
                     
                     st.caption(f"📦 **Estoque Disponível:** {estoque_disp:,.2f} | 🏢 **Fornecedor:** {forn_prod}")
                     
@@ -432,7 +436,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 if st.button("💾 Salvar Alterações no Estoque", type="primary"):
                     cursor = conn.cursor()
                     for _, row in df_editado_estoque.iterrows():
-                        if row["Deletar"]:
+                        if row.get("Deletar", False):
                             cursor.execute("DELETE FROM produtos WHERE id = ?", (int(row["id"]),))
                         else:
                             cursor.execute("""
@@ -440,12 +444,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 SET produto = ?, fornecedor = ?, grupo = ?, valor_compra = ?, valor_venda = ?, quantidade = ?
                                 WHERE id = ?
                             """, (
-                                str(row["produto"]).strip(),
-                                str(row["fornecedor"]),
-                                str(row["grupo"]),
-                                float(row["valor_compra"]),
-                                float(row["valor_venda"]),
-                                float(row["quantidade"]),
+                                str(row.get("produto", "")).strip(),
+                                str(row.get("fornecedor", "Geral")),
+                                str(row.get("grupo", "Geral")),
+                                float(row.get("valor_compra", 0.0)),
+                                float(row.get("valor_venda", 0.0)),
+                                float(row.get("quantidade", 0.0)),
                                 int(row["id"])
                             ))
                     conn.commit()
