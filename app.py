@@ -507,11 +507,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
             st.markdown("#### ➕ Adicionar Item ao Carrinho")
             
-            col_s1, col_s2, col_s3 = st.columns(3)
-            with col_s1:
-                prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto")
+            # --- BUSCA ROBUSTA DOS DADOS DO PRODUTO SELECIONADO ---
+            prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto")
             
-            # BUSCA ULTRA ROBUSTA: INSPECIONA TODAS AS COLUNAS DA TABELA PRODUTOS
             df_prod_info = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_item}')")
             sugestao_preco = 0.0
             sugestao_fornec = fornecedores_opt[0] if fornecedores_opt else ""
@@ -521,11 +519,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 linha_prod = df_prod_info.iloc[0]
                 cols_p = df_prod_info.columns.tolist()
                 
-                # Varre todas as colunas procurando a que representa o preço de venda
+                # Procura explicitamente pelo preço de venda
                 for c in cols_p:
                     c_lower = str(c).lower()
                     if any(termo in c_lower for termo in ['venda', 'preco', 'preço', 'valor']):
-                        # Evita pegar o valor de compra se houver distinção clara
                         if 'compra' not in c_lower and 'custo' not in c_lower:
                             try:
                                 val_tentativa = float(linha_prod[c])
@@ -535,7 +532,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             except:
                                 pass
                 
-                # Se ainda estiver zero, pega qualquer coluna numérica que não seja o ID
                 if sugestao_preco == 0.0:
                     for c in cols_p:
                         if c.lower() != 'id':
@@ -556,19 +552,26 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         sugestao_grupo = str(linha_prod[col_g])
                         break
 
+            # Armazena os valores default atualizados no session_state para alimentar o formulário corretamente
+            if 'pdv_last_prod' not in st.session_state or st.session_state.pdv_last_prod != prod_item:
+                st.session_state.pdv_last_prod = prod_item
+                st.session_state.pdv_preco_val = float(sugestao_preco)
+                st.session_state.pdv_forn_val = sugestao_fornec
+                st.session_state.pdv_grupo_val = sugestao_grupo
+
             with st.form("form_adicionar_item_pdv", clear_on_submit=False):
                 col_i1, col_i2, col_i3 = st.columns(3)
                 with col_i1:
                     qtd_item = st.number_input("Quantidade", min_value=0.1, step=1.0, value=1.0, key="pdv_qtd")
                 
                 with col_i2:
-                    idx_f = fornecedores_opt.index(sugestao_fornec) if sugestao_fornec in fornecedores_opt else 0
+                    idx_f = fornecedores_opt.index(st.session_state.pdv_forn_val) if st.session_state.pdv_forn_val in fornecedores_opt else 0
                     fornec_item = st.selectbox("Fornecedor", fornecedores_opt, index=idx_f, key="pdv_forn")
                     
-                    v_unit_item = st.number_input("Valor Unitário (R$)", min_value=0.0, step=1.0, value=float(sugestao_preco), key="pdv_v_unit")
+                    v_unit_item = st.number_input("Preço de Venda (R$)", min_value=0.0, step=1.0, value=st.session_state.pdv_preco_val, key="pdv_v_unit")
                 
                 with col_i3:
-                    idx_g = grupos_opt.index(sugestao_grupo) if sugestao_grupo in grupos_opt else 0
+                    idx_g = grupos_opt.index(st.session_state.pdv_grupo_val) if st.session_state.pdv_grupo_val in grupos_opt else 0
                     grupo_item = st.selectbox("Grupo", grupos_opt, index=idx_g, key="pdv_grupo")
                     
                     valor_total_item = qtd_item * v_unit_item
