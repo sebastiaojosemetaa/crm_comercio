@@ -868,7 +868,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             cols_p = df_prod_pdv.columns.tolist()
             col_p_nome = 'nome' if 'nome' in cols_p else cols_p[1]
             lista_prods_pdv = df_prod_pdv[col_p_nome].dropna().astype(str).tolist()
-                    with st.form("form_venda_pdv_rapido", clear_on_submit=True):
+            
+            with st.form("form_venda_pdv_rapido", clear_on_submit=True):
                         col_p1, col_p2 = st.columns(2)
                         with col_p1:
                             cli_pdv = st.selectbox("Cliente", clientes_opt, key="pdv_cliente")
