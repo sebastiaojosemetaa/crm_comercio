@@ -511,7 +511,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             with col_s1:
                 prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto")
             
-            # BUSCA ROBUSTA: INSPECIONA TODAS AS COLUNAS DA TABELA PRODUTOS PARA PUXAR O PREÇO DE VENDA
+            # BUSCA ROBUSTA CORRIGIDA: PUXA TODOS OS DADOS DA TABELA PRODUTOS PARA GARANTIR O PREÇO
             df_prod_info = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_item}')")
             sugestao_preco = 0.0
             sugestao_fornec = fornecedores_opt[0] if fornecedores_opt else ""
