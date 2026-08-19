@@ -459,29 +459,32 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 with col_pdv1:
                     st.subheader("🛍️ Lançamento do Item")
                     
+                    cli_pdv = st.selectbox("Selecione o Cliente / Comprador:", lista_clientes_pdv, key="pdv_cliente")
                     prod_nomes = df_produtos_pdv[col_nome_prod].dropna().astype(str).tolist()
                     prod_escolhido = st.selectbox("Selecione ou Busque o Produto:", prod_nomes, key="pdv_produto")
                     
                     dados_p = df_produtos_pdv[df_produtos_pdv[col_nome_prod].astype(str).str.strip() == str(prod_escolhido).strip()].iloc[0]
                     
                     p_venda_col = 'valor_venda' if 'valor_venda' in cols_p else cols_p[-2]
-    est_col = 'estoque_atual' if 'estoque_atual' in cols_p else cols_p[-1]
-    forn_col = 'fornecedor' if 'fornecedor' in cols_p else cols_p[min(2, len(cols_p)-1)]
+                    est_col = 'estoque_atual' if 'estoque_atual' in cols_p else cols_p[-1]
+                    forn_col = 'fornecedor' if 'fornecedor' in cols_p else cols_p[min(2, len(cols_p)-1)]
 
-    try:
-        preco_sugerido = float(dados_p[p_venda_col])
-    except Exception:
-        preco_sugerido = 0.0
+                    try:
+                        preco_sugerido = float(dados_p[p_venda_col])
+                    except Exception:
+                        preco_sugerido = 0.0
 
-    try:
-        estoque_disp = float(dados_p[est_col])
-    except Exception:
-        estoque_disp = 0.0
+                    try:
+                        estoque_disp = float(dados_p[est_col])
+                    except Exception:
+                        estoque_disp = 0.0
 
-    forn_prod = str(dados_p.get(forn_col, 'Geral'))
-    grupo_prod = str(dados_p.get('grupo', 'GERAL')) if 'grupo' in cols_p else 'GERAL'
-    
-    st.caption(f"📦 **Estoque Disponível:** {estoque_disp:,.2f} | 🏢 **Fornecedor:** {forn_prod}")
+                    forn_prod = str(dados_p.get(forn_col, 'Geral'))
+                    grupo_prod = str(dados_p.get('grupo', 'GERAL')) if 'grupo' in cols_p else 'GERAL'
+                    
+                    st.caption(f"📦 **Estoque Disponível:** {estoque_disp:,.2f} | 🏢 **Fornecedor:** {forn_prod}")
+                    
+                    col_q, col_v = st.columns(2)
                     with col_q:
                         qtd_pdv = st.number_input("Quantidade", min_value=0.01, step=1.0, value=1.0, key="pdv_qtd")
                     with col_v:
