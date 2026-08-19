@@ -125,9 +125,9 @@ def sincronizar_valores_com_estoque(tabela_alvo, tipo_preco="venda"):
     col_p_nome = 'nome' if 'nome' in cols_prod else cols_prod[1]
     
     if tipo_preco == "venda":
-        col_p_preco = 'valor_venda' if 'valor_venda' in cols_prod else ('preco_venda' if 'preco_venda' in cols_prod else [c for c in cols_prod if 'venda' in c or 'preco' in c][-1])
+        col_p_preco = 'valor_venda' if 'valor_venda' in cols_prod else cols_prod[-2]
     else:
-        col_p_preco = 'valor_compra' if 'valor_compra' in cols_prod else ('preco_custo' if 'preco_custo' in cols_prod else [c for c in cols_prod if 'custo' in c or 'compra' in c][-1])
+        col_p_preco = 'valor_compra' if 'valor_compra' in cols_prod else cols_prod[-3]
 
     df_registros = carregar_dados(f"SELECT id, produto, quantidade as qtd FROM {tabela_alvo}")
     
@@ -464,13 +464,21 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     
                     dados_p = df_produtos_pdv[df_produtos_pdv[col_nome_prod].astype(str).str.strip() == str(prod_escolhido).strip()].iloc[0]
                     
-                    # Garantia robusta para as colunas de preço e estoque
-                    p_venda_col = 'valor_venda' if 'valor_venda' in cols_p else ([c for c in cols_p if 'venda' in c or 'preco' in c] or [cols_p[-1]])[-1]
-                    est_col = 'estoque_atual' if 'estoque_atual' in cols_p else ([c for c in cols_p if 'estoque' in c] or [cols_p[-1]])[-1]
+                    # Garantia blindada para encontrar preço e estoque corretamente
+                    p_venda_col = 'valor_venda' if 'valor_venda' in cols_p else cols_p[-2]
+                    est_col = 'estoque_atual' if 'estoque_atual' in cols_p else cols_p[-1]
                     forn_col = 'fornecedor' if 'fornecedor' in cols_p else cols_p[min(2, len(cols_p)-1)]
                     
-                    preco_sugerido = float(dados_p.get(p_venda_col, 0.0))
-                    estoque_disp = float(dados_p.get(est_col, 0.0))
+                    try:
+                        preco_sugerido = float(dados_p[p_venda_col])
+                    except Exception:
+                        preco_sugerido = 0.0
+
+                    try:
+                        estoque_disp = float(dados_p[est_col])
+                    except Exception:
+                        estoque_disp = 0.0
+
                     forn_prod = str(dados_p.get(forn_col, 'Geral'))
                     grupo_prod = str(dados_p.get('grupo', 'GERAL')) if 'grupo' in cols_p else 'GERAL'
                     
