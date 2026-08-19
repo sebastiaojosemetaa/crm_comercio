@@ -512,7 +512,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             with col_s1:
                 prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto")
             
-            # Busca robusta do preço de venda na tabela produtos
+            # BUSCA ROBUSTA CORRIGIDA PARA O PREÇO DE VENDA
             df_prod_info = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_item}')")
             sugestao_preco = 0.0
             sugestao_fornec = fornecedores_opt[0] if fornecedores_opt else ""
@@ -520,26 +520,34 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
             if not df_prod_info.empty:
                 cols_p = df_prod_info.columns.tolist()
-                # Tenta localizar dinamicamente a coluna de preço de venda (seja valor_venda, preco_venda, etc.)
+                
+                # Procura exata ou parcial pela coluna de valor/preço de venda
                 col_pv = None
-                for c in ['valor_venda', 'preco_venda', 'venda', 'preco']:
-                    if c in cols_p:
+                for c in cols_p:
+                    c_lower = c.lower()
+                    if 'valor_venda' in c_lower or 'preco_venda' in c_lower or c_lower == 'venda' or ('venda' in c_lower and 'preço' in c_lower):
                         col_pv = c
                         break
+                
                 if not col_pv:
-                    # Pega a última coluna numérica ou qualquer uma que pareça preço
-                    col_pv = [c for c in cols_p if 'venda' in c.lower() or 'preco' in c.lower()]
-                    col_pv = col_pv[-1] if col_pv else cols_p[-1]
+                    # Fallback geral procurando qualquer coluna que tenha 'venda' ou 'preco'
+                    candidatas = [c for c in cols_p if 'venda' in c.lower() or 'preco' in c.lower() or 'valor' in c.lower()]
+                    col_pv = candidatas[-1] if candidatas else cols_p[-1]
                 
                 try:
                     sugestao_preco = float(df_prod_info.iloc[0][col_pv])
                 except Exception:
                     sugestao_preco = 0.0
 
-                if 'fornecedor' in cols_p and pd.notna(df_prod_info.iloc[0]['fornecedor']):
-                    sugestao_fornec = str(df_prod_info.iloc[0]['fornecedor'])
-                if 'grupo' in cols_p and pd.notna(df_prod_info.iloc[0]['grupo']):
-                    sugestao_grupo = str(df_prod_info.iloc[0]['grupo'])
+                for col_f in ['fornecedor', 'Fornecedor']:
+                    if col_f in cols_p and pd.notna(df_prod_info.iloc[0][col_f]):
+                        sugestao_fornec = str(df_prod_info.iloc[0][col_f])
+                        break
+                
+                for col_g in ['grupo', 'Grupo']:
+                    if col_g in cols_p and pd.notna(df_prod_info.iloc[0][col_g]):
+                        sugestao_grupo = str(df_prod_info.iloc[0][col_g])
+                        break
 
             with st.form("form_adicionar_item_pdv", clear_on_submit=False):
                 col_i1, col_i2, col_i3 = st.columns(3)
