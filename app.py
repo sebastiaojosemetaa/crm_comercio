@@ -511,9 +511,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             with col_s1:
                 prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto")
             
-            # BUSCA ULTRA-ROBUSTA DOS DADOS DO PRODUTO SELECIONADO
+            # BUSCA ESPECÍFICA DO PREÇO DE VENDA NA TABELA DE PRODUTOS
             df_prod_info = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_item}')")
-            sugestao_preco = 10.0  # Valor padrão caso venha zerado ou vazio
+            sugestao_preco = 10.0
             sugestao_fornec = fornecedores_opt[0]
             sugestao_grupo = grupos_opt[0]
             
@@ -521,12 +521,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 linha_prod = df_prod_info.iloc[0]
                 cols_p = df_prod_info.columns.tolist()
                 
-                # Procura qualquer coluna que tenha o preço de venda ou similar
-                for c in cols_p:
-                    c_lower = str(c).lower()
-                    if any(termo in c_lower for termo in ['venda', 'preco', 'preço', 'valor', 'custo']) and 'estoque' not in c_lower and 'id' not in c_lower:
+                # Prioriza estritamente as colunas oficiais de venda do estoque
+                for col_v in ['valor_venda', 'preco_venda']:
+                    if col_v in cols_p and pd.notna(linha_prod[col_v]):
                         try:
-                            val = float(linha_prod[c])
+                            val = float(linha_prod[col_v])
                             if val > 0:
                                 sugestao_preco = val
                                 break
