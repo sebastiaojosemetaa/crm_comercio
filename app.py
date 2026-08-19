@@ -21,7 +21,7 @@ conn = get_connection()
 def adequar_banco_e_migrar():
     cursor = conn.cursor()
     
-    # Criação das tabelas base
+    # Tabela de Vendas
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS vendas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -40,7 +40,6 @@ def adequar_banco_e_migrar():
         )
     """)
 
-    # Migração segura para garantir colunas na tabela vendas caso o banco seja antigo
     cursor.execute("PRAGMA table_info(vendas)")
     cols_venda = [col[1] for col in cursor.fetchall()]
     if "fornecedor" not in cols_venda:
@@ -57,6 +56,19 @@ def adequar_banco_e_migrar():
         cursor.execute("ALTER TABLE vendas ADD COLUMN codigo TEXT DEFAULT 'PED'")
     if "data" not in cols_venda:
         cursor.execute("ALTER TABLE vendas ADD COLUMN data TEXT")
+
+    # Tabela de Controle de Caixa (Abertura e Fechamento)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS caixa_sessoes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            data_abertura TEXT,
+            valor_abertura REAL,
+            data_fechamento TEXT,
+            valor_fechamento REAL,
+            total_vendas REAL,
+            status TEXT DEFAULT 'ABERTO'
+        )
+    """)
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS produtos (
@@ -283,6 +295,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         menu_admin = st.sidebar.radio(
             "Navegação",
             [
+                "🔓 Abertura e Fechamento de Caixa",
                 "🛒 PDV — Frente de Caixa",
                 "📊 Fechamento & Financeiro",
                 "📋 Pedidos / Orçamentos",
@@ -293,81 +306,151 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         )
         
         # ==========================================
-        # PDV — FRENTE DE CAIXA
+        # 🔓 ABERTURA E FECHAMENTO DE CAIXA
         # ==========================================
-        if menu_admin == "🛒 PDV — Frente de Caixa":
-            st.title("🛒 PDV — Frente de Caixa (Balcão)")
-            df_produtos_pdv = carregar_dados("SELECT * FROM produtos")
-            lista_clientes_pdv = carregar_coluna("clientes", "nome") or ["Cliente Balcão / Geral"]
+        if menu_admin == "🔓 Abertura e Fechamento de Caixa":
+            st.title("🔓 Controle de Caixa (Abertura / Fechamento)")
             
-            if df_produtos_pdv.empty:
-                st.warning("⚠️ Nenhum produto cadastrado no estoque.")
+            df_caixa_aberto = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO' ORDER BY id DESC LIMIT 1")
+            caixa_esta_aberto = not df_caixa_aberto.empty
+            
+            if not caixa_esta_aberto:
+                st.warning("⚠️ O caixa encontra-se **FECHADO**. Para realizar vendas no PDV, abra o caixa abaixo.")
+                with st.form("form_abrir_caixa"):
+                    val_inicial = st.number_input("Valor Inicial / Fundo de Troco (R$)", min_value=0.0, value=0.0, step=10.0)
+                    btn_abrir = st.form_submit_button("🚀 Abrir Caixa", type="primary")
+                    
+                    if btn_abrir:
+                        cursor = conn.cursor()
+                        data_h = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        cursor.execute("INSERT INTO caixa_sessoes (data_abertura, valor_abertura, status) VALUES (?, ?, 'ABERTO')", (data_h, val_inicial))
+                        conn.commit()
+                        st.success("✅ Caixa aberto com sucesso!")
+                        st.rerun()
             else:
-                cols_p = df_produtos_pdv.columns.tolist()
-                col_nome_prod = 'produto' if 'produto' in cols_p else cols_p[1]
-                p_venda_col = 'valor_venda' if 'valor_venda' in cols_p else cols_p[-2]
-                est_col = 'quantidade' if 'quantidade' in cols_p else cols_p[2]
+                sessao_atual = df_caixa_aberto.iloc[0]
+                id_sessao = sessao_atual["id"]
+                data_abertura = sessao_atual["data_abertura"]
+                val_inicial = sessao_atual["valor_abertura"]
+                
+                st.success(f"🟢 Caixa **ABERTO** desde {data_abertura} (Fundo inicial: R$ {val_inicial:,.2f})")
+                
+                # Calcular total de vendas realizadas após a abertura
+                df_vendas_periodo = carregar_dados(f"SELECT * FROM vendas WHERE tipo = 'VENDA' AND data >= '{data_abertura}'")
+                total_vendas_periodo = df_vendas_periodo['valor_total'].sum() if not df_vendas_periodo.empty else 0.0
+                
+                st.metric("Total de Vendas no Caixa Atual", f"R$ {total_vendas_periodo:,.2f}")
+                
+                if not df_vendas_periodo.empty:
+                    st.subheader("Vendas registradas nesta sessão:")
+                    st.dataframe(df_vendas_periodo[['id', 'cliente', 'produto', 'quantidade', 'valor_total', 'forma_pagamento', 'data']], use_container_width=True)
+                
+                st.markdown("---")
+                st.subheader("🔒 Fechamento de Caixa")
+                with st.form("form_fechar_caixa"):
+                    val_contado = st.number_input("Valor Total Apurado no Caixa (Dinheiro em gaveta + Cartões/Pix, se aplicável)", min_value=0.0, value=float(val_inicial + total_vendas_periodo), step=10.0)
+                    btn_fechar = st.form_submit_button("🔴 Fechar Caixa", type="primary")
+                    
+                    if btn_fechar:
+                        cursor = conn.cursor()
+                        data_f = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        cursor.execute("""
+                            UPDATE caixa_sessoes 
+                            SET data_fechamento = ?, valor_fechamento = ?, total_vendas = ?, status = 'FECHADO'
+                            WHERE id = ?
+                        """, (data_f, val_contado, float(total_vendas_periodo), int(id_sessao)))
+                        conn.commit()
+                        st.success("✅ Caixa fechado com sucesso!")
+                        st.rerun()
+            
+            st.markdown("---")
+            st.subheader("📜 Histórico de Caixas Anteriores")
+            df_historico = carregar_dados("SELECT * FROM caixa_sessoes ORDER BY id DESC LIMIT 10")
+            if not df_historico.empty:
+                st.dataframe(df_historico, use_container_width=True)
 
-                col_pdv1, col_pdv2 = st.columns([1.2, 0.8])
-                with col_pdv1:
-                    cli_pdv = st.selectbox("Cliente:", lista_clientes_pdv)
-                    prod_nomes = df_produtos_pdv[col_nome_prod].dropna().astype(str).tolist()
-                    prod_escolhido = st.selectbox("Produto:", prod_nomes)
-                    
-                    dados_p = df_produtos_pdv[df_produtos_pdv[col_nome_prod].astype(str).str.strip() == str(prod_escolhido).strip()].iloc[0]
-                    
-                    preco_sugerido = float(dados_p.get(p_venda_col, 0.0))
-                    estoque_disp = float(dados_p.get(est_col, 0.0))
-                    forn_prod = str(dados_p.get('fornecedor', 'Geral'))
-                    grupo_prod = str(dados_p.get('grupo', 'Geral'))
-                    
-                    st.caption(f"📦 **Estoque Disponível:** {estoque_disp:,.2f} | 🏢 **Fornecedor:** {forn_prod}")
-                    
-                    col_q, col_v = st.columns(2)
-                    with col_q:
-                        qtd_pdv = st.number_input("Quantidade", min_value=0.01, step=1.0, value=1.0)
-                    with col_v:
-                        valor_unit_pdv = st.number_input("Preço Unitário (R$)", min_value=0.0, step=1.0, value=preco_sugerido)
-                    
-                    subtotal_pdv = qtd_pdv * valor_unit_pdv
-                    st.markdown(f"### Total: **R$ {subtotal_pdv:,.2f}**")
-                    
-                    forma_pgto_pdv = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito", "Crediário / Fiado"])
-                    val_recebido_pdv = subtotal_pdv
-                    if forma_pgto_pdv == "Dinheiro":
-                        val_recebido_pdv = st.number_input("Dinheiro Recebido (R$)", min_value=0.0, step=5.0, value=subtotal_pdv)
-                        troco_pdv = val_recebido_pdv - subtotal_pdv
-                        if troco_pdv >= 0:
-                            st.success(f"💵 **Troco:** R$ {troco_pdv:,.2f}")
-                        else:
-                            st.error(f"⚠️ Valor menor que o total!")
+        # ==========================================
+        # 🛒 PDV — FRENTE DE CAIXA
+        # ==========================================
+        elif menu_admin == "🛒 PDV — Frente de Caixa":
+            st.title("🛒 PDV — Frente de Caixa (Balcão)")
+            
+            # Validação se o caixa está aberto
+            df_caixa_aberto = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO' LIMIT 1")
+            if df_caixa_aberto.empty:
+                st.error("⚠️ O caixa está **FECHADO**. Vá até a opção **'🔓 Abertura e Fechamento de Caixa'** no menu lateral para abri-lo antes de realizar vendas.")
+            else:
+                df_produtos_pdv = carregar_dados("SELECT * FROM produtos")
+                lista_clientes_pdv = carregar_coluna("clientes", "nome") or ["Cliente Balcão / Geral"]
+                
+                if df_produtos_pdv.empty:
+                    st.warning("⚠️ Nenhum produto cadastrado no estoque.")
+                else:
+                    cols_p = df_produtos_pdv.columns.tolist()
+                    col_nome_prod = 'produto' if 'produto' in cols_p else cols_p[1]
+                    p_venda_col = 'valor_venda' if 'valor_venda' in cols_p else cols_p[-2]
+                    est_col = 'quantidade' if 'quantidade' in cols_p else cols_p[2]
 
-                    if st.button("🚀 Finalizar Venda", type="primary", use_container_width=True):
-                        if estoque_disp < qtd_pdv:
-                            st.error(f"⚠️ Estoque insuficiente! Disponível: {estoque_disp}")
-                        else:
-                            salvar_pedido_ou_venda(
-                                cliente=cli_pdv,
-                                produto=prod_escolhido,
-                                fornecedor=forn_prod,
-                                grupo=grupo_prod,
-                                quantidade=qtd_pdv,
-                                valor_venda=valor_unit_pdv,
-                                forma_pagamento=forma_pgto_pdv,
-                                valor_recebido=val_recebido_pdv,
-                                tipo="VENDA"
-                            )
-                            cursor = conn.cursor()
-                            cursor.execute(f"UPDATE produtos SET {est_col} = {est_col} - ? WHERE TRIM({col_nome_prod}) = TRIM(?)", (qtd_pdv, prod_escolhido))
-                            conn.commit()
-                            st.success(f"✅ Venda de {prod_escolhido} concluída com sucesso!")
-                            st.balloons()
+                    col_pdv1, col_pdv2 = st.columns([1.2, 0.8])
+                    with col_pdv1:
+                        cli_pdv = st.selectbox("Cliente:", lista_clientes_pdv)
+                        prod_nomes = df_produtos_pdv[col_nome_prod].dropna().astype(str).tolist()
+                        prod_escolhido = st.selectbox("Produto:", prod_nomes)
+                        
+                        dados_p = df_produtos_pdv[df_produtos_pdv[col_nome_prod].astype(str).str.strip() == str(prod_escolhido).strip()].iloc[0]
+                        
+                        preco_sugerido = float(dados_p.get(p_venda_col, 0.0))
+                        estoque_disp = float(dados_p.get(est_col, 0.0))
+                        forn_prod = str(dados_p.get('fornecedor', 'Geral'))
+                        grupo_prod = str(dados_p.get('grupo', 'Geral'))
+                        
+                        st.caption(f"📦 **Estoque Disponível:** {estoque_disp:,.2f} | 🏢 **Fornecedor:** {forn_prod}")
+                        
+                        col_q, col_v = st.columns(2)
+                        with col_q:
+                            qtd_pdv = st.number_input("Quantidade", min_value=0.01, step=1.0, value=1.0)
+                        with col_v:
+                            valor_unit_pdv = st.number_input("Preço Unitário (R$)", min_value=0.0, step=1.0, value=preco_sugerido)
+                        
+                        subtotal_pdv = qtd_pdv * valor_unit_pdv
+                        st.markdown(f"### Total: **R$ {subtotal_pdv:,.2f}**")
+                        
+                        forma_pgto_pdv = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito", "Crediário / Fiado"])
+                        val_recebido_pdv = subtotal_pdv
+                        if forma_pgto_pdv == "Dinheiro":
+                            val_recebido_pdv = st.number_input("Dinheiro Recebido (R$)", min_value=0.0, step=5.0, value=subtotal_pdv)
+                            troco_pdv = val_recebido_pdv - subtotal_pdv
+                            if troco_pdv >= 0:
+                                st.success(f"💵 **Troco:** R$ {troco_pdv:,.2f}")
+                            else:
+                                st.error(f"⚠️ Valor menor que o total!")
 
-                with col_pdv2:
-                    st.subheader("📋 Últimas Vendas")
-                    df_ult = carregar_dados("SELECT id, cliente, produto, quantidade, valor_total, data FROM vendas WHERE tipo = 'VENDA' ORDER BY id DESC LIMIT 5")
-                    if not df_ult.empty:
-                        st.dataframe(df_ult, use_container_width=True)
+                        if st.button("🚀 Finalizar Venda", type="primary", use_container_width=True):
+                            if estoque_disp < qtd_pdv:
+                                st.error(f"⚠️ Estoque insuficiente! Disponível: {estoque_disp}")
+                            else:
+                                salvar_pedido_ou_venda(
+                                    cliente=cli_pdv,
+                                    produto=prod_escolhido,
+                                    fornecedor=forn_prod,
+                                    grupo=grupo_prod,
+                                    quantidade=qtd_pdv,
+                                    valor_venda=valor_unit_pdv,
+                                    forma_pagamento=forma_pgto_pdv,
+                                    valor_recebido=val_recebido_pdv,
+                                    tipo="VENDA"
+                                )
+                                cursor = conn.cursor()
+                                cursor.execute(f"UPDATE produtos SET {est_col} = {est_col} - ? WHERE TRIM({col_nome_prod}) = TRIM(?)", (qtd_pdv, prod_escolhido))
+                                conn.commit()
+                                st.success(f"✅ Venda de {prod_escolhido} concluída com sucesso!")
+                                st.balloons()
+
+                    with col_pdv2:
+                        st.subheader("📋 Últimas Vendas")
+                        df_ult = carregar_dados("SELECT id, cliente, produto, quantidade, valor_total, data FROM vendas WHERE tipo = 'VENDA' ORDER BY id DESC LIMIT 5")
+                        if not df_ult.empty:
+                            st.dataframe(df_ult, use_container_width=True)
 
         # ==========================================
         # FECHAMENTO & FINANCEIRO
