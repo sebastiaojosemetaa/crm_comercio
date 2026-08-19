@@ -609,9 +609,48 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     else:
                                         st.warning("Insira um valor de haver maior que zero.")
                                         
-                            st.markdown("#### Detalhamento das Compras do Cliente")
+                            st.markdown("#### Detalhamento das Compras do Cliente (Clique em uma linha para ver os itens)")
+                            
                             cols_ver = [c for c in ['id', 'produto', 'quantidade', 'valor_total', 'valor_recebido', 'forma_pagamento', 'data'] if c in df_cli_vendas.columns]
-                            st.dataframe(df_cli_vendas[cols_ver], use_container_width=True)
+                            
+                            # Configurando seleção de linhas na tabela do Streamlit
+                            event_tabela = st.dataframe(
+                                df_cli_vendas[cols_ver], 
+                                use_container_width=True,
+                                selection_mode="single-row",
+                                on_select="rerun"
+                            )
+                            
+                            # Lógica para capturar a linha selecionada pelo usuário
+                            st.markdown("---")
+                            st.subheader("📦 Produtos Relacionados a esta Venda / Ticket")
+                            
+                            try:
+                                selected_rows = event_tabela.selection.rows
+                                if selected_rows:
+                                    idx_selecionado = selected_rows[0]
+                                    linha_escolhida = df_cli_vendas.iloc[idx_selecionado]
+                                    
+                                    # Captura o ID ou a data exata para agrupar/isolar o ticket correspondente
+                                    id_venda_selecionada = linha_escolhida.get('id', None)
+                                    data_venda_selecionada = str(linha_escolhida.get('data', ''))[:19]
+                                    
+                                    st.info(f"Mostrando itens do Ticket ID: **{id_venda_selecionada}** | Data: **{data_venda_selecionada}** | Cliente: **{cliente_baixa}**")
+                                    
+                                    # Filtra no banco todos os itens feitos exatamente no mesmo horário/data ou ID específico
+                                    df_ticket_relacionado = carregar_dados(f"SELECT id, produto, quantidade, valor_venda, valor_total, forma_pagamento, data FROM vendas WHERE TRIM(cliente) = TRIM('{cliente_baixa}') AND data = '{data_venda_selecionada}'")
+                                    
+                                    if not df_ticket_relacionado.empty:
+                                        st.dataframe(df_ticket_relacionado, use_container_width=True)
+                                    else:
+                                        # Fallback caso busque apenas pelo ID específico da linha
+                                        df_ticket_unico = carregar_dados(f"SELECT id, produto, quantidade, valor_venda, valor_total, forma_pagamento, data FROM vendas WHERE id = {id_venda_selecionada}")
+                                        st.dataframe(df_ticket_unico, use_container_width=True)
+                                else:
+                                    st.caption("👆 Clique em uma linha na tabela acima para carregar os produtos relacionados do respectivo ticket/venda.")
+                            except Exception:
+                                st.caption("👆 Selecione uma linha na tabela acima para visualizar os produtos detalhados.")
+
                         else:
                             st.warning("Este cliente não possui registros de vendas.")
                     else:
