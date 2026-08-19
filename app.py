@@ -558,7 +558,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     idx_f = fornecedores_opt.index(sugestao_fornec) if sugestao_fornec in fornecedores_opt else 0
                     fornec_item = st.selectbox("Fornecedor", fornecedores_opt, index=idx_f, key="pdv_forn")
                     
-                    v_unit_item = st.number_input("Valor Unitário (R$)", min_value=0.0, step=1.0, value=sugestao_preco, key="pdv_v_unit")
+                    v_unit_item = st.number_input("preço venda (R$)", min_value=0.0, step=1.0, value=sugestao_preco, key="pdv_v_unit")
                 
                 with col_i3:
                     idx_g = grupos_opt.index(sugestao_grupo) if sugestao_grupo in grupos_opt else 0
