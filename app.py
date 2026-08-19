@@ -863,63 +863,38 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 
                 clientes_opt = carregar_coluna("clientes", "nome") or ["Cliente Balcão"]
 df_prod_pdv = carregar_dados("SELECT * FROM produtos")
-        
         if not df_prod_pdv.empty:
             cols_p = df_prod_pdv.columns.tolist()
             col_p_nome = 'nome' if 'nome' in cols_p else cols_p[1]
             lista_prods_pdv = df_prod_pdv[col_p_nome].dropna().astype(str).tolist()
-            
             with st.form("form_venda_pdv_rapido", clear_on_submit=True):
                 col_p1, col_p2 = st.columns(2)
                 with col_p1:
                     cli_pdv = st.selectbox("Cliente", clientes_opt, key="pdv_cliente")
                     prod_pdv = st.selectbox("Produto", lista_prods_pdv, key="pdv_produto")
-                    
                     prod_info = df_prod_pdv[df_prod_pdv[col_p_nome].astype(str) == str(prod_pdv)].iloc[0]
                     preco_unit_sugerido = float(prod_info['valor_venda']) if 'valor_venda' in prod_info and pd.notna(prod_info['valor_venda']) else 0.0
                     fornec_prod = prod_info.get('fornecedor', 'Geral')
                     grupo_prod = prod_info.get('grupo', 'Geral')
                     estoque_disponivel = float(prod_info['quantidade']) if 'quantidade' in prod_info and pd.notna(prod_info['quantidade']) else 0.0
-
                 with col_p2:
                     qtd_pdv = st.number_input("Quantidade", min_value=0.1, value=1.0, step=0.5, key="pdv_qtd")
                     preco_venda_praticado = st.number_input("Preço Unitário de Venda (R$)", min_value=0.0, value=preco_unit_sugerido, format="%.2f", key="pdv_preco")
                     forma_pgto_pdv = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito", "Crediário / Fiado"], key="pdv_forma")
-
                 total_calc_pdv = qtd_pdv * preco_venda_praticado
                 st.info(f"🏷️ **Preço Sugerido:** R$ {preco_unit_sugerido:,.2f} | 📦 **Estoque Disp.:** {estoque_disponivel:,.2f} | 💰 **Total da Venda:** **R$ {total_calc_pdv:,.2f}**")
-                
                 btn_finalizar_pdv = st.form_submit_button("🛒 Finalizar e Gravar Venda (Baixar no Sistema)")
-                
                 if btn_finalizar_pdv:
                     v_rec_pdv = total_calc_pdv if forma_pgto_pdv in ["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito"] else 0.0
-                    
-                    salvar_pedido_ou_venda(
-                        cliente=cli_pdv,
-                        produto=prod_pdv,
-                        fornecedor=fornec_prod,
-                        grupo=grupo_prod,
-                        quantidade=qtd_pdv,
-                        valor_venda=preco_venda_praticado,
-                        forma_pagamento=forma_pgto_pdv,
-                        valor_recebido=v_rec_pdv,
-                        tipo="VENDA"
-                    )
-                    
+                    salvar_pedido_ou_venda(cliente=cli_pdv, produto=prod_pdv, fornecedor=fornec_prod, grupo=grupo_prod, quantidade=qtd_pdv, valor_venda=preco_venda_praticado, forma_pagamento=forma_pgto_pdv, valor_recebido=v_rec_pdv, tipo="VENDA")
                     col_p_est = 'quantidade' if 'quantidade' in df_prod_pdv.columns else df_prod_pdv.columns[-4]
                     cursor_pdv = conn.cursor()
-                    cursor_pdv.execute(f"""
-                        UPDATE produtos 
-                        SET {col_p_est} = COALESCE({col_p_est}, 0) - ? 
-                        WHERE TRIM({col_p_nome}) = TRIM(?)
-                    """, (qtd_pdv, prod_pdv))
+                    cursor_pdv.execute(f"UPDATE produtos SET {col_p_est} = COALESCE({col_p_est}, 0) - ? WHERE TRIM({col_p_nome}) = TRIM(?)", (qtd_pdv, prod_pdv))
                     conn.commit()
-                    
                     st.success(f"Venda de R$ {total_calc_pdv:,.2f} registrada com sucesso e estoque atualizado!")
                     st.rerun()
         else:
             st.warning("Cadastre produtos na aba 'Estoque de Produtos' para conseguir realizar vendas rápidas no PDV.")
-
                 st.markdown("---")
                 st.subheader("🔒 Fechamento e Conferência de Caixa do Dia")
                 
