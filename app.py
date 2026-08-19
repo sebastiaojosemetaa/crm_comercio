@@ -334,7 +334,7 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral", d_inicio=None, d_fi
     else:
         df_resumo = pd.DataFrame(columns=['produto', 'quantidade', 'valor_venda', 'valor_total'])
 
-    table_data = [["Produto", "Qtd Total", "Preço Unitário (R$)", "Valor Total (R$)"]]
+    table_data = [["Produto", "Qtd Total", "Preço Custo Médio (R$)", "Valor Total (R$)"]]
     valor_total_geral = 0.0
     for _, row in df_resumo.iterrows():
         prod = str(row['produto'])
@@ -511,7 +511,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             with col_s1:
                 prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto")
             
-            # BUSCA ROBUSTA: INSPECIONA TODAS AS COLUNAS DA TABELA PRODUTOS PARA PUXAR O PREÇO DE VENDA
+            # BUSCA ULTRA ROBUSTA: INSPECIONA TODAS AS COLUNAS DA TABELA PRODUTOS
             df_prod_info = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_item}')")
             sugestao_preco = 0.0
             sugestao_fornec = fornecedores_opt[0] if fornecedores_opt else ""
@@ -521,27 +521,31 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 linha_prod = df_prod_info.iloc[0]
                 cols_p = df_prod_info.columns.tolist()
                 
-                # Prioridade absoluta para a coluna exata 'valor_venda'
-                if 'valor_venda' in cols_p and pd.notna(linha_prod['valor_venda']):
-                    try:
-                        sugestao_preco = float(linha_prod['valor_venda'])
-                    except:
-                        pass
+                # Varre todas as colunas procurando a que representa o preço de venda
+                for c in cols_p:
+                    c_lower = str(c).lower()
+                    if any(termo in c_lower for termo in ['venda', 'preco', 'preço', 'valor']):
+                        # Evita pegar o valor de compra se houver distinção clara
+                        if 'compra' not in c_lower and 'custo' not in c_lower:
+                            try:
+                                val_tentativa = float(linha_prod[c])
+                                if val_tentativa > 0:
+                                    sugestao_preco = val_tentativa
+                                    break
+                            except:
+                                pass
                 
-                # Se não achar diretamente, varre procurando colunas similares de venda
+                # Se ainda estiver zero, pega qualquer coluna numérica que não seja o ID
                 if sugestao_preco == 0.0:
                     for c in cols_p:
-                        c_lower = str(c).lower()
-                        if any(termo in c_lower for termo in ['venda', 'preco', 'preço', 'valor']):
-                            if 'compra' not in c_lower and 'custo' not in c_lower:
-                                try:
-                                    val_tentativa = float(linha_prod[c])
-                                    if val_tentativa > 0:
-                                        sugestao_preco = val_tentativa
-                                        break
-                                except:
-                                    pass
-                
+                        if c.lower() != 'id':
+                            try:
+                                val_tentativa = float(linha_prod[c])
+                                if val_tentativa > 0:
+                                    sugestao_preco = val_tentativa
+                            except:
+                                pass
+
                 for col_f in ['fornecedor', 'Fornecedor']:
                     if col_f in cols_p and pd.notna(linha_prod[col_f]):
                         sugestao_fornec = str(linha_prod[col_f])
@@ -561,7 +565,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     idx_f = fornecedores_opt.index(sugestao_fornec) if sugestao_fornec in fornecedores_opt else 0
                     fornec_item = st.selectbox("Fornecedor", fornecedores_opt, index=idx_f, key="pdv_forn")
                     
-                    v_unit_item = st.number_input("Preço Venda (R$)", min_value=0.0, step=1.0, value=float(sugestao_preco), key="pdv_v_unit")
+                    v_unit_item = st.number_input("Valor Unitário (R$)", min_value=0.0, step=1.0, value=float(sugestao_preco), key="pdv_v_unit")
                 
                 with col_i3:
                     idx_g = grupos_opt.index(sugestao_grupo) if sugestao_grupo in grupos_opt else 0
