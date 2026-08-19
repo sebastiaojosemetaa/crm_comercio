@@ -270,7 +270,7 @@ def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo):
     conn.commit()
 
 # -----------------------------------------------------------------------------
-# GERADOR DE PDF (AJUSTADO: SEM ESPAÇOS E MARGENS NO LIMITE)
+# GERADOR DE PDF
 # -----------------------------------------------------------------------------
 def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral", d_inicio=None, d_fim=None, titulo_custom=None):
     buffer = io.BytesIO()
@@ -390,10 +390,16 @@ if perfil_selecionado == "👤 Portal do Cliente":
             
             with st.form("form_novo_pedido_cliente"):
                 prod = st.selectbox("Selecione o Produto", produtos_opt)
+                
+                # --- VISUALIZAÇÃO DO VALOR DO PRODUTO ATUALIZADA ---
+                df_busca_preco = carregar_dados(f"SELECT valor_compra FROM produtos WHERE TRIM(nome) = TRIM('{prod}')")
+                v_custo_atual = float(df_busca_preco.iloc[0, 0]) if not df_busca_preco.empty else 100.0
+                st.caption(f"💰 Preço de custo unitário atual: **R$ {v_custo_atual:,.2f}**")
+                
                 fornec = st.selectbox("Selecione o Fornecedor", fornecedores_opt)
                 grupo = st.selectbox("Selecione o Grupo", grupos_opt)
                 qtd = st.number_input("Quantidade", min_value=0.1, step=0.5, value=1.0)
-                v_unit = st.number_input("Preço de Custo (R$)", min_value=0.0, step=1.0, value=100.0)
+                v_unit = st.number_input("Preço de Custo (R$)", min_value=0.0, step=1.0, value=v_custo_atual)
                 
                 if st.form_submit_button("Confirmar Pedido"):
                     salvar_pedido_ou_venda(st.session_state.cliente_autenticado, prod, fornec, grupo, qtd, v_unit, tipo="PEDIDO")
@@ -555,9 +561,17 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     with col_a:
                         cli = st.selectbox("Selecione o Cliente", clientes_opt)
                         prod = st.selectbox("Selecione o Produto", produtos_opt)
+                        
+                        # --- VISUALIZAÇÃO DO VALOR DO PRODUTO ATUALIZADA ---
+                        coluna_preco_busca = 'valor_compra' if is_modo_pedido else 'valor_venda'
+                        df_busca_val = carregar_dados(f"SELECT {coluna_preco_busca} FROM produtos WHERE TRIM(nome) = TRIM('{prod}')")
+                        v_padrao = float(df_busca_val.iloc[0, 0]) if not df_busca_val.empty else 100.0
+                        label_tipo_preco = "Preço de Custo" if is_modo_pedido else "Preço de Venda"
+                        st.caption(f"💰 {label_tipo_preco} atual do produto: **R$ {v_padrao:,.2f}**")
+                        
                         qtd = st.number_input("Quantidade", min_value=0.1, step=0.5, value=1.0)
                         label_preco = "Preço Custo / Valor Compra (R$)" if is_modo_pedido else "Valor Venda (R$)"
-                        v_unit = st.number_input(label_preco, min_value=0.0, step=1.0, value=100.0)
+                        v_unit = st.number_input(label_preco, min_value=0.0, step=1.0, value=v_padrao)
                     with col_b:
                         fornec = st.selectbox("Selecione o Fornecedor", fornecedores_opt)
                         grupo = st.selectbox("Selecione o Grupo", grupos_opt)
@@ -837,11 +851,17 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     col1, col2 = st.columns(2)
                     with col1:
                         produto_escolhido = st.selectbox("Produto", produtos_opt)
+                        
+                        # --- VISUALIZAÇÃO DO VALOR DO PRODUTO ATUALIZADA ---
+                        df_busca_custo = carregar_dados(f"SELECT valor_compra FROM produtos WHERE TRIM(nome) = TRIM('{produto_escolhido}')")
+                        v_custo_cad = float(df_busca_custo.iloc[0, 0]) if not df_busca_custo.empty else 0.0
+                        st.caption(f"💰 Preço de custo atual cadastrado: **R$ {v_custo_cad:,.2f}**")
+                        
                         fornecedor_escolhido = st.selectbox("Fornecedor", fornecedores_opt)
                         quantidade = st.number_input("Quantidade", min_value=0.0, format="%.2f")
                     with col2:
                         grupo_escolhido = st.selectbox("Grupo", grupos_opt)
-                        preco_custo = st.number_input("Preço de Custo Unitário (R$)", min_value=0.0, format="%.2f")
+                        preco_custo = st.number_input("Preço de Custo Unitário (R$)", min_value=0.0, format="%.2f", value=v_custo_cad)
                     
                     enviado = st.form_submit_button("Registrar Entrada no Estoque")
                     if enviado:
