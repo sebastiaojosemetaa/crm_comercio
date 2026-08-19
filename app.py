@@ -451,7 +451,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             if df_produtos_pdv.empty:
                 st.warning("⚠️ Nenhum produto cadastrado no estoque. Por favor, vá na aba **Cadastros** > **Produtos** e cadastre itens primeiro.")
             else:
-                # Verificação dinâmica de colunas para evitar KeyError
                 cols_p = df_produtos_pdv.columns.tolist()
                 col_nome_prod = 'nome' if 'nome' in cols_p else cols_p[1]
                 
@@ -465,10 +464,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     
                     dados_p = df_produtos_pdv[df_produtos_pdv[col_nome_prod].astype(str).str.strip() == str(prod_escolhido).strip()].iloc[0]
                     
-                    # Identificar colunas de preço e estoque de forma flexível
-                    p_venda_col = 'valor_venda' if 'valor_venda' in cols_p else [c for c in cols_p if 'venda' in c or 'preco' in c][-1]
-                    est_col = 'estoque_atual' if 'estoque_atual' in cols_p else [c for c in cols_p if 'estoque' in c][-1]
-                    forn_col = 'fornecedor' if 'fornecedor' in cols_p else cols_p[2]
+                    # Garantia robusta para as colunas de preço e estoque
+                    p_venda_col = 'valor_venda' if 'valor_venda' in cols_p else ([c for c in cols_p if 'venda' in c or 'preco' in c] or [cols_p[-1]])[-1]
+                    est_col = 'estoque_atual' if 'estoque_atual' in cols_p else ([c for c in cols_p if 'estoque' in c] or [cols_p[-1]])[-1]
+                    forn_col = 'fornecedor' if 'fornecedor' in cols_p else cols_p[min(2, len(cols_p)-1)]
                     
                     preco_sugerido = float(dados_p.get(p_venda_col, 0.0))
                     estoque_disp = float(dados_p.get(est_col, 0.0))
@@ -656,7 +655,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
             if aba_baixa is not None:
                 with aba_baixa:
-                    st.subheader("💵 Baixa de Débitos & Lançamento de Haver (Pagamento Parcial ou Total)")
+                    st.subheader("💵 Baixa de Débito & Lançamento de Haver (Pagamento Parcial ou Total)")
                     clientes_com_divida = carregar_coluna("vendas", "cliente") or []
                     if clientes_com_divida:
                         cliente_baixa = st.selectbox("Selecione o Cliente para Baixa:", clientes_com_divida, key="sel_cli_baixa")
