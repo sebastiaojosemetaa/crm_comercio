@@ -21,6 +21,7 @@ conn = get_connection()
 def adequar_banco_e_migrar():
     cursor = conn.cursor()
     
+    # Criação das tabelas base
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS vendas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -39,6 +40,24 @@ def adequar_banco_e_migrar():
         )
     """)
 
+    # Migração segura para garantir colunas na tabela vendas caso o banco seja antigo
+    cursor.execute("PRAGMA table_info(vendas)")
+    cols_venda = [col[1] for col in cursor.fetchall()]
+    if "fornecedor" not in cols_venda:
+        cursor.execute("ALTER TABLE vendas ADD COLUMN fornecedor TEXT DEFAULT 'Geral'")
+    if "grupo" not in cols_venda:
+        cursor.execute("ALTER TABLE vendas ADD COLUMN grupo TEXT DEFAULT 'Geral'")
+    if "forma_pagamento" not in cols_venda:
+        cursor.execute("ALTER TABLE vendas ADD COLUMN forma_pagamento TEXT DEFAULT ''")
+    if "valor_recebido" not in cols_venda:
+        cursor.execute("ALTER TABLE vendas ADD COLUMN valor_recebido TEXT DEFAULT '0.0'")
+    if "tipo" not in cols_venda:
+        cursor.execute("ALTER TABLE vendas ADD COLUMN tipo TEXT DEFAULT 'PEDIDO'")
+    if "codigo" not in cols_venda:
+        cursor.execute("ALTER TABLE vendas ADD COLUMN codigo TEXT DEFAULT 'PED'")
+    if "data" not in cols_venda:
+        cursor.execute("ALTER TABLE vendas ADD COLUMN data TEXT")
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS produtos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,7 +70,6 @@ def adequar_banco_e_migrar():
         )
     """)
 
-    # Garante que as colunas essenciais existam na tabela produtos caso o banco seja antigo
     cursor.execute("PRAGMA table_info(produtos)")
     cols_prod = [col[1] for col in cursor.fetchall()]
     if "fornecedor" not in cols_prod:
@@ -403,7 +421,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.success("✅ Entrada registrada e estoque atualizado com sucesso!")
 
         # ==========================================
-        # ESTOQUE DE PRODUTOS (COM EDIÇÃO DIRETA NA TELA)
+        # ESTOQUE DE PRODUTOS
         # ==========================================
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
