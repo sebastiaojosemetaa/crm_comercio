@@ -544,10 +544,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         sugestao_fornec = str(linha_prod[col_f])
         break
                 
-                for col_f in ['fornecedor', 'Fornecedor']:
-                    if col_f in cols_p and pd.notna(linha_prod[col_f]):
-                        sugestao_fornec = str(linha_prod[col_f])
-                        break
+    for col_f in ['fornecedor', 'Fornecedor']:
+      if col_f in cols_p and pd.notna(linha_prod[col_f]):
+        sugestao_fornec = str(linha_prod[col_f])
+        break
                 
                 for col_g in ['grupo', 'Grupo']:
                     if col_g in cols_p and pd.notna(linha_prod[col_g]):
