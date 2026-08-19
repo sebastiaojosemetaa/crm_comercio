@@ -38,6 +38,20 @@ def adequar_banco_e_migrar():
             data TEXT
         )
     """)
+    
+    # Garante que colunas essenciais existam caso a tabela seja antiga
+    cursor.execute("PRAGMA table_info(vendas)")
+    colunas_vendas = [col[1] for col in cursor.fetchall()]
+    if 'forma_pagamento' not in colunas_vendas:
+        cursor.execute("ALTER TABLE vendas ADD COLUMN forma_pagamento TEXT")
+    if 'valor_recebido' not in colunas_vendas:
+        cursor.execute("ALTER TABLE vendas ADD COLUMN valor_recebido TEXT")
+    if 'tipo' not in colunas_vendas:
+        cursor.execute("ALTER TABLE vendas ADD COLUMN tipo TEXT DEFAULT 'PEDIDO'")
+    if 'codigo' not in colunas_vendas:
+        cursor.execute("ALTER TABLE vendas ADD COLUMN codigo TEXT DEFAULT 'PED'")
+    if 'data' not in colunas_vendas:
+        cursor.execute("ALTER TABLE vendas ADD COLUMN data TEXT")
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS produtos (
@@ -89,7 +103,6 @@ def adequar_banco_e_migrar():
         )
     """)
 
-    # Tabelas integradas para Abertura e Fechamento de Caixa e PDV
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS caixa_sessoes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -466,7 +479,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             st.session_state.admin_logged = False
             st.rerun()
             
-        # BARRA LATERAL ATUALIZADA COM PDV E ABERTURA/FECHAMENTO DE CAIXA
         menu_admin = st.sidebar.radio(
             "Navegação",
             [
@@ -481,11 +493,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             ]
         )
         
-        # --- LÓGICA: PDV — FRENTE DE CAIXA ---
+        # --- LÓGICA: PDV — FRENTE DE CAIXA COM CÁLCULO DE TROCO ---
         if menu_admin == "🛒 PDV — Frente de Caixa":
             st.title("🛒 PDV — Frente de Caixa")
             
-            # Verifica se há caixa aberto
             df_caixa_aberto = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
             if df_caixa_aberto.empty:
                 st.warning("⚠️ Atenção: Não há nenhum caixa aberto no momento. Vá em '🔓 Abertura e Fechamento de Caixa' para abrir o caixa antes de registrar vendas.")
@@ -509,17 +520,25 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 f_pag = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito", "Crediário / Fiado"])
                 v_rec = st.number_input("Valor Recebido (R$)", min_value=0.0, step=1.0, value=0.0)
                 
+                # Cálculo Dinâmico do Total e Troco dentro do formulário
+                total_venda = qtd * v_unit
+                troco = v_rec - total_venda
+                
+                st.markdown("---")
+                c_inf1, c_inf2 = st.columns(2)
+                c_inf1.metric("Valor Total da Venda", f"R$ {total_venda:,.2f}")
+                c_inf2.metric("Troco", f"R$ {max(0.0, troco):,.2f}", delta_color="normal" if troco >= 0 else "inverse")
+                
                 if st.form_submit_button("Finalizar Venda no PDV"):
                     if not df_caixa_aberto.empty:
                         sessao_id = int(df_caixa_aberto.iloc[0]['id'])
                         salvar_pedido_ou_venda(cli, prod, fornec, grupo, qtd, v_unit, f_pag, v_rec, tipo="VENDA")
                         
-                        # Registra movimentação no caixa
                         cursor = conn.cursor()
                         cursor.execute("INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, ?, ?, ?, ?)",
-                                       (sessao_id, "VENDA", qtd * v_unit, f"Venda PDV - Cliente: {cli}", datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                                       (sessao_id, "VENDA", total_venda, f"Venda PDV - Cliente: {cli}", datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
                         conn.commit()
-                        st.success("Venda realizada com sucesso!")
+                        st.success(f"Venda realizada com sucesso! Troco: R$ {max(0.0, troco):,.2f}")
                         st.rerun()
                     else:
                         st.error("Não é possível realizar vendas sem um caixa aberto!")
