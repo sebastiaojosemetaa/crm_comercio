@@ -522,9 +522,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 cols_p = df_prod_info.columns.tolist()
                 
                 # Prioriza estritamente as colunas oficiais de venda do estoque
-                sugestao_preco = (
-        0.0  # Garante que começa zerado ou com um valor base seguro
-    )
+    sugestao_preco = 0.0
     for col_v in [
         'Preço Venda (R$)',
         'preco_venda',
@@ -540,6 +538,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             break
         except:
           pass
+
+    for col_f in ['fornecedor', 'Fornecedor']:
+      if col_f in cols_p and pd.notna(linha_prod[col_f]):
+        sugestao_fornec = str(linha_prod[col_f])
+        break
                 
                 for col_f in ['fornecedor', 'Fornecedor']:
                     if col_f in cols_p and pd.notna(linha_prod[col_f]):
