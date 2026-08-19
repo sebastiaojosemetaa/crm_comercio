@@ -862,11 +862,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.subheader("⚡ Registrar Venda Rápida (PDV)")
                 
                 clientes_opt = carregar_coluna("clientes", "nome") or ["Cliente Balcão"]
-                df_prod_pdv = carregar_dados("SELECT nome, fornecedor, grupo, valor_venda, estoque_atual FROM produtos")
-                
-                if not df_prod_pdv.empty:
-                    lista_prods_pdv = df_prod_pdv['nome'].tolist()
-                    
+                df_prod_pdv = carregar_dados("SELECT * FROM produtos")
+        
+        if not df_prod_pdv.empty:
+            cols_p = df_prod_pdv.columns.tolist()
+            col_p_nome = 'nome' if 'nome' in cols_p else cols_p[1]
+            lista_prods_pdv = df_prod_pdv[col_p_nome].dropna().astype(str).tolist()
                     with st.form("form_venda_pdv_rapido", clear_on_submit=True):
                         col_p1, col_p2 = st.columns(2)
                         with col_p1:
