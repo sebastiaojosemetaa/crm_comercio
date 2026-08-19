@@ -477,12 +477,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         estoque_disp = float(dados_p[est_col])
     except Exception:
         estoque_disp = 0.0
-                    
-                    st.caption(f"📦 **Estoque Disponível:** {estoque_disp:,.2f} | 🏢 **Fornecedor:** {forn_prod}")
 
-                    cli_pdv = st.selectbox("Cliente:", lista_clientes_pdv, key="pdv_cliente")
-                    
-                    col_q, col_v = st.columns(2)
+    forn_prod = str(dados_p.get(forn_col, 'Geral'))
+    grupo_prod = str(dados_p.get('grupo', 'GERAL')) if 'grupo' in cols_p else 'GERAL'
+    
+    st.caption(f"📦 **Estoque Disponível:** {estoque_disp:,.2f} | 🏢 **Fornecedor:** {forn_prod}")
                     with col_q:
                         qtd_pdv = st.number_input("Quantidade", min_value=0.01, step=1.0, value=1.0, key="pdv_qtd")
                     with col_v:
