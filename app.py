@@ -239,6 +239,26 @@ def baixar_debito_cliente(cliente_nome, valor_haver, forma_pagamento="Dinheiro")
             
     conn.commit()
 
+def converter_pedido_completo_para_venda(cliente_nome):
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE vendas 
+        SET tipo = 'VENDA', codigo = 'VEN' 
+        WHERE TRIM(cliente) = TRIM(?)
+    """, (cliente_nome,))
+    conn.commit()
+    return cursor.rowcount
+
+def deletar_pedidos_cliente(cliente_nome, s_d1, s_d2):
+    cursor = conn.cursor()
+    cursor.execute("""
+        DELETE FROM vendas 
+        WHERE TRIM(cliente) = TRIM(?) 
+          AND (substr(data, 1, 10) >= ? AND substr(data, 1, 10) <= ? OR data IS NULL OR data = '')
+    """, (cliente_nome, s_d1, s_d2))
+    conn.commit()
+    return cursor.rowcount
+
 def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo):
     cursor = conn.cursor()
     valor_total = quantidade * valor_custo
@@ -247,13 +267,6 @@ def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo):
         INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data)
         VALUES (?, ?, ?, ?, ?, ?, ?)
     """, (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data_atual))
-    
-    # Atualiza estoque atual do produto
-    cursor.execute("""
-        UPDATE produtos 
-        SET estoque_atual = COALESCE(estoque_atual, 0) + ? 
-        WHERE TRIM(nome) = TRIM(?)
-    """, (quantidade, produto))
     conn.commit()
 
 # -----------------------------------------------------------------------------
@@ -380,7 +393,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 fornec = st.selectbox("Selecione o Fornecedor", fornecedores_opt)
                 grupo = st.selectbox("Selecione o Grupo", grupos_opt)
                 qtd = st.number_input("Quantidade", min_value=0.1, step=0.5, value=1.0)
-                v_unit = st.number_input("Preço (R$)", min_value=0.0, step=1.0, value=100.0)
+                v_unit = st.number_input("Preço Unitário (R$)", min_value=0.0, step=1.0, value=100.0)
                 
                 if st.form_submit_button("Confirmar Pedido"):
                     salvar_pedido_ou_venda(st.session_state.cliente_autenticado, prod, fornec, grupo, qtd, v_unit, tipo="PEDIDO")
@@ -393,6 +406,12 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 soma_total = df_pedidos['valor_total'].sum() if 'valor_total' in df_pedidos.columns else 0.0
                 st.markdown(f"**Itens Registrados:** {len(df_pedidos)} | **Soma dos Valores:** R$ {soma_total:,.2f}")
                 
+                if st.button("🔄 Atualizar Valores com Estoque"):
+                    sincronizar_valores_com_estoque("vendas", "venda")
+                    st.success("Tabela atualizada com o Preço de Venda!")
+                    st.rerun()
+
+                st.markdown("---")
                 cols_exibir = [c for c in ['id', 'cliente', 'produto', 'fornecedor', 'quantidade', 'valor_venda', 'valor_total', 'data'] if c in df_pedidos.columns]
                 st.dataframe(df_pedidos[cols_exibir], use_container_width=True)
                 pdf_cli = gerar_pdf_tabela_pedidos(df_pedidos, cliente_nome=st.session_state.cliente_autenticado)
@@ -427,17 +446,110 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         menu_admin = st.sidebar.radio(
             "Navegação",
             [
+                "🛒 PDV — Frente de Caixa",
                 "📊 Fechamento & Financeiro",
                 "📋 Pedidos / Orçamentos",
                 "🛒 Registrar Venda",
-                "💻 PDV / Frente de Caixa",
                 "📥 Entrada de Estoque (Compras)",
                 "📦 Estoque de Produtos",
                 "👥 Cadastros (Clientes / Fornecedores / Grupos)"
             ]
         )
         
-        if menu_admin == "📊 Fechamento & Financeiro":
+        # ==========================================
+        # NOVO MÓDULO: PDV — FRENTE DE CAIXA
+        # ==========================================
+        if menu_admin == "🛒 PDV — Frente de Caixa":
+            st.title("🛒 PDV — Frente de Caixa (Balcão)")
+            st.info("Realize vendas rápidas no balcão com baixa automática no estoque e cálculo de troco.")
+            
+            # Carregar dados do banco para o PDV
+            df_produtos_pdv = carregar_dados("SELECT * FROM produtos")
+            lista_clientes_pdv = carregar_coluna("clientes", "nome") or ["Cliente Balcão / Geral"]
+            
+            if df_produtos_pdv.empty:
+                st.warning("Nenhum produto cadastrado no estoque. Cadastre produtos antes de usar o PDV.")
+            else:
+                col_pdv1, col_pdv2 = st.columns([1.2, 0.8])
+                
+                with col_pdv1:
+                    st.subheader("🛍️ Lançamento do Item")
+                    
+                    # Dicionário auxiliar para buscar dados do produto selecionado rapidamente
+                    prod_nomes = df_produtos_pdv['nome'].tolist()
+                    prod_escolhido = st.selectbox("Selecione ou Busque o Produto:", prod_nomes, key="pdv_produto")
+                    
+                    # Dados do produto selecionado
+                    dados_p = df_produtos_pdv[df_produtos_pdv['nome'] == prod_escolhido].iloc[0]
+                    preco_sugerido = float(dados_p.get('valor_venda', 0.0))
+                    estoque_disp = float(dados_p.get('estoque_atual', 0.0))
+                    forn_prod = str(dados_p.get('fornecedor', 'Geral'))
+                    grupo_prod = str(dados_p.get('grupo', 'GERAL'))
+                    
+                    st.caption(f"📦 **Estoque Disponível:** {estoque_disp:,.2f} | 🏢 **Fornecedor:** {forn_prod}")
+
+                    cli_pdv = st.selectbox("Cliente:", lista_clientes_pdv, key="pdv_cliente")
+                    
+                    col_q, col_v = st.columns(2)
+                    with col_q:
+                        qtd_pdv = st.number_input("Quantidade", min_value=0.01, step=1.0, value=1.0, key="pdv_qtd")
+                    with col_v:
+                        valor_unit_pdv = st.number_input("Preço Unitário (R$)", min_value=0.0, step=1.0, value=preco_sugerido, key="pdv_v_unit")
+                    
+                    subtotal_pdv = qtd_pdv * valor_unit_pdv
+                    st.markdown(f"### Total do Item: **R$ {subtotal_pdv:,.2f}**")
+                    
+                    forma_pgto_pdv = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito", "Crediário / Fiado"], key="pdv_fpag")
+                    
+                    val_recebido_pdv = subtotal_pdv
+                    if forma_pgto_pdv == "Dinheiro":
+                        val_recebido_pdv = st.number_input("Dinheiro Recebido do Cliente (R$)", min_value=0.0, step=5.0, value=subtotal_pdv, key="pdv_v_rec")
+                        troco_pdv = val_recebido_pdv - subtotal_pdv
+                        if troco_pdv >= 0:
+                            st.success(f"💵 **Troco a Devolver:** R$ {troco_pdv:,.2f}")
+                        else:
+                            st.error(f"⚠️ Valor recebido é menor que o total! Faltam: R$ {abs(troco_pdv):,.2f}")
+                    elif forma_pgto_pdv == "Crediário / Fiado":
+                        val_recebido_pdv = 0.0  # Fica pendente
+
+                    if st.button("🚀 Finalizar e Imprimir Venda no Caixa", type="primary", use_container_width=True):
+                        if estoque_disp < qtd_pdv:
+                            st.error(f"⚠️ Atenção: Estoque insuficiente! Disponível: {estoque_disp}")
+                        else:
+                            # 1. Salvar como VENDA efetiva
+                            salvar_pedido_ou_venda(
+                                cliente=cli_pdv,
+                                produto=prod_escolhido,
+                                fornecedor=forn_prod,
+                                grupo=grupo_prod,
+                                quantidade=qtd_pdv,
+                                valor_venda=valor_unit_pdv,
+                                forma_pagamento=forma_pgto_pdv,
+                                valor_recebido=val_recebido_pdv,
+                                tipo="VENDA"
+                            )
+                            
+                            # 2. Dar baixa automática no estoque
+                            cursor = conn.cursor()
+                            cursor.execute("""
+                                UPDATE produtos 
+                                SET estoque_atual = estoque_atual - ? 
+                                WHERE TRIM(nome) = TRIM(?)
+                            """, (qtd_pdv, prod_escolhido))
+                            conn.commit()
+                            
+                            st.success(f"✅ Venda de {prod_escolhido} para {cli_pdv} concluída com sucesso! Estoque atualizado.")
+                            st.balloons()
+
+                with col_pdv2:
+                    st.subheader("📋 Últimas Vendas do Caixa Hoje")
+                    df_ultimas_vendas = carregar_dados("SELECT id, cliente, produto, quantidade, valor_total, data FROM vendas WHERE tipo = 'VENDA' ORDER BY id DESC LIMIT 5")
+                    if not df_ultimas_vendas.empty:
+                        st.dataframe(df_ultimas_vendas, use_container_width=True)
+                    else:
+                        st.caption("Nenhuma venda registrada hoje.")
+
+        elif menu_admin == "📊 Fechamento & Financeiro":
             st.title("📊 Painel Financeiro & Fechamento por Data")
             
             col_d1, col_d2, col_d3 = st.columns(3)
@@ -519,9 +631,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             st.title(f"📋 {menu_admin}")
             
             if not is_modo_pedido:
-                aba_cad, aba_baixa, aba_list = st.tabs(["➕ Novo Registro", "💵 Baixa de Débito / Haver", "✏️ Tabela Editável"])
+                aba_cad, aba_baixa, aba_list = st.tabs(["➕ Novo Registro", "💵 Baixa de Débito / Haver", "✏️ Tabela Editável (Edição Direta & Exclusão)"])
             else:
-                aba_cad, aba_list = st.tabs(["➕ Novo Registro / Pedido", "✏️ Tabela Editável"])
+                aba_cad, aba_list = st.tabs(["➕ Novo Registro / Pedido", "✏️ Tabela Editável (Edição Direta & Exclusão)"])
                 aba_baixa = None
             
             with aba_cad:
@@ -538,12 +650,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         cli = st.selectbox("Selecione o Cliente", clientes_opt)
                         prod = st.selectbox("Selecione o Produto", produtos_opt)
                         qtd = st.number_input("Quantidade", min_value=0.1, step=0.5, value=1.0)
-                        v_unit = st.number_input("Valor Unitário (R$)", min_value=0.0, step=1.0, value=100.0)
+                        label_preco = "Preço Custo / Valor Compra (R$)" if is_modo_pedido else "Valor Venda (R$)"
+                        v_unit = st.number_input(label_preco, min_value=0.0, step=1.0, value=100.0)
                     with col_b:
                         fornec = st.selectbox("Selecione o Fornecedor", fornecedores_opt)
                         grupo = st.selectbox("Selecione o Grupo", grupos_opt)
                         if not is_modo_pedido:
-                            f_pag = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão", "Fiado"])
+                            f_pag = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito", "Crediário / Fiado"])
                             v_rec = st.number_input("Valor Recebido (R$)", min_value=0.0, step=1.0, value=v_unit * qtd)
                         else:
                             f_pag = ""
@@ -556,140 +669,223 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
             if aba_baixa is not None:
                 with aba_baixa:
-                    st.subheader("💵 Baixa de Débitos & Haver")
+                    st.subheader("💵 Baixa de Débitos & Lançamento de Haver (Pagamento Parcial ou Total)")
                     clientes_com_divida = carregar_coluna("vendas", "cliente") or []
                     if clientes_com_divida:
-                        cliente_baixa = st.selectbox("Selecione o Cliente:", clientes_com_divida)
-                        valor_haver = st.number_input("Valor Recebido (R$)", min_value=0.0, step=1.0, value=0.0)
-                        forma_pgto_baixa = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão"])
+                        cliente_baixa = st.selectbox("Selecione o Cliente para Baixa:", clientes_com_divida, key="sel_cli_baixa")
                         
-                        if st.button("Aplicar Baixa"):
-                            if valor_haver > 0:
-                                baixar_debito_cliente(cliente_baixa, valor_haver, forma_pagamento=forma_pgto_baixa)
-                                st.success("Baixa realizada com sucesso!")
-                                st.rerun()
+                        df_cli_vendas = carregar_dados(f"SELECT * FROM vendas WHERE TRIM(cliente) = TRIM('{cliente_baixa}')")
+                        if not df_cli_vendas.empty:
+                            tot_vendas = df_cli_vendas['valor_total'].sum()
+                            df_cli_vendas['v_rec_num'] = pd.to_numeric(df_cli_vendas['valor_recebido'], errors='coerce').fillna(0.0)
+                            tot_recebido = df_cli_vendas['v_rec_num'].sum()
+                            total_pendente = tot_vendas - tot_recebido
+                            
+                            col_m1, col_m2, col_m3 = st.columns(3)
+                            col_m1.metric("Total de Compras", f"R$ {tot_vendas:,.2f}")
+                            col_m2.metric("Total Já Pago", f"R$ {tot_recebido:,.2f}")
+                            col_m3.metric("Saldo Devedor Restante", f"R$ {total_pendente:,.2f}", delta_color="inverse")
+                            
+                            st.markdown("---")
+                            with st.form("form_lancar_haver"):
+                                col_h1, col_h2 = st.columns(2)
+                                with col_h1:
+                                    valor_haver = st.number_input("Valor do Haver / Pagamento Recebido (R$)", min_value=0.0, step=1.0, value=0.0)
+                                with col_h2:
+                                    forma_pgto_baixa = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito"])
+                                
+                                if st.form_submit_button("Aplicar Haver / Dar Baixa no Débito"):
+                                    if valor_haver > 0:
+                                        baixar_debito_cliente(cliente_baixa, valor_haver, forma_pagamento=forma_pgto_baixa)
+                                        st.success(f"Haver de R$ {valor_haver:,.2f} aplicado com sucesso para {cliente_baixa}!")
+                                        st.rerun()
+                                    else:
+                                        st.warning("Insira um valor maior que zero.")
+
+                        else:
+                            st.warning("Este cliente não possui registros de vendas.")
+                    else:
+                        st.info("Nenhum cliente cadastrado.")
 
             with aba_list:
-                st.subheader("✏️ Gerenciar Registros Existentes")
-                df_vendas_geral = carregar_dados("SELECT * FROM vendas ORDER BY id DESC")
-                if not df_vendas_geral.empty:
-                    edited_df = st.data_editor(df_vendas_geral, key="editor_vendas_geral", use_container_width=True)
-                    if st.button("Salvar Alterações na Tabela"):
+                st.subheader("🔍 Edição Direta na Tabela & Gestão por Cliente")
+                
+                col_f1, col_f2, col_f3 = st.columns(3)
+                with col_f1:
+                    clientes_filtro = ["TODOS"] + (carregar_coluna("clientes", "nome") or carregar_coluna("vendas", "cliente"))
+                    cliente_sel = st.selectbox("Filtrar por Cliente:", clientes_filtro)
+                with col_f2:
+                    d_inicio = st.date_input("Data Inicial do Filtro", value=date(2025, 1, 1))
+                with col_f3:
+                    d_fim = st.date_input("Data Final do Filtro", value=date.today())
+                    
+                s_d1 = d_inicio.strftime("%Y-%m-%d")
+                s_d2 = d_fim.strftime("%Y-%m-%d")
+
+                query_filt = f"SELECT * FROM vendas WHERE substr(data, 1, 10) >= '{s_d1}' AND substr(data, 1, 10) <= '{s_d2}'"
+
+                if cliente_sel != "TODOS":
+                    query_filt += f" AND TRIM(cliente) = TRIM('{cliente_sel}')"
+                    nome_relatorio = cliente_sel
+                else:
+                    nome_relatorio = "Geral"
+
+                df_registros = carregar_dados(query_filt)
+                
+                if not df_registros.empty:
+                    df_registros.insert(0, "Deletar", False)
+                    if 'valor_recebido' in df_registros.columns:
+                        df_registros['valor_recebido'] = pd.to_numeric(df_registros['valor_recebido'], errors='coerce').fillna(0.0)
+                    
+                    config_cols = {
+                        "Deletar": st.column_config.CheckboxColumn("Deletar", help="Marque para excluir o item"),
+                        "id": st.column_config.NumberColumn("ID", disabled=True),
+                        "cliente": st.column_config.TextColumn("Cliente"),
+                        "produto": st.column_config.TextColumn("Produto"),
+                        "quantidade": st.column_config.NumberColumn("Qtd", min_value=0.0, format="%.2f"),
+                        "valor_total": st.column_config.NumberColumn("Valor Total", disabled=True, format="R$ %.2f"),
+                        "data": st.column_config.TextColumn("Data", disabled=True),
+                    }
+                    
+                    df_editado = st.data_editor(
+                        df_registros,
+                        key=f"editor_registros_{menu_admin}",
+                        use_container_width=True,
+                        num_rows="fixed",
+                        column_config=config_cols,
+                        hide_index=True
+                    )
+                    
+                    if st.button("💾 Salvar Alterações Feitas na Tabela", type="primary"):
                         cursor = conn.cursor()
-                        for _, row in edited_df.iterrows():
-                            cursor.execute("""
-                                UPDATE vendas 
-                                SET cliente = ?, produto = ?, quantidade = ?, valor_venda = ?, valor_total = ?, tipo = ?
-                                WHERE id = ?
-                            """, (row['cliente'], row['produto'], row['quantidade'], row['valor_venda'], row['quantidade'] * row['valor_venda'], row['tipo'], row['id']))
+                        for _, row in df_editado.iterrows():
+                            if not row["Deletar"]:
+                                v_tot = float(row["quantidade"]) * float(row["valor_venda"])
+                                cursor.execute("""
+                                    UPDATE vendas 
+                                    SET cliente = ?, produto = ?, quantidade = ?, valor_venda = ?, valor_total = ?
+                                    WHERE id = ?
+                                """, (
+                                    str(row["cliente"]).strip(),
+                                    str(row["produto"]),
+                                    float(row["quantidade"]),
+                                    float(row["valor_venda"]),
+                                    v_tot,
+                                    int(row["id"])
+                                ))
                         conn.commit()
                         st.success("Alterações salvas com sucesso!")
                         st.rerun()
-                else:
-                    st.info("Nenhum registro encontrado.")
 
-        elif menu_admin == "💻 PDV / Frente de Caixa":
-            st.title("💻 PDV / Frente de Caixa")
-            st.success("Caixa Operacional Ativo.")
-            
-            df_prod_pdv = carregar_dados("SELECT * FROM produtos")
-            if not df_prod_pdv.empty:
-                st.dataframe(df_prod_pdv, use_container_width=True)
-            else:
-                st.warning("Cadastre produtos para utilizar o PDV.")
+                    pdf_gerado = gerar_pdf_tabela_pedidos(df_registros, cliente_nome=nome_relatorio, d_inicio=d_inicio, d_fim=d_fim)
+                    st.download_button(
+                        label=f"📥 Baixar Relatório - {nome_relatorio} (PDF)",
+                        data=pdf_gerado,
+                        file_name=f"Relatorio_{nome_relatorio}.pdf",
+                        mime="application/pdf"
+                    )
+                else:
+                    st.info("Nenhum registro encontrado para o filtro selecionado.")
 
         elif menu_admin == "📥 Entrada de Estoque (Compras)":
-            st.title("📥 Entrada de Estoque (Compras de Fornecedores)")
+            st.title("📥 Entrada de Estoque (Compras)")
+            aba_compra, aba_historico_compras = st.tabs(["📦 Dar Entrada em Estoque", "📋 Histórico de Entradas / Compras"])
             
-            produtos_opt = carregar_coluna("produtos", "nome") or ["CEBOLA CAIXA 1"]
+            produtos_opt = carregar_coluna("produtos", "nome") or ["AMEIXA IMPORTADA", "ABACATE"]
             fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
             grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
             
-            with st.form("form_entrada_estoque"):
-                prod = st.selectbox("Produto", produtos_opt)
-                fornec = st.selectbox("Fornecedor", fornecedores_opt)
-                grupo = st.selectbox("Grupo", grupos_opt)
-                qtd = st.number_input("Quantidade Comprada", min_value=0.1, step=1.0, value=10.0)
-                v_custo = st.number_input("Valor de Custo Unitário (R$)", min_value=0.0, step=1.0, value=50.0)
-                
-                if st.form_submit_button("Registrar Entrada de Estoque"):
-                    registrar_compra(prod, fornec, grupo, qtd, v_custo)
-                    st.success("Estoque atualizado e compra registrada com sucesso!")
-                    st.rerun()
+            with aba_compra:
+                with st.form("form_entrada_estoque"):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        produto_escolhido = st.selectbox("Produto", produtos_opt)
+                        fornecedor_escolhido = st.selectbox("Fornecedor", fornecedores_opt)
+                        quantidade = st.number_input("Quantidade", min_value=0.0, format="%.2f")
+                    with col2:
+                        grupo_escolhido = st.selectbox("Grupo", grupos_opt)
+                        preco_custo = st.number_input("Preço de Custo Unitário (R$)", min_value=0.0, format="%.2f")
+                    
+                    enviado = st.form_submit_button("Registrar Entrada no Estoque")
+                    if enviado:
+                        registrar_compra(produto_escolhido, fornecedor_escolhido, grupo_escolhido, quantidade, preco_custo)
+                        cursor = conn.cursor()
+                        cursor.execute("UPDATE produtos SET estoque_atual = COALESCE(estoque_atual, 0) + ? WHERE TRIM(nome) = TRIM(?)", (quantidade, produto_escolhido))
+                        conn.commit()
+                        st.success("Entrada registrada e estoque atualizado!")
+                        st.rerun()
+                        
+            with aba_historico_compras:
+                st.dataframe(carregar_dados("SELECT * FROM compras"), use_container_width=True)
 
         elif menu_admin == "📦 Estoque de Produtos":
-            st.title("📦 Consulta e Gestão de Estoque")
-            df_estoque = carregar_dados("SELECT * FROM produtos")
-            if not df_estoque.empty:
-                st.dataframe(df_estoque, use_container_width=True)
+            st.title("📦 Estoque de Produtos e Preços")
+            df_prods = carregar_dados("SELECT * FROM produtos")            
+            if not df_prods.empty:
+                st.dataframe(df_prods, use_container_width=True)
             else:
-                st.warning("Nenhum produto cadastrado no estoque.")
+                st.info("Nenhum produto cadastrado.")
 
         elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
             st.title("👥 Cadastros Gerais")
-            tab_cli, tab_forn, tab_grp, tab_prod = st.tabs(["Clientes", "Fornecedores", "Grupos", "Produtos"])
+            tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["👥 Clientes", "📦 Produtos", "🏢 Fornecedores", "🏷️ Grupos"])            
             
             with tab_cli:
                 st.subheader("Cadastrar Novo Cliente")
-                with st.form("form_cad_cli"):
-                    nome_c = st.text_input("Nome / Razão Social")
-                    tel_c = st.text_input("Telefone")
-                    doc_c = st.text_input("CPF / CNPJ")
-                    end_c = st.text_input("Endereço")
-                    cid_c = st.text_input("Cidade")
+                with st.form("form_cad_cliente_completo"):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        novo_cli = st.text_input("Nome do Cliente / Razão Social")
+                        telefone = st.text_input("Telefone / WhatsApp")
+                        doc = st.text_input("CPF / CNPJ")
+                    with col2:
+                        endereco = st.text_input("Endereço / Logradouro")
+                        cidade = st.text_input("Cidade / UF")
+                    
                     if st.form_submit_button("Salvar Cliente"):
-                        if nome_c:
-                            salvar_cliente_completo(nome_c, tel_c, doc_c, end_c, cid_c)
-                            st.success("Cliente cadastrado!")
+                        if novo_cli.strip() and salvar_cliente_completo(novo_cli.strip(), telefone, doc, endereco, cidade):
+                            st.success("Cliente cadastrado com sucesso!")
                             st.rerun()
-                        else:
-                            st.warning("Informe o nome do cliente.")
-                
-                st.markdown("---")
                 st.dataframe(carregar_dados("SELECT * FROM clientes"), use_container_width=True)
+
+            with tab_prod:
+                st.subheader("Cadastrar Novo Produto e Estoque")
+                grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
+                fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
+                
+                with st.form("form_cad_produto_completo"):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        novo_prod = st.text_input("Nome do Produto")
+                        fornec_prod = st.selectbox("Fornecedor", fornecedores_opt)
+                        grupo_prod = st.selectbox("Grupo / Categoria", grupos_opt)
+                    with col2:
+                        p_custo = st.number_input("Preço de Custo (R$)", min_value=0.0, step=1.0, value=10.0)
+                        p_venda = st.number_input("Preço de Venda (R$)", min_value=0.0, step=20.0, value=20.0)
+                        estoque_ini = st.number_input("Estoque Inicial", min_value=0.0, step=1.0, value=0.0)
+                    
+                    if st.form_submit_button("Salvar Produto no Estoque"):
+                        if novo_prod.strip() and salvar_produto_completo(novo_prod.strip(), fornec_prod, grupo_prod, p_custo, p_venda, estoque_ini):
+                            st.success("Produto cadastrado com sucesso!")
+                            st.rerun()
+                st.dataframe(carregar_dados("SELECT * FROM produtos"), use_container_width=True)
 
             with tab_forn:
                 st.subheader("Cadastrar Novo Fornecedor")
-                with st.form("form_cad_forn"):
-                    nome_f = st.text_input("Nome do Fornecedor")
+                with st.form("form_cad_fornecedor"):
+                    novo_forn = st.text_input("Nome do Fornecedor")
                     if st.form_submit_button("Salvar Fornecedor"):
-                        if nome_f:
-                            salvar_simples("fornecedores", "fornecedor", nome_f)
-                            st.success("Fornecedor cadastrado!")
+                        if novo_forn.strip() and salvar_simples("fornecedores", "fornecedor", novo_forn.strip()):
+                            st.success("Fornecedor cadastrado com sucesso!")
                             st.rerun()
                 st.dataframe(carregar_dados("SELECT * FROM fornecedores"), use_container_width=True)
 
-            with tab_grp:
-                st.subheader("Cadastrar Novo Grupo / Categoria")
-                with st.form("form_cad_grp"):
-                    nome_g = st.text_input("Nome do Grupo")
+            with tab_grup:
+                st.subheader("Cadastrar Novo Grupo")
+                with st.form("form_cad_grupo"):
+                    novo_grup = st.text_input("Nome do Grupo")
                     if st.form_submit_button("Salvar Grupo"):
-                        if nome_g:
-                            salvar_simples("grupos", "grupo", nome_g)
-                            st.success("Grupo cadastrado!")
+                        if novo_grup.strip() and salvar_simples("grupos", "grupo", novo_grup.strip()):
+                            st.success("Grupo cadastrado com sucesso!")
                             st.rerun()
                 st.dataframe(carregar_dados("SELECT * FROM grupos"), use_container_width=True)
-
-            with tab_prod:
-                st.subheader("Cadastrar Novo Produto")
-                f_opts = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
-                g_opts = carregar_coluna("grupos", "grupo") or ["GERAL"]
-                
-                with st.form("form_cad_prod_completo"):
-                    p_nome = st.text_input("Nome do Produto")
-                    p_forn = st.selectbox("Fornecedor", f_opts)
-                    p_grp = st.selectbox("Grupo", g_opts)
-                    p_custo = st.number_input("Valor de Custo (R$)", min_value=0.0, step=1.0, value=50.0)
-                    p_venda = st.number_input("Valor de Venda (R$)", min_value=0.0, step=1.0, value=80.0)
-                    p_estoque = st.number_input("Estoque Inicial", min_value=0.0, step=1.0, value=0.0)
-                    
-                    if st.form_submit_button("Salvar Produto"):
-                        if p_nome:
-                            salvar_produto_completo(p_nome, p_forn, p_grp, p_custo, p_venda, p_estoque)
-                            st.success("Produto cadastrado com sucesso!")
-                            st.rerun()
-                        else:
-                            st.warning("Preencha o nome do produto.")
-                
-                st.markdown("---")
-                st.dataframe(carregar_dados("SELECT * FROM produtos"), use_container_width=True)
