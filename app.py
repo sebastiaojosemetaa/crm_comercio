@@ -464,23 +464,19 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     
                     dados_p = df_produtos_pdv[df_produtos_pdv[col_nome_prod].astype(str).str.strip() == str(prod_escolhido).strip()].iloc[0]
                     
-                    # Correção definitiva para evitar erro de índice
-    p_venda_col = 'valor_venda' if 'valor_venda' in cols_p else cols_p[-2]
+                    p_venda_col = 'valor_venda' if 'valor_venda' in cols_p else cols_p[-2]
     est_col = 'estoque_atual' if 'estoque_atual' in cols_p else cols_p[-1]
     forn_col = 'fornecedor' if 'fornecedor' in cols_p else cols_p[min(2, len(cols_p)-1)]
-                    
-                    try:
-                        preco_sugerido = float(dados_p[p_venda_col])
-                    except Exception:
-                        preco_sugerido = 0.0
 
-                    try:
-                        estoque_disp = float(dados_p[est_col])
-                    except Exception:
-                        estoque_disp = 0.0
+    try:
+        preco_sugerido = float(dados_p[p_venda_col])
+    except Exception:
+        preco_sugerido = 0.0
 
-                    forn_prod = str(dados_p.get(forn_col, 'Geral'))
-                    grupo_prod = str(dados_p.get('grupo', 'GERAL')) if 'grupo' in cols_p else 'GERAL'
+    try:
+        estoque_disp = float(dados_p[est_col])
+    except Exception:
+        estoque_disp = 0.0
                     
                     st.caption(f"📦 **Estoque Disponível:** {estoque_disp:,.2f} | 🏢 **Fornecedor:** {forn_prod}")
 
