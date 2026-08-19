@@ -452,8 +452,19 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.warning("⚠️ Nenhum produto cadastrado no estoque. Por favor, vá na aba **Cadastros** > **Produtos** e cadastre itens primeiro.")
             else:
                 cols_p = df_produtos_pdv.columns.tolist()
-                col_nome_prod = 'nome' if 'nome' in cols_p else cols_p[1]
                 
+                col_nome_prod = 'produto' if 'produto' in cols_p else ('nome' if 'nome' in cols_p else cols_p[1])
+                p_venda_col = 'valor_venda' if 'valor_venda' in cols_p else cols_p[-2]
+                
+                if 'quantidade' in cols_p:
+                    est_col = 'quantidade'
+                elif 'estoque_atual' in cols_p:
+                    est_col = 'estoque_atual'
+                else:
+                    est_col = cols_p[2]
+
+                forn_col = 'fornecedor' if 'fornecedor' in cols_p else cols_p[min(3, len(cols_p)-1)]
+
                 col_pdv1, col_pdv2 = st.columns([1.2, 0.8])
                 
                 with col_pdv1:
@@ -464,10 +475,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     prod_escolhido = st.selectbox("Selecione ou Busque o Produto:", prod_nomes, key="pdv_produto")
                     
                     dados_p = df_produtos_pdv[df_produtos_pdv[col_nome_prod].astype(str).str.strip() == str(prod_escolhido).strip()].iloc[0]
-                    
-                    p_venda_col = 'valor_venda' if 'valor_venda' in cols_p else cols_p[-2]
-                    est_col = 'estoque_atual' if 'estoque_atual' in cols_p else cols_p[-1]
-                    forn_col = 'fornecedor' if 'fornecedor' in cols_p else cols_p[min(2, len(cols_p)-1)]
 
                     try:
                         preco_sugerido = float(dados_p[p_venda_col])
