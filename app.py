@@ -510,12 +510,33 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 col_i1, col_i2, col_i3 = st.columns(3)
                 with col_i1:
                     prod_item = st.selectbox("Produto", produtos_opt)
+                    
+                    # Pega o preço, fornecedor e grupo direto da tabela de produtos cadastrados
+                    df_prod_info = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_item}')")
+                    sugestao_preco = 0.0
+                    sugestao_fornec = fornecedores_opt[0] if fornecedores_opt else ""
+                    sugestao_grupo = grupos_opt[0] if grupos_opt else ""
+                    
+                    if not df_prod_info.empty:
+                        cols_p = df_prod_info.columns.tolist()
+                        col_pv = 'valor_venda' if 'valor_venda' in cols_p else ('preco_venda' if 'preco_venda' in cols_p else cols_p[-1])
+                        sugestao_preco = float(df_prod_info.iloc[0].get(col_pv, 0.0))
+                        if 'fornecedor' in cols_p and pd.notna(df_prod_info.iloc[0]['fornecedor']):
+                            sugestao_fornec = str(df_prod_info.iloc[0]['fornecedor'])
+                        if 'grupo' in cols_p and pd.notna(df_prod_info.iloc[0]['grupo']):
+                            sugestao_grupo = str(df_prod_info.iloc[0]['grupo'])
+
                     qtd_item = st.number_input("Quantidade", min_value=0.1, step=1.0, value=1.0)
+                
                 with col_i2:
-                    fornec_item = st.selectbox("Fornecedor", fornecedores_opt)
-                    v_unit_item = st.number_input("Valor Unitário (R$)", min_value=0.0, step=1.0, value=0.0)
+                    idx_f = fornecedores_opt.index(sugestao_fornec) if sugestao_fornec in fornecedores_opt else 0
+                    fornec_item = st.selectbox("Fornecedor", fornecedores_opt, index=idx_f)
+                    
+                    v_unit_item = st.number_input("Valor Unitário (R$)", min_value=0.0, step=1.0, value=sugestao_preco)
+                
                 with col_i3:
-                    grupo_item = st.selectbox("Grupo", grupos_opt)
+                    idx_g = grupos_opt.index(sugestao_grupo) if sugestao_grupo in grupos_opt else 0
+                    grupo_item = st.selectbox("Grupo", grupos_opt, index=idx_g)
                 
                 if st.form_submit_button("➕ Incluir Produto no Carrinho"):
                     st.session_state.carrinho_pdv.append({
@@ -558,7 +579,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         if not df_caixa_aberto.empty:
                             sessao_id = int(df_caixa_aberto.iloc[0]['id'])
                             
-                            # Salva cada item do carrinho na tabela vendas
                             for item in st.session_state.carrinho_pdv:
                                 salvar_pedido_ou_venda(
                                     cliente=cliente_pdv,
@@ -1213,7 +1233,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             st.success("Fornecedor cadastrado com sucesso!")
                             st.rerun()
                 st.markdown("---")
-                st.dataframe(carregar_dados("SELECT * FROM fornecedores"), use_container_width.get_container_width() if hasattr(st, 'container_width') else True)
+                st.dataframe(carregar_dados("SELECT * FROM fornecedores"), use_container_width=True)
 
             with tab_grup:
                 st.subheader("Cadastrar Novo Grupo")
