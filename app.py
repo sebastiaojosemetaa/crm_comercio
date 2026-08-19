@@ -5,110 +5,100 @@ from datetime import datetime
 import io
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
-st.set_page_config(page_title="CRM Rey da Cebola", layout="wide")
+# --- CONFIGURAÇÃO E BANCO DE DADOS ---
+st.set_page_config(page_title="CRM Comércio - Rey da Cebola", layout="wide")
+conn = sqlite3.connect("crm_comercio.db", check_same_thread=False)
 
-def get_connection():
-    return sqlite3.connect("crm_comercio.db", check_same_thread=False)
+def carregar_dados(query):
+    try: return pd.read_sql_query(query, conn)
+    except: return pd.DataFrame()
 
-conn = get_connection()
-
-# Função para ler dados de forma segura (ignora erro se a tabela não existir)
-def ler_tabela_seguro(nome_tabela):
-    try:
-        return pd.read_sql_query(f"SELECT * FROM {nome_tabela}", conn)
-    except:
-        return pd.DataFrame() # Retorna dataframe vazio se der erro
-
-# -----------------------------------------------------------------------------
-# GERADOR DE PDF
-# -----------------------------------------------------------------------------
+# --- GERADOR DE PDF ---
 def gerar_pdf(df_dados):
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter)
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=20, leftMargin=20, topMargin=20, bottomMargin=20)
     elements = []
     styles = getSampleStyleSheet()
-    elements.append(Paragraph("Relatório de Pedidos", styles['Title']))
+    elements.append(Paragraph("Relatório de Vendas - Rey da Cebola", styles['Title']))
+    elements.append(Spacer(1, 12))
     
-    # Tenta usar colunas comuns
-    cols = [c for c in ['id', 'cliente', 'produto', 'quantidade', 'valor_total', 'data'] if c in df_dados.columns]
-    df_pdf = df_dados[cols]
-    
-    data = [df_pdf.columns.tolist()] + df_pdf.values.tolist()
-    t = Table(data)
-    t.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 0.5, colors.black)]))
+    # Prepara dados para tabela
+    table_data = [df_dados.columns.tolist()] + df_dados.values.tolist()
+    t = Table(table_data)
+    t.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 0.5, colors.black), ('FONTSIZE', (0,0), (-1,-1), 8)]))
     elements.append(t)
     doc.build(elements)
     buffer.seek(0)
     return buffer
 
-# -----------------------------------------------------------------------------
-# INTERFACE
-# -----------------------------------------------------------------------------
+# --- INTERFACE ---
 if 'admin_logged' not in st.session_state: st.session_state.admin_logged = False
 
 if not st.session_state.admin_logged:
-    st.title("Login de Administração")
-    senha = st.text_input("Senha", type="password")
-    if st.button("Entrar"):
+    st.title("🔑 Acesso ao Sistema")
+    senha = st.sidebar.text_input("Senha Admin:", type="password")
+    if st.sidebar.button("Entrar"):
         if senha == "1234":
             st.session_state.admin_logged = True
             st.rerun()
 else:
-    menu = st.sidebar.radio("Menu Principal", [
-        "📋 Pedidos / Orçamentos", 
-        "🛒 PDV — Frente de Caixa", 
-        "📦 Estoque de Produtos",
-        "🔓 Abertura/Fechamento de Caixa",
-        "👥 Cadastros"
-    ])
+    # A ESTRUTURA ORIGINAL DA BARRA LATERAL RESTAURADA
+    menu_admin = st.sidebar.radio(
+        "Navegação",
+        [
+            "🔓 Abertura e Fechamento de Caixa",
+            "🛒 PDV — Frente de Caixa",
+            "📊 Fechamento & Financeiro",
+            "📋 Pedidos / Orçamentos",
+            "📥 Entrada de Estoque (Compras)",
+            "📦 Estoque de Produtos",
+            "👥 Cadastros (Clientes / Fornecedores / Grupos)"
+        ]
+    )
+    if st.sidebar.button("Sair"):
+        st.session_state.admin_logged = False
+        st.rerun()
 
-    if menu == "📋 Pedidos / Orçamentos":
+    # --- LÓGICA DOS MENUS ---
+    if menu_admin == "📋 Pedidos / Orçamentos":
         st.title("📋 Pedidos / Orçamentos")
-        df = ler_tabela_seguro("vendas")
+        df = carregar_dados("SELECT * FROM vendas")
+        st.dataframe(df, use_container_width=True)
         if not df.empty:
-            st.dataframe(df, use_container_width=True)
-            pdf_data = gerar_pdf(df)
-            st.download_button("📥 Baixar PDF", pdf_data, "pedidos.pdf", "application/pdf")
-        else:
-            st.warning("Nenhum dado encontrado na tabela de vendas.")
+            st.download_button("📥 Baixar PDF", gerar_pdf(df), "pedidos.pdf", "application/pdf")
 
-    elif menu == "🛒 PDV — Frente de Caixa":
+    elif menu_admin == "🛒 PDV — Frente de Caixa":
         st.title("🛒 PDV — Frente de Caixa")
         with st.form("form_pdv"):
-            cli = st.text_input("Cliente")
-            prod = st.text_input("Produto")
-            qtd = st.number_input("Quantidade", value=1.0)
-            valor = st.number_input("Valor Unitário", value=0.0)
+            col1, col2 = st.columns(2)
+            cli = col1.text_input("Cliente")
+            prod = col2.text_input("Produto")
+            qtd = col1.number_input("Quantidade", value=1.0)
+            valor = col2.number_input("Valor Unitário", value=0.0)
             if st.form_submit_button("Finalizar Venda"):
                 cursor = conn.cursor()
-                total = qtd * valor
-                cod = f"PED-{datetime.now().strftime('%Y%m%d%H%M%S')}"
-                try:
-                    cursor.execute("INSERT INTO vendas (cliente, produto, quantidade, valor_venda, valor_total, codigo_venda, data, tipo) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                                   (cli, prod, qtd, valor, total, cod, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "VENDA"))
-                    conn.commit()
-                    st.success("Venda registrada!")
-                except Exception as e:
-                    st.error(f"Erro ao salvar: {e}")
+                cursor.execute("INSERT INTO vendas (cliente, produto, quantidade, valor_venda, valor_total, data, tipo) VALUES (?,?,?,?,?,?,?)",
+                               (cli, prod, qtd, valor, qtd*valor, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "VENDA"))
+                conn.commit()
+                st.success("Venda registrada!")
 
-    elif menu == "📦 Estoque de Produtos":
+    elif menu_admin == "📦 Estoque de Produtos":
         st.title("📦 Estoque")
-        df_prod = ler_tabela_seguro("produtos")
-        st.dataframe(df_prod, use_container_width=True)
+        st.dataframe(carregar_dados("SELECT * FROM produtos"), use_container_width=True)
 
-    elif menu == "🔓 Abertura/Fechamento de Caixa":
+    elif menu_admin == "🔓 Abertura e Fechamento de Caixa":
         st.title("🔓 Controle de Caixa")
-        df_caixa = ler_tabela_seguro("caixa_sessoes")
-        if not df_caixa.empty:
-            st.dataframe(df_caixa, use_container_width=True)
-        else:
-            st.info("Nenhuma sessão de caixa registrada.")
+        st.dataframe(carregar_dados("SELECT * FROM caixa_sessoes"), use_container_width=True)
         
-    elif menu == "👥 Cadastros":
-        st.title("👥 Cadastros")
-        tab1, tab2 = st.tabs(["Clientes", "Fornecedores"])
-        with tab1: st.dataframe(ler_tabela_seguro("clientes"))
-        with tab2: st.dataframe(ler_tabela_seguro("fornecedores"))
+    elif menu_admin == "📊 Fechamento & Financeiro":
+        st.title("📊 Fechamento & Financeiro")
+        st.dataframe(carregar_dados("SELECT * FROM vendas"), use_container_width=True)
+
+    elif menu_admin == "📥 Entrada de Estoque (Compras)":
+        st.title("📥 Entrada de Estoque")
+        
+    elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
+        st.title("👥 Cadastros Gerais")
