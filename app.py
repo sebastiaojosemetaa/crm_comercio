@@ -569,7 +569,7 @@ with st.form("form_adicionar_item_pdv", clear_on_submit=False):
         grupo_item = st.selectbox("Grupo", grupos_opt, index=idx_g, key="pdv_grupo")
                     
     valor_total_item = qtd_item * v_unit_item
-                st.metric("Valor Total do Item", f"R$ {valor_total_item:,.2f}")
+    st.metric("Valor Total do Item", f"R$ {valor_total_item:.2f}")
                 
                 if st.form_submit_button("➕ Incluir Produto no Carrinho"):
                     st.session_state.carrinho_pdv.append({
