@@ -512,7 +512,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             with col_s1:
                 prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto")
             
-            # Busca automática do preço de venda, fornecedor e grupo diretamente na tabela produtos
+            # Busca robusta do preço de venda na tabela produtos
             df_prod_info = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_item}')")
             sugestao_preco = 0.0
             sugestao_fornec = fornecedores_opt[0] if fornecedores_opt else ""
@@ -520,8 +520,22 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
             if not df_prod_info.empty:
                 cols_p = df_prod_info.columns.tolist()
-                col_pv = 'valor_venda' if 'valor_venda' in cols_p else ('preco_venda' if 'preco_venda' in cols_p else cols_p[-1])
-                sugestao_preco = float(df_prod_info.iloc[0].get(col_pv, 0.0))
+                # Tenta localizar dinamicamente a coluna de preço de venda (seja valor_venda, preco_venda, etc.)
+                col_pv = None
+                for c in ['valor_venda', 'preco_venda', 'venda', 'preco']:
+                    if c in cols_p:
+                        col_pv = c
+                        break
+                if not col_pv:
+                    # Pega a última coluna numérica ou qualquer uma que pareça preço
+                    col_pv = [c for c in cols_p if 'venda' in c.lower() or 'preco' in c.lower()]
+                    col_pv = col_pv[-1] if col_pv else cols_p[-1]
+                
+                try:
+                    sugestao_preco = float(df_prod_info.iloc[0][col_pv])
+                except Exception:
+                    sugestao_preco = 0.0
+
                 if 'fornecedor' in cols_p and pd.notna(df_prod_info.iloc[0]['fornecedor']):
                     sugestao_fornec = str(df_prod_info.iloc[0]['fornecedor'])
                 if 'grupo' in cols_p and pd.notna(df_prod_info.iloc[0]['grupo']):
