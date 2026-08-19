@@ -465,9 +465,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     dados_p = df_produtos_pdv[df_produtos_pdv[col_nome_prod].astype(str).str.strip() == str(prod_escolhido).strip()].iloc[0]
                     
                     # Garantia blindada para encontrar preço e estoque corretamente
-                    p_venda_col = 'valor_venda' if 'valor_venda' in cols_p else cols_p[-2]
-                    est_col = 'estoque_atual' if 'estoque_atual' in cols_p else cols_p[-1]
-                    forn_col = 'fornecedor' if 'fornecedor' in cols_p else cols_p[min(2, len(cols_p)-1)]
+                    p_venda_col = 'valor_venda' if 'valor_venda' in cols_p else cols_p[5]
+                    est_col = 'estoque_atual' if 'estoque_atual' in cols_p else cols_p[6]
+                    forn_col = 'fornecedor' if 'fornecedor' in cols_p else cols_p[2]
                     
                     try:
                         preco_sugerido = float(dados_p[p_venda_col])
