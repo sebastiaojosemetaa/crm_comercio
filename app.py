@@ -350,6 +350,12 @@ if 'admin_logged' not in st.session_state:
 if 'cliente_autenticado' not in st.session_state:
     st.session_state.cliente_autenticado = None
 
+# Inicializar estados de Controle de Caixa para o PDV
+if 'caixa_aberto' not in st.session_state:
+    st.session_state.caixa_aberto = False
+if 'fundo_troco' not in st.session_state:
+    st.session_state.fundo_troco = 0.0
+
 st.sidebar.title("🔑 Acesso ao Sistema")
 opcoes_perfil = ["👤 Portal do Cliente", "🔒 Administração / Vendedor"]
 perfil_selecionado = st.sidebar.radio("Selecione o Perfil:", opcoes_perfil)
@@ -390,16 +396,10 @@ if perfil_selecionado == "👤 Portal do Cliente":
             
             with st.form("form_novo_pedido_cliente"):
                 prod = st.selectbox("Selecione o Produto", produtos_opt)
-                
-                # --- VISUALIZAÇÃO DO VALOR DO PRODUTO ATUALIZADA ---
-                df_busca_preco = carregar_dados(f"SELECT valor_compra FROM produtos WHERE TRIM(nome) = TRIM('{prod}')")
-                v_custo_atual = float(df_busca_preco.iloc[0, 0]) if not df_busca_preco.empty else 100.0
-                st.caption(f"💰 Preço de custo unitário atual: **R$ {v_custo_atual:,.2f}**")
-                
                 fornec = st.selectbox("Selecione o Fornecedor", fornecedores_opt)
                 grupo = st.selectbox("Selecione o Grupo", grupos_opt)
                 qtd = st.number_input("Quantidade", min_value=0.1, step=0.5, value=1.0)
-                v_unit = st.number_input("Preço de Custo (R$)", min_value=0.0, step=1.0, value=v_custo_atual)
+                v_unit = st.number_input("Preço de Custo (R$)", min_value=0.0, step=1.0, value=100.0)
                 
                 if st.form_submit_button("Confirmar Pedido"):
                     salvar_pedido_ou_venda(st.session_state.cliente_autenticado, prod, fornec, grupo, qtd, v_unit, tipo="PEDIDO")
@@ -455,6 +455,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 "📊 Fechamento & Financeiro",
                 "📋 Pedidos / Orçamentos",
                 "🛒 Registrar Venda",
+                "💻 PDV / Frente de Caixa", # <--- Nova opção integrada de PDV
                 "📥 Entrada de Estoque (Compras)",
                 "📦 Estoque de Produtos",
                 "👥 Cadastros (Clientes / Fornecedores / Grupos)"
@@ -561,17 +562,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     with col_a:
                         cli = st.selectbox("Selecione o Cliente", clientes_opt)
                         prod = st.selectbox("Selecione o Produto", produtos_opt)
-                        
-                        # --- VISUALIZAÇÃO DO VALOR DO PRODUTO ATUALIZADA ---
-                        coluna_preco_busca = 'valor_compra' if is_modo_pedido else 'valor_venda'
-                        df_busca_val = carregar_dados(f"SELECT {coluna_preco_busca} FROM produtos WHERE TRIM(nome) = TRIM('{prod}')")
-                        v_padrao = float(df_busca_val.iloc[0, 0]) if not df_busca_val.empty else 100.0
-                        label_tipo_preco = "Preço de Custo" if is_modo_pedido else "Preço de Venda"
-                        st.caption(f"💰 {label_tipo_preco} atual do produto: **R$ {v_padrao:,.2f}**")
-                        
                         qtd = st.number_input("Quantidade", min_value=0.1, step=0.5, value=1.0)
                         label_preco = "Preço Custo / Valor Compra (R$)" if is_modo_pedido else "Valor Venda (R$)"
-                        v_unit = st.number_input(label_preco, min_value=0.0, step=1.0, value=v_padrao)
+                        v_unit = st.number_input(label_preco, min_value=0.0, step=1.0, value=100.0)
                     with col_b:
                         fornec = st.selectbox("Selecione o Fornecedor", fornecedores_opt)
                         grupo = st.selectbox("Selecione o Grupo", grupos_opt)
@@ -838,6 +831,158 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 else:
                     st.info("Nenhum registro encontrado para o filtro selecionado.")
 
+        # ==========================================
+        # NOVA OPÇÃO: PDV / FRENTE DE CAIXA
+        # ==========================================
+        elif menu_admin == "💻 PDV / Frente de Caixa":
+            st.title("🛒 PDV - Frente de Caixa (Abertura, Vendas & Fechamento)")
+
+            # --- ETAPA 1: ABERTURA DE CAIXA ---
+            if not st.session_state.caixa_aberto:
+                st.info("🔓 O caixa encontra-se fechado. Informe o fundo de troco inicial da gaveta para iniciar as operações do dia.")
+                
+                with st.form("form_abertura_pdv"):
+                    fundo_inicial = st.number_input("Valor de Fundo de Troco / Dinheiro Inicial (R$)", min_value=0.0, value=100.0, format="%.2f")
+                    btn_abrir = st.form_submit_button("🔓 Abrir Caixa Agora")
+                    
+                    if btn_abrir:
+                        st.session_state.caixa_aberto = True
+                        st.session_state.fundo_troco = fundo_inicial
+                        st.success(f"Caixa aberto com sucesso! Fundo inicial registrado: R$ {fundo_inicial:.2f}")
+                        st.rerun()
+
+            # --- ETAPA 2: OPERAÇÃO DO PDV (CAIXA ABERTO) ---
+            else:
+                st.sidebar.markdown("---")
+                st.sidebar.success(f"🟢 Caixa Aberto\n\nFundo Inicial: R$ {st.session_state.fundo_troco:.2f}")
+
+                tab_pdv_venda, tab_pdv_fechamento = st.tabs(["💻 Registrar Venda Rápida (PDV)", "🔒 Fechamento e Conferência de Caixa"])
+
+                with tab_pdv_venda:
+                    st.subheader("⚡ Lançamento Rápido no PDV")
+                    
+                    clientes_opt = carregar_coluna("clientes", "nome") or ["Cliente Balcão"]
+                    
+                    # Carregar produtos reais do banco de dados junto com seus preços de venda
+                    df_prod_pdv = carregar_dados("SELECT nome, fornecedor, grupo, valor_venda, estoque_atual FROM produtos")
+                    
+                    if not df_prod_pdv.empty:
+                        lista_prods_pdv = df_prod_pdv['nome'].tolist()
+                        
+                        with st.form("form_venda_pdv_rapido", clear_on_submit=True):
+                            col_p1, col_p2 = st.columns(2)
+                            with col_p1:
+                                cli_pdv = st.selectbox("Cliente", clientes_opt, key="pdv_cliente")
+                                prod_pdv = st.selectbox("Produto", lista_prods_pdv, key="pdv_produto")
+                                
+                                # Obter dados do produto selecionado em tempo real
+                                prod_info = df_prod_pdv[df_prod_pdv['nome'] == prod_pdv].iloc[0]
+                                preco_unit_sugerido = float(prod_info['valor_venda']) if 'valor_venda' in prod_info else 0.0
+                                fornec_prod = prod_info.get('fornecedor', 'BAHIA')
+                                grupo_prod = prod_info.get('grupo', 'GERAL')
+                                estoque_disponivel = float(prod_info['estoque_atual']) if 'estoque_atual' in prod_info else 0.0
+
+                            with col_p2:
+                                qtd_pdv = st.number_input("Quantidade", min_value=0.1, value=1.0, step=0.5, key="pdv_qtd")
+                                preco_venda_praticado = st.number_input("Preço Unitário de Venda (R$)", min_value=0.0, value=preco_unit_sugerido, format="%.2f", key="pdv_preco")
+                                forma_pgto_pdv = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito", "Crediário / Fiado"], key="pdv_forma")
+
+                            # Indicador visual em tempo real do preço e total
+                            total_calc_pdv = qtd_pdv * preco_venda_praticado
+                            st.info(f"🏷️ **Preço Atual do Produto:** R$ {preco_unit_sugerido:,.2f} | 📦 **Estoque Disp.:** {estoque_disponivel:,.2f} | 💰 **Total da Venda:** **R$ {total_calc_pdv:,.2f}**")
+                            
+                            btn_finalizar_pdv = st.form_submit_button("🛒 Finalizar e Gravar Venda (Baixar no Sistema)")
+                            
+                            if btn_finalizar_pdv:
+                                # Definir valor recebido com base na forma de pagamento
+                                if forma_pgto_pdv in ["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito"]:
+                                    v_rec_pdv = total_calc_pdv
+                                else:
+                                    v_rec_pdv = 0.0 # Fiado/Crediário entra como pendente
+                                
+                                # Salva direto na tabela principal de vendas do sistema
+                                salvar_pedido_ou_venda(
+                                    cliente=cli_pdv,
+                                    produto=prod_pdv,
+                                    fornecedor=fornec_prod,
+                                    grupo=grupo_prod,
+                                    quantidade=qtd_pdv,
+                                    valor_venda=preco_venda_praticado,
+                                    forma_pagamento=forma_pgto_pdv,
+                                    valor_recebido=v_rec_pdv,
+                                    tipo="VENDA"
+                                )
+                                
+                                # Atualiza o estoque do produto deduzindo a quantidade vendida
+                                cursor_pdv = conn.cursor()
+                                cursor_pdv.execute("""
+                                    UPDATE produtos 
+                                    SET estoque_atual = COALESCE(estoque_atual, 0) - ? 
+                                    WHERE TRIM(nome) = TRIM(?)
+                                """, (qtd_pdv, prod_pdv))
+                                conn.commit()
+                                
+                                st.success(f"Venda rápida de R$ {total_calc_pdv:,.2f} registrada com sucesso e estoque atualizado!")
+                                st.rerun()
+                    else:
+                        st.warning("Cadastre produtos na aba 'Estoque de Produtos' para conseguir realizar vendas rápidas no PDV.")
+
+                with tab_pdv_fechamento:
+                    st.subheader("🔒 Fechamento de Caixa (Conferência de Turno)")
+                    st.info("O sistema cruza o valor de fundo de troco inicial com todas as entradas de dinheiro realizadas nas vendas do turno atual.")
+
+                    # Buscar vendas efetuadas na data de hoje para o fechamento do caixa
+                    data_hoje_str = date.today().strftime("%Y-%m-%d")
+                    df_vendas_hoje = carregar_dados(f"SELECT * FROM vendas WHERE substr(data, 1, 10) = '{data_hoje_str}'")
+
+                    if not df_vendas_hoje.empty:
+                        # Filtrar apenas as formas de pagamento válidas para o cálculo de caixa
+                        total_dinheiro_vendas = df_vendas_hoje[df_vendas_hoje['forma_pagamento'] == 'Dinheiro']['valor_total'].sum()
+                        total_pix_vendas = df_vendas_hoje[df_vendas_hoje['forma_pagamento'] == 'Pix']['valor_total'].sum()
+                        total_cartao_vendas = df_vendas_hoje[df_vendas_hoje['forma_pagamento'].str.contains('Cartão', case=False, na=False)]['valor_total'].sum()
+                        total_fiado_vendas = df_vendas_hoje[df_vendas_hoje['forma_pagamento'].str.contains('Crediário', case=False, na=False)]['valor_total'].sum()
+                    else:
+                        total_dinheiro_vendas = 0.0
+                        total_pix_vendas = 0.0
+                        total_cartao_vendas = 0.0
+                        total_fiado_vendas = 0.0
+
+                    # O dinheiro esperado na gaveta é a soma do Fundo de Troco inicial + Vendas recebidas em Dinheiro
+                    dinheiro_esperado_gaveta = st.session_state.fundo_troco + total_dinheiro_vendas
+
+                    col_f1, col_f2 = st.columns(2)
+                    with col_f1:
+                        st.metric("🔹 Fundo de Troco Inicial", f"R$ {st.session_state.fundo_troco:,.2f}")
+                        st.metric("💵 Vendas em Dinheiro (Hoje)", f"R$ {total_dinheiro_vendas:,.2f}")
+                        st.metric("💰 Total Esperado em Dinheiro na Gaveta", f"R$ {dinheiro_esperado_gaveta:,.2f}")
+                    with col_f2:
+                        st.metric("📱 Total em Pix (Hoje)", f"R$ {total_pix_vendas:,.2f}")
+                        st.metric("💳 Total em Cartão (Hoje)", f"R$ {total_cartao_vendas:,.2f}")
+                        st.metric("📝 Total em Crediário/Fiado (Hoje)", f"R$ {total_fiado_vendas:,.2f}")
+
+                    st.markdown("---")
+                    dinheiro_fisico_contado = st.number_input("💵 Digite o valor físico total contado na gaveta (Dinheiro + Troco):", min_value=0.0, value=dinheiro_esperado_gaveta, format="%.2f")
+
+                    if st.button("🔒 Realizar Fechamento Definitivo do Caixa", type="primary"):
+                        diferenca_caixa = dinheiro_fisico_contado - dinheiro_esperado_gaveta
+                        st.session_state.caixa_aberto = False  # Encerra a sessão do caixa
+
+                        st.success("Caixa fechado com sucesso!")
+                        st.metric(
+                            label="Diferença de Caixa (Sobra / Quebra)",
+                            value=f"R$ {diferenca_caixa:,.2f}",
+                            delta=f"R$ {diferenca_caixa:,.2f}"
+                        )
+
+                        if diferenca_caixa < 0:
+                            st.warning("⚠️ Atenção: O caixa fechou com falta de dinheiro (quebra de caixa).")
+                        elif diferenca_caixa > 0:
+                            st.info("ℹ️ O caixa fechou com sobra de dinheiro.")
+                        else:
+                            st.success("✨ Perfeito! O caixa fechou exato, sem nenhuma diferença.")
+
+                        st.rerun()
+
         elif menu_admin == "📥 Entrada de Estoque (Compras)":
             st.title("📥 Entrada de Estoque (Compras)")
             aba_compra, aba_historico_compras = st.tabs(["📦 Dar Entrada em Estoque", "📋 Histórico de Entradas / Compras"])
@@ -851,17 +996,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     col1, col2 = st.columns(2)
                     with col1:
                         produto_escolhido = st.selectbox("Produto", produtos_opt)
-                        
-                        # --- VISUALIZAÇÃO DO VALOR DO PRODUTO ATUALIZADA ---
-                        df_busca_custo = carregar_dados(f"SELECT valor_compra FROM produtos WHERE TRIM(nome) = TRIM('{produto_escolhido}')")
-                        v_custo_cad = float(df_busca_custo.iloc[0, 0]) if not df_busca_custo.empty else 0.0
-                        st.caption(f"💰 Preço de custo atual cadastrado: **R$ {v_custo_cad:,.2f}**")
-                        
                         fornecedor_escolhido = st.selectbox("Fornecedor", fornecedores_opt)
                         quantidade = st.number_input("Quantidade", min_value=0.0, format="%.2f")
                     with col2:
                         grupo_escolhido = st.selectbox("Grupo", grupos_opt)
-                        preco_custo = st.number_input("Preço de Custo Unitário (R$)", min_value=0.0, format="%.2f", value=v_custo_cad)
+                        preco_custo = st.number_input("Preço de Custo Unitário (R$)", min_value=0.0, format="%.2f")
                     
                     enviado = st.form_submit_button("Registrar Entrada no Estoque")
                     if enviado:
