@@ -512,21 +512,22 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto")
             
             # BUSCA ROBUSTA CORRIGIDA: PUXA TODOS OS DADOS DA TABELA PRODUTOS PARA GARANTIR O PREÇO
-            df_prod_info = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_item}')")
-            sugestao_preco = 0.0
-            sugestao_fornec = fornecedores_opt[0] if fornecedores_opt else ""
-            sugestao_grupo = grupos_opt[0] if grupos_opt else ""
-            
-            if not df_prod_info.empty:
-                linha_prod = df_prod_info.iloc[0]
-                cols_p = df_prod_info.columns.tolist()
-                
-                # Prioridade absoluta para a coluna exata 'valor_venda'
-                if 'valor_venda' in cols_p and pd.notna(linha_prod['valor_venda']):
-                    try:
-                        sugestao_preco = float(linha_prod['valor_venda'])
-                    except:
-                        pass
+            # Busca o preço diretamente do produto selecionado no banco de dados
+    df_prod_info = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_item}')")
+    sugestao_preco = 0.0
+    
+    if not df_prod_info.empty:
+        linha_prod = df_prod_info.iloc[0]
+        # Procura por qualquer coluna de preço/venda disponível
+        for c in df_prod_info.columns:
+            if any(termo in str(c).lower() for termo in ['venda', 'preco', 'preço', 'valor']) and 'compra' not in str(c).lower() and 'custo' not in str(c).lower():
+                try:
+                    val = float(linha_prod[c])
+                    if val > 0:
+                        sugestao_preco = val
+                        break
+                except:
+                    pass
                 
                 # Se não achar diretamente, varre procurando colunas similares de venda
                 if sugestao_preco == 0.0:
@@ -553,15 +554,16 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         break
 
             with st.form("form_adicionar_item_pdv", clear_on_submit=False):
-                col_i1, col_i2, col_i3 = st.columns(3)
-                with col_i1:
-                    qtd_item = st.number_input("Quantidade", min_value=0.1, step=1.0, value=1.0, key="pdv_qtd")
-                
-                with col_i2:
-                    idx_f = fornecedores_opt.index(sugestao_fornec) if sugestao_fornec in fornecedores_opt else 0
-                    fornec_item = st.selectbox("Fornecedor", fornecedores_opt, index=idx_f, key="pdv_forn")
-                    
-                    v_unit_item = st.number_input("Preço Venda (R$)", min_value=0.0, step=1.0, value=float(sugestao_preco), key="pdv_v_unit")
+    col_i1, col_i2, col_i3 = st.columns(3)
+    with col_i1:
+        qtd_item = st.number_input("Quantidade", min_value=0.1, step=1.0, value=1.0, key="pdv_qtd")
+    
+    with col_i2:
+        idx_f = fornecedores_opt.index(sugestao_fornec) if sugestao_fornec in fornecedores_opt else 0
+        fornec_item = st.selectbox("Fornecedor", fornecedores_opt, index=idx_f, key="pdv_forn")
+        
+        # É NESTA LINHA ABAIXO QUE O PREÇO FICA ZERADO OU NÃO ATUALIZA:
+        v_unit_item = st.number_input("Preço Venda (R$)", min_value=0.0, step=1.0, value=float(sugestao_preco), key="pdv_v_unit")
                 
                 with col_i3:
                     idx_g = grupos_opt.index(sugestao_grupo) if sugestao_grupo in grupos_opt else 0
