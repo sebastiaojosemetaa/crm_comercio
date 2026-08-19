@@ -206,7 +206,7 @@ def salvar_pedido_ou_venda(cliente, produto, fornecedor, grupo, quantidade, valo
     """, (cliente.strip(), produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, str(valor_recebido), tipo, cod_status, data_atual))
     conn.commit()
 
-def baixar_debito_cliente(cliente_nome, valor_haver):
+def baixar_debito_cliente(cliente_nome, valor_haver, forma_pagamento="Dinheiro"):
     cursor = conn.cursor()
     cursor.execute("""
         SELECT id, valor_total, valor_recebido 
@@ -233,9 +233,9 @@ def baixar_debito_cliente(cliente_nome, valor_haver):
             
             cursor.execute("""
                 UPDATE vendas 
-                SET valor_recebido = ? 
+                SET valor_recebido = ?, forma_pagamento = ? 
                 WHERE id = ?
-            """, (str(novo_recebido), reg_id))
+            """, (str(novo_recebido), forma_pagamento, reg_id))
             
     conn.commit()
 
@@ -561,7 +561,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         fornec = st.selectbox("Selecione o Fornecedor", fornecedores_opt)
                         grupo = st.selectbox("Selecione o Grupo", grupos_opt)
                         if not is_modo_pedido:
-                            f_pag = st.selectbox("Forma de Pagamento", ["Dinheiro", "Crediário / Fiado", "Pix"])
+                            f_pag = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito", "Crediário / Fiado"])
                             v_rec = st.number_input("Valor Recebido (R$)", min_value=0.0, step=1.0, value=v_unit * qtd)
                         else:
                             f_pag = ""
@@ -575,7 +575,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             if aba_baixa is not None:
                 with aba_baixa:
                     st.subheader("💵 Baixa de Débitos & Lançamento de Haver (Pagamento Parcial ou Total)")
-                    st.info("Selecione um cliente para ver o total em aberto. Digite o valor do 'haver' (pagamento dado pelo cliente) para abater automaticamente nas compras pendentes mais antigas, deixando o restante correto.")
+                    st.info("Selecione um cliente para ver o total em aberto. Digite o valor do 'haver', selecione a forma de pagamento e clique em aplicar para abater nas compras pendentes mais antigas.")
                     
                     clientes_com_divida = carregar_coluna("vendas", "cliente") or []
                     if clientes_com_divida:
@@ -595,11 +595,16 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             
                             st.markdown("---")
                             with st.form("form_lancar_haver"):
-                                valor_haver = st.number_input("Valor do Haver / Pagamento Recebido (R$)", min_value=0.0, step=1.0, value=0.0)
+                                col_h1, col_h2 = st.columns(2)
+                                with col_h1:
+                                    valor_haver = st.number_input("Valor do Haver / Pagamento Recebido (R$)", min_value=0.0, step=1.0, value=0.0)
+                                with col_h2:
+                                    forma_pgto_baixa = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito"])
+                                
                                 if st.form_submit_button("Aplicar Haver / Dar Baixa no Débito"):
                                     if valor_haver > 0:
-                                        baixar_debito_cliente(cliente_baixa, valor_haver)
-                                        st.success(f"Haver de R$ {valor_haver:,.2f} aplicado com sucesso para {cliente_baixa}!")
+                                        baixar_debito_cliente(cliente_baixa, valor_haver, forma_pagamento=forma_pgto_baixa)
+                                        st.success(f"Haver de R$ {valor_haver:,.2f} via {forma_pgto_baixa} aplicado com sucesso para {cliente_baixa}!")
                                         st.rerun()
                                     else:
                                         st.warning("Insira um valor de haver maior que zero.")
@@ -642,7 +647,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     
                     df_registros.insert(0, "Deletar", False)
                     
-                    # CORREÇÃO CRUCIAL PARA O TIPO DE DADO NO EDITOR
                     if 'valor_recebido' in df_registros.columns:
                         df_registros['valor_recebido'] = pd.to_numeric(df_registros['valor_recebido'], errors='coerce').fillna(0.0)
                     
@@ -664,7 +668,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 df_registros = df_registros.drop(columns=[col_ocultar])
                     else:
                         config_cols["valor_venda"] = st.column_config.NumberColumn("Valor Venda", min_value=0.0, format="R$ %.2f")
-                        config_cols["forma_pagamento"] = st.column_config.SelectboxColumn("Forma Pagamento", options=["Dinheiro", "Crediário / Fiado", "Pix"])
+                        config_cols["forma_pagamento"] = st.column_config.SelectboxColumn("Forma Pagamento", options=["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito", "Crediário / Fiado"])
                         config_cols["valor_recebido"] = st.column_config.NumberColumn("Valor Recebido / Haver", min_value=0.0, format="R$ %.2f")
 
                     df_editado = st.data_editor(
