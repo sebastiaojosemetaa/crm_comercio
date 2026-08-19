@@ -5,7 +5,7 @@ from datetime import datetime
 import io
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet
 
 st.set_page_config(page_title="CRM Rey da Cebola", layout="wide")
@@ -15,6 +15,13 @@ def get_connection():
 
 conn = get_connection()
 
+# Função para ler dados de forma segura (ignora erro se a tabela não existir)
+def ler_tabela_seguro(nome_tabela):
+    try:
+        return pd.read_sql_query(f"SELECT * FROM {nome_tabela}", conn)
+    except:
+        return pd.DataFrame() # Retorna dataframe vazio se der erro
+
 # -----------------------------------------------------------------------------
 # GERADOR DE PDF
 # -----------------------------------------------------------------------------
@@ -23,11 +30,11 @@ def gerar_pdf(df_dados):
     doc = SimpleDocTemplate(buffer, pagesize=letter)
     elements = []
     styles = getSampleStyleSheet()
-    elements.append(Paragraph("Relatório de Pedidos - Rey da Cebola", styles['Title']))
+    elements.append(Paragraph("Relatório de Pedidos", styles['Title']))
     
-    # Seleciona colunas principais para o PDF
-    colunas_pdf = ['id', 'cliente', 'produto', 'quantidade', 'valor_total', 'data']
-    df_pdf = df_dados[colunas_pdf]
+    # Tenta usar colunas comuns
+    cols = [c for c in ['id', 'cliente', 'produto', 'quantidade', 'valor_total', 'data'] if c in df_dados.columns]
+    df_pdf = df_dados[cols]
     
     data = [df_pdf.columns.tolist()] + df_pdf.values.tolist()
     t = Table(data)
@@ -60,11 +67,13 @@ else:
 
     if menu == "📋 Pedidos / Orçamentos":
         st.title("📋 Pedidos / Orçamentos")
-        df = pd.read_sql_query("SELECT * FROM vendas", conn)
-        st.dataframe(df, use_container_width=True)
+        df = ler_tabela_seguro("vendas")
         if not df.empty:
+            st.dataframe(df, use_container_width=True)
             pdf_data = gerar_pdf(df)
-            st.download_button("📥 Baixar PDF dos Pedidos", pdf_data, "pedidos.pdf", "application/pdf")
+            st.download_button("📥 Baixar PDF", pdf_data, "pedidos.pdf", "application/pdf")
+        else:
+            st.warning("Nenhum dado encontrado na tabela de vendas.")
 
     elif menu == "🛒 PDV — Frente de Caixa":
         st.title("🛒 PDV — Frente de Caixa")
@@ -77,25 +86,29 @@ else:
                 cursor = conn.cursor()
                 total = qtd * valor
                 cod = f"PED-{datetime.now().strftime('%Y%m%d%H%M%S')}"
-                cursor.execute("""
-                    INSERT INTO vendas (cliente, produto, quantidade, valor_venda, valor_total, codigo_venda, data, tipo)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, (cli, prod, qtd, valor, total, cod, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "VENDA"))
-                conn.commit()
-                st.success("Venda registrada com sucesso!")
+                try:
+                    cursor.execute("INSERT INTO vendas (cliente, produto, quantidade, valor_venda, valor_total, codigo_venda, data, tipo) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                                   (cli, prod, qtd, valor, total, cod, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "VENDA"))
+                    conn.commit()
+                    st.success("Venda registrada!")
+                except Exception as e:
+                    st.error(f"Erro ao salvar: {e}")
 
     elif menu == "📦 Estoque de Produtos":
         st.title("📦 Estoque")
-        df_prod = pd.read_sql_query("SELECT * FROM produtos", conn)
+        df_prod = ler_tabela_seguro("produtos")
         st.dataframe(df_prod, use_container_width=True)
 
     elif menu == "🔓 Abertura/Fechamento de Caixa":
         st.title("🔓 Controle de Caixa")
-        df_caixa = pd.read_sql_query("SELECT * FROM caixa_sessoes", conn)
-        st.dataframe(df_caixa, use_container_width=True)
+        df_caixa = ler_tabela_seguro("caixa_sessoes")
+        if not df_caixa.empty:
+            st.dataframe(df_caixa, use_container_width=True)
+        else:
+            st.info("Nenhuma sessão de caixa registrada.")
         
     elif menu == "👥 Cadastros":
         st.title("👥 Cadastros")
         tab1, tab2 = st.tabs(["Clientes", "Fornecedores"])
-        with tab1: st.dataframe(pd.read_sql_query("SELECT * FROM clientes", conn))
-        with tab2: st.dataframe(pd.read_sql_query("SELECT * FROM fornecedores", conn))
+        with tab1: st.dataframe(ler_tabela_seguro("clientes"))
+        with tab2: st.dataframe(ler_tabela_seguro("fornecedores"))
