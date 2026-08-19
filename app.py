@@ -334,7 +334,7 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral", d_inicio=None, d_fi
     else:
         df_resumo = pd.DataFrame(columns=['produto', 'quantidade', 'valor_venda', 'valor_total'])
 
-    table_data = [["Produto", "Qtd Total", "Preço Custo Médio (R$)", "Valor Total (R$)"]]
+    table_data = [["Produto", "Qtd Total", "Preço Venda Médio (R$)", "Valor Total (R$)"]]
     valor_total_geral = 0.0
     for _, row in df_resumo.iterrows():
         prod = str(row['produto'])
