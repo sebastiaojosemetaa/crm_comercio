@@ -103,7 +103,9 @@ def carregar_coluna(tabela, coluna):
     cursor = conn.cursor()
     cursor.execute(f"PRAGMA table_info({tabela})")
     cols = [col[1] for col in cursor.fetchall()]
-    col_alvo = coluna if coluna in cols else (cols[1] if len(cols) > 1 else coluna)
+    if not cols:
+        return []
+    col_alvo = coluna if coluna in cols else cols[1]
     
     df = carregar_dados(f"SELECT DISTINCT TRIM({col_alvo}) as {col_alvo} FROM {tabela} WHERE {col_alvo} IS NOT NULL AND {col_alvo} != ''")
     if not df.empty:
@@ -238,26 +240,6 @@ def baixar_debito_cliente(cliente_nome, valor_haver, forma_pagamento="Dinheiro")
             """, (str(novo_recebido), forma_pagamento, reg_id))
             
     conn.commit()
-
-def converter_pedido_completo_para_venda(cliente_nome):
-    cursor = conn.cursor()
-    cursor.execute("""
-        UPDATE vendas 
-        SET tipo = 'VENDA', codigo = 'VEN' 
-        WHERE TRIM(cliente) = TRIM(?)
-    """, (cliente_nome,))
-    conn.commit()
-    return cursor.rowcount
-
-def deletar_pedidos_cliente(cliente_nome, s_d1, s_d2):
-    cursor = conn.cursor()
-    cursor.execute("""
-        DELETE FROM vendas 
-        WHERE TRIM(cliente) = TRIM(?) 
-          AND (substr(data, 1, 10) >= ? AND substr(data, 1, 10) <= ? OR data IS NULL OR data = '')
-    """, (cliente_nome, s_d1, s_d2))
-    conn.commit()
-    return cursor.rowcount
 
 def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo):
     cursor = conn.cursor()
@@ -457,34 +439,41 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         )
         
         # ==========================================
-        # NOVO MÓDULO: PDV — FRENTE DE CAIXA
+        # MÓDULO: PDV — FRENTE DE CAIXA
         # ==========================================
         if menu_admin == "🛒 PDV — Frente de Caixa":
             st.title("🛒 PDV — Frente de Caixa (Balcão)")
             st.info("Realize vendas rápidas no balcão com baixa automática no estoque e cálculo de troco.")
             
-            # Carregar dados do banco para o PDV
             df_produtos_pdv = carregar_dados("SELECT * FROM produtos")
             lista_clientes_pdv = carregar_coluna("clientes", "nome") or ["Cliente Balcão / Geral"]
             
             if df_produtos_pdv.empty:
-                st.warning("Nenhum produto cadastrado no estoque. Cadastre produtos antes de usar o PDV.")
+                st.warning("⚠️ Nenhum produto cadastrado no estoque. Por favor, vá na aba **Cadastros** > **Produtos** e cadastre itens primeiro.")
             else:
+                # Verificação dinâmica de colunas para evitar KeyError
+                cols_p = df_produtos_pdv.columns.tolist()
+                col_nome_prod = 'nome' if 'nome' in cols_p else cols_p[1]
+                
                 col_pdv1, col_pdv2 = st.columns([1.2, 0.8])
                 
                 with col_pdv1:
                     st.subheader("🛍️ Lançamento do Item")
                     
-                    # Dicionário auxiliar para buscar dados do produto selecionado rapidamente
-                    prod_nomes = df_produtos_pdv['nome'].tolist()
+                    prod_nomes = df_produtos_pdv[col_nome_prod].dropna().astype(str).tolist()
                     prod_escolhido = st.selectbox("Selecione ou Busque o Produto:", prod_nomes, key="pdv_produto")
                     
-                    # Dados do produto selecionado
-                    dados_p = df_produtos_pdv[df_produtos_pdv['nome'] == prod_escolhido].iloc[0]
-                    preco_sugerido = float(dados_p.get('valor_venda', 0.0))
-                    estoque_disp = float(dados_p.get('estoque_atual', 0.0))
-                    forn_prod = str(dados_p.get('fornecedor', 'Geral'))
-                    grupo_prod = str(dados_p.get('grupo', 'GERAL'))
+                    dados_p = df_produtos_pdv[df_produtos_pdv[col_nome_prod].astype(str).str.strip() == str(prod_escolhido).strip()].iloc[0]
+                    
+                    # Identificar colunas de preço e estoque de forma flexível
+                    p_venda_col = 'valor_venda' if 'valor_venda' in cols_p else [c for c in cols_p if 'venda' in c or 'preco' in c][-1]
+                    est_col = 'estoque_atual' if 'estoque_atual' in cols_p else [c for c in cols_p if 'estoque' in c][-1]
+                    forn_col = 'fornecedor' if 'fornecedor' in cols_p else cols_p[2]
+                    
+                    preco_sugerido = float(dados_p.get(p_venda_col, 0.0))
+                    estoque_disp = float(dados_p.get(est_col, 0.0))
+                    forn_prod = str(dados_p.get(forn_col, 'Geral'))
+                    grupo_prod = str(dados_p.get('grupo', 'GERAL')) if 'grupo' in cols_p else 'GERAL'
                     
                     st.caption(f"📦 **Estoque Disponível:** {estoque_disp:,.2f} | 🏢 **Fornecedor:** {forn_prod}")
 
@@ -510,13 +499,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         else:
                             st.error(f"⚠️ Valor recebido é menor que o total! Faltam: R$ {abs(troco_pdv):,.2f}")
                     elif forma_pgto_pdv == "Crediário / Fiado":
-                        val_recebido_pdv = 0.0  # Fica pendente
+                        val_recebido_pdv = 0.0
 
                     if st.button("🚀 Finalizar e Imprimir Venda no Caixa", type="primary", use_container_width=True):
                         if estoque_disp < qtd_pdv:
                             st.error(f"⚠️ Atenção: Estoque insuficiente! Disponível: {estoque_disp}")
                         else:
-                            # 1. Salvar como VENDA efetiva
                             salvar_pedido_ou_venda(
                                 cliente=cli_pdv,
                                 produto=prod_escolhido,
@@ -529,12 +517,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 tipo="VENDA"
                             )
                             
-                            # 2. Dar baixa automática no estoque
                             cursor = conn.cursor()
-                            cursor.execute("""
+                            cursor.execute(f"""
                                 UPDATE produtos 
-                                SET estoque_atual = estoque_atual - ? 
-                                WHERE TRIM(nome) = TRIM(?)
+                                SET {est_col} = {est_col} - ? 
+                                WHERE TRIM({col_nome_prod}) = TRIM(?)
                             """, (qtd_pdv, prod_escolhido))
                             conn.commit()
                             
@@ -834,16 +821,15 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.subheader("Cadastrar Novo Cliente")
                 with st.form("form_cad_cliente_completo"):
                     col1, col2 = st.columns(2)
-                    with col1:
-                        novo_cli = st.text_input("Nome do Cliente / Razão Social")
-                        telefone = st.text_input("Telefone / WhatsApp")
-                        doc = st.text_input("CPF / CNPJ")
-                    with col2:
-                        endereco = st.text_input("Endereço / Logradouro")
-                        cidade = st.text_input("Cidade / UF")
+                    col1.text_input("Nome do Cliente / Razão Social", key="cad_cli_nome")
+                    col1.text_input("Telefone / WhatsApp", key="cad_cli_tel")
+                    col1.text_input("CPF / CNPJ", key="cad_cli_doc")
+                    col2.text_input("Endereço / Logradouro", key="cad_cli_end")
+                    col2.text_input("Cidade / UF", key="cad_cli_cid")
                     
                     if st.form_submit_button("Salvar Cliente"):
-                        if novo_cli.strip() and salvar_cliente_completo(novo_cli.strip(), telefone, doc, endereco, cidade):
+                        c_nome = st.session_state.get("cad_cli_nome", "")
+                        if c_nome.strip() and salvar_cliente_completo(c_nome.strip(), st.session_state.get("cad_cli_tel", ""), st.session_state.get("cad_cli_doc", ""), st.session_state.get("cad_cli_end", ""), st.session_state.get("cad_cli_cid", "")):
                             st.success("Cliente cadastrado com sucesso!")
                             st.rerun()
                 st.dataframe(carregar_dados("SELECT * FROM clientes"), use_container_width=True)
@@ -855,17 +841,23 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 
                 with st.form("form_cad_produto_completo"):
                     col1, col2 = st.columns(2)
-                    with col1:
-                        novo_prod = st.text_input("Nome do Produto")
-                        fornec_prod = st.selectbox("Fornecedor", fornecedores_opt)
-                        grupo_prod = st.selectbox("Grupo / Categoria", grupos_opt)
-                    with col2:
-                        p_custo = st.number_input("Preço de Custo (R$)", min_value=0.0, step=1.0, value=10.0)
-                        p_venda = st.number_input("Preço de Venda (R$)", min_value=0.0, step=20.0, value=20.0)
-                        estoque_ini = st.number_input("Estoque Inicial", min_value=0.0, step=1.0, value=0.0)
+                    col1.text_input("Nome do Produto", key="cad_prod_nome")
+                    col1.selectbox("Fornecedor", fornecedores_opt, key="cad_prod_forn")
+                    col1.selectbox("Grupo / Categoria", grupos_opt, key="cad_prod_grup")
+                    col2.number_input("Preço de Custo (R$)", min_value=0.0, step=1.0, value=10.0, key="cad_prod_pcusto")
+                    col2.number_input("Preço de Venda (R$)", min_value=0.0, step=20.0, value=20.0, key="cad_prod_pvenda")
+                    col2.number_input("Estoque Inicial", min_value=0.0, step=1.0, value=0.0, key="cad_prod_est")
                     
                     if st.form_submit_button("Salvar Produto no Estoque"):
-                        if novo_prod.strip() and salvar_produto_completo(novo_prod.strip(), fornec_prod, grupo_prod, p_custo, p_venda, estoque_ini):
+                        p_nome = st.session_state.get("cad_prod_nome", "")
+                        if p_nome.strip() and salvar_produto_completo(
+                            p_nome.strip(), 
+                            st.session_state.get("cad_prod_forn"), 
+                            st.session_state.get("cad_prod_grup"), 
+                            st.session_state.get("cad_prod_pcusto"), 
+                            st.session_state.get("cad_prod_pvenda"), 
+                            st.session_state.get("cad_prod_est")
+                        ):
                             st.success("Produto cadastrado com sucesso!")
                             st.rerun()
                 st.dataframe(carregar_dados("SELECT * FROM produtos"), use_container_width=True)
@@ -873,9 +865,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             with tab_forn:
                 st.subheader("Cadastrar Novo Fornecedor")
                 with st.form("form_cad_fornecedor"):
-                    novo_forn = st.text_input("Nome do Fornecedor")
+                    st.text_input("Nome do Fornecedor", key="cad_forn_nome")
                     if st.form_submit_button("Salvar Fornecedor"):
-                        if novo_forn.strip() and salvar_simples("fornecedores", "fornecedor", novo_forn.strip()):
+                        f_nome = st.session_state.get("cad_forn_nome", "")
+                        if f_nome.strip() and salvar_simples("fornecedores", "fornecedor", f_nome.strip()):
                             st.success("Fornecedor cadastrado com sucesso!")
                             st.rerun()
                 st.dataframe(carregar_dados("SELECT * FROM fornecedores"), use_container_width=True)
@@ -883,9 +876,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             with tab_grup:
                 st.subheader("Cadastrar Novo Grupo")
                 with st.form("form_cad_grupo"):
-                    novo_grup = st.text_input("Nome do Grupo")
+                    st.text_input("Nome do Grupo", key="cad_grup_nome")
                     if st.form_submit_button("Salvar Grupo"):
-                        if novo_grup.strip() and salvar_simples("grupos", "grupo", novo_grup.strip()):
+                        g_nome = st.session_state.get("cad_grup_nome", "")
+                        if g_nome.strip() and salvar_simples("grupos", "grupo", g_nome.strip()):
                             st.success("Grupo cadastrado com sucesso!")
                             st.rerun()
                 st.dataframe(carregar_dados("SELECT * FROM grupos"), use_container_width=True)
