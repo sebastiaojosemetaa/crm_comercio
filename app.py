@@ -549,10 +549,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         sugestao_fornec = str(linha_prod[col_f])
         break
                 
-                for col_g in ['grupo', 'Grupo']:
-                    if col_g in cols_p and pd.notna(linha_prod[col_g]):
-                        sugestao_grupo = str(linha_prod[col_g])
-                        break
+    for col_g in ['grupo', 'Grupo']:
+      if col_g in cols_p and pd.notna(linha_prod[col_g]):
+        sugestao_grupo = str(linha_prod[col_g])
+        break
 
             with st.form("form_adicionar_item_pdv", clear_on_submit=False):
                 col_i1, col_i2, col_i3 = st.columns(3)
