@@ -42,12 +42,12 @@ def adequar_banco_e_migrar():
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS produtos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT UNIQUE,
+            produto TEXT UNIQUE,
             fornecedor TEXT,
             grupo TEXT,
             valor_compra REAL,
             valor_venda REAL,
-            estoque_atual REAL
+            quantidade REAL
         )
     """)
 
@@ -248,19 +248,21 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             st.session_state.admin_logged = False
             st.rerun()
             
+        # Menu completo com todas as telas na lateral esquerda
         menu_admin = st.sidebar.radio(
             "Navegação",
             [
                 "🛒 PDV — Frente de Caixa",
                 "📊 Fechamento & Financeiro",
-                "📦 Estoque de Produtos",
                 "📋 Pedidos / Orçamentos",
-                "👥 Cadastros"
+                "📥 Entrada de Estoque (Compras)",
+                "📦 Estoque de Produtos",
+                "👥 Cadastros (Clientes / Fornecedores / Grupos)"
             ]
         )
         
         # ==========================================
-        # PDV — FRENTE DE CAIXA (COM MAPEAMENTO SEGURO DE COLUNAS)
+        # PDV — FRENTE DE CAIXA
         # ==========================================
         if menu_admin == "🛒 PDV — Frente de Caixa":
             st.title("🛒 PDV — Frente de Caixa (Balcão)")
@@ -270,33 +272,17 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             if df_produtos_pdv.empty:
                 st.warning("⚠️ Nenhum produto cadastrado no estoque.")
             else:
-                cols_p = df_produtos_pdv.columns.tolist()
-                col_nome_prod = 'produto' if 'produto' in cols_p else ('nome' if 'nome' in cols_p else cols_p[1])
-                p_venda_col = 'valor_venda' if 'valor_venda' in cols_p else cols_p[-2]
-                est_col = 'quantidade' if 'quantidade' in cols_p else ('estoque_atual' if 'estoque_atual' in cols_p else cols_p[2])
-                forn_col = 'fornecedor' if 'fornecedor' in cols_p else cols_p[min(3, len(cols_p)-1)]
-                grupo_col = 'grupo' if 'grupo' in cols_p else 'GERAL'
-
                 col_pdv1, col_pdv2 = st.columns([1.2, 0.8])
                 with col_pdv1:
                     cli_pdv = st.selectbox("Cliente:", lista_clientes_pdv)
-                    prod_nomes = df_produtos_pdv[col_nome_prod].dropna().astype(str).tolist()
+                    prod_nomes = df_produtos_pdv['produto'].dropna().astype(str).tolist()
                     prod_escolhido = st.selectbox("Produto:", prod_nomes)
                     
-                    dados_p = df_produtos_pdv[df_produtos_pdv[col_nome_prod].astype(str).str.strip() == str(prod_escolhido).strip()].iloc[0]
-                    
-                    try:
-                        preco_sugerido = float(dados_p[p_venda_col])
-                    except Exception:
-                        preco_sugerido = 0.0
-
-                    try:
-                        estoque_disp = float(dados_p[est_col])
-                    except Exception:
-                        estoque_disp = 0.0
-
-                    forn_prod = str(dados_p.get(forn_col, 'Geral'))
-                    grupo_prod = str(dados_p.get(grupo_col, 'GERAL'))
+                    dados_p = df_produtos_pdv[df_produtos_pdv['produto'].astype(str).str.strip() == str(prod_escolhido).strip()].iloc[0]
+                    preco_sugerido = float(dados_p['valor_venda'])
+                    estoque_disp = float(dados_p['quantidade'])
+                    forn_prod = str(dados_p['fornecedor'])
+                    grupo_prod = str(dados_p['grupo'])
                     
                     st.caption(f"📦 **Estoque Disponível:** {estoque_disp:,.2f} | 🏢 **Fornecedor:** {forn_prod}")
                     
@@ -335,7 +321,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 tipo="VENDA"
                             )
                             cursor = conn.cursor()
-                            cursor.execute(f"UPDATE produtos SET {est_col} = {est_col} - ? WHERE TRIM({col_nome_prod}) = TRIM(?)", (qtd_pdv, prod_escolhido))
+                            cursor.execute("UPDATE produtos SET quantidade = quantidade - ? WHERE TRIM(produto) = TRIM(?)", (qtd_pdv, prod_escolhido))
                             conn.commit()
                             st.success(f"✅ Venda de {prod_escolhido} concluída com sucesso!")
                             st.balloons()
@@ -345,6 +331,58 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     df_ult = carregar_dados("SELECT id, cliente, produto, quantidade, valor_total, data FROM vendas WHERE tipo = 'VENDA' ORDER BY id DESC LIMIT 5")
                     if not df_ult.empty:
                         st.dataframe(df_ult, use_container_width=True)
+
+        # ==========================================
+        # FECHAMENTO & FINANCEIRO
+        # ==========================================
+        elif menu_admin == "📊 Fechamento & Financeiro":
+            st.title("📊 Fechamento & Financeiro")
+            df_vendas = carregar_dados("SELECT * FROM vendas")
+            if not df_vendas.empty:
+                st.dataframe(df_vendas, use_container_width=True)
+            else:
+                st.info("Nenhuma venda registrada.")
+
+        # ==========================================
+        # PEDIDOS / ORÇAMENTOS
+        # ==========================================
+        elif menu_admin == "📋 Pedidos / Orçamentos":
+            st.title("📋 Pedidos / Orçamentos")
+            df_ped = carregar_dados("SELECT * FROM vendas WHERE tipo = 'PEDIDO'")
+            if not df_ped.empty:
+                st.dataframe(df_ped, use_container_width=True)
+            else:
+                st.info("Nenhum pedido registrado.")
+
+        # ==========================================
+        # ENTRADA DE ESTOQUE (COMPRAS)
+        # ==========================================
+        elif menu_admin == "📥 Entrada de Estoque (Compras)":
+            st.title("📥 Entrada de Estoque / Compras")
+            lista_forn = carregar_coluna("fornecedores", "fornecedor") or ["Geral"]
+            lista_grupos = carregar_coluna("grupos", "grupo") or ["Geral"]
+            lista_prods = carregar_coluna("produtos", "produto") or ["Produto Exemplo"]
+
+            with st.form("form_compras"):
+                f_prod = st.selectbox("Produto", lista_prods, index=0)
+                f_forn = st.selectbox("Fornecedor", lista_forn)
+                f_grupo = st.selectbox("Grupo", lista_grupos)
+                f_qtd = st.number_input("Quantidade Entrante", min_value=0.01, value=1.0)
+                f_custo = st.number_input("Valor de Custo Unitário (R$)", min_value=0.0, value=0.0)
+                
+                btn_salvar_compra = st.form_submit_button("Registrar Entrada")
+                if btn_salvar_compra:
+                    cursor = conn.cursor()
+                    total_custo = f_qtd * f_custo
+                    data_hj = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    
+                    cursor.execute("INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                                   (f_prod, f_forn, f_grupo, f_qtd, f_custo, total_custo, data_hj))
+                    
+                    # Atualiza o estoque somando a quantidade nova
+                    cursor.execute("UPDATE produtos SET quantidade = quantidade + ? WHERE TRIM(produto) = TRIM(?)", (f_qtd, f_prod))
+                    conn.commit()
+                    st.success("✅ Entrada registrada e estoque atualizado com sucesso!")
 
         # ==========================================
         # ESTOQUE DE PRODUTOS (COM EDIÇÃO DIRETA NA TELA)
@@ -360,12 +398,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 config_cols = {
                     "Deletar": st.column_config.CheckboxColumn("Excluir", help="Marque para excluir o produto"),
                     "id": st.column_config.NumberColumn("ID", disabled=True),
-                    "nome": st.column_config.TextColumn("Nome do Produto"),
+                    "produto": st.column_config.TextColumn("Nome do Produto"),
                     "fornecedor": st.column_config.TextColumn("Fornecedor"),
                     "grupo": st.column_config.TextColumn("Grupo"),
                     "valor_compra": st.column_config.NumberColumn("Preço Compra", min_value=0.0, format="R$ %.2f"),
                     "valor_venda": st.column_config.NumberColumn("Preço Venda", min_value=0.0, format="R$ %.2f"),
-                    "estoque_atual": st.column_config.NumberColumn("Estoque Atual", min_value=0.0, format="%.2f")
+                    "quantidade": st.column_config.NumberColumn("Estoque Atual", min_value=0.0, format="%.2f")
                 }
                 
                 df_editado_estoque = st.data_editor(
@@ -385,15 +423,15 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         else:
                             cursor.execute("""
                                 UPDATE produtos 
-                                SET nome = ?, fornecedor = ?, grupo = ?, valor_compra = ?, valor_venda = ?, estoque_atual = ?
+                                SET produto = ?, fornecedor = ?, grupo = ?, valor_compra = ?, valor_venda = ?, quantidade = ?
                                 WHERE id = ?
                             """, (
-                                str(row["nome"]).strip(),
+                                str(row["produto"]).strip(),
                                 str(row["fornecedor"]),
                                 str(row["grupo"]),
                                 float(row["valor_compra"]),
                                 float(row["valor_venda"]),
-                                float(row["estoque_atual"]),
+                                float(row["quantidade"]),
                                 int(row["id"])
                             ))
                     conn.commit()
@@ -402,23 +440,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             else:
                 st.info("Nenhum produto cadastrado no estoque.")
 
-        elif menu_admin == "📊 Fechamento & Financeiro":
-            st.title("📊 Painel Financeiro")
-            df_vendas = carregar_dados("SELECT * FROM vendas")
-            if not df_vendas.empty:
-                st.dataframe(df_vendas, use_container_width=True)
-            else:
-                st.info("Nenhuma venda registrada.")
-
-        elif menu_admin == "📋 Pedidos / Orçamentos":
-            st.title("📋 Pedidos / Orçamentos")
-            df_ped = carregar_dados("SELECT * FROM vendas WHERE tipo = 'PEDIDO'")
-            if not df_ped.empty:
-                st.dataframe(df_ped, use_container_width=True)
-            else:
-                st.info("Nenhum pedido registrado.")
-
-        elif menu_admin == "👥 Cadastros":
+        # ==========================================
+        # CADASTROS
+        # ==========================================
+        elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
             st.title("👥 Cadastros Gerais")
             tab_c, tab_p, tab_f = st.tabs(["Clientes", "Produtos", "Fornecedores"])
             with tab_c:
