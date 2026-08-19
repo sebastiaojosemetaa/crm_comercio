@@ -506,37 +506,45 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             cliente_pdv = st.selectbox("Selecione o Cliente do Atendimento", clientes_opt)
             
             st.markdown("#### ➕ Adicionar Item ao Carrinho")
-            with st.form("form_adicionar_item_pdv", clear_on_submit=True):
+            
+            # Seleção do produto fora do form para atualizar o preço em tempo real
+            col_s1, col_s2, col_s3 = st.columns(3)
+            with col_s1:
+                prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto")
+            
+            # Busca automática do preço de venda, fornecedor e grupo diretamente na tabela produtos
+            df_prod_info = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_item}')")
+            sugestao_preco = 0.0
+            sugestao_fornec = fornecedores_opt[0] if fornecedores_opt else ""
+            sugestao_grupo = grupos_opt[0] if grupos_opt else ""
+            
+            if not df_prod_info.empty:
+                cols_p = df_prod_info.columns.tolist()
+                col_pv = 'valor_venda' if 'valor_venda' in cols_p else ('preco_venda' if 'preco_venda' in cols_p else cols_p[-1])
+                sugestao_preco = float(df_prod_info.iloc[0].get(col_pv, 0.0))
+                if 'fornecedor' in cols_p and pd.notna(df_prod_info.iloc[0]['fornecedor']):
+                    sugestao_fornec = str(df_prod_info.iloc[0]['fornecedor'])
+                if 'grupo' in cols_p and pd.notna(df_prod_info.iloc[0]['grupo']):
+                    sugestao_grupo = str(df_prod_info.iloc[0]['grupo'])
+
+            with st.form("form_adicionar_item_pdv", clear_on_submit=False):
                 col_i1, col_i2, col_i3 = st.columns(3)
                 with col_i1:
-                    prod_item = st.selectbox("Produto", produtos_opt)
-                    
-                    # Pega o preço, fornecedor e grupo direto da tabela de produtos cadastrados
-                    df_prod_info = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_item}')")
-                    sugestao_preco = 0.0
-                    sugestao_fornec = fornecedores_opt[0] if fornecedores_opt else ""
-                    sugestao_grupo = grupos_opt[0] if grupos_opt else ""
-                    
-                    if not df_prod_info.empty:
-                        cols_p = df_prod_info.columns.tolist()
-                        col_pv = 'valor_venda' if 'valor_venda' in cols_p else ('preco_venda' if 'preco_venda' in cols_p else cols_p[-1])
-                        sugestao_preco = float(df_prod_info.iloc[0].get(col_pv, 0.0))
-                        if 'fornecedor' in cols_p and pd.notna(df_prod_info.iloc[0]['fornecedor']):
-                            sugestao_fornec = str(df_prod_info.iloc[0]['fornecedor'])
-                        if 'grupo' in cols_p and pd.notna(df_prod_info.iloc[0]['grupo']):
-                            sugestao_grupo = str(df_prod_info.iloc[0]['grupo'])
-
-                    qtd_item = st.number_input("Quantidade", min_value=0.1, step=1.0, value=1.0)
+                    qtd_item = st.number_input("Quantidade", min_value=0.1, step=1.0, value=1.0, key="pdv_qtd")
                 
                 with col_i2:
                     idx_f = fornecedores_opt.index(sugestao_fornec) if sugestao_fornec in fornecedores_opt else 0
-                    fornec_item = st.selectbox("Fornecedor", fornecedores_opt, index=idx_f)
+                    fornec_item = st.selectbox("Fornecedor", fornecedores_opt, index=idx_f, key="pdv_forn")
                     
-                    v_unit_item = st.number_input("Valor Unitário (R$)", min_value=0.0, step=1.0, value=sugestao_preco)
+                    v_unit_item = st.number_input("Valor Unitário (R$)", min_value=0.0, step=1.0, value=sugestao_preco, key="pdv_v_unit")
                 
                 with col_i3:
                     idx_g = grupos_opt.index(sugestao_grupo) if sugestao_grupo in grupos_opt else 0
-                    grupo_item = st.selectbox("Grupo", grupos_opt, index=idx_g)
+                    grupo_item = st.selectbox("Grupo", grupos_opt, index=idx_g, key="pdv_grupo")
+                    
+                    # Mostra o valor total calculado do item em tempo real
+                    valor_total_item = qtd_item * v_unit_item
+                    st.metric("Valor Total do Item", f"R$ {valor_total_item:,.2f}")
                 
                 if st.form_submit_button("➕ Incluir Produto no Carrinho"):
                     st.session_state.carrinho_pdv.append({
@@ -545,7 +553,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         "grupo": grupo_item,
                         "quantidade": qtd_item,
                         "valor_venda": v_unit_item,
-                        "valor_total": qtd_item * v_unit_item
+                        "valor_total": valor_total_item
                     })
                     st.success(f"Item '{prod_item}' adicionado ao carrinho!")
                     st.rerun()
