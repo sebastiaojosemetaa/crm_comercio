@@ -39,7 +39,6 @@ def adequar_banco_e_migrar():
         )
     """)
     
-    # Garante que colunas essenciais existam caso a tabela seja antiga
     cursor.execute("PRAGMA table_info(vendas)")
     colunas_vendas = [col[1] for col in cursor.fetchall()]
     if 'forma_pagamento' not in colunas_vendas:
@@ -146,9 +145,6 @@ def carregar_coluna(tabela, coluna):
         return df[col_alvo].tolist()
     return []
 
-# -----------------------------------------------------------------------------
-# FUNÇÕES DE REGISTRO E BANCO
-# -----------------------------------------------------------------------------
 def sincronizar_valores_com_estoque(tabela_alvo, tipo_preco="venda"):
     cursor = conn.cursor()
     df_produtos = carregar_dados("SELECT * FROM produtos")
@@ -256,7 +252,6 @@ def baixar_debito_cliente(cliente_nome, valor_haver, forma_pagamento="Dinheiro")
     for reg in registros:
         reg_id, v_total, v_rec_atual = reg
         v_rec_atual = float(v_rec_atual) if v_rec_atual else 0.0
-        
         pendente_linha = v_total - v_rec_atual
         
         if pendente_linha > 0 and saldo_haver > 0:
@@ -358,7 +353,6 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral", d_inicio=None, d_fi
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, 0), 9),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('ALIGN', (0, 1), (0, -2), 'LEFT'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
         ('TOPPADDING', (0, 0), (-1, -1), 3),
@@ -385,6 +379,9 @@ if 'admin_logged' not in st.session_state:
 
 if 'cliente_autenticado' not in st.session_state:
     st.session_state.cliente_autenticado = None
+
+if 'carrinho_pdv' not in st.session_state:
+    st.session_state.carrinho_pdv = []
 
 st.sidebar.title("🔑 Acesso ao Sistema")
 opcoes_perfil = ["👤 Portal do Cliente", "🔒 Administração / Vendedor"]
@@ -493,9 +490,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             ]
         )
         
-        # --- LÓGICA: PDV — FRENTE DE CAIXA COM CÁLCULO DE TROCO ---
+        # --- LÓGICA: PDV — FRENTE DE CAIXA COM CARRINHO DE MÚLTIPLOS ITENS ---
         if menu_admin == "🛒 PDV — Frente de Caixa":
-            st.title("🛒 PDV — Frente de Caixa")
+            st.title("🛒 PDV — Frente de Caixa (Múltiplos Produtos)")
             
             df_caixa_aberto = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
             if df_caixa_aberto.empty:
@@ -506,42 +503,87 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
             grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
             
-            with st.form("form_pdv_frente"):
-                col1, col2 = st.columns(2)
-                with col1:
-                    cli = st.selectbox("Cliente", clientes_opt)
-                    prod = st.selectbox("Produto", produtos_opt)
-                    qtd = st.number_input("Quantidade", min_value=0.1, step=1.0, value=1.0)
-                with col2:
-                    fornec = st.selectbox("Fornecedor", fornecedores_opt)
-                    grupo = st.selectbox("Grupo", grupos_opt)
-                    v_unit = st.number_input("Valor Unitário (R$)", min_value=0.0, step=1.0, value=0.0)
+            cliente_pdv = st.selectbox("Selecione o Cliente do Atendimento", clientes_opt)
+            
+            st.markdown("#### ➕ Adicionar Item ao Carrinho")
+            with st.form("form_adicionar_item_pdv", clear_on_submit=True):
+                col_i1, col_i2, col_i3 = st.columns(3)
+                with col_i1:
+                    prod_item = st.selectbox("Produto", produtos_opt)
+                    qtd_item = st.number_input("Quantidade", min_value=0.1, step=1.0, value=1.0)
+                with col_i2:
+                    fornec_item = st.selectbox("Fornecedor", fornecedores_opt)
+                    v_unit_item = st.number_input("Valor Unitário (R$)", min_value=0.0, step=1.0, value=0.0)
+                with col_i3:
+                    grupo_item = st.selectbox("Grupo", grupos_opt)
                 
-                f_pag = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito", "Crediário / Fiado"])
-                v_rec = st.number_input("Valor Recebido (R$)", min_value=0.0, step=1.0, value=0.0)
+                if st.form_submit_button("➕ Incluir Produto no Carrinho"):
+                    st.session_state.carrinho_pdv.append({
+                        "produto": prod_item,
+                        "fornecedor": fornec_item,
+                        "grupo": grupo_item,
+                        "quantidade": qtd_item,
+                        "valor_venda": v_unit_item,
+                        "valor_total": qtd_item * v_unit_item
+                    })
+                    st.success(f"Item '{prod_item}' adicionado ao carrinho!")
+                    st.rerun()
+
+            st.markdown("---")
+            st.subheader("🛒 Itens Atuais no Carrinho")
+            
+            if len(st.session_state.carrinho_pdv) > 0:
+                df_carrinho = pd.DataFrame(st.session_state.carrinho_pdv)
+                st.dataframe(df_carrinho, use_container_width=True)
                 
-                # Cálculo Dinâmico do Total e Troco dentro do formulário
-                total_venda = qtd * v_unit
-                troco = v_rec - total_venda
+                if st.button("🗑️ Limpar Carrinho"):
+                    st.session_state.carrinho_pdv = []
+                    st.rerun()
                 
                 st.markdown("---")
-                c_inf1, c_inf2 = st.columns(2)
-                c_inf1.metric("Valor Total da Venda", f"R$ {total_venda:,.2f}")
-                c_inf2.metric("Troco", f"R$ {max(0.0, troco):,.2f}", delta_color="normal" if troco >= 0 else "inverse")
+                total_geral_carrinho = df_carrinho['valor_total'].sum()
                 
-                if st.form_submit_button("Finalizar Venda no PDV"):
-                    if not df_caixa_aberto.empty:
-                        sessao_id = int(df_caixa_aberto.iloc[0]['id'])
-                        salvar_pedido_ou_venda(cli, prod, fornec, grupo, qtd, v_unit, f_pag, v_rec, tipo="VENDA")
-                        
-                        cursor = conn.cursor()
-                        cursor.execute("INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, ?, ?, ?, ?)",
-                                       (sessao_id, "VENDA", total_venda, f"Venda PDV - Cliente: {cli}", datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-                        conn.commit()
-                        st.success(f"Venda realizada com sucesso! Troco: R$ {max(0.0, troco):,.2f}")
-                        st.rerun()
-                    else:
-                        st.error("Não é possível realizar vendas sem um caixa aberto!")
+                with st.form("form_finalizar_pagamento_pdv"):
+                    f_pag = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito", "Crediário / Fiado"])
+                    v_rec = st.number_input("Valor Recebido (R$)", min_value=0.0, step=1.0, value=total_geral_carrinho)
+                    
+                    troco = v_rec - total_geral_carrinho
+                    
+                    st.markdown("---")
+                    c_inf1, c_inf2 = st.columns(2)
+                    c_inf1.metric("Valor Total da Venda", f"R$ {total_geral_carrinho:,.2f}")
+                    c_inf2.metric("Troco", f"R$ {max(0.0, troco):,.2f}", delta_color="normal" if troco >= 0 else "inverse")
+                    
+                    if st.form_submit_button("Finalizar Venda no PDV"):
+                        if not df_caixa_aberto.empty:
+                            sessao_id = int(df_caixa_aberto.iloc[0]['id'])
+                            
+                            # Salva cada item do carrinho na tabela vendas
+                            for item in st.session_state.carrinho_pdv:
+                                salvar_pedido_ou_venda(
+                                    cliente=cliente_pdv,
+                                    produto=item['produto'],
+                                    fornecedor=item['fornecedor'],
+                                    grupo=item['grupo'],
+                                    quantidade=item['quantidade'],
+                                    valor_venda=item['valor_venda'],
+                                    forma_pagamento=f_pag,
+                                    valor_recebido=v_rec,
+                                    tipo="VENDA"
+                                )
+                            
+                            cursor = conn.cursor()
+                            cursor.execute("INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, ?, ?, ?, ?)",
+                                           (sessao_id, "VENDA", total_geral_carrinho, f"Venda PDV (Múltiplos Itens) - Cliente: {cliente_pdv}", datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                            conn.commit()
+                            
+                            st.session_state.carrinho_pdv = []
+                            st.success(f"Venda realizada com sucesso! Troco: R$ {max(0.0, troco):,.2f}")
+                            st.rerun()
+                        else:
+                            st.error("Não é possível realizar vendas sem um caixa aberto!")
+            else:
+                st.info("O carrinho está vazio. Adicione produtos acima para prosseguir com o fechamento da venda.")
 
         # --- LÓGICA: ABERTURA E FECHAMENTO DE CAIXA ---
         elif menu_admin == "🔓 Abertura e Fechamento de Caixa":
@@ -1171,7 +1213,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             st.success("Fornecedor cadastrado com sucesso!")
                             st.rerun()
                 st.markdown("---")
-                st.dataframe(carregar_dados("SELECT * FROM fornecedores"), use_container_width=True)
+                st.dataframe(carregar_dados("SELECT * FROM fornecedores"), use_container_width.get_container_width() if hasattr(st, 'container_width') else True)
 
             with tab_grup:
                 st.subheader("Cadastrar Novo Grupo")
