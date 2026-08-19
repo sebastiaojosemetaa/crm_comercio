@@ -21,7 +21,6 @@ conn = get_connection()
 def adequar_banco_e_migrar():
     cursor = conn.cursor()
     
-    # Garante que a tabela vendas tenha todas as colunas necessárias
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS vendas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -261,7 +260,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         )
         
         # ==========================================
-        # PDV — FRENTE DE CAIXA
+        # PDV — FRENTE DE CAIXA (COM MAPEAMENTO SEGURO DE COLUNAS)
         # ==========================================
         if menu_admin == "🛒 PDV — Frente de Caixa":
             st.title("🛒 PDV — Frente de Caixa (Balcão)")
@@ -271,17 +270,33 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             if df_produtos_pdv.empty:
                 st.warning("⚠️ Nenhum produto cadastrado no estoque.")
             else:
+                cols_p = df_produtos_pdv.columns.tolist()
+                col_nome_prod = 'produto' if 'produto' in cols_p else ('nome' if 'nome' in cols_p else cols_p[1])
+                p_venda_col = 'valor_venda' if 'valor_venda' in cols_p else cols_p[-2]
+                est_col = 'quantidade' if 'quantidade' in cols_p else ('estoque_atual' if 'estoque_atual' in cols_p else cols_p[2])
+                forn_col = 'fornecedor' if 'fornecedor' in cols_p else cols_p[min(3, len(cols_p)-1)]
+                grupo_col = 'grupo' if 'grupo' in cols_p else 'GERAL'
+
                 col_pdv1, col_pdv2 = st.columns([1.2, 0.8])
                 with col_pdv1:
                     cli_pdv = st.selectbox("Cliente:", lista_clientes_pdv)
-                    prod_nomes = df_produtos_pdv['nome'].dropna().astype(str).tolist()
+                    prod_nomes = df_produtos_pdv[col_nome_prod].dropna().astype(str).tolist()
                     prod_escolhido = st.selectbox("Produto:", prod_nomes)
                     
-                    dados_p = df_produtos_pdv[df_produtos_pdv['nome'].astype(str).str.strip() == str(prod_escolhido).strip()].iloc[0]
-                    preco_sugerido = float(dados_p['valor_venda'])
-                    estoque_disp = float(dados_p['estoque_atual'])
-                    forn_prod = str(dados_p['fornecedor'])
-                    grupo_prod = str(dados_p['grupo'])
+                    dados_p = df_produtos_pdv[df_produtos_pdv[col_nome_prod].astype(str).str.strip() == str(prod_escolhido).strip()].iloc[0]
+                    
+                    try:
+                        preco_sugerido = float(dados_p[p_venda_col])
+                    except Exception:
+                        preco_sugerido = 0.0
+
+                    try:
+                        estoque_disp = float(dados_p[est_col])
+                    except Exception:
+                        estoque_disp = 0.0
+
+                    forn_prod = str(dados_p.get(forn_col, 'Geral'))
+                    grupo_prod = str(dados_p.get(grupo_col, 'GERAL'))
                     
                     st.caption(f"📦 **Estoque Disponível:** {estoque_disp:,.2f} | 🏢 **Fornecedor:** {forn_prod}")
                     
@@ -320,7 +335,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 tipo="VENDA"
                             )
                             cursor = conn.cursor()
-                            cursor.execute("UPDATE produtos SET estoque_atual = estoque_atual - ? WHERE TRIM(nome) = TRIM(?)", (qtd_pdv, prod_escolhido))
+                            cursor.execute(f"UPDATE produtos SET {est_col} = {est_col} - ? WHERE TRIM({col_nome_prod}) = TRIM(?)", (qtd_pdv, prod_escolhido))
                             conn.commit()
                             st.success(f"✅ Venda de {prod_escolhido} concluída com sucesso!")
                             st.balloons()
