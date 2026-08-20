@@ -534,7 +534,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
             # BUSCA DOS DADOS DO PRODUTO SELECIONADO (Estoque de Produtos)
             df_prod_info = buscar_produto(prod_item)
-            sugestao_preco = 0.0
+            sugestao_preço = 0.0
             sugestao_fornec = fornecedores_opt[0]
             sugestao_grupo = grupos_opt[0]
 
@@ -543,7 +543,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 cols_p = df_prod_info.columns.tolist()
 
                 # Preferencia: valor_venda (coluna real da tela Estoque de Produtos)
-                colunas_preco = ["valor_venda", "preco_venda", "Preço Venda (R$)", "Preço Venda"]
+                colunas_preco = ["preço venda", "preço venda", "preço venda (R$)", "preço venda"]
                 colunas_preco += [c for c in cols_p if ("venda" in c.lower() and c not in colunas_preco)]
 
                 for col_v in colunas_preco:
@@ -593,7 +593,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
                     # Sem "value": o valor vem de st.session_state["pdv_v_unit"],
                     # que é sincronizado com o preço de venda do Estoque de Produtos.
-                    v_unit_item = st.number_input("Preço Venda (R$)", min_value=0.0, step=1.0, key="pdv_v_unit")
+                    v_unit_item = st.number_input("Preço Venda (R$)", min_value=1.0, step=1.0, key="pdv preço venda")
 
                 with col_i3:
                     grupo_item = st.selectbox("Grupo", grupos_opt, key="pdv_grupo")
@@ -1139,7 +1139,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.dataframe(carregar_dados("SELECT * FROM compras"), use_container_width=True)
 
         elif menu_admin == "📦 Estoque de Produtos":
-            st.title("📦 Estoque de Produtos e Preços")
+            st.title("📦 Estoque de Produtos e Preço")
             df_prods = carregar_dados("SELECT * FROM produtos")            
             if not df_prods.empty:
                 cols_atuais = df_prods.columns.tolist()
