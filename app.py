@@ -490,7 +490,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             ]
         )
         
-        # --- LÓGICA: PDV — FRENTE DE CAIXA COM CARRINHO DE MÚLTIPLOS ITENS ---
+        # --- LÓGICA: PDV — FRENTE DE CAIXA COM CARRINHO DE MÚLTIPLOS ITENS CORRIGIDO ---
         if menu_admin == "🛒 PDV — Frente de Caixa":
             st.title("🛒 PDV — Frente de Caixa (Múltiplos Produtos)")
             
@@ -507,11 +507,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
             st.markdown("#### ➕ Adicionar Item ao Carrinho")
             
+            # SELEÇÃO DO PRODUTO FORA DO FORMULÁRIO PARA ATUALIZAR O PREÇO CORRETAMENTE
             col_s1, col_s2, col_s3 = st.columns(3)
             with col_s1:
                 prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto")
             
-            # BUSCA ULTRA-ROBUSTA DOS DADOS DO PRODUTO SELECIONADO
+            # BUSCA OS DADOS DO PRODUTO IMEDIATAMENTE AO SELECIONAR
             df_prod_info = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_item}')")
             sugestao_preco = 0.0
             sugestao_fornec = fornecedores_opt[0]
@@ -521,7 +522,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 linha_prod = df_prod_info.iloc[0]
                 cols_p = df_prod_info.columns.tolist()
                 
-                for col_v in ["Preço Venda (R$)", "preco_venda", "valor_venda", "Preço Venda"]:
+                for col_v in ["valor_venda", "preco_venda", "Preço Venda"]:
                     if col_v in cols_p and pd.notna(linha_prod[col_v]):
                         try:
                             val = float(linha_prod[col_v])
@@ -550,7 +551,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     idx_f = fornecedores_opt.index(sugestao_fornec) if sugestao_fornec in fornecedores_opt else 0
                     fornec_item = st.selectbox("Fornecedor", fornecedores_opt, index=idx_f, key="pdv_forn")
                     
-                    v_unit_item = st.number_input("Preço Venda (R$)", min_value=0.0, step=1.0, value=float(sugestao_preco), key="pdv_v_unit")
+                    v_unit_item = st.number_input("Preço Venda (R$)", min_value=0.0, step=0.10, value=float(sugestao_preco), format="%.2f", key="pdv_v_unit")
 
                 with col_i3:
                     idx_g = grupos_opt.index(sugestao_grupo) if sugestao_grupo in grupos_opt else 0
