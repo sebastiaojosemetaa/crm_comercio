@@ -181,6 +181,7 @@ if menu_admin == "🛒 PDV — Frente de Caixa":
 
     st.markdown("#### ➕ Adicionar Item ao Carrinho")
 
+    # Função Callback para buscar dados automaticamente do banco de produtos
     def atualizar_dados_produto():
         prod_selecionado = st.session_state.pdv_select_produto
         df_prod_info = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_selecionado}')")
