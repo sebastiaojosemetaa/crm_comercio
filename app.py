@@ -531,11 +531,11 @@ if menu_admin == "🛒 PDV — Frente de Caixa":
 # Selectbox fora do formulário para atualizar o preço na hora
             prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto_unico_2026")
     
-    # Busca automática do preço no banco de dados baseada no produto escolhido
-    df_prod_info = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_item}')")
-    sugestao_preco = 0.0
-    sugestao_fornec = fornecedores_opt[0]
-    sugestao_grupo = grupos_opt[0]
+# Busca automática do preço no banco de dados baseada no produto escolhido
+df_prod_info = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_item}')"
+sugestao_preco = 0.0
+sugestao_fornec = fornecedores_opt[0]
+sugestao_grupo = grupos_opt[0]
         
 if not df_prod_info.empty:
     linha_prod = df_prod_info.iloc[0]
