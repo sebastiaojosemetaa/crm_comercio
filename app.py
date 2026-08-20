@@ -787,7 +787,7 @@ if menu_admin == "📊 Fechamento & Financeiro":
             else:
                 st.info("Nenhum registro encontrado para os filtros selecionados.")
 
-        elif menu_admin in ["📋 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
+if menu_admin in ["📋 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
             is_modo_pedido = (menu_admin == "📋 Pedidos / Orçamentos")
             st.title(f"📋 {menu_admin}")
             
