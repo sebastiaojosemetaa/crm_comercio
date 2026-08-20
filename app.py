@@ -13,24 +13,6 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 # -----------------------------------------------------------------------------
 st.set_page_config(page_title="CRM Comércio - Rey da Cebola", layout="wide")
 
-# CSS para alinhar elementos e melhorar o design visual
-st.markdown("""
-    <style>
-        .block-container {
-            padding-top: 2rem;
-            padding-bottom: 2rem;
-            padding-left: 3rem;
-            padding-right: 3rem;
-        }
-        div[data-testid="stMetric"] {
-            background-color: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
-            border: 1px solid #e0e0e0;
-        }
-    </style>
-""", unsafe_allow_html=True)
-
 def get_connection():
     return sqlite3.connect("crm_comercio.db", check_same_thread=False)
 
@@ -253,7 +235,7 @@ def salvar_pedido_ou_venda(cliente, produto, fornecedor, grupo, quantidade, valo
     cursor.execute("""
         INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, tipo, codigo, data)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (cliente.strip(), produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, str(valor_recebido), tipo, cod_status, data_atual))
+    """, (cliente.strip(), produto, fornecedor, group, quantidade, valor_venda, valor_total, forma_pagamento, str(valor_recebido), tipo, cod_status, data_atual))
     conn.commit()
 
 def baixar_debito_cliente(cliente_nome, valor_haver, forma_pagamento="Dinheiro"):
@@ -279,3 +261,18 @@ def baixar_debito_cliente(cliente_nome, valor_haver, forma_pagamento="Dinheiro")
             else:
                 novo_recebido = v_rec_atual + saldo_haver
                 saldo_haver = 0.0
+            
+            cursor.execute("""
+                UPDATE vendas 
+                SET valor_recebido = ?, forma_pagamento = ? 
+                WHERE id = ?
+            """, (str(novo_recebido), forma_pagamento, reg_id))
+            
+    conn.commit()
+
+def converter_pedido_completo_para_venda(cliente_nome):
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE vendas 
+        SET tipo = 'VENDA', codigo = 'VEN' 
+        WHERE TRIM(cliente) = TRIM(?)
