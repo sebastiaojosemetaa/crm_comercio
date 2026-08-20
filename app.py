@@ -634,7 +634,7 @@ conn.commit()
 st.session_state.carrinho_pdv = []
 st.success(f"Venda realizada com sucesso! Troco: R$ {max(0.0, troco):,.2f}")
 st.rerun()
- else:
+else:
     st.info("O carrinho está vazio. Adicione produtos acima para prosseguir com o fechamento da venda.")
 
         # --- LÓGICA: ABERTURA E FECHAMENTO DE CAIXA ---
