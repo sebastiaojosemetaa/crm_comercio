@@ -521,15 +521,15 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 linha_prod = df_prod_info.iloc[0]
                 cols_p = df_prod_info.columns.tolist()
                 
-                for col_v in ["Preço Venda (R$)", "Preço Venda", "preco_venda", "valor_venda", "preco", "valor"]:
-                    if col_v in cols_p and pd.notna(linha_prod[col_v]):
-                        try:
-                            val = float(linha_prod[col_v])
-                            if val > 0:
-                                sugestao_preco = val
-                                break
-                        except:
-                            pass
+for col in cols_p:
+    if "preço" in col.lower() or "venda" in col.lower() or "valor" in col.lower():
+        try:
+            val = float(linha_prod[col])
+            if val > 0:
+                sugestao_preco = val
+                break
+        except:
+            pass
                 
                 for col_f in ['fornecedor', 'Fornecedor']:
                     if col_f in cols_p and pd.notna(linha_prod[col_f]):
