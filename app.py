@@ -588,7 +588,7 @@ st.markdown("---")
 st.subheader("🛒 Itens Atuais no Carrinho")
             
 if len(st.session_state.carrinho_pdv) > 0:
-df_carrinho = pd.DataFrame(st.session_state.carrinho_pdv)
+    df_carrinho = pd.DataFrame(st.session_state.carrinho_pdv)
 st.dataframe(df_carrinho, use_container_width=True)
                 
 if st.button("🗑️ Limpar Carrinho"):
