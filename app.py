@@ -128,11 +128,32 @@ def adequar_banco_e_migrar():
 
 adequar_banco_e_migrar()
 
-def carregar_dados(query):
+def carregar_dados(query, parametros=None):
     try:
-        return pd.read_sql_query(query, conn)
+        return pd.read_sql_query(query, conn, params=parametros)
     except Exception:
         return pd.DataFrame()
+
+def converter_valor_monetario(valor):
+    """Converte valores do banco (número ou texto em formato brasileiro) para float."""
+    if valor is None or pd.isna(valor):
+        return 0.0
+    if isinstance(valor, (int, float)):
+        return float(valor)
+
+    texto = str(valor).replace("R$", "").strip().replace(" ", "")
+    try:
+        if "," in texto:
+            texto = texto.replace(".", "").replace(",", ".")
+        return float(texto)
+    except (TypeError, ValueError):
+        return 0.0
+
+def buscar_produto(nome_produto):
+    return carregar_dados(
+        "SELECT * FROM produtos WHERE UPPER(TRIM(nome)) = UPPER(TRIM(?)) LIMIT 1",
+        (str(nome_produto).strip(),),
+    )
 
 def carregar_coluna(tabela, coluna):
     cursor = conn.cursor()
@@ -512,10 +533,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto")
             
             # BUSCA DOS DADOS DO PRODUTO SELECIONADO (Estoque de Produtos)
-            prod_sel = str(prod_item).strip().replace("'", "''")
-            df_prod_info = carregar_dados(
-                f"SELECT * FROM produtos WHERE UPPER(TRIM(nome)) = UPPER(TRIM('{prod_sel}'))"
-            )
+            df_prod_info = buscar_produto(prod_item)
             sugestao_preco = 0.0
             sugestao_fornec = fornecedores_opt[0]
             sugestao_grupo = grupos_opt[0]
@@ -530,13 +548,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
                 for col_v in colunas_preco:
                     if col_v in cols_p and pd.notna(linha_prod[col_v]):
-                        try:
-                            val = float(str(linha_prod[col_v]).replace("R$", "").replace(".", "").replace(",", ".").strip())
-                            if val > 0:
-                                sugestao_preco = val
-                                break
-                        except Exception:
-                            pass
+                        val = converter_valor_monetario(linha_prod[col_v])
+                        if val >= 0:
+                            sugestao_preco = val
+                            break
 
                 for col_f in ['fornecedor', 'Fornecedor']:
                     if col_f in cols_p and pd.notna(linha_prod[col_f]):
@@ -1074,16 +1089,43 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
             
             with aba_compra:
+                # O produto fica fora do formulário para a tela atualizar assim que a seleção mudar.
+                produto_escolhido = st.selectbox("Produto", produtos_opt, key="entrada_produto")
+                df_produto_entrada = buscar_produto(produto_escolhido)
+                custo_estoque = 0.0
+                fornecedor_estoque = fornecedores_opt[0]
+                grupo_estoque = grupos_opt[0]
+
+                if not df_produto_entrada.empty:
+                    produto_entrada = df_produto_entrada.iloc[0]
+                    for coluna_custo in ["valor_compra", "preco_custo", "preco_compra"]:
+                        if coluna_custo in df_produto_entrada.columns:
+                            custo_estoque = converter_valor_monetario(produto_entrada[coluna_custo])
+                            break
+                    if "fornecedor" in df_produto_entrada.columns and pd.notna(produto_entrada["fornecedor"]):
+                        fornecedor_estoque = str(produto_entrada["fornecedor"]).strip()
+                    if "grupo" in df_produto_entrada.columns and pd.notna(produto_entrada["grupo"]):
+                        grupo_estoque = str(produto_entrada["grupo"]).strip()
+
+                if st.session_state.get("entrada_ultimo_produto") != produto_escolhido:
+                    st.session_state["entrada_ultimo_produto"] = produto_escolhido
+                    st.session_state["entrada_preco_custo"] = custo_estoque
+                    st.session_state["entrada_fornecedor"] = fornecedor_estoque if fornecedor_estoque in fornecedores_opt else fornecedores_opt[0]
+                    st.session_state["entrada_grupo"] = grupo_estoque if grupo_estoque in grupos_opt else grupos_opt[0]
+
+                st.session_state.setdefault("entrada_preco_custo", custo_estoque)
+                st.session_state.setdefault("entrada_fornecedor", fornecedor_estoque if fornecedor_estoque in fornecedores_opt else fornecedores_opt[0])
+                st.session_state.setdefault("entrada_grupo", grupo_estoque if grupo_estoque in grupos_opt else grupos_opt[0])
+
                 with st.form("form_entrada_estoque"):
                     col1, col2 = st.columns(2)
                     with col1:
-                        produto_escolhido = st.selectbox("Produto", produtos_opt)
-                        fornecedor_escolhido = st.selectbox("Fornecedor", fornecedores_opt)
+                        fornecedor_escolhido = st.selectbox("Fornecedor", fornecedores_opt, key="entrada_fornecedor")
                         quantidade = st.number_input("Quantidade", min_value=0.0, format="%.2f")
                     with col2:
-                        grupo_escolhido = st.selectbox("Grupo", grupos_opt)
-                        preco_custo = st.number_input("Preço de Custo Unitário (R$)", min_value=0.0, format="%.2f")
-                    
+                        grupo_escolhido = st.selectbox("Grupo", grupos_opt, key="entrada_grupo")
+                        preco_custo = st.number_input("Preço de Custo Unitário (R$)", min_value=0.0, format="%.2f", key="entrada_preco_custo")
+
                     enviado = st.form_submit_button("Registrar Entrada no Estoque")
                     if enviado:
                         registrar_compra(produto_escolhido, fornecedor_escolhido, grupo_escolhido, quantidade, preco_custo)
