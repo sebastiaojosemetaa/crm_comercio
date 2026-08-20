@@ -587,16 +587,16 @@ st.rerun()
 st.markdown("---")
 st.subheader("🛒 Itens Atuais no Carrinho")
             
-            if len(st.session_state.carrinho_pdv) > 0:
-                df_carrinho = pd.DataFrame(st.session_state.carrinho_pdv)
-                st.dataframe(df_carrinho, use_container_width=True)
+if len(st.session_state.carrinho_pdv) > 0:
+df_carrinho = pd.DataFrame(st.session_state.carrinho_pdv)
+st.dataframe(df_carrinho, use_container_width=True)
                 
-                if st.button("🗑️ Limpar Carrinho"):
-                    st.session_state.carrinho_pdv = []
-                    st.rerun()
+if st.button("🗑️ Limpar Carrinho"):
+st.session_state.carrinho_pdv = []
+st.rerun()
                 
-                st.markdown("---")
-                total_geral_carrinho = df_carrinho['valor_total'].sum()
+st.markdown("---")
+total_geral_carrinho = df_carrinho['valor_total'].sum()
                 
                 with st.form("form_finalizar_pagamento_pdv"):
                     f_pag = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito", "Crediário / Fiado"])
