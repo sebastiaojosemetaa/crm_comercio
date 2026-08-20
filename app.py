@@ -610,7 +610,7 @@ with st.form("form_finalizar_pagamento_pdv"):
     c_inf2.metric("Troco", f"R$ {max(0.0, troco):,.2f}", delta_color="normal" if troco >= 0 else "inverse")
                     
 if st.form_submit_button("Finalizar Venda no PDV"):
-if not df_caixa_aberto.empty:
+    if not df_caixa_aberto.empty:
     sessao_id = int(df_caixa_aberto.iloc[0]['id'])
                             
 for item in st.session_state.carrinho_pdv:
