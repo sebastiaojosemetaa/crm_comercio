@@ -530,8 +530,28 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
             # Selectbox fora do formulário para atualizar o preço na hora
             prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto_novo")
-            df_teste_cols = carregar_dados("SELECT * FROM produtos LIMIT 1")
-    st.write("Colunas disponíveis no banco:", df_teste_cols.columns.tolist())
+# Selectbox fora do formulário para atualizar o preço na hora
+    prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto_novo")
+    
+    # Busca automática do preço no banco de dados baseada no produto escolhido
+    df_prod_info = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_item}')")
+    sugestao_preco = 0.0
+    sugestao_fornec = fornecedores_opt[0]
+    sugestao_grupo = grupos_opt[0]
+    
+    if not df_prod_info.empty:
+        linha_prod = df_prod_info.iloc[0]
+        
+        # Pega todas as colunas disponíveis na tabela para encontrar o preço independentemente do nome
+        for col in df_prod_info.columns:
+            if any(termo in col.lower() for termo in ['preco', 'preço', 'valor', 'venda']):
+                try:
+                    val = float(linha_prod[col])
+                    if val > 0:
+                        sugestao_preco = val
+                        break
+                except:
+                    pass    
             # Busca automática do preço no banco de dados baseada no produto escolhido
             df_prod_info = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_item}')")
             sugestao_preco = 0.0
