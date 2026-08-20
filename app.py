@@ -512,7 +512,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         )
         
         # --- LÓGICA: PDV — FRENTE DE CAIXA CORRIGIDO ---
-        if menu_admin == "🛒 PDV — Frente de Caixa":
+        elif menu_admin == "🛒 PDV — Frente de Caixa":
             st.title("🛒 PDV — Frente de Caixa (Múltiplos Produtos)")
             
             df_caixa_aberto = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
@@ -590,7 +590,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         "valor_total": valor_total_item
                     })
                     st.success(f"Item '{prod_item}' adicionado ao carrinho!")
-                    st.rerun()
     
             st.markdown("---")
             st.subheader("🛒 Itens Atuais no Carrinho")
