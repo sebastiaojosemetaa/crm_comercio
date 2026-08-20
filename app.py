@@ -609,7 +609,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     fornecedor=item['fornecedor'],
                                     grupo=item['grupo'],
                                     quantidade=item['quantidade'],
-                                    valor_venda=item['valor_venda'],
+                                    valor_venda=item['preço venda'],
                                     forma_pagamento=f_pag,
                                     valor_recebido=v_rec,
                                     tipo="VENDA"
