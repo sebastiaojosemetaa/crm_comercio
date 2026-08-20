@@ -512,7 +512,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         )
         
         # --- LÓGICA: PDV — FRENTE DE CAIXA CORRIGIDO ---
-        elif menu_admin == "🛒 PDV — Frente de Caixa":
+        if menu_admin == "🛒 PDV — Frente de Caixa":
             st.title("🛒 PDV — Frente de Caixa (Múltiplos Produtos)")
             
             df_caixa_aberto = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
