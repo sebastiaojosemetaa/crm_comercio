@@ -664,7 +664,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             st.rerun()
 
         # --- LÓGICA: ABERTURA E FECHAMENTO DE CAIXA ---
-        elif menu_admin == "🔓 Abertura e Fechamento de Caixa":
+if menu_admin == "🔓 Abertura e Fechamento de Caixa":
             st.title("🔓 Abertura e Fechamento de Caixa")
                     
             df_caixa_atual = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
