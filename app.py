@@ -545,7 +545,7 @@ for col_v in ["valor_venda", "preco_venda", "Preço Venda (R$)"]:
     if col_v in cols_p and pd.notna(linha_prod[col_v]):
         try:
             val = float(linha_prod[col_v])
-if val > 0:
+    if val > 0:
          sugestao_preco = val
              break
                 except:
