@@ -126,10 +126,8 @@ def salvar_pedido_ou_venda(cliente, produto, fornecedor, grupo, quantidade, valo
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (data_atual, cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, troco, "Concluído", tipo))
     
-    # Atualizar estoque
     cursor.execute("UPDATE produtos SET estoque = estoque - ? WHERE TRIM(nome) = TRIM(?)", (quantidade, produto))
     
-    # Registrar no fiado se aplicável
     if forma_pagamento == "Crediário / Fiado":
         cursor.execute("UPDATE clientes SET saldo_devedor = saldo_devedor + ? WHERE TRIM(nome) = TRIM(?)", (valor_total, cliente))
         cursor.execute("INSERT INTO fiado_contas (cliente, valor, data, status, observacao) VALUES (?, ?, ?, ?, ?)",
