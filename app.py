@@ -530,7 +530,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
             # Selectbox fora do formulário para atualizar o preço na hora
             prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto_novo")
-            
+            df_teste_cols = carregar_dados("SELECT * FROM produtos LIMIT 1")
+    st.write("Colunas disponíveis no banco:", df_teste_cols.columns.tolist())
             # Busca automática do preço no banco de dados baseada no produto escolhido
             df_prod_info = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_item}')")
             sugestao_preco = 0.0
