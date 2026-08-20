@@ -572,8 +572,8 @@ with col_i3:
     valor_total_item = qtd_item * v_unit_item
     st.metric("Valor Total do Item", f"R$ {valor_total_item:.2f}")
                 
-                if st.form_submit_button("➕ Incluir Produto no Carrinho"):
-                    st.session_state.carrinho_pdv.append({
+if st.form_submit_button("➕ Incluir Produto no Carrinho"):
+   st.session_state.carrinho_pdv.append({
                         "produto": prod_item,
                         "fornecedor": fornec_item,
                         "grupo": grupo_item,
