@@ -528,10 +528,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
             st.markdown("#### ➕ Adicionar Item ao Carrinho")
             
-            # Selectbox fora do formulário para atualizar o preço na hora
-            prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto_novo")
 # Selectbox fora do formulário para atualizar o preço na hora
-    prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto_novo")
+    prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto_unico_2026")
     
     # Busca automática do preço no banco de dados baseada no produto escolhido
     df_prod_info = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_item}')")
