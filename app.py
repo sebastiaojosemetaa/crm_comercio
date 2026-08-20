@@ -512,7 +512,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         )
         
         # --- LÓGICA: PDV — FRENTE DE CAIXA CORRIGIDO ---
-        elif menu_admin == "🛒 PDV — Frente de Caixa":
+        if menu_admin == "🛒 PDV — Frente de Caixa":
             st.title("🛒 PDV — Frente de Caixa (Múltiplos Produtos)")
             
             df_caixa_aberto = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
@@ -528,10 +528,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
             st.markdown("#### ➕ Adicionar Item ao Carrinho")
             
-            # 1. Selectbox fora do formulário para atualizar na hora
+            # Selectbox fora do formulário para atualizar o preço na hora
             prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto_novo")
             
-            # 2. Busca automática do preço no banco de dados baseada no produto escolhido
+            # Busca automática do preço no banco de dados baseada no produto escolhido
             df_prod_info = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_item}')")
             sugestao_preco = 0.0
             sugestao_fornec = fornecedores_opt[0]
@@ -570,7 +570,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     idx_f = fornecedores_opt.index(sugestao_fornec) if sugestao_fornec in fornecedores_opt else 0
                     fornec_item = st.selectbox("Fornecedor", fornecedores_opt, index=idx_f)
                     
-                    # O campo de preço já recebe o valor puxado do banco preenchido corretamente
+                    # Preço de venda puxado automaticamente do banco
                     v_unit_item = st.number_input("Preço Venda (R$)", min_value=0.0, step=1.0, value=float(sugestao_preco))
 
                 with col_i3:
