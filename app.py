@@ -581,8 +581,8 @@ if st.form_submit_button("➕ Incluir Produto no Carrinho"):
                         "valor_venda": v_unit_item,
                         "valor_total": valor_total_item
                     })
-                    st.success(f"Item '{prod_item}' adicionado ao carrinho!")
-                    st.rerun()
+            st.success(f"Item '{prod_item}' adicionado ao carrinho!")
+            st.rerun()
 
             st.markdown("---")
             st.subheader("🛒 Itens Atuais no Carrinho")
