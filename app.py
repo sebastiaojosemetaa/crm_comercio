@@ -511,8 +511,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             ]
         )
         
-        # --- LÓGICA: PDV — FRENTE DE CAIXA COM CARRINHO DE MÚLTIPLOS ITENS ---
-        if menu_admin == "🛒 PDV — Frente de Caixa":
+        # --- LÓGICA: PDV — FRENTE DE CAIXA CORRIGIDO ---
+        elif menu_admin == "🛒 PDV — Frente de Caixa":
             st.title("🛒 PDV — Frente de Caixa (Múltiplos Produtos)")
             
             df_caixa_aberto = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
@@ -528,33 +528,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
             st.markdown("#### ➕ Adicionar Item ao Carrinho")
             
-            # Função para atualizar o preço automático ao trocar de produto
-            def atualizar_preco_produto():
-                prod_selecionado = st.session_state.get("pdv_select_produto")
-                df_p_info = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_selecionado}')")
-                if not df_p_info.empty:
-                    linha = df_p_info.iloc[0]
-                    for col_v in ["preco_venda", "valor_venda", "Preço Venda (R$)"]:
-                        if col_v in df_p_info.columns and pd.notna(linha[col_v]):
-                            try:
-                                st.session_state["pdv_v_unit"] = float(linha[col_v])
-                                break
-                            except:
-                                pass
-                    for col_f in ['fornecedor', 'Fornecedor']:
-                        if col_f in df_p_info.columns and pd.notna(linha[col_f]) and str(linha[col_f]) in fornecedores_opt:
-                            st.session_state["pdv_forn"] = str(linha[col_f])
-                            break
-                    for col_g in ['grupo', 'Grupo']:
-                        if col_p_info.columns.isin([col_g]).any() and pd.notna(linha[col_g]) and str(linha[col_g]) in grupos_opt:
-                            st.session_state["pdv_grupo"] = str(linha[col_g])
-                            break
-
-            col_s1, col_s2, col_s3 = st.columns(3)
-            with col_s1:
-                prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto", on_change=atualizar_preco_produto)
+            # 1. Selectbox fora do formulário para atualizar na hora
+            prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto_novo")
             
-            # Inicializa valores no session_state caso estejam vazios
+            # 2. Busca automática do preço no banco de dados baseada no produto escolhido
             df_prod_info = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_item}')")
             sugestao_preco = 0.0
             sugestao_fornec = fornecedores_opt[0]
@@ -563,7 +540,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             if not df_prod_info.empty:
                 linha_prod = df_prod_info.iloc[0]
                 cols_p = df_prod_info.columns.tolist()
-                for col_v in ["Preço Venda (R$)", "preco_venda", "valor_venda", "Preço Venda"]:
+                
+                for col_v in ["valor_venda", "preco_venda", "Preço Venda (R$)"]:
                     if col_v in cols_p and pd.notna(linha_prod[col_v]):
                         try:
                             val = float(linha_prod[col_v])
@@ -572,32 +550,32 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 break
                         except:
                             pass
+                
                 for col_f in ['fornecedor', 'Fornecedor']:
                     if col_f in cols_p and pd.notna(linha_prod[col_f]):
                         sugestao_fornec = str(linha_prod[col_f])
                         break
+                
                 for col_g in ['grupo', 'Grupo']:
                     if col_g in cols_p and pd.notna(linha_prod[col_g]):
                         sugestao_grupo = str(linha_prod[col_g])
                         break
 
-            if "pdv_v_unit" not in st.session_state:
-                st.session_state["pdv_v_unit"] = float(sugestao_preco)
-
-            with st.form("form_adicionar_item_pdv", clear_on_submit=False):
+            with st.form("form_adicionar_item_pdv_correto", clear_on_submit=False):
                 col_i1, col_i2, col_i3 = st.columns(3)
                 with col_i1:
-                    qtd_item = st.number_input("Quantidade", min_value=0.1, step=1.0, value=1.0, key="pdv_qtd")
+                    qtd_item = st.number_input("Quantidade", min_value=0.1, step=1.0, value=1.0)
                 
                 with col_i2:
                     idx_f = fornecedores_opt.index(sugestao_fornec) if sugestao_fornec in fornecedores_opt else 0
-                    fornec_item = st.selectbox("Fornecedor", fornecedores_opt, index=idx_f, key="pdv_forn")
+                    fornec_item = st.selectbox("Fornecedor", fornecedores_opt, index=idx_f)
                     
-                    v_unit_item = st.number_input("Preço Venda (R$)", min_value=0.0, step=1.0, value=float(st.session_state["pdv_v_unit"]), key="pdv_v_unit_input")
+                    # O campo de preço já recebe o valor puxado do banco preenchido corretamente
+                    v_unit_item = st.number_input("Preço Venda (R$)", min_value=0.0, step=1.0, value=float(sugestao_preco))
 
                 with col_i3:
                     idx_g = grupos_opt.index(sugestao_grupo) if sugestao_grupo in grupos_opt else 0
-                    grupo_item = st.selectbox("Grupo", grupos_opt, index=idx_g, key="pdv_grupo")
+                    grupo_item = st.selectbox("Grupo", grupos_opt, index=idx_g)
                     
                     valor_total_item = qtd_item * v_unit_item
                     st.metric("Valor Total do Item", f"R$ {valor_total_item:.2f}")
