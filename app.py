@@ -521,121 +521,115 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 linha_prod = df_prod_info.iloc[0]
                 cols_p = df_prod_info.columns.tolist()
                 
-                # Procura qualquer coluna que tenha o preço de venda ou similar
-    for col_v in [
-        "Preço Venda (R$)",
-        "preco_venda",
-        "valor_venda",
-        "Preço Venda",
-    ]:
-      if col_v in cols_p and pd.notna(linha_prod[col_v]):
-        try:
-          val = float(linha_prod[col_v])
-          if val > 0:
-            sugestao_preco = val
-            break
-        except:
-          pass
+                for col_v in ["Preço Venda (R$)", "preco_venda", "valor_venda", "Preço Venda"]:
+                    if col_v in cols_p and pd.notna(linha_prod[col_v]):
+                        try:
+                            val = float(linha_prod[col_v])
+                            if val > 0:
+                                sugestao_preco = val
+                                break
+                        except:
+                            pass
                 
-for col_f in ['fornecedor', 'Fornecedor']:
+                for col_f in ['fornecedor', 'Fornecedor']:
                     if col_f in cols_p and pd.notna(linha_prod[col_f]):
                         sugestao_fornec = str(linha_prod[col_f])
                         break
                 
-for col_g in ['grupo', 'Grupo']:
+                for col_g in ['grupo', 'Grupo']:
                     if col_g in cols_p and pd.notna(linha_prod[col_g]):
                         sugestao_grupo = str(linha_prod[col_g])
                         break
 
-with st.form("form_adicionar_item_pdv", clear_on_submit=False):
-    col_i1, col_i2, col_i3 = st.columns(3)
-with col_i1:
-    qtd_item = st.number_input("Quantidade", min_value=0.1, step=1.0, value=1.0, key="pdv_qtd")
+            with st.form("form_adicionar_item_pdv", clear_on_submit=False):
+                col_i1, col_i2, col_i3 = st.columns(3)
+                with col_i1:
+                    qtd_item = st.number_input("Quantidade", min_value=0.1, step=1.0, value=1.0, key="pdv_qtd")
                 
-with col_i2:
-    idx_f = fornecedores_opt.index(sugestao_fornec) if sugestao_fornec in fornecedores_opt else 0
-    fornec_item = st.selectbox("Fornecedor", fornecedores_opt, index=idx_f, key="pdv_forn")
-    
-    v_unit_item = st.number_input("Preço Venda (R$)", min_value=0.0, step=1.0, value=float(sugestao_preco), key="pdv_v_unit")
-
-with col_i3:
-    idx_g = grupos_opt.index(sugestao_grupo) if sugestao_grupo in grupos_opt else 0
-    grupo_item = st.selectbox("Grupo", grupos_opt, index=idx_g, key="pdv_grupo")
+                with col_i2:
+                    idx_f = fornecedores_opt.index(sugestao_fornec) if sugestao_fornec in fornecedores_opt else 0
+                    fornec_item = st.selectbox("Fornecedor", fornecedores_opt, index=idx_f, key="pdv_forn")
                     
-    valor_total_item = qtd_item * v_unit_item
-    st.metric("Valor Total do Item", f"R$ {valor_total_item:.2f}")
+                    v_unit_item = st.number_input("Preço Venda (R$)", min_value=0.0, step=1.0, value=float(sugestao_preco), key="pdv_v_unit")
+
+                with col_i3:
+                    idx_g = grupos_opt.index(sugestao_grupo) if sugestao_grupo in grupos_opt else 0
+                    grupo_item = st.selectbox("Grupo", grupos_opt, index=idx_g, key="pdv_grupo")
+                    
+                    valor_total_item = qtd_item * v_unit_item
+                    st.metric("Valor Total do Item", f"R$ {valor_total_item:.2f}")
                 
-if st.form_submit_button("➕ Incluir Produto no Carrinho"):
-    st.session_state.carrinho_pdv.append({
-        "produto": prod_item,
-        "fornecedor": fornec_item,
-        "grupo": grupo_item,
-        "quantidade": qtd_item,
-        "valor_venda": v_unit_item,
-        "valor_total": valor_total_item
-    })
-    st.success(f"Item '{prod_item}' adicionado ao carrinho!")
-    st.rerun()
+                if st.form_submit_button("➕ Incluir Produto no Carrinho"):
+                    st.session_state.carrinho_pdv.append({
+                        "produto": prod_item,
+                        "fornecedor": fornec_item,
+                        "grupo": grupo_item,
+                        "quantidade": qtd_item,
+                        "valor_venda": v_unit_item,
+                        "valor_total": valor_total_item
+                    })
+                    st.success(f"Item '{prod_item}' adicionado ao carrinho!")
+                    st.rerun()
     
-    st.markdown("---")
-    st.subheader("🛒 Itens Atuais no Carrinho")
+            st.markdown("---")
+            st.subheader("🛒 Itens Atuais no Carrinho")
             
-if len(st.session_state.carrinho_pdv) > 0:
-    df_carrinho = pd.DataFrame(st.session_state.carrinho_pdv)
-    st.dataframe(df_carrinho, use_container_width=True)
+            if len(st.session_state.carrinho_pdv) > 0:
+                df_carrinho = pd.DataFrame(st.session_state.carrinho_pdv)
+                st.dataframe(df_carrinho, use_container_width=True)
                 
-if st.button("🗑️ Limpar Carrinho"):
+                if st.button("🗑️ Limpar Carrinho"):
                     st.session_state.carrinho_pdv = []
                     st.rerun()
                 
-st.markdown("---")
-total_geral_carrinho = df_carrinho['valor_total'].sum()
+                st.markdown("---")
+                total_geral_carrinho = df_carrinho['valor_total'].sum()
                 
-with st.form("form_finalizar_pagamento_pdv"):
-    f_pag = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito", "Crediário / Fiado"])
-    v_rec = st.number_input("Valor Recebido (R$)", min_value=0.0, step=1.0, value=total_geral_carrinho)
+                with st.form("form_finalizar_pagamento_pdv"):
+                    f_pag = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito", "Crediário / Fiado"])
+                    v_rec = st.number_input("Valor Recebido (R$)", min_value=0.0, step=1.0, value=total_geral_carrinho)
                         
-    troco = v_rec - total_geral_carrinho
+                    troco = v_rec - total_geral_carrinho
                         
-    st.markdown("---")
-    c_inf1, c_inf2 = st.columns(2)
-    c_inf1.metric("Valor Total da Venda", f"R$ {total_geral_carrinho:,.2f}")
-    c_inf2.metric("Troco", f"R$ {max(0.0, troco):,.2f}", delta_color="normal" if troco >= 0 else "inverse")
+                    st.markdown("---")
+                    c_inf1, c_inf2 = st.columns(2)
+                    c_inf1.metric("Valor Total da Venda", f"R$ {total_geral_carrinho:,.2f}")
+                    c_inf2.metric("Troco", f"R$ {max(0.0, troco):,.2f}", delta_color="normal" if troco >= 0 else "inverse")
                     
-if st.form_submit_button("Finalizar Venda no PDV"):
-    if not df_caixa_aberto.empty:
-        sessao_id = int(df_caixa_aberto.iloc[0]['id'])
+                    if st.form_submit_button("Finalizar Venda no PDV"):
+                        if not df_caixa_aberto.empty:
+                            sessao_id = int(df_caixa_aberto.iloc[0]['id'])
                             
-for item in st.session_state.carrinho_pdv:
-    salvar_pedido_ou_venda(
-    cliente=cliente_pdv,
-    produto=item['produto'],
-    fornecedor=item['fornecedor'],
-    grupo=item['grupo'],
-    quantidade=item['quantidade'],
-    valor_venda=item['valor_venda'],
-    forma_pagamento=f_pag,
-    valor_recebido=v_rec,
-    tipo="VENDA"
-)
+                            for item in st.session_state.carrinho_pdv:
+                                salvar_pedido_ou_venda(
+                                    cliente=cliente_pdv,
+                                    produto=item['produto'],
+                                    fornecedor=item['fornecedor'],
+                                    grupo=item['grupo'],
+                                    quantidade=item['quantidade'],
+                                    valor_venda=item['valor_venda'],
+                                    forma_pagamento=f_pag,
+                                    valor_recebido=v_rec,
+                                    tipo="VENDA"
+                                )
                             
-cursor = conn.cursor()
-cursor.execute("INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, ?, ?, ?, ?)",
-(sessao_id, "VENDA", total_geral_carrinho, f"Venda PDV (Múltiplos Itens) - Cliente: {cliente_pdv}", datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-conn.commit()
+                            cursor = conn.cursor()
+                            cursor.execute("INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, ?, ?, ?, ?)",
+                                           (sessao_id, "VENDA", total_geral_carrinho, f"Venda PDV (Múltiplos Itens) - Cliente: {cliente_pdv}", datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                            conn.commit()
                             
-st.session_state.carrinho_pdv = []
-st.success(f"Venda realizada com sucesso! Troco: R$ {max(0.0, troco):,.2f}")
-st.rerun()
-    
+                            st.session_state.carrinho_pdv = []
+                            st.success(f"Venda realizada com sucesso! Troco: R$ {max(0.0, troco):,.2f}")
+                            st.rerun()
+
         # --- LÓGICA: ABERTURA E FECHAMENTO DE CAIXA ---
-elif menu_admin == "🔓 Abertura e Fechamento de Caixa":
-    st.title("🔓 Abertura e Fechamento de Caixa")
+        elif menu_admin == "🔓 Abertura e Fechamento de Caixa":
+            st.title("🔓 Abertura e Fechamento de Caixa")
                     
-        df_caixa_atual = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
+            df_caixa_atual = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
             
-if df_caixa_atual.empty:
-    st.info("O caixa encontra-se **FECHADO**. Insira o valor inicial para abri-lo.")
+            if df_caixa_atual.empty:
+                st.info("O caixa encontra-se **FECHADO**. Insira o valor inicial para abri-lo.")
                 with st.form("form_abrir_caixa"):
                     saldo_inicial = st.number_input("Saldo Inicial em Dinheiro (Troco / Fundo de Caixa)", min_value=0.0, step=10.0, value=0.0)
                     if st.form_submit_button("Abrir Caixa"):
