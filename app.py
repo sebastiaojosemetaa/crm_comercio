@@ -565,9 +565,9 @@ with col_i2:
 
     v_unit_item = st.number_input("Preço Venda (R$)", min_value=0.0, step=1.0, value=float(sugestao_preco), key="pdv_v_unit")
 
-            with col_i3:
-            idx_g = grupos_opt.index(sugestao_grupo) if sugestao_grupo in grupos_opt else 0
-            grupo_item = st.selectbox("Grupo", grupos_opt, index=idx_g, key="pdv_grupo")
+with col_i3:
+    idx_g = grupos_opt.index(sugestao_grupo) if sugestao_grupo in grupos_opt else 0
+    grupo_item = st.selectbox("Grupo", grupos_opt, index=idx_g, key="pdv_grupo")
                     
                 valor_total_item = qtd_item * v_unit_item
                 st.metric("Valor Total do Item", f"R$ {valor_total_item:.2f}")
