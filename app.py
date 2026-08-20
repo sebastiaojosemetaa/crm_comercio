@@ -581,7 +581,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             st.session_state.setdefault("pdv_grupo", sugestao_grupo if sugestao_grupo in grupos_opt else grupos_opt[0])
 
             with col_s2:
-                st.info(f"Preço Venda (Estoque de produtos): R$ {sugestao_preco:.2f}")
+                st.info(f"Preço Venda: R$ {sugestao_preco:.2f}")
 
             with st.form("form_adicionar_item_pdv", clear_on_submit=False):
                 col_i1, col_i2, col_i3 = st.columns(3)
@@ -649,7 +649,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     fornecedor=item['fornecedor'],
                                     grupo=item['grupo'],
                                     quantidade=item['quantidade'],
-                                    valor_venda=item['valor_venda'],
+                                    valor_venda=item['preço venda'],
                                     forma_pagamento=f_pag,
                                     valor_recebido=v_rec,
                                     tipo="VENDA"
