@@ -548,7 +548,7 @@ for col_v in ["valor_venda", "preco_venda", "Preço Venda (R$)"]:
                 if val > 0:
                     sugestao_preco = val
                     break
-            except:
+        except:
                 pass
                 
                 for col_f in ['fornecedor', 'Fornecedor']:
