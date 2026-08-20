@@ -516,7 +516,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             produtos_opt = carregar_coluna("produtos", "nome") or ["AMEIXA IMPORTADA", "ABACATE"]
             sugestao_fornec = fornecedores_opt[0]
             sugestao_grupo = grupos_opt[0]
-            v_unit_item = st.number_input("Preço Venda (R$)", min_value=0.0, step=1.0, value=float(sugestao_preco), key="pdv_v_unit")
+                v_unit_item = st.number_input("Preço Venda (R$)", min_value=0.0, step=1.0, value=float(sugestao_preco), key="pdv_v_unit")
             if not df_prod_info.empty:
                 linha_prod = df_prod_info.iloc[0]
                 cols_p = df_prod_info.columns.tolist()
