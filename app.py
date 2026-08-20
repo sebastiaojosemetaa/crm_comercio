@@ -1079,7 +1079,7 @@ if menu_admin in ["📋 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
                 else:
                     st.info("Nenhum registro encontrado para o filtro selecionado.")
 
-        elif menu_admin == "📥 Entrada de Estoque (Compras)":
+if menu_admin == "📥 Entrada de Estoque (Compras)":
             st.title("📥 Entrada de Estoque (Compras)")
             aba_compra, aba_historico_compras = st.tabs(["📦 Dar Entrada em Estoque", "📋 Histórico de Entradas / Compras"])
             
@@ -1263,7 +1263,7 @@ if menu_admin in ["📋 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
             else:
                 st.info("Nenhum produto cadastrado no banco de dados.")
 
-        elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
+if menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
             st.title("👥 Cadastros Gerais")
             tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["👥 Clientes", "📦 Produtos", "🏢 Fornecedores", "🏷️ Grupos"])            
             
