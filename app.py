@@ -629,13 +629,13 @@ st.success(f"Venda realizada com sucesso! Troco: R$ {max(0.0, troco):,.2f}")
 st.rerun()
     
         # --- LÓGICA: ABERTURA E FECHAMENTO DE CAIXA ---
-    elif menu_admin == "🔓 Abertura e Fechamento de Caixa":
-        st.title("🔓 Abertura e Fechamento de Caixa")
+elif menu_admin == "🔓 Abertura e Fechamento de Caixa":
+    st.title("🔓 Abertura e Fechamento de Caixa")
                     
-            df_caixa_atual = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
+        df_caixa_atual = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
             
-            if df_caixa_atual.empty:
-                st.info("O caixa encontra-se **FECHADO**. Insira o valor inicial para abri-lo.")
+if df_caixa_atual.empty:
+    st.info("O caixa encontra-se **FECHADO**. Insira o valor inicial para abri-lo.")
                 with st.form("form_abrir_caixa"):
                     saldo_inicial = st.number_input("Saldo Inicial em Dinheiro (Troco / Fundo de Caixa)", min_value=0.0, step=10.0, value=0.0)
                     if st.form_submit_button("Abrir Caixa"):
