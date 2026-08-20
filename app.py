@@ -604,7 +604,7 @@ with st.form("form_finalizar_pagamento_pdv"):
                     
 if st.form_submit_button("Finalizar Venda no PDV"):
     if not df_caixa_aberto.empty:
-    sessao_id = int(df_caixa_aberto.iloc[0]['id'])
+        sessao_id = int(df_caixa_aberto.iloc[0]['id'])
                             
                             for item in st.session_state.carrinho_pdv:
                                 salvar_pedido_ou_venda(
