@@ -334,7 +334,7 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral", d_inicio=None, d_fi
     else:
         df_resumo = pd.DataFrame(columns=['produto', 'quantidade', 'valor_venda', 'valor_total'])
 
-    table_data = [["Nome do Produto", "Qtd Total", "Preço venda (R$)", "Valor Total (R$)"]]
+    table_data = [["Produto", "Qtd Total", "Preço Unitário (R$)", "Valor Total (R$)"]]
     valor_total_geral = 0.0
     for _, row in df_resumo.iterrows():
         prod = str(row['produto'])
@@ -513,9 +513,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
             # BUSCA ULTRA-ROBUSTA DOS DADOS DO PRODUTO SELECIONADO
             df_prod_info = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_item}')")
-            produtos_opt = carregar_coluna("produtos", "nome") or ["AMEIXA IMPORTADA", "ABACATE"]
+            sugestao_preco = 10.0  # Valor padrão caso venha zerado ou vazio
             sugestao_fornec = fornecedores_opt[0]
             sugestao_grupo = grupos_opt[0]
+            
             if not df_prod_info.empty:
                 linha_prod = df_prod_info.iloc[0]
                 cols_p = df_prod_info.columns.tolist()
@@ -550,6 +551,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 with col_i2:
                     idx_f = fornecedores_opt.index(sugestao_fornec) if sugestao_fornec in fornecedores_opt else 0
                     fornec_item = st.selectbox("Fornecedor", fornecedores_opt, index=idx_f, key="pdv_forn")
+
+                v_unit_item = st.number_input("Preço Venda (R$)", min_value=0.0, step=1.0, value=float(sugestao_preco), key="pdv_v_unit")
 
                 with col_i3:
                     idx_g = grupos_opt.index(sugestao_grupo) if sugestao_grupo in grupos_opt else 0
@@ -606,7 +609,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     fornecedor=item['fornecedor'],
                                     grupo=item['grupo'],
                                     quantidade=item['quantidade'],
-                                    valor_venda=item['preço venda'],
+                                    valor_venda=item['valor_venda'],
                                     forma_pagamento=f_pag,
                                     valor_recebido=v_rec,
                                     tipo="VENDA"
