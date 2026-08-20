@@ -576,7 +576,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.rerun()
 
             # Garante que as chaves existam antes de criar os widgets
-            st.session_state.setdefault("pdv_v_unit", float(sugestao_preco))
+            st.session_state.setdefault("pdv_v_unit", float(sugestao_preço venda))
             st.session_state.setdefault("pdv_forn", sugestao_fornec if sugestao_fornec in fornecedores_opt else fornecedores_opt[0])
             st.session_state.setdefault("pdv_grupo", sugestao_grupo if sugestao_grupo in grupos_opt else grupos_opt[0])
 
