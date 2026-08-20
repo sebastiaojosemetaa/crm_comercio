@@ -521,7 +521,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 linha_prod = df_prod_info.iloc[0]
                 cols_p = df_prod_info.columns.tolist()
                 
-                for col_v in ["Preço Venda (R$)", "preco_venda", "valor_venda", "Preço Venda"]:
+                for col_v in ["Preço Venda (R$)", "Preço Venda", "preco_venda", "valor_venda", "preco", "valor"]:
                     if col_v in cols_p and pd.notna(linha_prod[col_v]):
                         try:
                             val = float(linha_prod[col_v])
