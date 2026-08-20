@@ -566,14 +566,14 @@ with col_i3:
     st.metric("Valor Total do Item", f"R$ {valor_total_item:.2f}")
                 
 if st.form_submit_button("➕ Incluir Produto no Carrinho"):
-st.session_state.carrinho_pdv.append({
-    "produto": prod_item,
-    "fornecedor": fornec_item,
-    "grupo": grupo_item,
-    "quantidade": qtd_item,
-    "valor_venda": v_unit_item,
-    "valor_total": valor_total_item
-})
+    st.session_state.carrinho_pdv.append({
+        "produto": prod_item,
+        "fornecedor": fornec_item,
+        "grupo": grupo_item,
+        "quantidade": qtd_item,
+        "valor_venda": v_unit_item,
+        "valor_total": valor_total_item
+    })
     st.success(f"Item '{prod_item}' adicionado ao carrinho!")
     st.rerun()
     
