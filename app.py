@@ -513,7 +513,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
             # BUSCA ULTRA-ROBUSTA DOS DADOS DO PRODUTO SELECIONADO
             df_prod_info = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_item}')")
-            sugestao_preco = 10.0  # Valor padrão caso venha zerado ou vazio
+            sugestao_preco = 0.0
             sugestao_fornec = fornecedores_opt[0]
             sugestao_grupo = grupos_opt[0]
             
@@ -522,16 +522,20 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 cols_p = df_prod_info.columns.tolist()
                 
                 # Procura qualquer coluna que tenha o preço de venda ou similar
-                for c in cols_p:
-                    c_lower = str(c).lower()
-                    if any(termo in c_lower for termo in ['venda', 'preco', 'preço', 'valor', 'custo']) and 'estoque' not in c_lower and 'id' not in c_lower:
-                        try:
-                            val = float(linha_prod[c])
-                            if val > 0:
-                                sugestao_preco = val
-                                break
-                        except:
-                            pass
+    for col_v in [
+        "Preço Venda (R$)",
+        "preco_venda",
+        "valor_venda",
+        "Preço Venda",
+    ]:
+      if col_v in cols_p and pd.notna(linha_prod[col_v]):
+        try:
+          val = float(linha_prod[col_v])
+          if val > 0:
+            sugestao_preco = val
+            break
+        except:
+          pass
                 
                 for col_f in ['fornecedor', 'Fornecedor']:
                     if col_f in cols_p and pd.notna(linha_prod[col_f]):
