@@ -619,18 +619,18 @@ for item in st.session_state.carrinho_pdv:
     tipo="VENDA"
 )
                             
-                            cursor = conn.cursor()
-                            cursor.execute("INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, ?, ?, ?, ?)",
-                                           (sessao_id, "VENDA", total_geral_carrinho, f"Venda PDV (Múltiplos Itens) - Cliente: {cliente_pdv}", datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-                            conn.commit()
+cursor = conn.cursor()
+cursor.execute("INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, ?, ?, ?, ?)",
+(sessao_id, "VENDA", total_geral_carrinho, f"Venda PDV (Múltiplos Itens) - Cliente: {cliente_pdv}", datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+conn.commit()
                             
-                            st.session_state.carrinho_pdv = []
-                            st.success(f"Venda realizada com sucesso! Troco: R$ {max(0.0, troco):,.2f}")
-                            st.rerun()
-                        else:
-                            st.error("Não é possível realizar vendas sem um caixa aberto!")
-            else:
-                st.info("O carrinho está vazio. Adicione produtos acima para prosseguir com o fechamento da venda.")
+st.session_state.carrinho_pdv = []
+st.success(f"Venda realizada com sucesso! Troco: R$ {max(0.0, troco):,.2f}")
+st.rerun()
+else:
+st.error("Não é possível realizar vendas sem um caixa aberto!")
+else:
+st.info("O carrinho está vazio. Adicione produtos acima para prosseguir com o fechamento da venda.")
 
         # --- LÓGICA: ABERTURA E FECHAMENTO DE CAIXA ---
         elif menu_admin == "🔓 Abertura e Fechamento de Caixa":
