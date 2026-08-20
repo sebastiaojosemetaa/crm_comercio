@@ -532,7 +532,7 @@ if menu_admin == "🛒 PDV — Frente de Caixa":
             prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto_unico_2026")
     
     # Busca automática do preço no banco de dados baseada no produto escolhido
-df_prod_info = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_item}')")
+    df_prod_info = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_item}')")
 sugestao_preco = 0.0
 sugestao_fornec = fornecedores_opt[0]
 sugestao_grupo = grupos_opt[0]
