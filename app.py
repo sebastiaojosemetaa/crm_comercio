@@ -128,32 +128,11 @@ def adequar_banco_e_migrar():
 
 adequar_banco_e_migrar()
 
-def carregar_dados(query, parametros=None):
+def carregar_dados(query):
     try:
-        return pd.read_sql_query(query, conn, params=parametros)
+        return pd.read_sql_query(query, conn)
     except Exception:
         return pd.DataFrame()
-
-def converter_valor_monetario(valor):
-    """Converte valores do banco (número ou texto em formato brasileiro) para float."""
-    if valor is None or pd.isna(valor):
-        return 0.0
-    if isinstance(valor, (int, float)):
-        return float(valor)
-
-    texto = str(valor).replace("R$", "").strip().replace(" ", "")
-    try:
-        if "," in texto:
-            texto = texto.replace(".", "").replace(",", ".")
-        return float(texto)
-    except (TypeError, ValueError):
-        return 0.0
-
-def buscar_produto(nome_produto):
-    return carregar_dados(
-        "SELECT * FROM produtos WHERE UPPER(TRIM(nome)) = UPPER(TRIM(?)) LIMIT 1",
-        (str(nome_produto).strip(),),
-    )
 
 def carregar_coluna(tabela, coluna):
     cursor = conn.cursor()
@@ -532,72 +511,51 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             with col_s1:
                 prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto")
             
-            # BUSCA DOS DADOS DO PRODUTO SELECIONADO (Estoque de Produtos)
-            df_prod_info = buscar_produto(prod_item)
-            sugestao_preço = 0.0
+            # BUSCA ULTRA-ROBUSTA DOS DADOS DO PRODUTO SELECIONADO
+            df_prod_info = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_item}')")
+            sugestao_preco = 0.0
             sugestao_fornec = fornecedores_opt[0]
             sugestao_grupo = grupos_opt[0]
-
+            
             if not df_prod_info.empty:
                 linha_prod = df_prod_info.iloc[0]
                 cols_p = df_prod_info.columns.tolist()
-
-                # Preferencia: valor_venda (coluna real da tela Estoque de Produtos)
-                colunas_preco = ["preço venda", "preço venda", "preço venda (R$)", "preço venda"]
-                colunas_preco += [c for c in cols_p if ("venda" in c.lower() and c not in colunas_preco)]
-
-                for col_v in colunas_preco:
+                
+                for col_v in ["Preço Venda (R$)", "preco_venda", "valor_venda", "Preço Venda"]:
                     if col_v in cols_p and pd.notna(linha_prod[col_v]):
-                        val = converter_valor_monetario(linha_prod[col_v])
-                        if val >= 0:
-                            sugestao_preco = val
-                            break
-
+                        try:
+                            val = float(linha_prod[col_v])
+                            if val > 0:
+                                sugestao_preco = val
+                                break
+                        except:
+                            pass
+                
                 for col_f in ['fornecedor', 'Fornecedor']:
                     if col_f in cols_p and pd.notna(linha_prod[col_f]):
-                        sugestao_fornec = str(linha_prod[col_f]).strip()
+                        sugestao_fornec = str(linha_prod[col_f])
                         break
-
+                
                 for col_g in ['grupo', 'Grupo']:
                     if col_g in cols_p and pd.notna(linha_prod[col_g]):
-                        sugestao_grupo = str(linha_prod[col_g]).strip()
+                        sugestao_grupo = str(linha_prod[col_g])
                         break
-
-            # >>> CORREÇÃO PRINCIPAL <<<
-            # O Streamlit ignora o parametro "value" quando o widget ja tem uma "key"
-            # gravada em st.session_state. Por isso o preço nunca era atualizado ao
-            # trocar de produto. Aqui forçamos a atualização do session_state sempre
-            # que o produto selecionado mudar.
-            if st.session_state.get("pdv_ultimo_produto") != prod_item:
-                st.session_state["pdv_ultimo_produto"] = prod_item
-                st.session_state["pdv_v_unit"] = float(sugestao_preco)
-                st.session_state["pdv_forn"] = sugestao_fornec if sugestao_fornec in fornecedores_opt else fornecedores_opt[0]
-                st.session_state["pdv_grupo"] = sugestao_grupo if sugestao_grupo in grupos_opt else grupos_opt[0]
-                st.rerun()
-
-            # Garante que as chaves existam antes de criar os widgets
-            st.session_state.setdefault("pdv_v_unit", float(sugestao_preço venda))
-            st.session_state.setdefault("pdv_forn", sugestao_fornec if sugestao_fornec in fornecedores_opt else fornecedores_opt[0])
-            st.session_state.setdefault("pdv_grupo", sugestao_grupo if sugestao_grupo in grupos_opt else grupos_opt[0])
-
-            with col_s2:
-                st.info(f"Preço Venda: R$ {sugestao_preco:.2f}")
 
             with st.form("form_adicionar_item_pdv", clear_on_submit=False):
                 col_i1, col_i2, col_i3 = st.columns(3)
                 with col_i1:
                     qtd_item = st.number_input("Quantidade", min_value=0.1, step=1.0, value=1.0, key="pdv_qtd")
-
+                
                 with col_i2:
-                    fornec_item = st.selectbox("Fornecedor", fornecedores_opt, key="pdv_forn")
-
-                    # Sem "value": o valor vem de st.session_state["pdv_v_unit"],
-                    # que é sincronizado com o preço de venda do Estoque de Produtos.
-                    v_unit_item = st.number_input("Preço Venda (R$)", min_value=1.0, step=1.0, key="pdv preço venda")
+                    idx_f = fornecedores_opt.index(sugestao_fornec) if sugestao_fornec in fornecedores_opt else 0
+                    fornec_item = st.selectbox("Fornecedor", fornecedores_opt, index=idx_f, key="pdv_forn")
+                    
+                    v_unit_item = st.number_input("Preço Venda (R$)", min_value=0.0, step=1.0, value=float(sugestao_preco), key="pdv_v_unit")
 
                 with col_i3:
-                    grupo_item = st.selectbox("Grupo", grupos_opt, key="pdv_grupo")
-
+                    idx_g = grupos_opt.index(sugestao_grupo) if sugestao_grupo in grupos_opt else 0
+                    grupo_item = st.selectbox("Grupo", grupos_opt, index=idx_g, key="pdv_grupo")
+                    
                     valor_total_item = qtd_item * v_unit_item
                     st.metric("Valor Total do Item", f"R$ {valor_total_item:.2f}")
                 
@@ -649,7 +607,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     fornecedor=item['fornecedor'],
                                     grupo=item['grupo'],
                                     quantidade=item['quantidade'],
-                                    valor_venda=item['preço venda'],
+                                    valor_venda=item['valor_venda'],
                                     forma_pagamento=f_pag,
                                     valor_recebido=v_rec,
                                     tipo="VENDA"
@@ -1089,43 +1047,16 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
             
             with aba_compra:
-                # O produto fica fora do formulário para a tela atualizar assim que a seleção mudar.
-                produto_escolhido = st.selectbox("Produto", produtos_opt, key="entrada_produto")
-                df_produto_entrada = buscar_produto(produto_escolhido)
-                custo_estoque = 0.0
-                fornecedor_estoque = fornecedores_opt[0]
-                grupo_estoque = grupos_opt[0]
-
-                if not df_produto_entrada.empty:
-                    produto_entrada = df_produto_entrada.iloc[0]
-                    for coluna_custo in ["valor_compra", "preco_custo", "preco_compra"]:
-                        if coluna_custo in df_produto_entrada.columns:
-                            custo_estoque = converter_valor_monetario(produto_entrada[coluna_custo])
-                            break
-                    if "fornecedor" in df_produto_entrada.columns and pd.notna(produto_entrada["fornecedor"]):
-                        fornecedor_estoque = str(produto_entrada["fornecedor"]).strip()
-                    if "grupo" in df_produto_entrada.columns and pd.notna(produto_entrada["grupo"]):
-                        grupo_estoque = str(produto_entrada["grupo"]).strip()
-
-                if st.session_state.get("entrada_ultimo_produto") != produto_escolhido:
-                    st.session_state["entrada_ultimo_produto"] = produto_escolhido
-                    st.session_state["entrada_preco_custo"] = custo_estoque
-                    st.session_state["entrada_fornecedor"] = fornecedor_estoque if fornecedor_estoque in fornecedores_opt else fornecedores_opt[0]
-                    st.session_state["entrada_grupo"] = grupo_estoque if grupo_estoque in grupos_opt else grupos_opt[0]
-
-                st.session_state.setdefault("entrada_preco_custo", custo_estoque)
-                st.session_state.setdefault("entrada_fornecedor", fornecedor_estoque if fornecedor_estoque in fornecedores_opt else fornecedores_opt[0])
-                st.session_state.setdefault("entrada_grupo", grupo_estoque if grupo_estoque in grupos_opt else grupos_opt[0])
-
                 with st.form("form_entrada_estoque"):
                     col1, col2 = st.columns(2)
                     with col1:
-                        fornecedor_escolhido = st.selectbox("Fornecedor", fornecedores_opt, key="entrada_fornecedor")
+                        produto_escolhido = st.selectbox("Produto", produtos_opt)
+                        fornecedor_escolhido = st.selectbox("Fornecedor", fornecedores_opt)
                         quantidade = st.number_input("Quantidade", min_value=0.0, format="%.2f")
                     with col2:
-                        grupo_escolhido = st.selectbox("Grupo", grupos_opt, key="entrada_grupo")
-                        preco_custo = st.number_input("Preço de Custo Unitário (R$)", min_value=0.0, format="%.2f", key="entrada_preco_custo")
-
+                        grupo_escolhido = st.selectbox("Grupo", grupos_opt)
+                        preco_custo = st.number_input("Preço de Custo Unitário (R$)", min_value=0.0, format="%.2f")
+                    
                     enviado = st.form_submit_button("Registrar Entrada no Estoque")
                     if enviado:
                         registrar_compra(produto_escolhido, fornecedor_escolhido, grupo_escolhido, quantidade, preco_custo)
@@ -1139,7 +1070,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.dataframe(carregar_dados("SELECT * FROM compras"), use_container_width=True)
 
         elif menu_admin == "📦 Estoque de Produtos":
-            st.title("📦 Estoque de Produtos e Preço")
+            st.title("📦 Estoque de Produtos e Preços")
             df_prods = carregar_dados("SELECT * FROM produtos")            
             if not df_prods.empty:
                 cols_atuais = df_prods.columns.tolist()
