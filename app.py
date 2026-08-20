@@ -541,15 +541,15 @@ if not df_prod_info.empty:
     linha_prod = df_prod_info.iloc[0]
     cols_p = df_prod_info.columns.tolist()
         
-                for col_v in ["valor_venda", "preco_venda", "Preço Venda (R$)"]:
-                    if col_v in cols_p and pd.notna(linha_prod[col_v]):
-                        try:
-                            val = float(linha_prod[col_v])
-                            if val > 0:
-                                sugestao_preco = val
-                                break
-                        except:
-                            pass
+for col_v in ["valor_venda", "preco_venda", "Preço Venda (R$)"]:
+    if col_v in cols_p and pd.notna(linha_prod[col_v]):
+        try:
+            val = float(linha_prod[col_v])
+                if val > 0:
+                    sugestao_preco = val
+                    break
+                     except:
+                        pass
                 
                 for col_f in ['fornecedor', 'Fornecedor']:
                     if col_f in cols_p and pd.notna(linha_prod[col_f]):
