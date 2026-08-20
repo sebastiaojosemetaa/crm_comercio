@@ -461,7 +461,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 st.markdown(f"**Itens Registrados:** {len(df_pedidos)} | **Soma dos Valores:** R$ {soma_total:,.2f}")
                 
                 if st.button("🔄 Atualizar Valores com Estoque (Preço Custo)"):
-                    sincronizar_valores_com_estoque("vendas", "compra")
+                    sincronizar_valores_com_estoque("vendas", "compra","pdv")
                     st.success("Tabela atualizada com o Preço de Custo!")
                     st.rerun()
 
