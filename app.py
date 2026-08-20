@@ -592,10 +592,10 @@ if len(st.session_state.carrinho_pdv) > 0:
 st.dataframe(df_carrinho, use_container_width=True)
                 
 if st.button("🗑️ Limpar Carrinho"):
-st.session_state.carrinho_pdv = []
-st.rerun()
+    st.session_state.carrinho_pdv = []
+    st.rerun()
                 
-st.markdown("---")
+    st.markdown("---")
 total_geral_carrinho = df_carrinho['valor_total'].sum()
                 
                 with st.form("form_finalizar_pagamento_pdv"):
