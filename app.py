@@ -606,18 +606,18 @@ if st.form_submit_button("Finalizar Venda no PDV"):
     if not df_caixa_aberto.empty:
         sessao_id = int(df_caixa_aberto.iloc[0]['id'])
                             
-                            for item in st.session_state.carrinho_pdv:
-                                salvar_pedido_ou_venda(
-                                    cliente=cliente_pdv,
-                                    produto=item['produto'],
-                                    fornecedor=item['fornecedor'],
-                                    grupo=item['grupo'],
-                                    quantidade=item['quantidade'],
-                                    valor_venda=item['valor_venda'],
-                                    forma_pagamento=f_pag,
-                                    valor_recebido=v_rec,
-                                    tipo="VENDA"
-                                )
+for item in st.session_state.carrinho_pdv:
+    salvar_pedido_ou_venda(
+    cliente=cliente_pdv,
+    produto=item['produto'],
+    fornecedor=item['fornecedor'],
+    grupo=item['grupo'],
+    quantidade=item['quantidade'],
+    valor_venda=item['valor_venda'],
+    forma_pagamento=f_pag,
+    valor_recebido=v_rec,
+    tipo="VENDA"
+)
                             
                             cursor = conn.cursor()
                             cursor.execute("INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, ?, ?, ?, ?)",
