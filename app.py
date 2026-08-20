@@ -13,7 +13,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 # -----------------------------------------------------------------------------
 st.set_page_config(page_title="CRM Comércio - Rey da Cebola", layout="wide")
 
-# Estilo CSS para melhorar o alinhamento visual
+# CSS para alinhar elementos e melhorar o design visual
 st.markdown("""
     <style>
         .block-container {
