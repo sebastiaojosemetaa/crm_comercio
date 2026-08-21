@@ -698,18 +698,18 @@ for item in st.session_state.carrinho_pdv:
             
     df_todas = carregar_dados("SELECT * FROM vendas")
             
-if not df_todas.empty:
-    if status_filtro == "Somente Vendas Concluídas":
-        df_todas['tipo'] = 'VENDA'
-        df_todas['codigo'] = 'VEN'
+    if not df_todas.empty:
+        if status_filtro == "Somente Vendas Concluídas":
+            df_todas['tipo'] = 'VENDA'
+            df_todas['codigo'] = 'VEN'
 
     df_todas['tipo_str'] = df_todas['tipo'].fillna('').astype(str).str.strip().str.upper() if 'tipo' in df_todas.columns else ''
     df_todas['codigo_str'] = df_todas['codigo'].fillna('').astype(str).str.strip().str.upper() if 'codigo' in df_todas.columns else ''
                 
     is_venda = df_todas['tipo_str'].isin(['VENDA', 'VENDAS', 'VEN']) | df_todas['codigo_str'].isin(['VEN', 'VENDA'])
                 
-if status_filtro == "Somente Vendas Concluídas":
-    df_vendas = df_todas[is_venda]
+    if status_filtro == "Somente Vendas Concluídas":
+        df_vendas = df_todas[is_venda]
 elif status_filtro == "Incluir Pedidos Pendentes":
     df_vendas = df_todas[~is_venda]
 else:
