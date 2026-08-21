@@ -708,24 +708,24 @@ for item in st.session_state.carrinho_pdv:
                 
     is_venda = df_todas['tipo_str'].isin(['VENDA', 'VENDAS', 'VEN']) | df_todas['codigo_str'].isin(['VEN', 'VENDA'])
                 
-if status_filtro == "Somente Vendas Concluídas":
-    df_vendas = df_todas[is_venda]
-elif status_filtro == "Incluir Pedidos Pendentes":
-    df_vendas = df_todas[~is_venda]
-else:
-    df_vendas = df_todas.copy()
+    if status_filtro == "Somente Vendas Concluídas":
+        df_vendas = df_todas[is_venda]
+    elif status_filtro == "Incluir Pedidos Pendentes":
+        df_vendas = df_todas[~is_venda]
+    else:
+        df_vendas = df_todas.copy()
+                    
+    if 'data' in df_vendas.columns:
+        df_vendas['data_curta'] = df_vendas['data'].fillna('').astype(str).str.slice(0, 10)
+        mask_data = (df_vendas['data_curta'] >= str_d1) & (df_vendas['data_curta'] <= str_d2)
+        df_vendas = df_vendas[mask_data | (df_vendas['data_curta'] == '')]
+        df_vendas = df_vendas.drop(columns=['data_curta', 'tipo_str', 'codigo_str'], errors='ignore')
+    else:
+        df_vendas = pd.DataFrame()
                 
-if 'data' in df_vendas.columns:
-    df_vendas['data_curta'] = df_vendas['data'].fillna('').astype(str).str.slice(0, 10)
-    mask_data = (df_vendas['data_curta'] >= str_d1) & (df_vendas['data_curta'] <= str_d2)
-    df_vendas = df_vendas[mask_data | (df_vendas['data_curta'] == '')]
-    df_vendas = df_vendas.drop(columns=['data_curta', 'tipo_str', 'codigo_str'], errors='ignore')
-else:
-    df_vendas = pd.DataFrame()
-            
-if not df_vendas.empty:
-    col1, col2, col3 = st.columns(3)
-    faturamento = df_vendas['valor_total'].sum() if 'valor_total' in df_vendas.columns else 0.0
+    if not df_vendas.empty:
+        col1, col2, col3 = st.columns(3)
+        faturamento = df_vendas['valor_total'].sum() if 'valor_total' in df_vendas.columns else 0.0
                 
     if 'valor_recebido' in df_vendas.columns:
         valor_rec = pd.to_numeric(df_vendas['valor_recebido'], errors='coerce').sum()
