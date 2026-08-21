@@ -671,8 +671,8 @@ if menu_admin == "🔒 Abertura e Fechamento de Caixa":
                         st.success("Caixa fechado com sucesso!")
                         st.rerun()
 
-        if menu_admin == "📊 Fechamento & Financeiro":
-            st.title("📊 Painel Financeiro & Fechamento por Data")
+if menu_admin == "📊 Fechamento & Financeiro":
+    st.title("📊 Painel Financeiro & Fechamento por Data")
             
             col_d1, col_d2, col_d3 = st.columns(3)
             with col_d1:
