@@ -918,22 +918,22 @@ if is_modo_pedido:
     for col_ocultar in ["forma_pagamento", "valor_recebido", "troco", "restante"]:
         if col_ocultar in df_registros.columns:
             df_registros = df_registros.drop(columns=[col_ocultar])
-                    else:
-                        config_cols["valor_venda"] = st.column_config.NumberColumn("Valor Venda", min_value=0.0, format="R$ %.2f")
-                        config_cols["forma_pagamento"] = st.column_config.SelectboxColumn("Forma Pagamento", options=["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito", "Crediário / Fiado"])
-                        config_cols["valor_recebido"] = st.column_config.NumberColumn("Valor Recebido / Haver", min_value=0.0, format="R$ %.2f")
+else:
+    config_cols["valor_venda"] = st.column_config.NumberColumn("Valor Venda", min_value=0.0, format="R$ %.2f")
+    config_cols["forma_pagamento"] = st.column_config.SelectboxColumn("Forma Pagamento", options=["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito", "Crediário / Fiado"])
+    config_cols["valor_recebido"] = st.column_config.NumberColumn("Valor Recebido / Haver", min_value=0.0, format="R$ %.2f")
 
-                    df_editado = st.data_editor(
-                        df_registros,
-                        key=f"editor_registros_{menu_admin}",
-                        use_container_width=True,
-                        num_rows="fixed",
-                        column_config=config_cols,
-                        hide_index=True
-                    )
+df_editado = st.data_editor(
+    df_registros,
+    key=f"editor_registros_{menu_admin}",
+    use_container_width=True,
+    num_rows="fixed",
+    column_config=config_cols,
+    hide_index=True
+)
                     
-                    label_btn_sync = "🔄 Atualizar Preço de Custo / Valor da Compra" if is_modo_pedido else "🔄 Atualizar Valores com Estoque Atual"
-                    tipo_sync = "compra" if is_modo_pedido else "venda"
+    label_btn_sync = "🔄 Atualizar Preço de Custo / Valor da Compra" if is_modo_pedido else "🔄 Atualizar Valores com Estoque Atual"
+    tipo_sync = "compra" if is_modo_pedido else "venda"
                     
                     if st.button(label_btn_sync):
                         sincronizar_valores_com_estoque("vendas", tipo_sync)
