@@ -739,12 +739,12 @@ if not df_vendas.empty:
             titulo_custom=f"Fechamento Financeiro ({status_filtro})"
            )
                 
-                st.download_button(
-                    label="📥 Baixar Relatório de Fechamento Financeiro (PDF)",
-                    data=pdf_fechamento,
-                    file_name=f"Fechamento_Financeiro_{str_d1}_a_{str_d2}.pdf",
-                    mime="application/pdf"
-                )
+            st.download_button(
+                label="📥 Baixar Relatório de Fechamento Financeiro (PDF)",
+                data=pdf_fechamento,
+                file_name=f"Fechamento_Financeiro_{str_d1}_a_{str_d2}.pdf",
+                mime="application/pdf"
+            )
             else:
                 st.info("Nenhum registro encontrado para os filtros selecionados.")
 
