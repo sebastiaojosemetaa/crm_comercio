@@ -82,6 +82,20 @@ def adequar_banco_e_migrar():
             estoque_atual REAL
         )
     """)
+    
+    # Migração / Correção caso a tabela produtos já exista com colunas antigas (como 'descricao')
+    cursor.execute("PRAGMA table_info(produtos)")
+    colunas_produtos = [col[1] for col in cursor.fetchall()]
+    if 'nome' not in colunas_produtos and 'descricao' in colunas_produtos:
+        try:
+            cursor.execute("ALTER TABLE produtos RENAME COLUMN descricao TO nome")
+        except:
+            pass
+    elif 'nome' not in colunas_produtos:
+        try:
+            cursor.execute("ALTER TABLE produtos ADD COLUMN nome TEXT")
+        except:
+            pass
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS clientes (
