@@ -1229,12 +1229,12 @@ with tab_prod:
             p_venda = st.number_input("Preço de Venda (R$)", min_value=0.0, step=20.0, value=20.0)
             estoque_ini = st.number_input("Estoque Inicial", min_value=0.0, step=1.0, value=0.0)
                     
-                    if st.form_submit_button("Salvar Produto no Estoque"):
-                        if novo_prod.strip() and salvar_produto_completo(novo_prod.strip(), fornec_prod, grupo_prod, p_custo, p_venda, estoque_ini):
-                            st.success("Produto cadastrado com sucesso!")
-                            st.rerun()
-                st.markdown("---")
-                st.dataframe(carregar_dados("SELECT * FROM produtos"), use_container_width=True)
+if st.form_submit_button("Salvar Produto no Estoque"):
+    if novo_prod.strip() and salvar_produto_completo(novo_prod.strip(), fornec_prod, grupo_prod, p_custo, p_venda, estoque_ini):
+        st.success("Produto cadastrado com sucesso!")
+        st.rerun()
+    st.markdown("---")
+    st.dataframe(carregar_dados("SELECT * FROM produtos"), use_container_width=True)
 
             with tab_forn:
                 st.subheader("Cadastrar Novo Fornecedor")
