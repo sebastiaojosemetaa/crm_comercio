@@ -719,25 +719,25 @@ if not df_vendas.empty:
     if 'valor_recebido' in df_vendas.columns:
         valor_rec = pd.to_numeric(df_vendas['valor_recebido'], errors='coerce').sum()
     else:
-                    valor_rec = 0.0
+        valor_rec = 0.0
                     
-                col1.metric("Faturamento do Período", f"R$ {faturamento:,.2f}")
-                col2.metric("Total Recebido em Caixa", f"R$ {valor_rec:,.2f}")
-                col3.metric("Total Pendente / Fiado", f"R$ {faturamento - valor_rec:,.2f}")
-                st.markdown("---")
+        col1.metric("Faturamento do Período", f"R$ {faturamento:,.2f}")
+        col2.metric("Total Recebido em Caixa", f"R$ {valor_rec:,.2f}")
+        col3.metric("Total Pendente / Fiado", f"R$ {faturamento - valor_rec:,.2f}")
+        st.markdown("---")
                 
-                st.subheader("📊 Registros Encontrados")
-                st.dataframe(df_vendas, use_container_width=True)
+             st.subheader("📊 Registros Encontrados")
+             st.dataframe(df_vendas, use_container_width=True)
                 
-                st.markdown("---")
-                st.subheader("📄 Gerar Relatório do Fechamento Financeiro em PDF")
-                pdf_fechamento = gerar_pdf_tabela_pedidos(
-                    df_vendas, 
-                    cliente_nome="Geral", 
-                    d_inicio=data_inicio, 
-                    d_fim=data_fim,
-                    titulo_custom=f"Fechamento Financeiro ({status_filtro})"
-                )
+             st.markdown("---")
+             st.subheader("📄 Gerar Relatório do Fechamento Financeiro em PDF")
+             pdf_fechamento = gerar_pdf_tabela_pedidos(
+                 df_vendas, 
+                 cliente_nome="Geral", 
+                 d_inicio=data_inicio, 
+                 d_fim=data_fim,
+                 titulo_custom=f"Fechamento Financeiro ({status_filtro})"
+             )
                 
                 st.download_button(
                     label="📥 Baixar Relatório de Fechamento Financeiro (PDF)",
