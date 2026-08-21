@@ -1005,12 +1005,12 @@ with col_b1:
                             file_name=f"Relatorio_Pedidos_{nome_relatorio}.pdf",
                             mime="application/pdf"
                         )
-                    with col_b2:
-                        if cliente_sel != "TODOS":
-                            if st.button(f"🗑️ Apagar Pedido / Venda INTEIRA de {cliente_sel}"):
-                                qtd_del = deletar_pedidos_cliente(cliente_sel, s_d1, s_d2)
-                                st.success(f"Foram deletados {qtd_del} registro(s) de {cliente_sel} com sucesso!")
-                                st.rerun()
+with col_b2:
+    if cliente_sel != "TODOS":
+        if st.button(f"🗑️ Apagar Pedido / Venda INTEIRA de {cliente_sel}"):
+            qtd_del = deletar_pedidos_cliente(cliente_sel, s_d1, s_d2)
+            st.success(f"Foram deletados {qtd_del} registro(s) de {cliente_sel} com sucesso!")
+            st.rerun()
 
                     st.markdown("---")
                     tipo_str = df_registros['tipo'].fillna('').astype(str).str.strip().str.upper() if 'tipo' in df_registros.columns else pd.Series([''] * len(df_registros))
