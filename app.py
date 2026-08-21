@@ -857,7 +857,7 @@ if selected_rows:
         id_venda_selecionada = linha_escolhida.get('id', None)
         data_venda_selecionada = str(linha_escolhida.get('data', ''))[:19]
 
-        if selected_rows:
+if selected_rows:
         idx_selecionado = selected_rows[0]
         linha_escolhida = df_tickets_agrupados.iloc[idx_selecionado]
 
