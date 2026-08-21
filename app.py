@@ -899,19 +899,19 @@ if not df_registros.empty:
                     
     df_registros.insert(0, "Deletar", False)
                     
-                    if 'valor_recebido' in df_registros.columns:
-                        df_registros['valor_recebido'] = pd.to_numeric(df_registros['valor_recebido'], errors='coerce').fillna(0.0)
+if 'valor_recebido' in df_registros.columns:
+    df_registros['valor_recebido'] = pd.to_numeric(df_registros['valor_recebido'], errors='coerce').fillna(0.0)
                     
-                    config_cols = {
-                        "Deletar": st.column_config.CheckboxColumn("Deletar", help="Marque para excluir o item"),
-                        "id": st.column_config.NumberColumn("ID", disabled=True),
-                        "cliente": st.column_config.TextColumn("Cliente"),
-                        "produto": st.column_config.TextColumn("Produto"),
-                        "fornecedor": st.column_config.TextColumn("Fornecedor"),
-                        "quantidade": st.column_config.NumberColumn("Qtd", min_value=0.0, format="%.2f"),
-                        "valor_total": st.column_config.NumberColumn("Valor Total", disabled=True, format="R$ %.2f"),
-                        "data": st.column_config.TextColumn("Data", disabled=True),
-                    }
+config_cols = {
+    "Deletar": st.column_config.CheckboxColumn("Deletar", help="Marque para excluir o item"),
+    "id": st.column_config.NumberColumn("ID", disabled=True),
+    "cliente": st.column_config.TextColumn("Cliente"),
+    "produto": st.column_config.TextColumn("Produto"),
+    "fornecedor": st.column_config.TextColumn("Fornecedor"),
+    "quantidade": st.column_config.NumberColumn("Qtd", min_value=0.0, format="%.2f"),
+    "valor_total": st.column_config.NumberColumn("Valor Total", disabled=True, format="R$ %.2f"),
+    "data": st.column_config.TextColumn("Data", disabled=True),
+}
                     
                     if is_modo_pedido:
                         config_cols["valor_venda"] = st.column_config.NumberColumn("Preço Custo / Valor Compra", min_value=0.0, format="R$ %.2f")
