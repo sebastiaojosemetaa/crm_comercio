@@ -120,7 +120,7 @@ cursor.execute("""
         )
     """)
 
-    cursor.execute("""
+cursor.execute("""
         CREATE TABLE IF NOT EXISTS caixa_sessoes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             data_abertura TEXT,
