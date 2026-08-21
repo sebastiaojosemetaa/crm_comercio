@@ -525,7 +525,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
             st.markdown("#### + Adicionar Item ao Carrinho")
             
-            # --- BUSCA FLEXÍVEL EM PYTHON (SEM FALHAS NO SQL) ---
             prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto")
 
             df_p = carregar_dados("SELECT * FROM produtos")
@@ -534,11 +533,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             grupo_sugerido = grupos_opt[0]
 
             if not df_p.empty:
-                # Descobre o nome real da coluna de produtos
                 cols_prod_lower = {c.lower(): c for c in df_p.columns}
                 col_nome_real = cols_prod_lower.get('nome') or df_p.columns[1]
                 
-                # Normaliza para maiúsculo e sem espaços extras para garantir o match
                 df_p['_nome_limpo'] = df_p[col_nome_real].astype(str).str.strip().str.upper()
                 target_nome = str(prod_item).strip().upper()
                 
@@ -547,7 +544,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 if not df_filtrado_p.empty:
                     row_p = df_filtrado_p.iloc[0]
                     
-                    # Procura coluna de preço de venda de forma inteligente
                     for col_v in df_p.columns:
                         c_low = col_v.lower()
                         if 'venda' in c_low or 'preco' in c_low:
@@ -559,13 +555,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             except:
                                 pass
                     
-                    # Procura fornecedor
                     for col_f in df_p.columns:
                         if 'fornecedor' in col_f.lower():
                             forn_sugerido = str(row_p[col_f])
                             break
                             
-                    # Procura grupo
                     for col_g in df_p.columns:
                         if 'grupo' in col_g.lower():
                             grupo_sugerido = str(row_p[col_g])
@@ -581,7 +575,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
             with col_s2:
                 qtd_item = st.number_input("Quantidade", min_value=0.1, step=1.0, value=1.0, key="pdv_qtd")
-                # Chave dinâmica para atualizar o preço corretamente ao trocar o produto
                 v_unit_item = st.number_input("Preço de Venda (R$)", min_value=0.0, step=1.0, value=float(preco_sugerido), key=f"pdv_vunit_{prod_item}")
             
             valor_total_item = qtd_item * v_unit_item
@@ -807,7 +800,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 try:
                                     cursor = conn.cursor()
                                     cursor.execute("""
-                                        INSERT INTO produtos (nome, fornecedor, grupo, qtd_estoque, preco_custo, preco_venda) 
+                                        INSERT INTO produtos (nome, fornecedor, grupo, estoque_atual, valor_compra, valor_venda) 
                                         VALUES (?, ?, ?, ?, ?, ?)
                                     """, (novo_nome_prod, c_f_r, c_g_r, c_qtd_r, c_custo_r, c_venda_r))
                                     conn.commit()
@@ -818,6 +811,21 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             else:
                                 st.error("Digite o nome do produto.")
                     st.stop()
+                
+                # Formulário normal de cadastro de pedido/venda individual
+                with st.form("form_cad_pedido_individual"):
+                    cliente_ped = st.selectbox("Cliente", clientes_opt, key="ped_cli_ind")
+                    fornec_ped = st.selectbox("Fornecedor", fornecedores_opt, key="ped_forn_ind")
+                    grupo_ped = st.selectbox("Grupo", grupos_opt, key="ped_grupo_ind")
+                    qtd_ped = st.number_input("Quantidade", min_value=0.1, step=1.0, value=1.0, key="ped_qtd_ind")
+                    v_venda_ped = st.number_input("Preço Unitário (R$)", min_value=0.0, step=1.0, value=10.0, key="ped_v_ind")
+                    
+                    tipo_reg = "PEDIDO" if is_modo_pedido else "VENDA"
+                    if st.form_submit_button(f"Salvar {tipo_reg}"):
+                        salvar_pedido_ou_venda(cliente_ped, prod_item, fornec_ped, grupo_ped, qtd_ped, v_venda_ped, tipo=tipo_reg)
+                        st.success(f"{tipo_reg} cadastrado com sucesso!")
+                        st.rerun()
+
             if aba_baixa is not None:
                 with aba_baixa:
                     st.subheader("💵 Baixa de Débitos & Lançamento de Haver (Pagamento Parcial ou Total)")
@@ -1062,7 +1070,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 else:
                     st.info("Nenhum registro encontrado para o filtro selecionado.")
 
-elif menu_admin == "📥 Entrada de Estoque (Compras)":
+        elif menu_admin == "📥 Entrada de Estoque (Compras)":
             st.title("📥 Entrada de Estoque (Compras)")
             aba_compra, aba_historico_compras = st.tabs(["📦 Dar Entrada em Estoque", "📋 Histórico de Entradas / Compras"])
                 
@@ -1073,16 +1081,16 @@ elif menu_admin == "📥 Entrada de Estoque (Compras)":
             with aba_compra:
                 with st.form("form_entrada_estoque"):
                     col1, col2 = st.columns(2)
-                with col1:
+                    with col1:
                         produto_escolhido = st.selectbox("Produto", produtos_opt)
                         fornecedor_escolhido = st.selectbox("Fornecedor", fornecedores_opt)
                         quantidade = st.number_input("Quantidade", min_value=0.0, format="%.2f")
-                with col2:
+                    with col2:
                         grupo_escolhido = st.selectbox("Grupo", grupos_opt)
                         preco_custo = st.number_input("Preço de Custo Unitário (R$)", min_value=0.0, format="%.2f")
                     
-                        enviado = st.form_submit_button("Registrar Entrada no Estoque")
-                if enviado:
+                    enviado = st.form_submit_button("Registrar Entrada no Estoque")
+                    if enviado:
                         registrar_compra(produto_escolhido, fornecedor_escolhido, grupo_escolhido, quantidade, preco_custo)
                         cursor = conn.cursor()
                         cursor.execute("UPDATE produtos SET estoque_atual = COALESCE(estoque_atual, 0) + ? WHERE TRIM(nome) = TRIM(?)", (quantidade, produto_escolhido))
@@ -1093,7 +1101,7 @@ elif menu_admin == "📥 Entrada de Estoque (Compras)":
             with aba_historico_compras:
                 st.dataframe(carregar_dados("SELECT * FROM compras"), use_container_width=True)
 
-elif menu_admin == "📦 Estoque de Produtos":
+        elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
             df_prods = carregar_dados("SELECT * FROM produtos")            
             if not df_prods.empty:
@@ -1164,8 +1172,8 @@ elif menu_admin == "📦 Estoque de Produtos":
                         for _, row in df_editado_prod.iterrows():
                             if not row["Deletar"]:
                                 val_n = str(row[col_nome]).strip() if col_nome else ""
-                                val_f = str(row[col_forn]).strip() if col_forn and col_forn in row else ""
-                                val_g = str(row[col_grupo]).strip() if col_grupo and col_grupo in row else ""
+                                val_f = str(row[col_forn]).strip() if col_col_forn and col_forn in row else ("" if not col_forn else str(row[col_forn]))
+                                val_g = str(row[col_grupo]).strip() if col_grupo and col_grupo in row else ("" if not col_grupo else str(row[col_grupo]))
                                 val_pc = float(row[col_pcusto]) if col_pcusto and col_pcusto in row else 0.0
                                 val_pv = float(row[col_pvenda]) if col_pvenda and col_pvenda in row else 0.0
                                 val_est = float(row[col_estoque]) if col_estoque and col_estoque in row else 0.0
@@ -1219,7 +1227,7 @@ elif menu_admin == "📦 Estoque de Produtos":
             else:
                 st.info("Nenhum produto cadastrado no banco de dados.")
 
-elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
+        elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
             st.title("👥 Cadastros Gerais")
             tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["👥 Clientes", "📦 Produtos", "🏢 Fornecedores", "🏷️ Grupos"])            
             
