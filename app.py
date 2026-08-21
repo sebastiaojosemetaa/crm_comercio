@@ -254,7 +254,7 @@ cursor.execute("""
         INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, tipo, codigo, data)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (cliente.strip(), produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, str(valor_recebido), tipo, cod_status, data_atual))
-    conn.commit()
+        conn.commit()
 
 def baixar_debito_cliente(cliente_nome, valor_haver, forma_pagamento="Dinheiro"):
 cursor = conn.cursor()
