@@ -780,31 +780,14 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             produtos_base = carregar_coluna("produtos", "nome") or ["AMEIXA IMPORTADA", "ABACATE"]
             produtos_opt = list(produtos_base) + ["➕ Cadastrar Novo Produto..."]
             
-            with aba_cad:
-                clientes_opt = carregar_coluna("clientes", "nome") or ["Carlos Alberto"]
-                produtos_opt = carregar_coluna("produtos", "nome") or ["AMEIXA IMPORTADA", "ABACATE"]
-                fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
-                grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
-                
-                tipo_registro = "PEDIDO" if is_modo_pedido else "VENDA"
-                
-                with st.form("form_admin_pedido"):
-                    col_a, col_b = st.columns(2)
-                    with col_a:
-                        cli = st.selectbox("Selecione o Cliente", clientes_opt)
-                        prod = st.selectbox("Selecione o Produto", produtos_opt)
-                        qtd = st.number_input("Quantidade", min_value=0.1, step=0.5, value=1.0)
-                        label_preco = "Preço Custo / Valor Compra (R$)" if is_modo_pedido else "Valor Venda (R$)"
-                        v_unit = st.number_input(label_preco, min_value=0.0, step=1.0, value=100.0)
-                    with col_b:
-                        fornec = st.selectbox("Selecione o Fornecedor", fornecedores_opt)
-                        grupo = st.selectbox("Selecione o Grupo", grupos_opt)
-                        if not is_modo_pedido:
-                            f_pag = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito", "Crediário / Fiado"])
-                            v_rec = st.number_input("Valor Recebido (R$)", min_value=0.0, step=1.0, value=v_unit * qtd)
-                        else:
-                            f_pag = ""
-                            v_rec = 0.0
+            fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
+            grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
+
+            if not is_modo_pedido:
+                aba_cad, aba_baixa, aba_list = st.tabs(["+ Novo Registro", "📋 Baixa de Débito / Haver", "🔧 Tabela Editável (Edição Direta & Exclusão)"])
+            else:
+                aba_cad, aba_list = st.tabs(["+ Novo Registro / Pedido", "🔧 Tabela Editável (Edição Direta & Exclusão)"])
+                aba_baixa = None
                     
                     if st.form_submit_button(f"Salvar como {tipo_registro}"):
                         salvar_pedido_ou_venda(cli, prod, fornec, grupo, qtd, v_unit, f_pag, v_rec, tipo=tipo_registro)
