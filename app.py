@@ -818,35 +818,35 @@ if not df_cli_vendas.empty:
     with col_h2:
         forma_pgto_baixa = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito"])
                                 
-                                if st.form_submit_button("Aplicar Haver / Dar Baixa no Débito"):
-                                    if valor_haver > 0:
-                                        baixar_debito_cliente(cliente_baixa, valor_haver, forma_pagamento=forma_pgto_baixa)
-                                        st.success(f"Haver de R$ {valor_haver:,.2f} via {forma_pgto_baixa} aplicado com sucesso para {cliente_baixa}!")
-                                        st.rerun()
-                                    else:
-                                        st.warning("Insira um valor de haver maior que zero.")
+if st.form_submit_button("Aplicar Haver / Dar Baixa no Débito"):
+    if valor_haver > 0:
+        baixar_debito_cliente(cliente_baixa, valor_haver, forma_pagamento=forma_pgto_baixa)
+        st.success(f"Haver de R$ {valor_haver:,.2f} via {forma_pgto_baixa} aplicado com sucesso para {cliente_baixa}!")
+        st.rerun()
+else:
+        st.warning("Insira um valor de haver maior que zero.")
                                         
-                            st.markdown("#### Histórico de Vendas/Tickets do Cliente (Clique em uma linha para ver os itens)")
+        st.markdown("#### Histórico de Vendas/Tickets do Cliente (Clique em uma linha para ver os itens)")
                             
-                            df_tickets_agrupados = carregar_dados(f"""
-                                SELECT MIN(id) as id, cliente, data 
-                                FROM vendas 
-                                WHERE TRIM(cliente) = TRIM('{cliente_baixa}') 
-                                GROUP BY data, cliente 
-                                ORDER BY data DESC
-                            """)
+        df_tickets_agrupados = carregar_dados(f"""
+            SELECT MIN(id) as id, cliente, data 
+            FROM vendas 
+            WHERE TRIM(cliente) = TRIM('{cliente_baixa}') 
+            GROUP BY data, cliente 
+            ORDER BY data DESC
+        """)
                             
-                            cols_ver = [c for c in ['id', 'cliente', 'data'] if c in df_tickets_agrupados.columns]
+            cols_ver = [c for c in ['id', 'cliente', 'data'] if c in df_tickets_agrupados.columns]
                             
-                            event_tabela = st.dataframe(
-                                df_tickets_agrupados[cols_ver], 
-                                use_container_width=True,
-                                selection_mode="single-row",
-                                on_select="rerun"
-                            )
+            event_tabela = st.dataframe(
+            df_tickets_agrupados[cols_ver], 
+            use_container_width=True,
+            selection_mode="single-row",
+            on_select="rerun"
+        )
                             
-                            st.markdown("---")
-                            st.subheader("📦 Produtos Relacionados a esta Venda / Ticket")
+        st.markdown("---")
+        st.subheader("📦 Produtos Relacionados a esta Venda / Ticket")
                             
                             try:
                                 selected_rows = event_tabela.selection.rows
