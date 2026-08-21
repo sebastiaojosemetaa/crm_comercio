@@ -525,45 +525,55 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
             st.markdown("#### + Adicionar Item ao Carrinho")
             
-            # Selectbox fora do form para atualizar o preço em tempo real ao trocar de produto
-            prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto")
-            
-            # Busca os dados reais do produto selecionado no banco
-            df_prod_info = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_item}')")
-            sugestao_preco = 0.0
-            sugestao_fornec = fornecedores_opt[0]
-            sugestao_grupo = grupos_opt[0]
-            
-            if not df_prod_info.empty:
-                linha_prod = df_prod_info.iloc[0]
-                cols_p = df_prod_info.columns.tolist()
-                for col in cols_p:
-                    if "venda" in col.lower() or "preco" in col.lower() or "valor" in col.lower():
-                        try:
-                            val = float(linha_prod[col])
-                            if val > 0:
-                                sugestao_preco = val
+            # Função para atualizar o selectbox e forçar o rerun imediato ao trocar de produto
+            def atualizar_produto_pdv():
+                prod_selecionado = st.session_state.pdv_select_produto
+                df_p = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_selecionado}')")
+                if not df_p.empty:
+                    row_p = df_p.iloc[0]
+                    # Busca segura do preço de venda
+                    for col_v in ['valor_venda', 'preco_venda', 'venda', 'preco']:
+                        if col_v in df_p.columns and pd.notna(row_p[col_v]):
+                            try:
+                                st.session_state.pdv_vunit = float(row_p[col_v])
                                 break
-                        except:
-                            pass
-                for col_f in ['fornecedor', 'Fornecedor']:
-                    if col_f in cols_p and pd.notna(linha_prod[col_f]):
-                        sugestao_fornec = str(linha_prod[col_f])
-                        break
-                for col_g in ['grupo', 'Grupo']:
-                    if col_g in cols_p and pd.notna(linha_prod[col_g]):
-                        sugestao_grupo = str(linha_prod[col_g])
-                        break
+                            except:
+                                pass
+                    # Busca segura do fornecedor
+                    for col_f in ['fornecedor', 'Fornecedor']:
+                        if col_f in df_p.columns and pd.notna(row_p[col_f]):
+                            st.session_state.pdv_forn = str(row_p[col_f])
+                            break
+                    # Busca segura do grupo
+                    for col_g in ['grupo', 'Grupo']:
+                        if col_g in df_p.columns and pd.notna(row_p[col_g]):
+                            st.session_state.pdv_grup = str(row_p[col_g])
+                            break
+
+            prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto", on_change=atualizar_produto_pdv)
+
+            # Inicializa os valores no session_state se não existirem
+            if 'pdv_vunit' not in st.session_state:
+                st.session_state.pdv_vunit = 0.0
+            if 'pdv_forn' not in st.session_state:
+                st.session_state.pdv_forn = fornecedores_opt[0]
+            if 'pdv_grup' not in st.session_state:
+                st.session_state.pdv_grup = grupos_opt[0]
+
+            # Garante que ao carregar a página pela primeira vez os dados do primeiro produto venham corretos
+            if 'ultimo_prod_carregado' not in st.session_state or st.session_state.ultimo_prod_carregado != prod_item:
+                st.session_state.ultimo_prod_carregado = prod_item
+                atualizar_produto_pdv()
 
             with st.form("form_add_carrinho_pdv"):
                 col_s1, col_s2 = st.columns(2)
                 with col_s1:
-                    fornec_item = st.selectbox("Fornecedor", fornecedores_opt, index=fornecedores_opt.index(sugestao_fornec) if sugestao_fornec in fornecedores_opt else 0, key="pdv_forn")
-                    grupo_item = st.selectbox("Grupo", grupos_opt, index=grupos_opt.index(sugestao_grupo) if sugestao_grupo in grupos_opt else 0, key="pdv_grup")
+                    fornec_item = st.selectbox("Fornecedor", fornecedores_opt, index=fornecedores_opt.index(st.session_state.pdv_forn) if st.session_state.pdv_forn in fornecedores_opt else 0)
+                    grupo_item = st.selectbox("Grupo", grupos_opt, index=grupos_opt.index(st.session_state.pdv_grup) if st.session_state.pdv_grup in grupos_opt else 0)
                 
                 with col_s2:
                     qtd_item = st.number_input("Quantidade", min_value=0.1, step=1.0, value=1.0, key="pdv_qtd")
-                    v_unit_item = st.number_input("Preço de Venda (R$)", min_value=0.0, step=1.0, value=float(sugestao_preco), key="pdv_vunit")
+                    v_unit_item = st.number_input("Preço de Venda (R$)", min_value=0.0, step=1.0, value=float(st.session_state.pdv_vunit), key="pdv_vunit_input")
                 
                 valor_total_item = qtd_item * v_unit_item
                 st.metric("Valor Total do Item", f"R$ {valor_total_item:.2f}")
