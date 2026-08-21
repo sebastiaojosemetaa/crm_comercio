@@ -1213,17 +1213,17 @@ if st.form_submit_button("Salvar Cliente"):
     st.markdown("---")
     st.dataframe(carregar_dados("SELECT * FROM clientes"), use_container_width=True)
 
-            with tab_prod:
-                st.subheader("Cadastrar Novo Produto e Estoque")
-                grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
-                fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
-                
-                with st.form("form_cad_produto_completo"):
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        novo_prod = st.text_input("Nome do Produto")
-                        fornec_prod = st.selectbox("Fornecedor", fornecedores_opt)
-                        grupo_prod = st.selectbox("Grupo / Categoria", grupos_opt)
+with tab_prod:
+    st.subheader("Cadastrar Novo Produto e Estoque")
+    grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
+    fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
+                    
+    with st.form("form_cad_produto_completo"):
+    col1, col2 = st.columns(2)
+        with col1:
+            novo_prod = st.text_input("Nome do Produto")
+            fornec_prod = st.selectbox("Fornecedor", fornecedores_opt)
+            grupo_prod = st.selectbox("Grupo / Categoria", grupos_opt)
                     with col2:
                         p_custo = st.number_input("Preço de Custo (R$)", min_value=0.0, step=1.0, value=10.0)
                         p_venda = st.number_input("Preço de Venda (R$)", min_value=0.0, step=20.0, value=20.0)
