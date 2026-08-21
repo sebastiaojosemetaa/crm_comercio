@@ -257,8 +257,8 @@ cursor.execute("""
 conn.commit()
 
 def baixar_debito_cliente(cliente_nome, valor_haver, forma_pagamento="Dinheiro"):
-cursor = conn.cursor()
-cursor.execute("""
+    cursor = conn.cursor()
+    cursor.execute("""
         SELECT id, valor_total, valor_recebido 
         FROM vendas 
         WHERE TRIM(cliente) = TRIM(?)
