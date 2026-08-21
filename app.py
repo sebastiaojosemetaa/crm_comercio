@@ -773,14 +773,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.info("Nenhum dado cadastrado.")
 
         elif menu_admin in ["📋 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
+            elif menu_admin in [" Pedidos / Orçamentos", "🛒 Registrar Venda"]:
+            is_modo_pedido = (menu_admin == " Pedidos / Orçamentos")
+            st.title(f"🛒 {menu_admin}")
+
             clientes_opt = carregar_coluna("clientes", "nome") or ["Carlos Alberto"]
-                    # Adiciona a opção de cadastro no final da lista de produtos
-                    produtos_base = carregar_coluna("produtos", "nome") or ["AMEIXA IMPORTADA", "ABACATE"]
-                    produtos_opt = list(produtos_base) + ["➕ Cadastrar Novo Produto..."]
-                    
-                    fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
-                    grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
-                aba_cad, aba_baixa, aba_list = st.tabs(["➕ Novo Registro", "💵 Baixa de Débito / Haver", "✏️ Tabela Editável (Edição Direta & Exclusão)"])
+            produtos_base = carregar_coluna("produtos", "nome") or ["AMEIXA IMPORTADA", "ABACATE"]
+            produtos_opt = list(produtos_base) + ["➕ Cadastrar Novo Produto..."]
             else:
                 aba_cad, aba_list = st.tabs(["➕ Novo Registro / Pedido", "✏️ Tabela Editável (Edição Direta & Exclusão)"])
                 aba_baixa = None
