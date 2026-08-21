@@ -70,7 +70,7 @@ if 'data' not in colunas_vendas:
             cursor.execute("ALTER TABLE vendas ADD COLUMN data TEXT")
         except:
             pass
-    cursor.execute("""
+cursor.execute("""
         CREATE TABLE IF NOT EXISTS produtos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nome TEXT UNIQUE,
