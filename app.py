@@ -286,7 +286,7 @@ cursor.execute("""
                 WHERE id = ?
             """, (str(novo_recebido), forma_pagamento, reg_id))
             
-    conn.commit()
+conn.commit()
 
 def converter_pedido_completo_para_venda(cliente_nome):
 cursor = conn.cursor()
