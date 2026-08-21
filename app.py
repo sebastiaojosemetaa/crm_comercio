@@ -83,7 +83,6 @@ def adequar_banco_e_migrar():
         )
     """)
     
-    # Migração / Correção caso a tabela produtos já exista com colunas antigas (como 'descricao')
     cursor.execute("PRAGMA table_info(produtos)")
     colunas_produtos = [col[1] for col in cursor.fetchall()]
     if 'nome' not in colunas_produtos and 'descricao' in colunas_produtos:
@@ -1083,7 +1082,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 else:
                     st.info("Nenhum registro encontrado para o filtro selecionado.")
 
-elif menu_admin == "📥 Entrada de Estoque (Compras)":
+        elif menu_admin == "📥 Entrada de Estoque (Compras)":
             st.title("📥 Entrada de Estoque (Compras)")
             aba_compra, aba_historico_compras = st.tabs(["📦 Dar Entrada in Estoque", "📋 Histórico de Entradas / Compras"])
                 
@@ -1114,7 +1113,7 @@ elif menu_admin == "📥 Entrada de Estoque (Compras)":
             with aba_historico_compras:
                 st.dataframe(carregar_dados("SELECT * FROM compras"), use_container_width=True)
 
-elif menu_admin == "📦 Estoque de Produtos":
+        elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
             df_prods = carregar_dados("SELECT * FROM produtos")            
             if not df_prods.empty:
@@ -1240,7 +1239,7 @@ elif menu_admin == "📦 Estoque de Produtos":
             else:
                 st.info("Nenhum produto cadastrado no banco de dados.")
 
-elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
+        elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
             st.title("👥 Cadastros Gerais")
             tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["👥 Clientes", "📦 Produtos", "🏢 Fornecedores", "🏷️ Grupos"])            
             
