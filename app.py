@@ -987,17 +987,17 @@ if not itens_para_deletar.empty:
         cursor = conn.cursor()
     if len(ids_del) == 1:
         cursor.execute("DELETE FROM vendas WHERE id = ?", (ids_del[0],))
-                                else:
-                                    cursor.execute(f"DELETE FROM vendas WHERE id IN {ids_del}")
-                                conn.commit()
-                                st.warning(f"{len(ids_del)} registro(s) foram apagados com sucesso!")
-                                st.rerun()
+    else:
+        cursor.execute(f"DELETE FROM vendas WHERE id IN {ids_del}")
+        conn.commit()
+        st.warning(f"{len(ids_del)} registro(s) foram apagados com sucesso!")
+        st.rerun()
 
-                    st.markdown("---")
-                    st.subheader(f"📄 Relatório e Exclusão Total ({nome_relatorio})")
+st.markdown("---")
+st.subheader(f"📄 Relatório e Exclusão Total ({nome_relatorio})")
                     
-                    col_b1, col_b2 = st.columns(2)
-                    with col_b1:
+col_b1, col_b2 = st.columns(2)
+with col_b1:
                         pdf_gerado = gerar_pdf_tabela_pedidos(df_registros, cliente_nome=nome_relatorio, d_inicio=d_inicio, d_fim=d_fim)
                         st.download_button(
                             label=f"📥 Baixar Relatório - {nome_relatorio} (PDF)",
