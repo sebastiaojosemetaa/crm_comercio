@@ -577,7 +577,7 @@ if st.button("🗑️ Limpar Carrinho"):
         st.session_state.carrinho_pdv = []
         st.rerun()
 
-    st.markdown("---")       
+        st.markdown("---")       
 with st.form("form_finalizar_pagamento_pdv"):
     f_pag = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito", "Crediário / Fiado"])
     v_rec = st.number_input("Valor Recebido (R$)", min_value=0.0, step=1.0, value=total_geral_carrinho)
