@@ -1041,14 +1041,14 @@ if menu_admin == "📥 Entrada de Estoque (Compras)":
     fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
     grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
             
-            with aba_compra:
-                with st.form("form_entrada_estoque"):
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        produto_escolhido = st.selectbox("Produto", produtos_opt)
-                        fornecedor_escolhido = st.selectbox("Fornecedor", fornecedores_opt)
-                        quantidade = st.number_input("Quantidade", min_value=0.0, format="%.2f")
-                    with col2:
+with aba_compra:
+    with st.form("form_entrada_estoque"):
+        col1, col2 = st.columns(2)
+    with col1:
+        produto_escolhido = st.selectbox("Produto", produtos_opt)
+        fornecedor_escolhido = st.selectbox("Fornecedor", fornecedores_opt)
+        quantidade = st.number_input("Quantidade", min_value=0.0, format="%.2f")
+    with col2:
                         grupo_escolhido = st.selectbox("Grupo", grupos_opt)
                         preco_custo = st.number_input("Preço de Custo Unitário (R$)", min_value=0.0, format="%.2f")
                     
