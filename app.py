@@ -194,7 +194,7 @@ conn.commit()
 def salvar_cliente_completo(nome, telefone, doc, endereco, cidade):
     cursor = conn.cursor()
     try:
-cursor.execute("INSERT INTO clientes (nome, telefone, doc, endereco, cidade) VALUES (?, ?, ?, ?, ?)",
+    cursor.execute("INSERT INTO clientes (nome, telefone, doc, endereco, cidade) VALUES (?, ?, ?, ?, ?)",
                        (nome.strip(), telefone, doc, endereco, cidade))
         conn.commit()
         return True
@@ -204,7 +204,7 @@ cursor.execute("INSERT INTO clientes (nome, telefone, doc, endereco, cidade) VAL
 def salvar_produto_completo(nome, fornecedor, grupo, preco_custo, preco_venda, estoque_inicial):
 cursor = conn.cursor()
     try:
-cursor.execute("""
+    cursor.execute("""
             INSERT INTO produtos (nome, fornecedor, grupo, valor_compra, valor_venda, estoque_atual) 
             VALUES (?, ?, ?, ?, ?, ?)
         """, (nome.strip(), fornecedor, grupo, preco_custo, preco_venda, estoque_inicial))
@@ -225,7 +225,7 @@ cursor.execute("""
 def salvar_simples(tabela, coluna, valor):
     cursor = conn.cursor()
     try:
-        cursor.execute(f"PRAGMA table_info({tabela})")
+    cursor.execute(f"PRAGMA table_info({tabela})")
         colunas_existentes = [col[1] for col in cursor.fetchall()]
         
         if not colunas_existentes:
