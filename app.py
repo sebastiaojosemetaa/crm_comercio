@@ -850,9 +850,11 @@ else:
                             
         try:
             selected_rows = event_tabela.selection.rows
-        if selected_rows:
-            idx_selecionado = selected_rows[0]
-            linha_escolhida = df_tickets_agrupados.iloc[idx_selecionado]
+    except Exception as e:
+        st.error(f"Erro: {e}")
+if selected_rows:
+    idx_selecionado = selected_rows[0]
+    linha_escolhida = df_tickets_agrupados.iloc[idx_selecionado]
                                     
     id_venda_selecionada = linha_escolhida.get('id', None)
     data_venda_selecionada = str(linha_escolhida.get('data', ''))[:19]
