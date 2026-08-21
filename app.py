@@ -1236,10 +1236,10 @@ if st.form_submit_button("Salvar Produto no Estoque"):
     st.markdown("---")
     st.dataframe(carregar_dados("SELECT * FROM produtos"), use_container_width=True)
 
-            with tab_forn:
-                st.subheader("Cadastrar Novo Fornecedor")
-                with st.form("form_cad_fornecedor"):
-                    novo_forn = st.text_input("Nome do Fornecedor")
+with tab_forn:
+    st.subheader("Cadastrar Novo Fornecedor")
+    with st.form("form_cad_fornecedor"):
+    novo_forn = st.text_input("Nome do Fornecedor")
                     if st.form_submit_button("Salvar Fornecedor"):
                         if novo_forn.strip() and salvar_simples("fornecedores", "fornecedor", novo_forn.strip()):
                             st.success("Fornecedor cadastrado com sucesso!")
