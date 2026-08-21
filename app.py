@@ -894,10 +894,10 @@ else:
 
     df_registros = carregar_dados(query_filt)
                 
-                if not df_registros.empty:
-                    st.caption("💡 **Dica:** Clique diretamente em qualquer célula para alterar valores. Marque **Deletar** e clique no botão abaixo para remover registros permanentemente.")
+if not df_registros.empty:
+    st.caption("💡 **Dica:** Clique diretamente em qualquer célula para alterar valores. Marque **Deletar** e clique no botão abaixo para remover registros permanentemente.")
                     
-                    df_registros.insert(0, "Deletar", False)
+    df_registros.insert(0, "Deletar", False)
                     
                     if 'valor_recebido' in df_registros.columns:
                         df_registros['valor_recebido'] = pd.to_numeric(df_registros['valor_recebido'], errors='coerce').fillna(0.0)
