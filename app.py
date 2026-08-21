@@ -975,9 +975,9 @@ with c_btn1:
                                         c_val,
                                         int(row["id"])
                                     ))
-                            conn.commit()
-                            st.success("Todas as edições na tabela foram salvas com sucesso!")
-                            st.rerun()
+                    conn.commit()
+                    st.success("Todas as edições na tabela foram salvas com sucesso!")
+                    st.rerun()
 
                     with c_btn2:
                         itens_para_deletar = df_editado[df_editado["Deletar"] == True]
