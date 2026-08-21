@@ -935,12 +935,12 @@ df_editado = st.data_editor(
 label_btn_sync = "🔄 Atualizar Preço de Custo / Valor da Compra" if is_modo_pedido else "🔄 Atualizar Valores com Estoque Atual"
 tipo_sync = "compra" if is_modo_pedido else "venda"
                     
-                    if st.button(label_btn_sync):
-                        sincronizar_valores_com_estoque("vendas", tipo_sync)
-                        st.success("Tabela atualizada com os valores de estoque com sucesso!")
-                        st.rerun()
+if st.button(label_btn_sync):
+    sincronizar_valores_com_estoque("vendas", tipo_sync)
+    st.success("Tabela atualizada com os valores de estoque com sucesso!")
+    st.rerun()
 
-                    c_btn1, c_btn2 = st.columns([1, 1])
+c_btn1, c_btn2 = st.columns([1, 1])
 
                     with c_btn1:
                         if st.button("💾 Salvar Alterações Feitas na Tabela", type="primary"):
