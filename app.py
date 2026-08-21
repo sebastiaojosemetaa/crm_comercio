@@ -759,15 +759,15 @@ for item in st.session_state.carrinho_pdv:
 else:
     st.info("Nenhum registro encontrado para os filtros selecionados.")
 
-if menu_admin in ["📋 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
-    is_modo_pedido = (menu_admin == "📋 Pedidos / Orçamentos")
-    st.title(f"📋 {menu_admin}")
-            
-if not is_modo_pedido:
-    aba_cad, aba_baixa, aba_list = st.tabs(["➕ Novo Registro", "💵 Baixa de Débito / Haver", "✏️ Tabela Editável (Edição Direta & Exclusão)"])
-else:
-    aba_cad, aba_list = st.tabs(["➕ Novo Registro / Pedido", "✏️ Tabela Editável (Edição Direta & Exclusão)"])
-    aba_baixa = None
+    if menu_admin in ["📋 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
+        is_modo_pedido = (menu_admin == "📋 Pedidos / Orçamentos")
+        st.title(f"📋 {menu_admin}")
+                
+    if not is_modo_pedido:
+        aba_cad, aba_baixa, aba_list = st.tabs(["➕ Novo Registro", "💵 Baixa de Débito / Haver", "✏️ Tabela Editável (Edição Direta & Exclusão)"])
+    else:
+        aba_cad, aba_list = st.tabs(["➕ Novo Registro / Pedido", "✏️ Tabela Editável (Edição Direta & Exclusão)"])
+        aba_baixa = None
             
 with aba_cad:
     clientes_opt = carregar_coluna("clientes", "nome") or ["Carlos Alberto"]
