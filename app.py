@@ -784,16 +784,47 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
 
             if not is_modo_pedido:
-                aba_cad, aba_baixa, aba_list = st.tabs(["+ Novo Registro", "📋 Baixa de Débito / Haver", "🔧 Tabela Editável (Edição Direta & Exclusão)"])
-            else:
-                aba_cad, aba_list = st.tabs(["+ Novo Registro / Pedido", "🔧 Tabela Editável (Edição Direta & Exclusão)"])
-                aba_baixa = None
-                    
-            if st.form_submit_button("Salvar e Selecionar Produto"):
-                salvar_pedido_ou_venda(cli, prod, fornec, grupo, qtd, v_unit, f_pag, v_rec, tipo=tipo_registro)
-                st.success(f"{tipo_registro} gravado com sucesso!")
-                st.rerun()
+            aba_cad, aba_baixa, aba_list = st.tabs(["+ Novo Registro", "📋 Baixa de Débito / Haver", "🔧 Tabela Editável (Edição Direta & Exclusão)"])
+        else:
+            aba_cad, aba_list = st.tabs(["+ Novo Registro / Pedido", "🔧 Tabela Editável (Edição Direta & Exclusão)"])
+            aba_baixa = None
 
+        with aba_cad:
+            clientes_opt = carregar_coluna("clientes", "nome") or ["Carlos Alberto"]
+            produtos_base = carregar_coluna("produtos", "nome") or ["AMEIXA IMPORTADA", "ABACATE"]
+            produtos_opt = list(produtos_base) + ["➕ Cadastrar Novo Produto..."]
+            
+            fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
+            grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
+
+            prod_item = st.selectbox("Selecione o Produto", produtos_opt, key="ped_select_produto")
+
+            if prod_item == "➕ Cadastrar Novo Produto...":
+                st.warning("⚠️ O produto selecionado não existe. Preencha os dados abaixo para cadastrá-lo rapidamente:")
+                with st.form("form_cadastro_rapido_prod"):
+                    novo_nome_prod = st.text_input("Nome do Novo Produto").strip().upper()
+                    c_f_r = st.selectbox("Fornecedor", fornecedores_opt)
+                    c_g_r = st.selectbox("Grupo", grupos_opt)
+                    c_qtd_r = st.number_input("Qtd Inicial em Estoque", min_value=0.0, value=0.0)
+                    c_custo_r = st.number_input("Preço de Custo (R$)", min_value=0.0, value=0.0)
+                    c_venda_r = st.number_input("Preço de Venda (R$)", min_value=0.0, value=0.0)
+                    
+                    if st.form_submit_button("Salvar e Selecionar Produto"):
+                        if novo_nome_prod:
+                            try:
+                                cursor = conn.cursor()
+                                cursor.execute("""
+                                    INSERT INTO produtos (nome, fornecedor, grupo, qtd_estoque, preco_custo, preco_venda) 
+                                    VALUES (?, ?, ?, ?, ?, ?)
+                                """, (novo_nome_prod, c_f_r, c_g_r, c_qtd_r, c_custo_r, c_venda_r))
+                                conn.commit()
+                                st.success(f"Produto '{novo_nome_prod}' cadastrado com sucesso!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro: {e}")
+                        else:
+                            st.error("Digite o nome do produto.")
+                st.stop()
             if aba_baixa is not None:
                 with aba_baixa:
                     st.subheader("💵 Baixa de Débitos & Lançamento de Haver (Pagamento Parcial ou Total)")
