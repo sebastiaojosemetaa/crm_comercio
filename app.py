@@ -848,10 +848,8 @@ else:
         st.markdown("---")
         st.subheader("📦 Produtos Relacionados a esta Venda / Ticket")
                             
-        try:
-            selected_rows = event_tabela.selection.rows
-    except Exception as e:
-        st.error(f"Erro: {e}")
+        selected_rows = event_tabela.selection.rows
+                                                               
 if selected_rows:
     idx_selecionado = selected_rows[0]
     linha_escolhida = df_tickets_agrupados.iloc[idx_selecionado]
