@@ -799,24 +799,24 @@ if clientes_com_divida:
     cliente_baixa = st.selectbox("Selecione o Cliente para Baixa:", clientes_com_divida, key="sel_cli_baixa")
                         
     df_cli_vendas = carregar_dados(f"SELECT * FROM vendas WHERE TRIM(cliente) = TRIM('{cliente_baixa}')")
-                        if not df_cli_vendas.empty:
-                            tot_vendas = df_cli_vendas['valor_total'].sum()
-                            df_cli_vendas['v_rec_num'] = pd.to_numeric(df_cli_vendas['valor_recebido'], errors='coerce').fillna(0.0)
-                            tot_recebido = df_cli_vendas['v_rec_num'].sum()
-                            total_pendente = tot_vendas - tot_recebido
+if not df_cli_vendas.empty:
+    tot_vendas = df_cli_vendas['valor_total'].sum()
+    df_cli_vendas['v_rec_num'] = pd.to_numeric(df_cli_vendas['valor_recebido'], errors='coerce').fillna(0.0)
+    tot_recebido = df_cli_vendas['v_rec_num'].sum()
+    total_pendente = tot_vendas - tot_recebido
                             
-                            col_m1, col_m2, col_m3 = st.columns(3)
-                            col_m1.metric("Total de Compras", f"R$ {tot_vendas:,.2f}")
-                            col_m2.metric("Total Já Pago", f"R$ {tot_recebido:,.2f}")
-                            col_m3.metric("Saldo Devedor Restante", f"R$ {total_pendente:,.2f}", delta_color="inverse")
+    col_m1, col_m2, col_m3 = st.columns(3)
+    col_m1.metric("Total de Compras", f"R$ {tot_vendas:,.2f}")
+    col_m2.metric("Total Já Pago", f"R$ {tot_recebido:,.2f}")
+    col_m3.metric("Saldo Devedor Restante", f"R$ {total_pendente:,.2f}", delta_color="inverse")
                             
-                            st.markdown("---")
-                            with st.form("form_lancar_haver"):
-                                col_h1, col_h2 = st.columns(2)
-                                with col_h1:
-                                    valor_haver = st.number_input("Valor do Haver / Pagamento Recebido (R$)", min_value=0.0, step=1.0, value=0.0)
-                                with col_h2:
-                                    forma_pgto_baixa = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito"])
+    st.markdown("---")
+    with st.form("form_lancar_haver"):
+    col_h1, col_h2 = st.columns(2)
+    with col_h1:
+    valor_haver = st.number_input("Valor do Haver / Pagamento Recebido (R$)", min_value=0.0, step=1.0, value=0.0)
+    with col_h2:
+    forma_pgto_baixa = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito"])
                                 
                                 if st.form_submit_button("Aplicar Haver / Dar Baixa no Débito"):
                                     if valor_haver > 0:
