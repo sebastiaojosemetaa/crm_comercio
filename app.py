@@ -789,10 +789,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 aba_cad, aba_list = st.tabs(["+ Novo Registro / Pedido", "🔧 Tabela Editável (Edição Direta & Exclusão)"])
                 aba_baixa = None
                     
-                    if st.form_submit_button(f"Salvar como {tipo_registro}"):
-                        salvar_pedido_ou_venda(cli, prod, fornec, grupo, qtd, v_unit, f_pag, v_rec, tipo=tipo_registro)
-                        st.success(f"{tipo_registro} gravado com sucesso!")
-                        st.rerun()
+            if st.form_submit_button(f"Salvar como {tipo_registro}"):
+                salvar_pedido_ou_venda(cli, prod, fornec, grupo, qtd, v_unit, f_pag, v_rec, tipo=tipo_registro)
+                st.success(f"{tipo_registro} gravado com sucesso!")
+                st.rerun()
 
             if aba_baixa is not None:
                 with aba_baixa:
