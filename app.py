@@ -920,8 +920,8 @@ if is_modo_pedido:
             df_registros = df_registros.drop(columns=[col_ocultar])
 else:
     config_cols["valor_venda"] = st.column_config.NumberColumn("Valor Venda", min_value=0.0, format="R$ %.2f")
-        config_cols["forma_pagamento"] = st.column_config.SelectboxColumn("Forma Pagamento", options=["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito", "Crediário / Fiado"])
-        config_cols["valor_recebido"] = st.column_config.NumberColumn("Valor Recebido / Haver", min_value=0.0, format="R$ %.2f")
+    config_cols["forma_pagamento"] = st.column_config.SelectboxColumn("Forma Pagamento", options=["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito", "Crediário / Fiado"])
+    config_cols["valor_recebido"] = st.column_config.NumberColumn("Valor Recebido / Haver", min_value=0.0, format="R$ %.2f")
 
 df_editado = st.data_editor(
     df_registros,
@@ -1020,7 +1020,7 @@ with col_b2:
     pedidos_pendentes = df_registros[mask_pedidos]                
                     
 if cliente_sel != "TODOS":
-   if not pedidos_pendentes.empty:
+if not pedidos_pendentes.empty:
    st.subheader("⚙️ Converter Pedido Completo em Venda")
    total_ped = pedidos_pendentes['valor_total'].sum()
    qtd_itens = len(pedidos_pendentes)
