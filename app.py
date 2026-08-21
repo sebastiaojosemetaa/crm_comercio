@@ -850,7 +850,7 @@ else:
 
         selected_rows = event_tabela.selection.rows
 
-    if selected_rows:
+if selected_rows:
         idx_selecionado = selected_rows[0]
         linha_escolhida = df_tickets_agrupados.iloc[idx_selecionado]
 
