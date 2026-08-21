@@ -710,15 +710,15 @@ if 'data' in df_vendas.columns:
     df_vendas = df_vendas[mask_data | (df_vendas['data_curta'] == '')]
     df_vendas = df_vendas.drop(columns=['data_curta', 'tipo_str', 'codigo_str'], errors='ignore')
 else:
-                df_vendas = pd.DataFrame()
+    df_vendas = pd.DataFrame()
             
-            if not df_vendas.empty:
-                col1, col2, col3 = st.columns(3)
-                faturamento = df_vendas['valor_total'].sum() if 'valor_total' in df_vendas.columns else 0.0
+if not df_vendas.empty:
+    col1, col2, col3 = st.columns(3)
+    faturamento = df_vendas['valor_total'].sum() if 'valor_total' in df_vendas.columns else 0.0
                 
-                if 'valor_recebido' in df_vendas.columns:
-                    valor_rec = pd.to_numeric(df_vendas['valor_recebido'], errors='coerce').sum()
-                else:
+    if 'valor_recebido' in df_vendas.columns:
+        valor_rec = pd.to_numeric(df_vendas['valor_recebido'], errors='coerce').sum()
+    else:
                     valor_rec = 0.0
                     
                 col1.metric("Faturamento do Período", f"R$ {faturamento:,.2f}")
