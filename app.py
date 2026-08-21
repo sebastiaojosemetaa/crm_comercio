@@ -873,7 +873,7 @@ if selected_rows:
         else:
             df_ticket_unico = carregar_dados(f"SELECT id, produto, quantidade, valor_venda, valor_total, forma_pagamento, data FROM vendas WHERE id = {id_venda_selecionada}")
             st.dataframe(df_ticket_unico, use_container_width=True)
-    else:
+        else:
         st.caption("👈 Clique em uma linha na tabela acima para carregar os produtos relacionados do respectivo ticket/venda.")
 
 with aba_list:
