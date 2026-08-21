@@ -942,20 +942,20 @@ if st.button(label_btn_sync):
 
 c_btn1, c_btn2 = st.columns([1, 1])
 
-                    with c_btn1:
-                        if st.button("💾 Salvar Alterações Feitas na Tabela", type="primary"):
-                            cursor = conn.cursor()
-                            for _, row in df_editado.iterrows():
-                                if not row["Deletar"]:
-                                    v_tot = float(row["quantidade"]) * float(row["valor_venda"])
+with c_btn1:
+if st.button("💾 Salvar Alterações Feitas na Tabela", type="primary"):
+    cursor = conn.cursor()
+    for _, row in df_editado.iterrows():
+        if not row["Deletar"]:
+            v_tot = float(row["quantidade"]) * float(row["valor_venda"])
                                     
-                                    f_pag = str(row["forma_pagamento"]) if "forma_pagamento" in row else ""
-                                    v_rec = float(row["valor_recebido"]) if "valor_recebido" in row else 0.0
-                                    g_val = str(row["grupo"]) if "grupo" in row else ""
-                                    t_val = str(row["tipo"]) if "tipo" in row else ""
-                                    c_val = str(row["codigo"]) if "codigo" in row else ""
+            f_pag = str(row["forma_pagamento"]) if "forma_pagamento" in row else ""
+            v_rec = float(row["valor_recebido"]) if "valor_recebido" in row else 0.0
+            g_val = str(row["grupo"]) if "grupo" in row else ""
+            t_val = str(row["tipo"]) if "tipo" in row else ""
+            c_val = str(row["codigo"]) if "codigo" in row else ""
 
-                                    cursor.execute("""
+            cursor.execute("""
                                         UPDATE vendas 
                                         SET cliente = ?, produto = ?, fornecedor = ?, quantidade = ?, 
                                             valor_venda = ?, valor_total = ?, forma_pagamento = ?, 
