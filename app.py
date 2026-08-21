@@ -527,31 +527,30 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
             prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto")
 
-            # Busca dinâmica robusta (ignorando maiúsculas/minúsculas)
+            # Busca dinâmica robusta para o produto selecionado
             df_p = carregar_dados("SELECT * FROM produtos")
             preco_sugerido = 0.0
             forn_sugerido = fornecedores_opt[0]
             grupo_sugerido = grupos_opt[0]
 
             if not df_p.empty:
-                # Encontra a coluna de nome do produto dinamicamente
                 cols_prod_lower = {c.lower(): c for c in df_p.columns}
                 col_nome_real = cols_prod_lower.get('nome') or df_p.columns[1]
                 
-                # Filtra o produto ignorando case
+                # Filtra especificamente a linha do produto selecionado atual
                 df_filtrado_p = df_p[df_p[col_nome_real].astype(str).str.strip().str.upper() == str(prod_item).strip().upper()]
                 
                 if not df_filtrado_p.empty:
                     row_p = df_filtrado_p.iloc[0]
-                    # Procura qualquer coluna que tenha 'venda' ou 'preco' no nome
+                    
+                    # Procura coluna de preço de venda
                     for col_v in df_p.columns:
                         c_low = col_v.lower()
                         if 'venda' in c_low or 'preco' in c_low:
                             try:
                                 val_aux = float(row_p[col_v])
-                                if val_aux > 0:
-                                    preco_sugerido = val_aux
-                                    break
+                                preco_sugerido = val_aux
+                                break
                             except:
                                 pass
                     
