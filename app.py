@@ -250,7 +250,7 @@ def salvar_pedido_ou_venda(cliente, produto, fornecedor, grupo, quantidade, valo
     data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     cod_status = "VEN" if tipo.upper() in ["VENDA", "VENDAS", "VEN"] else "PED"
     
-cursor.execute("""
+    cursor.execute("""
         INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, tipo, codigo, data)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (cliente.strip(), produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, str(valor_recebido), tipo, cod_status, data_atual))
@@ -280,7 +280,7 @@ def baixar_debito_cliente(cliente_nome, valor_haver, forma_pagamento="Dinheiro")
                 novo_recebido = v_rec_atual + saldo_haver
                 saldo_haver = 0.0
             
-cursor.execute("""
+    cursor.execute("""
                 UPDATE vendas 
                 SET valor_recebido = ?, forma_pagamento = ? 
                 WHERE id = ?
