@@ -770,8 +770,8 @@ elif menu_admin in ["Pedidos / Orçamentos", "🛒 Registrar Venda"]:
     st.title(f"{menu_admin}")
     st.success("Tela carregada com sucesso! Verificando componentes...")
 
-            if not is_modo_pedido:
-                aba_cad, aba_baixa, aba_list = st.tabs(["+ Novo Registro", "📋 Baixa de Débito / Haver", "🔧 Tabela Editável (Edição Direta & Exclusão)"])
+if not is_modo_pedido:
+    aba_cad, aba_baixa, aba_list = st.tabs(["+ Novo Registro", "📋 Baixa de Débito / Haver", "🔧 Tabela Editável (Edição Direta & Exclusão)"])
             else:
                 aba_cad, aba_list = st.tabs(["+ Novo Registro / Pedido", "🔧 Tabela Editável (Edição Direta & Exclusão)"])
                 aba_baixa = None
