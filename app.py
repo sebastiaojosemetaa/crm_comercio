@@ -194,7 +194,7 @@ conn.commit()
 def salvar_cliente_completo(nome, telefone, doc, endereco, cidade):
     cursor = conn.cursor()
     try:
-    cursor.execute("INSERT INTO clientes (nome, telefone, doc, endereco, cidade) VALUES (?, ?, ?, ?, ?)",
+        cursor.execute("INSERT INTO clientes (nome, telefone, doc, endereco, cidade) VALUES (?, ?, ?, ?, ?)",
                        (nome.strip(), telefone, doc, endereco, cidade))
         conn.commit()
         return True
