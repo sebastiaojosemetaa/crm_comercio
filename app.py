@@ -82,7 +82,7 @@ cursor.execute("""
         )
     """)
 
-    cursor.execute("""
+cursor.execute("""
         CREATE TABLE IF NOT EXISTS clientes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nome TEXT UNIQUE,
@@ -93,21 +93,21 @@ cursor.execute("""
         )
     """)
 
-    cursor.execute("""
+cursor.execute("""
         CREATE TABLE IF NOT EXISTS fornecedores (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             fornecedor TEXT UNIQUE
         )
     """)
 
-    cursor.execute("""
+cursor.execute("""
         CREATE TABLE IF NOT EXISTS grupos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             grupo TEXT UNIQUE
         )
     """)
 
-    cursor.execute("""
+cursor.execute("""
         CREATE TABLE IF NOT EXISTS compras (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             produto TEXT,
@@ -131,7 +131,7 @@ cursor.execute("""
         )
     """)
 
-    cursor.execute("""
+cursor.execute("""
         CREATE TABLE IF NOT EXISTS caixa_movimentacoes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             sessao_id INTEGER,
