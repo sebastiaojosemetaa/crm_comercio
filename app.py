@@ -564,18 +564,20 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
     
         st.markdown("---")
         st.subheader("🛒 Itens Atuais no Carrinho")
-            
-    if len(st.session_state.carrinho_pdv) > 0:
+if len(st.session_state.carrinho_pdv) > 0:
         df_carrinho = pd.DataFrame(st.session_state.carrinho_pdv)
         st.dataframe(df_carrinho, use_container_width=True)
-                
+        
+        # Calculamos a variável aqui em cima para garantir que ela sempre exista
+        total_geral_carrinho = df_carrinho['valor_total'].sum()
+    else:
+        total_geral_carrinho = 0.0
+
     if st.button("🗑️ Limpar Carrinho"):
         st.session_state.carrinho_pdv = []
         st.rerun()
-                
-        st.markdown("---")
-        total_geral_carrinho = df_carrinho['valor_total'].sum()
-                
+
+    st.markdown("---")       
 with st.form("form_finalizar_pagamento_pdv"):
     f_pag = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito", "Crediário / Fiado"])
     v_rec = st.number_input("Valor Recebido (R$)", min_value=0.0, step=1.0, value=total_geral_carrinho)
