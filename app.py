@@ -839,18 +839,18 @@ else:
         cols_ver = [c for c in ['id', 'cliente', 'data'] if c in df_tickets_agrupados.columns]
                             
         event_tabela = st.dataframe(
-        df_tickets_agrupados[cols_ver], 
+        df_tickets_agrupados[cols_ver],
         use_container_width=True,
         selection_mode="single-row",
         on_select="rerun"
     )
-                            
-        st.markdown("---")
-        st.subheader("📦 Produtos Relacionados a esta Venda / Ticket")
-                            
-        selected_rows = event_tabela.selection.rows
 
-if selected_rows:
+    st.markdown("---")
+    st.subheader("📦 Produtos Relacionados a esta Venda / Ticket")
+
+    selected_rows = event_tabela.selection.rows
+
+    if selected_rows:
         idx_selecionado = selected_rows[0]
         linha_escolhida = df_tickets_agrupados.iloc[idx_selecionado]
 
@@ -866,8 +866,8 @@ if selected_rows:
         else:
             df_ticket_unico = carregar_dados(f"SELECT id, produto, quantidade, valor_venda, valor_total, forma_pagamento, data FROM vendas WHERE id = {id_venda_selecionada}")
             st.dataframe(df_ticket_unico, use_container_width=True)
-else:
-        st.caption("👈 Clique em uma linha na tabela acima para carregar os produtos relacionados do respectivo ticket/venda.")
+        else:
+            st.caption("👈 Clique em uma linha na tabela acima para carregar os produtos relacionados do respectivo ticket/venda.")
 
         else:
             st.warning("Este cliente não possui registros de vendas.")
