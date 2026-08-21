@@ -299,8 +299,8 @@ def converter_pedido_completo_para_venda(cliente_nome):
     return cursor.rowcount
 
 def deletar_pedidos_cliente(cliente_nome, s_d1, s_d2):
-cursor = conn.cursor()
-cursor.execute("""
+    cursor = conn.cursor()
+    cursor.execute("""
         DELETE FROM vendas 
         WHERE TRIM(cliente) = TRIM(?) 
           AND (substr(data, 1, 10) >= ? AND substr(data, 1, 10) <= ? OR data IS NULL OR data = '')
@@ -309,10 +309,10 @@ cursor.execute("""
     return cursor.rowcount
 
 def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo):
-cursor = conn.cursor()
+    cursor = conn.cursor()
     valor_total = quantidade * valor_custo
     data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-cursor.execute("""
+    cursor.execute("""
         INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data)
         VALUES (?, ?, ?, ?, ?, ?, ?)
     """, (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data_atual))
