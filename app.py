@@ -913,11 +913,11 @@ config_cols = {
     "data": st.column_config.TextColumn("Data", disabled=True),
 }
                     
-                    if is_modo_pedido:
-                        config_cols["valor_venda"] = st.column_config.NumberColumn("Preço Custo / Valor Compra", min_value=0.0, format="R$ %.2f")
-                        for col_ocultar in ["forma_pagamento", "valor_recebido", "troco", "restante"]:
-                            if col_ocultar in df_registros.columns:
-                                df_registros = df_registros.drop(columns=[col_ocultar])
+if is_modo_pedido:
+    config_cols["valor_venda"] = st.column_config.NumberColumn("Preço Custo / Valor Compra", min_value=0.0, format="R$ %.2f")
+    for col_ocultar in ["forma_pagamento", "valor_recebido", "troco", "restante"]:
+        if col_ocultar in df_registros.columns:
+            df_registros = df_registros.drop(columns=[col_ocultar])
                     else:
                         config_cols["valor_venda"] = st.column_config.NumberColumn("Valor Venda", min_value=0.0, format="R$ %.2f")
                         config_cols["forma_pagamento"] = st.column_config.SelectboxColumn("Forma Pagamento", options=["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito", "Crediário / Fiado"])
