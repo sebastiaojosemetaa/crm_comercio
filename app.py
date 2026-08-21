@@ -512,11 +512,15 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto")
             
             # BUSCA ULTRA-ROBUSTA DOS DADOS DO PRODUTO SELECIONADO
-            df_prod_info = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_item}')")
+    clientes_opt = carregar_coluna("clientes", "nome") or ["Carlos Alberto"]
+    produtos_opt = carregar_coluna("produtos", "nome") or ["AMEIXA IMPORTADA", "ABACATE"]
+    fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
+    grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
+
+    df_prod_info = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_item}')")
     sugestao_preco = "preço venda (R$)"
     sugestao_fornec = fornecedores_opt[0]
     sugestao_grupo = grupos_opt[0]
-
     cols_p = []
     if not df_prod_info.empty:
         linha_prod = df_prod_info.iloc[0]
