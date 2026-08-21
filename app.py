@@ -573,7 +573,7 @@ if len(st.session_state.carrinho_pdv) > 0:
 else:
         total_geral_carrinho = 0.0
 
-    if st.button("🗑️ Limpar Carrinho"):
+if st.button("🗑️ Limpar Carrinho"):
         st.session_state.carrinho_pdv = []
         st.rerun()
 
