@@ -1240,17 +1240,17 @@ with tab_forn:
     st.subheader("Cadastrar Novo Fornecedor")
     with st.form("form_cad_fornecedor"):
         novo_forn = st.text_input("Nome do Fornecedor")
-                    if st.form_submit_button("Salvar Fornecedor"):
-                        if novo_forn.strip() and salvar_simples("fornecedores", "fornecedor", novo_forn.strip()):
-                            st.success("Fornecedor cadastrado com sucesso!")
-                            st.rerun()
-                st.markdown("---")
-                st.dataframe(carregar_dados("SELECT * FROM fornecedores"), use_container_width=True)
+if st.form_submit_button("Salvar Fornecedor"):
+    if novo_forn.strip() and salvar_simples("fornecedores", "fornecedor", novo_forn.strip()):
+        st.success("Fornecedor cadastrado com sucesso!")
+        st.rerun()
+    st.markdown("---")
+    st.dataframe(carregar_dados("SELECT * FROM fornecedores"), use_container_width=True)
 
-            with tab_grup:
-                st.subheader("Cadastrar Novo Grupo")
-                with st.form("form_cad_grupo"):
-                    novo_grup = st.text_input("Nome do Grupo")
+with tab_grup:
+    st.subheader("Cadastrar Novo Grupo")
+    with st.form("form_cad_grupo"):
+        novo_grup = st.text_input("Nome do Grupo")
                     if st.form_submit_button("Salvar Grupo"):
                         if novo_grup.strip() and salvar_simples("grupos", "grupo", novo_grup.strip()):
                             st.success("Grupo cadastrado com sucesso!")
