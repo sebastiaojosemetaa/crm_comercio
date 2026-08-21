@@ -503,19 +503,25 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
             grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
             
-            cliente_pdv = st.selectbox("Selecione o Cliente do Atendimento", clientes_opt)
-            
-            st.markdown("#### ➕ Adicionar Item ao Carrinho")
-            
-            col_s1, col_s2, col_s3 = st.columns(3)
-            with col_s1:
-                prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto")
-            
-            # BUSCA ULTRA-ROBUSTA DOS DADOS DO PRODUTO SELECIONADO
+            # 1. Primeiro carregamos as opções necessárias
     clientes_opt = carregar_coluna("clientes", "nome") or ["Carlos Alberto"]
     produtos_opt = carregar_coluna("produtos", "nome") or ["AMEIXA IMPORTADA", "ABACATE"]
     fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
     grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
+
+    cliente_pdv = st.selectbox("Selecione o Cliente do Atendimento", clientes_opt)
+
+    st.markdown("#### + Adicionar Item ao Carrinho")
+
+    col_s1, col_s2, col_s3 = st.columns(3)
+    with col_s1:
+        prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto")
+
+    # 2. Depois buscamos os dados do produto selecionado
+    df_prod_info = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_item}')")
+    sugestao_preco = "preço venda (R$)"
+    sugestao_fornec = fornecedores_opt[0]
+    sugestao_grupo = grupos_opt[0]
 
     df_prod_info = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_item}')")
     sugestao_preco = "preço venda (R$)"
