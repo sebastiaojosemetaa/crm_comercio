@@ -1033,7 +1033,7 @@ if st.button(f"🔄 Converter Pedido Completo de {cliente_sel} para VENDA", key=
 else:
     st.info("Nenhum registro encontrado para o filtro selecionado.")
 
-elif menu_admin == "📥 Entrada de Estoque (Compras)":
+if menu_admin == "📥 Entrada de Estoque (Compras)":
     st.title("📥 Entrada de Estoque (Compras)")
     aba_compra, aba_historico_compras = st.tabs(["📦 Dar Entrada em Estoque", "📋 Histórico de Entradas / Compras"])
                 
