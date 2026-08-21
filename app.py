@@ -765,7 +765,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             else:
                 st.info("Nenhum dado cadastrado.")
 
-        elif menu_admin in [" Pedidos / Orçamentos", "🛒 Registrar Venda"]:
+elif menu_admin in [" Pedidos / Orçamentos", "🛒 Registrar Venda"]:
             is_modo_pedido = (menu_admin == " Pedidos / Orçamentos")
             st.title(f"🛒 {menu_admin}")
             st.write("Teste de execução")
