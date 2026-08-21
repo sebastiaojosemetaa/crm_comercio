@@ -777,28 +777,28 @@ with col_a:
 with col_b:
     fornec = st.selectbox("Selecione o Fornecedor", fornecedores_opt)
     grupo = st.selectbox("Selecione o Grupo", grupos_opt)
-                        if not is_modo_pedido:
-                            f_pag = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito", "Crediário / Fiado"])
-                            v_rec = st.number_input("Valor Recebido (R$)", min_value=0.0, step=1.0, value=v_unit * qtd)
-                        else:
-                            f_pag = ""
-                            v_rec = 0.0
+if not is_modo_pedido:
+    f_pag = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito", "Crediário / Fiado"])
+    v_rec = st.number_input("Valor Recebido (R$)", min_value=0.0, step=1.0, value=v_unit * qtd)
+else:
+    f_pag = ""
+    v_rec = 0.0
                     
-                    if st.form_submit_button(f"Salvar como {tipo_registro}"):
-                        salvar_pedido_ou_venda(cli, prod, fornec, grupo, qtd, v_unit, f_pag, v_rec, tipo=tipo_registro)
-                        st.success(f"{tipo_registro} gravado com sucesso!")
-                        st.rerun()
+if st.form_submit_button(f"Salvar como {tipo_registro}"):
+    salvar_pedido_ou_venda(cli, prod, fornec, grupo, qtd, v_unit, f_pag, v_rec, tipo=tipo_registro)
+    st.success(f"{tipo_registro} gravado com sucesso!")
+    st.rerun()
 
-            if aba_baixa is not None:
-                with aba_baixa:
-                    st.subheader("💵 Baixa de Débitos & Lançamento de Haver (Pagamento Parcial ou Total)")
-                    st.info("Selecione um cliente para ver o total em aberto. Digite o valor do 'haver', selecione a forma de pagamento e clique em aplicar para abater nas compras pendentes mais antigas.")
+if aba_baixa is not None:
+with aba_baixa:
+    st.subheader("💵 Baixa de Débitos & Lançamento de Haver (Pagamento Parcial ou Total)")
+    st.info("Selecione um cliente para ver o total em aberto. Digite o valor do 'haver', selecione a forma de pagamento e clique em aplicar para abater nas compras pendentes mais antigas.")
                     
-                    clientes_com_divida = carregar_coluna("vendas", "cliente") or []
-                    if clientes_com_divida:
-                        cliente_baixa = st.selectbox("Selecione o Cliente para Baixa:", clientes_com_divida, key="sel_cli_baixa")
+    clientes_com_divida = carregar_coluna("vendas", "cliente") or []
+if clientes_com_divida:
+    cliente_baixa = st.selectbox("Selecione o Cliente para Baixa:", clientes_com_divida, key="sel_cli_baixa")
                         
-                        df_cli_vendas = carregar_dados(f"SELECT * FROM vendas WHERE TRIM(cliente) = TRIM('{cliente_baixa}')")
+    df_cli_vendas = carregar_dados(f"SELECT * FROM vendas WHERE TRIM(cliente) = TRIM('{cliente_baixa}')")
                         if not df_cli_vendas.empty:
                             tot_vendas = df_cli_vendas['valor_total'].sum()
                             df_cli_vendas['v_rec_num'] = pd.to_numeric(df_cli_vendas['valor_recebido'], errors='coerce').fillna(0.0)
