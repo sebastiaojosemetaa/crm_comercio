@@ -524,42 +524,44 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             cliente_pdv = st.selectbox("Selecione o Cliente do Atendimento", clientes_opt)
 
             st.markdown("#### + Adicionar Item ao Carrinho")
-            with st.form("form_add_carrinho_pdv"):
-                col_s1, col_s2, col_s3 = st.columns(3)
-                with col_s1:
-                    prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto")
-                
-                df_prod_info = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_item}')")
-                sugestao_preco = 10.0
-                sugestao_fornec = fornecedores_opt[0]
-                sugestao_grupo = grupos_opt[0]
-                
-                if not df_prod_info.empty:
-                    linha_prod = df_prod_info.iloc[0]
-                    cols_p = df_prod_info.columns.tolist()
-                    for col in cols_p:
-                        if "preço" in col.lower() or "venda" in col.lower() or "valor" in col.lower():
-                            try:
-                                val = float(linha_prod[col])
-                                if val > 0:
-                                    sugestao_preco = val
-                                    break
-                            except:
-                                pass
-                    for col_f in ['fornecedor', 'Fornecedor']:
-                        if col_f in cols_p and pd.notna(linha_prod[col_f]):
-                            sugestao_fornec = str(linha_prod[col_f])
-                            break
-                    for col_g in ['grupo', 'Grupo']:
-                        if col_g in cols_p and pd.notna(linha_prod[col_g]):
-                            sugestao_grupo = str(linha_prod[col_g])
-                            break
+            
+            # Selectbox fora do form para atualizar o preço em tempo real ao trocar de produto
+            prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto")
+            
+            # Busca os dados reais do produto selecionado no banco
+            df_prod_info = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_item}')")
+            sugestao_preco = 0.0
+            sugestao_fornec = fornecedores_opt[0]
+            sugestao_grupo = grupos_opt[0]
+            
+            if not df_prod_info.empty:
+                linha_prod = df_prod_info.iloc[0]
+                cols_p = df_prod_info.columns.tolist()
+                for col in cols_p:
+                    if "venda" in col.lower() or "preco" in col.lower() or "valor" in col.lower():
+                        try:
+                            val = float(linha_prod[col])
+                            if val > 0:
+                                sugestao_preco = val
+                                break
+                        except:
+                            pass
+                for col_f in ['fornecedor', 'Fornecedor']:
+                    if col_f in cols_p and pd.notna(linha_prod[col_f]):
+                        sugestao_fornec = str(linha_prod[col_f])
+                        break
+                for col_g in ['grupo', 'Grupo']:
+                    if col_g in cols_p and pd.notna(linha_prod[col_g]):
+                        sugestao_grupo = str(linha_prod[col_g])
+                        break
 
-                with col_s2:
+            with st.form("form_add_carrinho_pdv"):
+                col_s1, col_s2 = st.columns(2)
+                with col_s1:
                     fornec_item = st.selectbox("Fornecedor", fornecedores_opt, index=fornecedores_opt.index(sugestao_fornec) if sugestao_fornec in fornecedores_opt else 0, key="pdv_forn")
                     grupo_item = st.selectbox("Grupo", grupos_opt, index=grupos_opt.index(sugestao_grupo) if sugestao_grupo in grupos_opt else 0, key="pdv_grup")
                 
-                with col_s3:
+                with col_s2:
                     qtd_item = st.number_input("Quantidade", min_value=0.1, step=1.0, value=1.0, key="pdv_qtd")
                     v_unit_item = st.number_input("Preço de Venda (R$)", min_value=0.0, step=1.0, value=float(sugestao_preco), key="pdv_vunit")
                 
@@ -594,7 +596,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             st.markdown("---")       
             with st.form("form_finalizar_pagamento_pdv"):
                 f_pag = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito", "Crediário / Fiado"])
-                v_rec = st.number_input("Valor Recebido (R$)", min_value=0.0, step=1.0, value=total_geral_carrinho)
+                v_rec = st.number_input("Valor Recebido (R$)", min_value=0.0, step=1.0, value=float(total_geral_carrinho))
                 
                 troco = v_rec - total_geral_carrinho
                 
