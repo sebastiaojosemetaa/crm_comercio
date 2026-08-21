@@ -759,9 +759,12 @@ for item in st.session_state.carrinho_pdv:
 else:
     st.info("Nenhum registro encontrado para os filtros selecionados.")
 
-if menu_admin in ["📋 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
+if 'menu_admin' not in locals():
+        menu_admin = "Pedidos / Orçamentos"
+
+    if menu_admin in ["📋 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
         is_modo_pedido = (menu_admin == "📋 Pedidos / Orçamentos")
-        st.title(f"📋 {menu_admin}")
+        st.title(f"🛒 {menu_admin}")
                 
 if not is_modo_pedido:
         aba_cad, aba_baixa, aba_list = st.tabs(["➕ Novo Registro", "💵 Baixa de Débito / Haver", "✏️ Tabela Editável (Edição Direta & Exclusão)"])
