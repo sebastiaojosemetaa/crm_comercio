@@ -623,9 +623,9 @@ for item in st.session_state.carrinho_pdv:
     st.rerun()
 
 elif menu_admin == "🔒 Abertura e Fechamento de Caixa":
-st.session_state.carrinho_pdv = []
-        st.success(f"Venda realizada com sucesso! Troco: R$ {max(0.0, troco):.2f}")
-        st.rerun()
+    st.session_state.carrinho_pdv = []
+    st.success(f"Venda realizada com sucesso! Troco: R$ {max(0.0, troco):.2f}")
+    st.rerun()
 
 elif menu_admin == "🔒 Abertura e Fechamento de Caixa":
     st.title("🔒 Abertura e Fechamento de Caixa")
