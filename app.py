@@ -1219,7 +1219,7 @@ with tab_prod:
     fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
                     
     with st.form("form_cad_produto_completo"):
-    col1, col2 = st.columns(2)
+        col1, col2 = st.columns(2)
         with col1:
             novo_prod = st.text_input("Nome do Produto")
             fornec_prod = st.selectbox("Fornecedor", fornecedores_opt)
