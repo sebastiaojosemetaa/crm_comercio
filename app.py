@@ -570,7 +570,7 @@ if len(st.session_state.carrinho_pdv) > 0:
         
         # Calculamos a variável aqui em cima para garantir que ela sempre exista
         total_geral_carrinho = df_carrinho['valor_total'].sum()
-    else:
+else:
         total_geral_carrinho = 0.0
 
     if st.button("🗑️ Limpar Carrinho"):
