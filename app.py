@@ -812,11 +812,11 @@ if not df_cli_vendas.empty:
                             
     st.markdown("---")
     with st.form("form_lancar_haver"):
-    col_h1, col_h2 = st.columns(2)
+        col_h1, col_h2 = st.columns(2)
     with col_h1:
-    valor_haver = st.number_input("Valor do Haver / Pagamento Recebido (R$)", min_value=0.0, step=1.0, value=0.0)
+        valor_haver = st.number_input("Valor do Haver / Pagamento Recebido (R$)", min_value=0.0, step=1.0, value=0.0)
     with col_h2:
-    forma_pgto_baixa = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito"])
+        forma_pgto_baixa = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito"])
                                 
                                 if st.form_submit_button("Aplicar Haver / Dar Baixa no Débito"):
                                     if valor_haver > 0:
