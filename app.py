@@ -585,20 +585,20 @@ with col_i3:
         st.markdown("---")
         total_geral_carrinho = df_carrinho['valor_total'].sum()
                 
-                with st.form("form_finalizar_pagamento_pdv"):
-                    f_pag = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito", "Crediário / Fiado"])
-                    v_rec = st.number_input("Valor Recebido (R$)", min_value=0.0, step=1.0, value=total_geral_carrinho)
+with st.form("form_finalizar_pagamento_pdv"):
+    f_pag = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito", "Crediário / Fiado"])
+    v_rec = st.number_input("Valor Recebido (R$)", min_value=0.0, step=1.0, value=total_geral_carrinho)
                         
-                    troco = v_rec - total_geral_carrinho
+    troco = v_rec - total_geral_carrinho
                         
-                    st.markdown("---")
-                    c_inf1, c_inf2 = st.columns(2)
-                    c_inf1.metric("Valor Total da Venda", f"R$ {total_geral_carrinho:,.2f}")
-                    c_inf2.metric("Troco", f"R$ {max(0.0, troco):,.2f}", delta_color="normal" if troco >= 0 else "inverse")
+    st.markdown("---")
+    c_inf1, c_inf2 = st.columns(2)
+    c_inf1.metric("Valor Total da Venda", f"R$ {total_geral_carrinho:,.2f}")
+    c_inf2.metric("Troco", f"R$ {max(0.0, troco):,.2f}", delta_color="normal" if troco >= 0 else "inverse")
                     
-                    if st.form_submit_button("Finalizar Venda no PDV"):
-                        if not df_caixa_aberto.empty:
-                            sessao_id = int(df_caixa_aberto.iloc[0]['id'])
+    if st.form_submit_button("Finalizar Venda no PDV"):
+        if not df_caixa_aberto.empty:
+            sessao_id = int(df_caixa_aberto.iloc[0]['id'])
                             
                             for item in st.session_state.carrinho_pdv:
                                 salvar_pedido_ou_venda(
