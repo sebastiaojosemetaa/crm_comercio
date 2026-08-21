@@ -1224,10 +1224,10 @@ with tab_prod:
             novo_prod = st.text_input("Nome do Produto")
             fornec_prod = st.selectbox("Fornecedor", fornecedores_opt)
             grupo_prod = st.selectbox("Grupo / Categoria", grupos_opt)
-                    with col2:
-                        p_custo = st.number_input("Preço de Custo (R$)", min_value=0.0, step=1.0, value=10.0)
-                        p_venda = st.number_input("Preço de Venda (R$)", min_value=0.0, step=20.0, value=20.0)
-                        estoque_ini = st.number_input("Estoque Inicial", min_value=0.0, step=1.0, value=0.0)
+        with col2:
+            p_custo = st.number_input("Preço de Custo (R$)", min_value=0.0, step=1.0, value=10.0)
+            p_venda = st.number_input("Preço de Venda (R$)", min_value=0.0, step=20.0, value=20.0)
+            estoque_ini = st.number_input("Estoque Inicial", min_value=0.0, step=1.0, value=0.0)
                     
                     if st.form_submit_button("Salvar Produto no Estoque"):
                         if novo_prod.strip() and salvar_produto_completo(novo_prod.strip(), fornec_prod, grupo_prod, p_custo, p_venda, estoque_ini):
