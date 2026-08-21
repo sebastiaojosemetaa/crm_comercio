@@ -513,7 +513,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
             # BUSCA ULTRA-ROBUSTA DOS DADOS DO PRODUTO SELECIONADO
             df_prod_info = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_item}')")
-            sugestao_preco = 0.0
+            sugestao_preco = preço venda_opt[0.0]
             sugestao_fornec = fornecedores_opt[0]
             sugestao_grupo = grupos_opt[0]
             
@@ -628,7 +628,6 @@ if menu_admin == "🔒 Abertura e Fechamento de Caixa":
     st.success(f"Venda realizada com sucesso! Troco: R$ {max(0.0, troco):.2f}")
     st.rerun()
 
-    df_caixa_atual = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
     df_caixa_atual = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
 
     if df_caixa_atual.empty:
