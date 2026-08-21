@@ -762,7 +762,7 @@ else:
 if 'menu_admin' not in locals():
         menu_admin = "Pedidos / Orçamentos"
 
-    if menu_admin in ["📋 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
+if menu_admin in ["📋 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
         is_modo_pedido = (menu_admin == "📋 Pedidos / Orçamentos")
         st.title(f"🛒 {menu_admin}")
                 
