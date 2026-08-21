@@ -525,70 +525,58 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
             st.markdown("#### + Adicionar Item ao Carrinho")
             
-            # Função para atualizar o selectbox e forçar o rerun imediato ao trocar de produto
-            def atualizar_produto_pdv():
-                prod_selecionado = st.session_state.pdv_select_produto
-                df_p = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_selecionado}')")
-                if not df_p.empty:
-                    row_p = df_p.iloc[0]
-                    # Busca segura do preço de venda
-                    for col_v in ['valor_venda', 'preco_venda', 'venda', 'preco']:
-                        if col_v in df_p.columns and pd.notna(row_p[col_v]):
-                            try:
-                                st.session_state.pdv_vunit = float(row_p[col_v])
-                                break
-                            except:
-                                pass
-                    # Busca segura do fornecedor
-                    for col_f in ['fornecedor', 'Fornecedor']:
-                        if col_f in df_p.columns and pd.notna(row_p[col_f]):
-                            st.session_state.pdv_forn = str(row_p[col_f])
+            prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto")
+
+            # Busca dinâmica instantânea no banco com base no produto selecionado
+            df_p = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_item}')")
+            preco_sugerido = 0.0
+            forn_sugerido = fornecedores_opt[0]
+            grupo_sugerido = grupos_opt[0]
+
+            if not df_p.empty:
+                row_p = df_p.iloc[0]
+                for col_v in ['valor_venda', 'preco_venda', 'venda', 'preco']:
+                    if col_v in df_p.columns and pd.notna(row_p[col_v]):
+                        try:
+                            preco_sugerido = float(row_p[col_v])
                             break
-                    # Busca segura do grupo
-                    for col_g in ['grupo', 'Grupo']:
-                        if col_g in df_p.columns and pd.notna(row_p[col_g]):
-                            st.session_state.pdv_grup = str(row_p[col_g])
-                            break
+                        except:
+                            pass
+                for col_f in ['fornecedor', 'Fornecedor']:
+                    if col_f in df_p.columns and pd.notna(row_p[col_f]):
+                        forn_sugerido = str(row_p[col_f])
+                        break
+                for col_g in ['grupo', 'Grupo']:
+                    if col_g in df_p.columns and pd.notna(row_p[col_g]):
+                        grupo_sugerido = str(row_p[col_g])
+                        break
 
-            prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto", on_change=atualizar_produto_pdv)
-
-            # Inicializa os valores no session_state se não existirem
-            if 'pdv_vunit' not in st.session_state:
-                st.session_state.pdv_vunit = 0.0
-            if 'pdv_forn' not in st.session_state:
-                st.session_state.pdv_forn = fornecedores_opt[0]
-            if 'pdv_grup' not in st.session_state:
-                st.session_state.pdv_grup = grupos_opt[0]
-
-            # Garante que ao carregar a página pela primeira vez os dados do primeiro produto venham corretos
-            if 'ultimo_prod_carregado' not in st.session_state or st.session_state.ultimo_prod_carregado != prod_item:
-                st.session_state.ultimo_prod_carregado = prod_item
-                atualizar_produto_pdv()
-
-            with st.form("form_add_carrinho_pdv"):
-                col_s1, col_s2 = st.columns(2)
-                with col_s1:
-                    fornec_item = st.selectbox("Fornecedor", fornecedores_opt, index=fornecedores_opt.index(st.session_state.pdv_forn) if st.session_state.pdv_forn in fornecedores_opt else 0)
-                    grupo_item = st.selectbox("Grupo", grupos_opt, index=grupos_opt.index(st.session_state.pdv_grup) if st.session_state.pdv_grup in grupos_opt else 0)
+            col_s1, col_s2 = st.columns(2)
+            with col_s1:
+                idx_f = fornecedores_opt.index(forn_sugerido) if forn_sugerido in fornecedores_opt else 0
+                fornec_item = st.selectbox("Fornecedor", fornecedores_opt, index=idx_f, key="pdv_forn_input")
                 
-                with col_s2:
-                    qtd_item = st.number_input("Quantidade", min_value=0.1, step=1.0, value=1.0, key="pdv_qtd")
-                    v_unit_item = st.number_input("Preço de Venda (R$)", min_value=0.0, step=1.0, value=float(st.session_state.pdv_vunit), key="pdv_vunit_input")
-                
-                valor_total_item = qtd_item * v_unit_item
-                st.metric("Valor Total do Item", f"R$ {valor_total_item:.2f}")
-                
-                if st.form_submit_button("➕ Incluir Produto no Carrinho"):
-                    st.session_state.carrinho_pdv.append({
-                        "produto": prod_item,
-                        "fornecedor": fornec_item,
-                        "grupo": grupo_item,
-                        "quantidade": qtd_item,
-                        "valor_venda": v_unit_item,
-                        "valor_total": valor_total_item
-                    })
-                    st.success(f"Item '{prod_item}' adicionado ao carrinho!")
-                    st.rerun()
+                idx_g = grupos_opt.index(grupo_sugerido) if grupo_sugerido in grupos_opt else 0
+                grupo_item = st.selectbox("Grupo", grupos_opt, index=idx_g, key="pdv_grupo_input")
+            
+            with col_s2:
+                qtd_item = st.number_input("Quantidade", min_value=0.1, step=1.0, value=1.0, key="pdv_qtd")
+                v_unit_item = st.number_input("Preço de Venda (R$)", min_value=0.0, step=1.0, value=preco_sugerido, key="pdv_vunit_input")
+            
+            valor_total_item = qtd_item * v_unit_item
+            st.metric("Valor Total do Item", f"R$ {valor_total_item:.2f}")
+            
+            if st.button("➕ Incluir Produto no Carrinho", type="primary"):
+                st.session_state.carrinho_pdv.append({
+                    "produto": prod_item,
+                    "fornecedor": fornec_item,
+                    "grupo": grupo_item,
+                    "quantidade": qtd_item,
+                    "valor_venda": v_unit_item,
+                    "valor_total": valor_total_item
+                })
+                st.success(f"Item '{prod_item}' adicionado ao carrinho!")
+                st.rerun()
 
             st.markdown("---")
             st.subheader("🛒 Itens Atuais no Carrinho")
