@@ -942,7 +942,7 @@ if st.button(label_btn_sync):
 
 c_btn1, c_btn2 = st.columns([1, 1])
 
-with c_btn1:
+    with c_btn1:
 if st.button("💾 Salvar Alterações Feitas na Tabela", type="primary"):
     cursor = conn.cursor()
     for _, row in df_editado.iterrows():
