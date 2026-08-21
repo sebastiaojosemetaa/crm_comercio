@@ -1052,7 +1052,7 @@ with aba_compra:
                         grupo_escolhido = st.selectbox("Grupo", grupos_opt)
                         preco_custo = st.number_input("Preço de Custo Unitário (R$)", min_value=0.0, format="%.2f")
                     
-                    enviado = st.form_submit_button("Registrar Entrada no Estoque")
+        enviado = st.form_submit_button("Registrar Entrada no Estoque")
                     if enviado:
                         registrar_compra(produto_escolhido, fornecedor_escolhido, grupo_escolhido, quantidade, preco_custo)
                         cursor = conn.cursor()
