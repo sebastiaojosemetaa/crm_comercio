@@ -202,9 +202,9 @@ def salvar_cliente_completo(nome, telefone, doc, endereco, cidade):
         return False
 
 def salvar_produto_completo(nome, fornecedor, grupo, preco_custo, preco_venda, estoque_inicial):
-cursor = conn.cursor()
+    cursor = conn.cursor()
     try:
-    cursor.execute("""
+        cursor.execute("""
             INSERT INTO produtos (nome, fornecedor, grupo, valor_compra, valor_venda, estoque_atual) 
             VALUES (?, ?, ?, ?, ?, ?)
         """, (nome.strip(), fornecedor, grupo, preco_custo, preco_venda, estoque_inicial))
@@ -225,7 +225,7 @@ cursor = conn.cursor()
 def salvar_simples(tabela, coluna, valor):
     cursor = conn.cursor()
     try:
-    cursor.execute(f"PRAGMA table_info({tabela})")
+        cursor.execute(f"PRAGMA table_info({tabela})")
         colunas_existentes = [col[1] for col in cursor.fetchall()]
         
         if not colunas_existentes:
@@ -245,7 +245,7 @@ def salvar_simples(tabela, coluna, valor):
         return False
 
 def salvar_pedido_ou_venda(cliente, produto, fornecedor, grupo, quantidade, valor_venda, forma_pagamento="", valor_recebido=0.0, tipo="PEDIDO"):
-cursor = conn.cursor()
+    cursor = conn.cursor()
     valor_total = quantidade * valor_venda
     data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     cod_status = "VEN" if tipo.upper() in ["VENDA", "VENDAS", "VEN"] else "PED"
