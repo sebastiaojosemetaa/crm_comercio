@@ -571,8 +571,8 @@ with col_i3:
         st.success(f"Item '{prod_item}' adicionado ao carrinho!")
         st.rerun()
     
-            st.markdown("---")
-            st.subheader("🛒 Itens Atuais no Carrinho")
+        st.markdown("---")
+        st.subheader("🛒 Itens Atuais no Carrinho")
             
             if len(st.session_state.carrinho_pdv) > 0:
                 df_carrinho = pd.DataFrame(st.session_state.carrinho_pdv)
