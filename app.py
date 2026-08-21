@@ -513,7 +513,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
             # BUSCA ULTRA-ROBUSTA DOS DADOS DO PRODUTO SELECIONADO
             df_prod_info = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_item}')")
-            sugestao_preco = preço venda_opt[0.0]
+            sugestao_preco = "preço venda (R$)"
             sugestao_fornec = fornecedores_opt[0]
             sugestao_grupo = grupos_opt[0]
             
