@@ -790,11 +790,11 @@ if st.form_submit_button(f"Salvar como {tipo_registro}"):
     st.rerun()
 
 if aba_baixa is not None:
-with aba_baixa:
-    st.subheader("💵 Baixa de Débitos & Lançamento de Haver (Pagamento Parcial ou Total)")
-    st.info("Selecione um cliente para ver o total em aberto. Digite o valor do 'haver', selecione a forma de pagamento e clique em aplicar para abater nas compras pendentes mais antigas.")
-                    
-    clientes_com_divida = carregar_coluna("vendas", "cliente") or []
+    with aba_baixa:
+        st.subheader("💵 Baixa de Débitos & Lançamento de Haver (Pagamento Parcial ou Total)")
+        st.info("Selecione um cliente para ver o total em aberto. Digite o valor do 'haver', selecione a forma de pagamento e clique em aplicar para abater nas compras pendentes mais antigas.")
+                        
+        clientes_com_divida = carregar_coluna("vendas", "cliente") or []
 if clientes_com_divida:
     cliente_baixa = st.selectbox("Selecione o Cliente para Baixa:", clientes_com_divida, key="sel_cli_baixa")
                         
