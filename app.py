@@ -513,11 +513,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
             # BUSCA ULTRA-ROBUSTA DOS DADOS DO PRODUTO SELECIONADO
             df_prod_info = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_item}')")
-            sugestao_preco = "preço venda (R$)"
-            sugestao_fornec = fornecedores_opt[0]
-            sugestao_grupo = grupos_opt[0]
-            
-            cols_p = []
+    sugestao_preco = "preço venda (R$)"
+    sugestao_fornec = fornecedores_opt[0]
+    sugestao_grupo = grupos_opt[0]
+
+    cols_p = []
     if not df_prod_info.empty:
         linha_prod = df_prod_info.iloc[0]
         cols_p = df_prod_info.columns.tolist()
@@ -531,14 +531,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     break
             except:
                 pass
-                    if col_f in cols_p and pd.notna(linha_prod[col_f]):
-                        sugestao_fornec = str(linha_prod[col_f])
-                        break
-                
-for col_g in ['grupo', 'Grupo']:
-                    if col_g in cols_p and pd.notna(linha_prod[col_g]):
-                        sugestao_grupo = str(linha_prod[col_g])
-                        break
+
+    for col_f in ['fornecedor', 'Fornecedor']:
+        if col_f in cols_p and pd.notna(linha_prod[col_f]):
+            sugestao_fornec = str(linha_prod[col_f])
+            break
 
 with st.form("form_adicionar_item_pdv", clear_on_submit=False):
     col_i1, col_i2, col_i3 = st.columns(3)
