@@ -39,7 +39,7 @@ def adequar_banco_e_migrar():
         )
     """)
     cursor.execute("PRAGMA table_info(vendas)")
-colunas_vendas = [col[1] for col in cursor.fetchall()]
+    colunas_vendas = [col[1] for col in cursor.fetchall()]
 
 if 'forma_pagamento' not in colunas_vendas:
         try:
