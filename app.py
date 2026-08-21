@@ -729,15 +729,15 @@ if not df_vendas.empty:
         st.subheader("📊 Registros Encontrados")
         st.dataframe(df_vendas, use_container_width=True)
                 
-             st.markdown("---")
-             st.subheader("📄 Gerar Relatório do Fechamento Financeiro em PDF")
-             pdf_fechamento = gerar_pdf_tabela_pedidos(
-                 df_vendas, 
-                 cliente_nome="Geral", 
-                 d_inicio=data_inicio, 
-                 d_fim=data_fim,
-                 titulo_custom=f"Fechamento Financeiro ({status_filtro})"
-             )
+        st.markdown("---")
+        st.subheader("📄 Gerar Relatório do Fechamento Financeiro em PDF")
+        pdf_fechamento = gerar_pdf_tabela_pedidos(
+            df_vendas, 
+            cliente_nome="Geral", 
+            d_inicio=data_inicio, 
+            d_fim=data_fim,
+            titulo_custom=f"Fechamento Financeiro ({status_filtro})"
+           )
                 
                 st.download_button(
                     label="📥 Baixar Relatório de Fechamento Financeiro (PDF)",
