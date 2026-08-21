@@ -760,10 +760,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         file_name=f"Fechamento_Financeiro_{str_d1}_a_{str_d2}.pdf",
                         mime="application/pdf"
                     )
-                else:
-                    st.info("Nenhum registro encontrado para os filtros selecionados.")
-            else:
-                st.info("Nenhum dado cadastrado.")
+if not is_modo_pedido:
+    aba_cad, aba_baixa, aba_list = st.tabs(["+ Novo Registro", "📋 Baixa de Débito / Haver", "🔧 Tabela Editável (Edição Direta & Exclusão)"])
+else:
+    aba_cad, aba_list = st.tabs(["+ Novo Registro / Pedido", "🔧 Tabela Editável (Edição Direta & Exclusão)"])
+    aba_baixa = None
 
 elif menu_admin in ["Pedidos / Orçamentos", "🛒 Registrar Venda"]:
     is_modo_pedido = (menu_admin == "Pedidos / Orçamentos")
