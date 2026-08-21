@@ -1053,13 +1053,13 @@ with aba_compra:
                         preco_custo = st.number_input("Preço de Custo Unitário (R$)", min_value=0.0, format="%.2f")
                     
     enviado = st.form_submit_button("Registrar Entrada no Estoque")
-                    if enviado:
-                        registrar_compra(produto_escolhido, fornecedor_escolhido, grupo_escolhido, quantidade, preco_custo)
-                        cursor = conn.cursor()
-                        cursor.execute("UPDATE produtos SET estoque_atual = COALESCE(estoque_atual, 0) + ? WHERE TRIM(nome) = TRIM(?)", (quantidade, produto_escolhido))
-                        conn.commit()
-                        st.success("Entrada registrada com sucesso e estoque atualizado!")
-                        st.rerun()
+if enviado:
+    registrar_compra(produto_escolhido, fornecedor_escolhido, grupo_escolhido, quantidade, preco_custo)
+    cursor = conn.cursor()
+    cursor.execute("UPDATE produtos SET estoque_atual = COALESCE(estoque_atual, 0) + ? WHERE TRIM(nome) = TRIM(?)", (quantidade, produto_escolhido))
+    conn.commit()
+    st.success("Entrada registrada com sucesso e estoque atualizado!")
+    st.rerun()
                         
             with aba_historico_compras:
                 st.dataframe(carregar_dados("SELECT * FROM compras"), use_container_width=True)
