@@ -565,8 +565,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 if val_aux > 0:
                                     preco_sugerido = val_aux
                                     break
-            except:
-                pass
                             except:
                                 pass
                     
