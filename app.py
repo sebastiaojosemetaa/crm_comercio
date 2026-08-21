@@ -932,8 +932,8 @@ df_editado = st.data_editor(
     hide_index=True
 )
                     
-    label_btn_sync = "🔄 Atualizar Preço de Custo / Valor da Compra" if is_modo_pedido else "🔄 Atualizar Valores com Estoque Atual"
-    tipo_sync = "compra" if is_modo_pedido else "venda"
+label_btn_sync = "🔄 Atualizar Preço de Custo / Valor da Compra" if is_modo_pedido else "🔄 Atualizar Valores com Estoque Atual"
+tipo_sync = "compra" if is_modo_pedido else "venda"
                     
                     if st.button(label_btn_sync):
                         sincronizar_valores_com_estoque("vendas", tipo_sync)
