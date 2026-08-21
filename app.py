@@ -1019,12 +1019,12 @@ with col_b2:
     mask_pedidos = (~tipo_str.isin(['VENDA', 'VENDAS', 'VEN'])) & (~codigo_str.isin(['VEN', 'VENDA']))
     pedidos_pendentes = df_registros[mask_pedidos]                
                     
-                    if cliente_sel != "TODOS":
-                        if not pedidos_pendentes.empty:
-                            st.subheader("⚙️ Converter Pedido Completo em Venda")
-                            total_ped = pedidos_pendentes['valor_total'].sum()
-                            qtd_itens = len(pedidos_pendentes)
-                            st.write(f"O cliente **{cliente_sel}** possui **{qtd_itens} item(ns)** pendente(s) como pedido, somando **R$ {total_ped:,.2f}**.")
+if cliente_sel != "TODOS":
+   if not pedidos_pendentes.empty:
+   st.subheader("⚙️ Converter Pedido Completo em Venda")
+   total_ped = pedidos_pendentes['valor_total'].sum()
+   qtd_itens = len(pedidos_pendentes)
+   st.write(f"O cliente **{cliente_sel}** possui **{qtd_itens} item(ns)** pendente(s) como pedido, somando **R$ {total_ped:,.2f}**.")
                             
                             if st.button(f"🔄 Converter Pedido Completo de {cliente_sel} para VENDA", key="btn_converter_venda"):
                                 linhas_afetadas = converter_pedido_completo_para_venda(cliente_sel)
