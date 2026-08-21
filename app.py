@@ -142,7 +142,7 @@ cursor.execute("""
         )
     """)
 
-    conn.commit()
+conn.commit()
 
 adequar_banco_e_migrar()
 
@@ -189,12 +189,12 @@ def sincronizar_valores_com_estoque(tabela_alvo, tipo_preco="venda"):
             total = p * row['qtd']
             cursor.execute(f"UPDATE {tabela_alvo} SET valor_venda = ?, valor_total = ? WHERE id = ?", (p, total, row['id']))
     
-    conn.commit()
+conn.commit()
 
 def salvar_cliente_completo(nome, telefone, doc, endereco, cidade):
     cursor = conn.cursor()
     try:
-        cursor.execute("INSERT INTO clientes (nome, telefone, doc, endereco, cidade) VALUES (?, ?, ?, ?, ?)",
+cursor.execute("INSERT INTO clientes (nome, telefone, doc, endereco, cidade) VALUES (?, ?, ?, ?, ?)",
                        (nome.strip(), telefone, doc, endereco, cidade))
         conn.commit()
         return True
@@ -202,9 +202,9 @@ def salvar_cliente_completo(nome, telefone, doc, endereco, cidade):
         return False
 
 def salvar_produto_completo(nome, fornecedor, grupo, preco_custo, preco_venda, estoque_inicial):
-    cursor = conn.cursor()
+cursor = conn.cursor()
     try:
-        cursor.execute("""
+cursor.execute("""
             INSERT INTO produtos (nome, fornecedor, grupo, valor_compra, valor_venda, estoque_atual) 
             VALUES (?, ?, ?, ?, ?, ?)
         """, (nome.strip(), fornecedor, grupo, preco_custo, preco_venda, estoque_inicial))
@@ -245,20 +245,20 @@ def salvar_simples(tabela, coluna, valor):
         return False
 
 def salvar_pedido_ou_venda(cliente, produto, fornecedor, grupo, quantidade, valor_venda, forma_pagamento="", valor_recebido=0.0, tipo="PEDIDO"):
-    cursor = conn.cursor()
+cursor = conn.cursor()
     valor_total = quantidade * valor_venda
     data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     cod_status = "VEN" if tipo.upper() in ["VENDA", "VENDAS", "VEN"] else "PED"
     
-    cursor.execute("""
+cursor.execute("""
         INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, tipo, codigo, data)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (cliente.strip(), produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, str(valor_recebido), tipo, cod_status, data_atual))
     conn.commit()
 
 def baixar_debito_cliente(cliente_nome, valor_haver, forma_pagamento="Dinheiro"):
-    cursor = conn.cursor()
-    cursor.execute("""
+cursor = conn.cursor()
+cursor.execute("""
         SELECT id, valor_total, valor_recebido 
         FROM vendas 
         WHERE TRIM(cliente) = TRIM(?)
@@ -280,7 +280,7 @@ def baixar_debito_cliente(cliente_nome, valor_haver, forma_pagamento="Dinheiro")
                 novo_recebido = v_rec_atual + saldo_haver
                 saldo_haver = 0.0
             
-            cursor.execute("""
+cursor.execute("""
                 UPDATE vendas 
                 SET valor_recebido = ?, forma_pagamento = ? 
                 WHERE id = ?
@@ -289,8 +289,8 @@ def baixar_debito_cliente(cliente_nome, valor_haver, forma_pagamento="Dinheiro")
     conn.commit()
 
 def converter_pedido_completo_para_venda(cliente_nome):
-    cursor = conn.cursor()
-    cursor.execute("""
+cursor = conn.cursor()
+cursor.execute("""
         UPDATE vendas 
         SET tipo = 'VENDA', codigo = 'VEN' 
         WHERE TRIM(cliente) = TRIM(?)
@@ -299,8 +299,8 @@ def converter_pedido_completo_para_venda(cliente_nome):
     return cursor.rowcount
 
 def deletar_pedidos_cliente(cliente_nome, s_d1, s_d2):
-    cursor = conn.cursor()
-    cursor.execute("""
+cursor = conn.cursor()
+cursor.execute("""
         DELETE FROM vendas 
         WHERE TRIM(cliente) = TRIM(?) 
           AND (substr(data, 1, 10) >= ? AND substr(data, 1, 10) <= ? OR data IS NULL OR data = '')
@@ -309,10 +309,10 @@ def deletar_pedidos_cliente(cliente_nome, s_d1, s_d2):
     return cursor.rowcount
 
 def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo):
-    cursor = conn.cursor()
+cursor = conn.cursor()
     valor_total = quantidade * valor_custo
     data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    cursor.execute("""
+cursor.execute("""
         INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data)
         VALUES (?, ?, ?, ?, ?, ?, ?)
     """, (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data_atual))
