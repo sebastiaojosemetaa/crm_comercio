@@ -525,39 +525,51 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
             st.markdown("#### + Adicionar Item ao Carrinho")
             
-            # --- BUSCA DIRETA DO PRODUTO SELECIONADO NO BANCO ---
+            # --- BUSCA FLEXÍVEL EM PYTHON (SEM FALHAS NO SQL) ---
             prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto")
 
-            # Consulta SQL direcionada para pegar os dados apenas deste produto
-            df_prod_especifico = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = '{str(prod_item).strip()}'")
-            
+            df_p = carregar_dados("SELECT * FROM produtos")
             preco_sugerido = 0.0
             forn_sugerido = fornecedores_opt[0]
             grupo_sugerido = grupos_opt[0]
 
-            if not df_prod_especifico.empty:
-                row_p = df_prod_especifico.iloc[0]
-                # Procura coluna de preço dinamicamente na linha encontrada
-                for col_v in df_prod_especifico.columns:
-                    c_low = col_v.lower()
-                    if 'venda' in c_low or 'preco' in c_low:
-                        try:
-                            val_aux = float(row_p[col_v])
-                            if val_aux > 0:
-                                preco_sugerido = val_aux
-                                break
-                        except:
-                            pass
+            if not df_p.empty:
+                # Descobre o nome real da coluna de produtos
+                cols_prod_lower = {c.lower(): c for c in df_p.columns}
+                col_nome_real = cols_prod_lower.get('nome') or df_p.columns[1]
                 
-                # Procura fornecedor e grupo
-                for col_f in df_prod_especifico.columns:
-                    if 'fornecedor' in col_f.lower():
-                        forn_sugerido = str(row_p[col_f])
-                        break
-                for col_g in df_prod_especifico.columns:
-                    if 'grupo' in col_g.lower():
-                        grupo_sugerido = str(row_p[col_g])
-                        break
+                # Normaliza para maiúsculo e sem espaços extras para garantir o match
+                df_p['_nome_limpo'] = df_p[col_nome_real].astype(str).str.strip().str.upper()
+                target_nome = str(prod_item).strip().upper()
+                
+                df_filtrado_p = df_p[df_p['_nome_limpo'] == target_nome]
+                
+                if not df_filtrado_p.empty:
+                    row_p = df_filtrado_p.iloc[0]
+                    
+                    # Procura coluna de preço de venda de forma inteligente
+                    for col_v in df_p.columns:
+                        c_low = col_v.lower()
+                        if 'venda' in c_low or 'preco' in c_low:
+                            try:
+                                val_aux = float(row_p[col_v])
+                                if val_aux > 0:
+                                    preco_sugerido = val_aux
+                                    break
+                            except:
+                                pass
+                    
+                    # Procura fornecedor
+                    for col_f in df_p.columns:
+                        if 'fornecedor' in col_f.lower():
+                            forn_sugerido = str(row_p[col_f])
+                            break
+                            
+                    # Procura grupo
+                    for col_g in df_p.columns:
+                        if 'grupo' in col_g.lower():
+                            grupo_sugerido = str(row_p[col_g])
+                            break
 
             col_s1, col_s2 = st.columns(2)
             with col_s1:
@@ -569,7 +581,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
             with col_s2:
                 qtd_item = st.number_input("Quantidade", min_value=0.1, step=1.0, value=1.0, key="pdv_qtd")
-                # Usamos um truque na key baseada no produto para forçar o Streamlit a atualizar o input quando trocar o produto
+                # Chave dinâmica para atualizar o preço corretamente ao trocar o produto
                 v_unit_item = st.number_input("Preço de Venda (R$)", min_value=0.0, step=1.0, value=float(preco_sugerido), key=f"pdv_vunit_{prod_item}")
             
             valor_total_item = qtd_item * v_unit_item
