@@ -726,8 +726,8 @@ if not df_vendas.empty:
         col3.metric("Total Pendente / Fiado", f"R$ {faturamento - valor_rec:,.2f}")
         st.markdown("---")
                 
-             st.subheader("📊 Registros Encontrados")
-             st.dataframe(df_vendas, use_container_width=True)
+        st.subheader("📊 Registros Encontrados")
+        st.dataframe(df_vendas, use_container_width=True)
                 
              st.markdown("---")
              st.subheader("📄 Gerar Relatório do Fechamento Financeiro em PDF")
