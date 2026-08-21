@@ -289,8 +289,8 @@ cursor.execute("""
 conn.commit()
 
 def converter_pedido_completo_para_venda(cliente_nome):
-cursor = conn.cursor()
-cursor.execute("""
+    cursor = conn.cursor()
+    cursor.execute("""
         UPDATE vendas 
         SET tipo = 'VENDA', codigo = 'VEN' 
         WHERE TRIM(cliente) = TRIM(?)
