@@ -838,12 +838,12 @@ else:
                             
         cols_ver = [c for c in ['id', 'cliente', 'data'] if c in df_tickets_agrupados.columns]
                             
-            event_tabela = st.dataframe(
-            df_tickets_agrupados[cols_ver], 
-            use_container_width=True,
-            selection_mode="single-row",
-            on_select="rerun"
-        )
+        event_tabela = st.dataframe(
+        df_tickets_agrupados[cols_ver], 
+        use_container_width=True,
+        selection_mode="single-row",
+        on_select="rerun"
+    )
                             
         st.markdown("---")
         st.subheader("📦 Produtos Relacionados a esta Venda / Ticket")
