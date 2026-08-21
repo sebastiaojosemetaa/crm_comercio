@@ -779,8 +779,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             clientes_opt = carregar_coluna("clientes", "nome") or ["Carlos Alberto"]
             produtos_base = carregar_coluna("produtos", "nome") or ["AMEIXA IMPORTADA", "ABACATE"]
             produtos_opt = list(produtos_base) + ["➕ Cadastrar Novo Produto..."]
-                aba_cad, aba_list = st.tabs(["➕ Novo Registro / Pedido", "✏️ Tabela Editável (Edição Direta & Exclusão)"])
-                aba_baixa = None
             
             with aba_cad:
                 clientes_opt = carregar_coluna("clientes", "nome") or ["Carlos Alberto"]
