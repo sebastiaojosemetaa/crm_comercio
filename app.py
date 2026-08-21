@@ -836,7 +836,7 @@ else:
             ORDER BY data DESC
         """)
                             
-            cols_ver = [c for c in ['id', 'cliente', 'data'] if c in df_tickets_agrupados.columns]
+        cols_ver = [c for c in ['id', 'cliente', 'data'] if c in df_tickets_agrupados.columns]
                             
             event_tabela = st.dataframe(
             df_tickets_agrupados[cols_ver], 
