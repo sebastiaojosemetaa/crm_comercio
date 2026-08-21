@@ -759,7 +759,7 @@ for item in st.session_state.carrinho_pdv:
 else:
     st.info("Nenhum registro encontrado para os filtros selecionados.")
 
-    if menu_admin in ["📋 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
+if menu_admin in ["📋 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
         is_modo_pedido = (menu_admin == "📋 Pedidos / Orçamentos")
         st.title(f"📋 {menu_admin}")
                 
