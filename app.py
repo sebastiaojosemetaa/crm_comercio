@@ -845,10 +845,10 @@ else:
         on_select="rerun"
     )
 
-    st.markdown("---")
-    st.subheader("📦 Produtos Relacionados a esta Venda / Ticket")
+        st.markdown("---")
+        st.subheader("📦 Produtos Relacionados a esta Venda / Ticket")
 
-    selected_rows = event_tabela.selection.rows
+        selected_rows = event_tabela.selection.rows
 
     if selected_rows:
         idx_selecionado = selected_rows[0]
