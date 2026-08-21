@@ -38,13 +38,21 @@ def adequar_banco_e_migrar():
             data TEXT
         )
     """)
-    
-    cursor.execute("PRAGMA table_info(vendas)")
+ cursor.execute("PRAGMA table_info(vendas)")
     colunas_vendas = [col[1] for col in cursor.fetchall()]
+
     if 'forma_pagamento' not in colunas_vendas:
-        cursor.execute("ALTER TABLE vendas ADD COLUMN forma_pagamento TEXT")
+        try:
+            cursor.execute("ALTER TABLE vendas ADD COLUMN forma_pagamento TEXT")
+        except:
+            pass
+
     if 'valor_recebido' not in colunas_vendas:
-        cursor.execute("ALTER TABLE vendas ADD COLUMN valor_recebido TEXT")
+        try:
+            cursor.execute("ALTER TABLE vendas ADD COLUMN valor_recebido TEXT")
+        except:
+            pass
+
     if 'tipo' not in colunas_vendas:
         try:
             cursor.execute("ALTER TABLE vendas ADD COLUMN tipo TEXT DEFAULT 'PEDIDO'")
@@ -53,14 +61,15 @@ def adequar_banco_e_migrar():
 
     if 'codigo' not in colunas_vendas:
         try:
-            cursor.execute("ALTER TABLE vendas ADD COLUMN codigo TEXT DEFAULT 'PED')"
+            cursor.execute("ALTER TABLE vendas ADD COLUMN codigo TEXT DEFAULT 'PED'")
         except:
             pass
-    if 'codigo' not in colunas_vendas:
-        cursor.execute("ALTER TABLE vendas ADD COLUMN codigo TEXT DEFAULT 'PED'")
-    if 'data' not in colunas_vendas:
-        cursor.execute("ALTER TABLE vendas ADD COLUMN data TEXT")
 
+    if 'data' not in colunas_vendas:
+        try:
+            cursor.execute("ALTER TABLE vendas ADD COLUMN data TEXT")
+        except:
+            pass
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS produtos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
