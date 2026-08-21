@@ -1012,12 +1012,12 @@ with col_b2:
             st.success(f"Foram deletados {qtd_del} registro(s) de {cliente_sel} com sucesso!")
             st.rerun()
 
-                    st.markdown("---")
-                    tipo_str = df_registros['tipo'].fillna('').astype(str).str.strip().str.upper() if 'tipo' in df_registros.columns else pd.Series([''] * len(df_registros))
-                    codigo_str = df_registros['codigo'].fillna('').astype(str).str.strip().str.upper() if 'codigo' in df_registros.columns else pd.Series([''] * len(df_registros))
+            st.markdown("---")
+            tipo_str = df_registros['tipo'].fillna('').astype(str).str.strip().str.upper() if 'tipo' in df_registros.columns else pd.Series([''] * len(df_registros))
+            codigo_str = df_registros['codigo'].fillna('').astype(str).str.strip().str.upper() if 'codigo' in df_registros.columns else pd.Series([''] * len(df_registros))
 
-                    mask_pedidos = (~tipo_str.isin(['VENDA', 'VENDAS', 'VEN'])) & (~codigo_str.isin(['VEN', 'VENDA']))
-                    pedidos_pendentes = df_registros[mask_pedidos]                
+    mask_pedidos = (~tipo_str.isin(['VENDA', 'VENDAS', 'VEN'])) & (~codigo_str.isin(['VEN', 'VENDA']))
+    pedidos_pendentes = df_registros[mask_pedidos]                
                     
                     if cliente_sel != "TODOS":
                         if not pedidos_pendentes.empty:
