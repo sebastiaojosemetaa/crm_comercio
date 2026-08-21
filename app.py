@@ -623,24 +623,24 @@ for item in st.session_state.carrinho_pdv:
     st.rerun()
 
         # --- LÓGICA: ABERTURA E FECHAMENTO DE CAIXA ---
-            elif menu_admin == "🔓 Abertura e Fechamento de Caixa":
-                st.title("🔓 Abertura e Fechamento de Caixa")
-                    
-        df_caixa_atual = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
-            
-            if df_caixa_atual.empty:
-                st.info("O caixa encontra-se **FECHADO**. Insira o valor inicial para abri-lo.")
-                with st.form("form_abrir_caixa"):
-                    saldo_inicial = st.number_input("Saldo Inicial em Dinheiro (Troco / Fundo de Caixa)", min_value=0.0, step=10.0, value=0.0)
-                    if st.form_submit_button("Abrir Caixa"):
-                        cursor = conn.cursor()
-                        data_agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        cursor.execute("INSERT INTO caixa_sessoes (data_abertura, saldo_inicial, status) VALUES (?, ?, ?)",
-                                       (data_agora, saldo_inicial, "ABERTO"))
-                        conn.commit()
-                        st.success("Caixa aberto com sucesso!")
-                        st.rerun()
-            else:
+            elif menu_admin == "🔒 Abertura e Fechamento de Caixa":
+    st.title("🔒 Abertura e Fechamento de Caixa")
+
+    df_caixa_atual = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
+
+    if df_caixa_atual.empty:
+        st.info("O caixa encontra-se **FECHADO**. Insira o valor inicial para abri-lo.")
+        with st.form("form_abrir_caixa"):
+            saldo_inicial = st.number_input("Saldo Inicial em Dinheiro (Troco / Fundo de Caixa)", min_value=0.0, step=10.0)
+            if st.form_submit_button("Abrir Caixa"):
+                cursor = conn.cursor()
+                data_agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                cursor.execute("INSERT INTO caixa_sessoes (data_abertura, saldo_inicial, status) VALUES (?, ?, ?)",
+                               (data_agora, saldo_inicial, "ABERTO"))
+                conn.commit()
+                st.success("Caixa aberto com sucesso!")
+                st.rerun()
+    else:
                 sessao_id = int(df_caixa_atual.iloc[0]['id'])
                 data_abertura = df_caixa_atual.iloc[0]['data_abertura']
                 saldo_inicial = float(df_caixa_atual.iloc[0]['saldo_inicial'])
