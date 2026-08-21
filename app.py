@@ -763,7 +763,7 @@ if menu_admin in ["📋 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
         is_modo_pedido = (menu_admin == "📋 Pedidos / Orçamentos")
         st.title(f"📋 {menu_admin}")
                 
-    if not is_modo_pedido:
+if not is_modo_pedido:
         aba_cad, aba_baixa, aba_list = st.tabs(["➕ Novo Registro", "💵 Baixa de Débito / Haver", "✏️ Tabela Editável (Edição Direta & Exclusão)"])
     else:
         aba_cad, aba_list = st.tabs(["➕ Novo Registro / Pedido", "✏️ Tabela Editável (Edição Direta & Exclusão)"])
