@@ -862,7 +862,7 @@ if selected_rows:
         df_ticket_relacionado = carregar_dados(f"SELECT id, produto, quantidade, valor_venda, valor_total, forma_pagamento, data FROM vendas WHERE TRIM(cliente) = TRIM('{cliente_baixa}') AND data LIKE '{data_venda_selecionada[:10]}%'")
 if not df_ticket_relacionado.empty:
             st.dataframe(df_ticket_relacionado, use_container_width=True)
-        else:
+    else:
             df_ticket_unico = carregar_dados(f"SELECT id, produto, quantidade, valor_venda, valor_total, forma_pagamento, data FROM vendas WHERE id = {id_venda_selecionada}")
             st.dataframe(df_ticket_unico, use_container_width=True)
     else:
