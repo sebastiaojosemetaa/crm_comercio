@@ -559,7 +559,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     
                     for col_v in df_p.columns:
                         c_low = col_v.lower()
-                        if 'venda' in c_low or 'preco_venda' in c_low:
+                        if 'venda' in c_low or ('preço' in c_low and 'custo' not in c_low):
                             try:
                                 val_aux = float(row_p[col_v])
                                 if val_aux > 0:
