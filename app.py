@@ -527,29 +527,45 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
             prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto")
 
-            # Busca dinâmica instantânea no banco com base no produto selecionado
-            df_p = carregar_dados(f"SELECT * FROM produtos WHERE TRIM(nome) = TRIM('{prod_item}')")
+            # Busca dinâmica robusta (ignorando maiúsculas/minúsculas)
+            df_p = carregar_dados("SELECT * FROM produtos")
             preco_sugerido = 0.0
             forn_sugerido = fornecedores_opt[0]
             grupo_sugerido = grupos_opt[0]
 
             if not df_p.empty:
-                row_p = df_p.iloc[0]
-                for col_v in ['valor_venda', 'preco_venda', 'venda', 'preco']:
-                    if col_v in df_p.columns and pd.notna(row_p[col_v]):
-                        try:
-                            preco_sugerido = float(row_p[col_v])
+                # Encontra a coluna de nome do produto dinamicamente
+                cols_prod_lower = {c.lower(): c for c in df_p.columns}
+                col_nome_real = cols_prod_lower.get('nome') or df_p.columns[1]
+                
+                # Filtra o produto ignorando case
+                df_filtrado_p = df_p[df_p[col_nome_real].astype(str).str.strip().str.upper() == str(prod_item).strip().upper()]
+                
+                if not df_filtrado_p.empty:
+                    row_p = df_filtrado_p.iloc[0]
+                    # Procura qualquer coluna que tenha 'venda' ou 'preco' no nome
+                    for col_v in df_p.columns:
+                        c_low = col_v.lower()
+                        if 'venda' in c_low or 'preco' in c_low:
+                            try:
+                                val_aux = float(row_p[col_v])
+                                if val_aux > 0:
+                                    preco_sugerido = val_aux
+                                    break
+                            except:
+                                pass
+                    
+                    # Procura fornecedor
+                    for col_f in df_p.columns:
+                        if 'fornecedor' in col_f.lower():
+                            forn_sugerido = str(row_p[col_f])
                             break
-                        except:
-                            pass
-                for col_f in ['fornecedor', 'Fornecedor']:
-                    if col_f in df_p.columns and pd.notna(row_p[col_f]):
-                        forn_sugerido = str(row_p[col_f])
-                        break
-                for col_g in ['grupo', 'Grupo']:
-                    if col_g in df_p.columns and pd.notna(row_p[col_g]):
-                        grupo_sugerido = str(row_p[col_g])
-                        break
+                            
+                    # Procura grupo
+                    for col_g in df_p.columns:
+                        if 'grupo' in col_g.lower():
+                            grupo_sugerido = str(row_p[col_g])
+                            break
 
             col_s1, col_s2 = st.columns(2)
             with col_s1:
