@@ -517,11 +517,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             sugestao_fornec = fornecedores_opt[0]
             sugestao_grupo = grupos_opt[0]
             
-            if not df_prod_info.empty:
-                linha_prod = df_prod_info.iloc[0]
-                cols_p = df_prod_info.columns.tolist()
-                
-for col in cols_p:
+            cols_p = []
+    if not df_prod_info.empty:
+        linha_prod = df_prod_info.iloc[0]
+        cols_p = df_prod_info.columns.tolist()
+
+    for col in cols_p:
     if "preço" in col.lower() or "venda" in col.lower() or "valor" in col.lower():
         try:
             val = float(linha_prod[col])
