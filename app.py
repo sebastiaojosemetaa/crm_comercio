@@ -889,10 +889,10 @@ with aba_list:
 if cliente_sel != "TODOS":
         query_filt += f" AND TRIM(cliente) = TRIM('{cliente_sel}')"
         nome_relatorio = cliente_sel
-                else:
-                    nome_relatorio = "Geral"
+else:
+    nome_relatorio = "Geral"
 
-                df_registros = carregar_dados(query_filt)
+    df_registros = carregar_dados(query_filt)
                 
                 if not df_registros.empty:
                     st.caption("💡 **Dica:** Clique diretamente em qualquer célula para alterar valores. Marque **Deletar** e clique no botão abaixo para remover registros permanentemente.")
