@@ -687,29 +687,29 @@ if menu_admin == "📊 Fechamento & Financeiro":
             
     df_todas = carregar_dados("SELECT * FROM vendas")
             
-            if not df_todas.empty:
-                if status_filtro == "Somente Vendas Concluídas":
-                    df_todas['tipo'] = 'VENDA'
-                    df_todas['codigo'] = 'VEN'
+if not df_todas.empty:
+    if status_filtro == "Somente Vendas Concluídas":
+        df_todas['tipo'] = 'VENDA'
+        df_todas['codigo'] = 'VEN'
 
-                df_todas['tipo_str'] = df_todas['tipo'].fillna('').astype(str).str.strip().str.upper() if 'tipo' in df_todas.columns else ''
-                df_todas['codigo_str'] = df_todas['codigo'].fillna('').astype(str).str.strip().str.upper() if 'codigo' in df_todas.columns else ''
+    df_todas['tipo_str'] = df_todas['tipo'].fillna('').astype(str).str.strip().str.upper() if 'tipo' in df_todas.columns else ''
+    df_todas['codigo_str'] = df_todas['codigo'].fillna('').astype(str).str.strip().str.upper() if 'codigo' in df_todas.columns else ''
                 
-                is_venda = df_todas['tipo_str'].isin(['VENDA', 'VENDAS', 'VEN']) | df_todas['codigo_str'].isin(['VEN', 'VENDA'])
+    is_venda = df_todas['tipo_str'].isin(['VENDA', 'VENDAS', 'VEN']) | df_todas['codigo_str'].isin(['VEN', 'VENDA'])
                 
-                if status_filtro == "Somente Vendas Concluídas":
-                    df_vendas = df_todas[is_venda]
-                elif status_filtro == "Incluir Pedidos Pendentes":
-                    df_vendas = df_todas[~is_venda]
-                else:
-                    df_vendas = df_todas.copy()
+if status_filtro == "Somente Vendas Concluídas":
+    df_vendas = df_todas[is_venda]
+elif status_filtro == "Incluir Pedidos Pendentes":
+    df_vendas = df_todas[~is_venda]
+else:
+    df_vendas = df_todas.copy()
                 
-                if 'data' in df_vendas.columns:
-                    df_vendas['data_curta'] = df_vendas['data'].fillna('').astype(str).str.slice(0, 10)
-                    mask_data = (df_vendas['data_curta'] >= str_d1) & (df_vendas['data_curta'] <= str_d2)
-                    df_vendas = df_vendas[mask_data | (df_vendas['data_curta'] == '')]
-                    df_vendas = df_vendas.drop(columns=['data_curta', 'tipo_str', 'codigo_str'], errors='ignore')
-            else:
+if 'data' in df_vendas.columns:
+    df_vendas['data_curta'] = df_vendas['data'].fillna('').astype(str).str.slice(0, 10)
+    mask_data = (df_vendas['data_curta'] >= str_d1) & (df_vendas['data_curta'] <= str_d2)
+    df_vendas = df_vendas[mask_data | (df_vendas['data_curta'] == '')]
+    df_vendas = df_vendas.drop(columns=['data_curta', 'tipo_str', 'codigo_str'], errors='ignore')
+else:
                 df_vendas = pd.DataFrame()
             
             if not df_vendas.empty:
