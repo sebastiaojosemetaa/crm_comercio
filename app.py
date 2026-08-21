@@ -869,8 +869,8 @@ if selected_rows:
 else:
         st.caption("👈 Clique em uma linha na tabela acima para carregar os produtos relacionados do respectivo ticket/venda.")
 
-                        else:
-                            st.warning("Este cliente não possui registros de vendas.")
+                    else:
+                        st.warning("Este cliente não possui registros de vendas.")
                     else:
                         st.info("Nenhum cliente com registros cadastrados no momento.")
 
