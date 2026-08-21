@@ -1061,13 +1061,13 @@ if enviado:
     st.success("Entrada registrada com sucesso e estoque atualizado!")
     st.rerun()
                         
-            with aba_historico_compras:
-                st.dataframe(carregar_dados("SELECT * FROM compras"), use_container_width=True)
+with aba_historico_compras:
+    st.dataframe(carregar_dados("SELECT * FROM compras"), use_container_width=True)
 
-        elif menu_admin == "📦 Estoque de Produtos":
-            st.title("📦 Estoque de Produtos e Preços")
-            df_prods = carregar_dados("SELECT * FROM produtos")            
-            if not df_prods.empty:
+elif menu_admin == "📦 Estoque de Produtos":
+    st.title("📦 Estoque de Produtos e Preços")
+    df_prods = carregar_dados("SELECT * FROM produtos")            
+    if not df_prods.empty:
                 cols_atuais = df_prods.columns.tolist()
                 
                 col_id = 'id' if 'id' in cols_atuais else cols_atuais[0]
