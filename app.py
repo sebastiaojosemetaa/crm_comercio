@@ -46,10 +46,16 @@ def adequar_banco_e_migrar():
     if 'valor_recebido' not in colunas_vendas:
         cursor.execute("ALTER TABLE vendas ADD COLUMN valor_recebido TEXT")
     if 'tipo' not in colunas_vendas:
-    try:
-        cursor.execute("ALTER TABLE vendas ADD COLUMN tipo TEXT DEFAULT 'PEDIDO'")
-    except:
-        pass
+        try:
+            cursor.execute("ALTER TABLE vendas ADD COLUMN tipo TEXT DEFAULT 'PEDIDO'")
+        except:
+            pass
+
+    if 'codigo' not in colunas_vendas:
+        try:
+            cursor.execute("ALTER TABLE vendas ADD COLUMN codigo TEXT DEFAULT 'PED')"
+        except:
+            pass
     if 'codigo' not in colunas_vendas:
         cursor.execute("ALTER TABLE vendas ADD COLUMN codigo TEXT DEFAULT 'PED'")
     if 'data' not in colunas_vendas:
