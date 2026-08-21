@@ -623,12 +623,10 @@ for item in st.session_state.carrinho_pdv:
     st.rerun()
 
     elif menu_admin == "🔒 Abertura e Fechamento de Caixa":
+    st.title("🔒 Abertura e Fechamento de Caixa")
     st.session_state.carrinho_pdv = []
     st.success(f"Venda realizada com sucesso! Troco: R$ {max(0.0, troco):.2f}")
     st.rerun()
-
-    elif menu_admin == "🔒 Abertura e Fechamento de Caixa":
-    st.title("🔒 Abertura e Fechamento de Caixa")
 
     df_caixa_atual = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
     df_caixa_atual = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
