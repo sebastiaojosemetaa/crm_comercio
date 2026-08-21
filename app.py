@@ -602,16 +602,16 @@ with st.form("form_finalizar_pagamento_pdv"):
                             
 for item in st.session_state.carrinho_pdv:
     salvar_pedido_ou_venda(
-    cliente=cliente_pdv,
-    produto=item['produto'],
-    fornecedor=item['fornecedor'],
-    grupo=item['grupo'],
-    quantidade=item['quantidade'],
-    valor_venda=item['valor_venda'],
-    forma_pagamento=f_pag,
-    valor_recebido=v_rec,
-    tipo="VENDA"
-   )
+        cliente=cliente_pdv,
+        produto=item['produto'],
+        fornecedor=item['fornecedor'],
+        grupo=item['grupo'],
+        quantidade=item['quantidade'],
+        valor_venda=item['valor_venda'],
+        forma_pagamento=f_pag,
+        valor_recebido=v_rec,
+        tipo="VENDA"
+       )
                             
                             cursor = conn.cursor()
                             cursor.execute("INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, ?, ?, ?, ?)",
