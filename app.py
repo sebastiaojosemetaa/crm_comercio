@@ -674,18 +674,18 @@ if menu_admin == "🔒 Abertura e Fechamento de Caixa":
 if menu_admin == "📊 Fechamento & Financeiro":
     st.title("📊 Painel Financeiro & Fechamento por Data")
             
-            col_d1, col_d2, col_d3 = st.columns(3)
-            with col_d1:
-                data_inicio = st.date_input("Data Inicial", value=date(2025, 1, 1))
-            with col_d2:
-                data_fim = st.date_input("Data Final", value=date.today())
-            with col_d3:
-                status_filtro = st.selectbox("Status dos Registros", ["Somente Vendas Concluídas", "Incluir Pedidos Pendentes", "Todos"])
+    col_d1, col_d2, col_d3 = st.columns(3)
+    with col_d1:
+        data_inicio = st.date_input("Data Inicial", value=date(2025, 1, 1))
+    with col_d2:
+        data_fim = st.date_input("Data Final", value=date.today())
+    with col_d3:
+        status_filtro = st.selectbox("Status dos Registros", ["Somente Vendas Concluídas", "Incluir Pedidos Pendentes", "Todos"])
                 
-            str_d1 = data_inicio.strftime("%Y-%m-%d")
-            str_d2 = data_fim.strftime("%Y-%m-%d")
+    str_d1 = data_inicio.strftime("%Y-%m-%d")
+    str_d2 = data_fim.strftime("%Y-%m-%d")
             
-            df_todas = carregar_dados("SELECT * FROM vendas")
+    df_todas = carregar_dados("SELECT * FROM vendas")
             
             if not df_todas.empty:
                 if status_filtro == "Somente Vendas Concluídas":
