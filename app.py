@@ -1831,6 +1831,17 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         if menu_admin == "🛒 PDV — Frente de Caixa":
     st.title("🛒 PDV — Frente de Caixa (Múltiplos Produtos)")
     
+    df_caixa_aberto = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
+    if df_caixa_aberto.empty:
+        st.warning("⚠️ Atenção: Não há nenhum caixa aberto no momento. Vá em '🔓 Abertura e Fechamento de Caixa' para abrir o caixa antes de registrar vendas.")
+    
+    # Certifique-se de que TODAS as linhas abaixo desta também tenham 4 espaços de recuo:
+    clientes_opt = carregar_coluna("clientes", "nome") or ["Carlos Alberto"]
+    fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
+    grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
+    
+    # ... e assim por diante para todo o bloco do PDV
+    
     # Todo o restante do código do PDV deve ficar recuado (com 4 espaços) aqui dentro:
     df_caixa_aberto = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
     if df_caixa_aberto.empty:
