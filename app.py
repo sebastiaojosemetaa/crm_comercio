@@ -600,11 +600,17 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             with col_s2:
                 qtd_item = st.number_input("Quantidade", min_value=0.1, step=1.0, value=1.0, key="pdv_qtd")
                 
-                # Gerenciamento de estado para forçar o preço sugerido no Number Input
+                # Chave única para o preço unitário baseada no produto selecionado
                 key_vunit = f"pdv_vunit_{prod_item}"
-                if key_vunit not in st.session_state or st.session_state.get("pdv_produto_atual") != prod_item:
+                
+                # Força a atualização do session_state sempre que o produto mudar ou o preço for encontrado
+                if key_vunit not in st.session_state or st.session_state.get("pdv_produto_anterior") != prod_item:
                     st.session_state[key_vunit] = float(preco_sugerido)
-                    st.session_state["pdv_produto_atual"] = prod_item
+                    st.session_state["pdv_produto_anterior"] = prod_item
+                else:
+                    # Garante que se o session_state estiver zerado, ele assume o preço sugerido encontrado
+                    if st.session_state[key_vunit] == 0.0 and preco_sugerido > 0.0:
+                        st.session_state[key_vunit] = float(preco_sugerido)
 
                 v_unit_item = st.number_input(
                     "Preço de Venda (R$)", 
