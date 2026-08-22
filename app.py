@@ -82,7 +82,38 @@ def adequar_banco_e_migrar():
             estoque_atual REAL
         )
     """)
-    
+   cursor.execute("PRAGMA table_info(produtos)")
+    colunas_produtos = [col[1] for col in cursor.fetchall()]
+
+    if 'fornecedor' not in colunas_produtos:
+        try:
+            cursor.execute("ALTER TABLE produtos ADD COLUMN fornecedor TEXT")
+        except:
+            pass
+
+    if 'grupo' not in colunas_produtos:
+        try:
+            cursor.execute("ALTER TABLE produtos ADD COLUMN grupo TEXT")
+        except:
+            pass
+
+    if 'valor_compra' not in colunas_produtos:
+        try:
+            cursor.execute("ALTER TABLE produtos ADD COLUMN valor_compra REAL")
+        except:
+            pass
+
+    if 'valor_venda' not in colunas_produtos:
+        try:
+            cursor.execute("ALTER TABLE produtos ADD COLUMN valor_venda REAL")
+        except:
+            pass
+
+    if 'estoque_atual' not in colunas_produtos:
+        try:
+            cursor.execute("ALTER TABLE produtos ADD COLUMN estoque_atual REAL")
+        except:
+            pass 
     cursor.execute("PRAGMA table_info(produtos)")
     colunas_produtos = [col[1] for col in cursor.fetchall()]
     if 'nome' not in colunas_produtos and 'descricao' in colunas_produtos:
