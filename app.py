@@ -1462,13 +1462,16 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     if s_forn:
                         if nome_forn.strip():
                             cursor = conn.cursor()
-                            try:
+                            # Verifica se já existe antes de inserir para evitar erro
+                            cursor.execute("SELECT id FROM fornecedores WHERE fornecedor = ?", (nome_forn.strip(),))
+                            existe = cursor.fetchone()
+                            if existe:
+                                st.warning("Este fornecedor já está cadastrado!")
+                            else:
                                 cursor.execute("INSERT INTO fornecedores (fornecedor) VALUES (?)", (nome_forn.strip(),))
                                 conn.commit()
                                 st.success("Fornecedor cadastrado com sucesso!")
                                 st.rerun()
-                            except:
-                                st.error("Erro ao cadastrar fornecedor (já existe?).")
                         else:
                             st.warning("Preencha o nome do fornecedor.")
                             
@@ -1528,13 +1531,16 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     if s_grup:
                         if nome_grupo.strip():
                             cursor = conn.cursor()
-                            try:
+                            # Verifica se já existe antes de inserir
+                            cursor.execute("SELECT id FROM grupos WHERE grupo = ?", (nome_grupo.strip(),))
+                            existe = cursor.fetchone()
+                            if existe:
+                                st.warning("Este grupo já está cadastrado!")
+                            else:
                                 cursor.execute("INSERT INTO grupos (grupo) VALUES (?)", (nome_grupo.strip(),))
                                 conn.commit()
                                 st.success("Grupo cadastrado com sucesso!")
                                 st.rerun()
-                            except:
-                                st.error("Erro ao cadastrar grupo (já existe?).")
                         else:
                             st.warning("Preencha o nome do grupo.")
                             
