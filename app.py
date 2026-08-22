@@ -1328,36 +1328,40 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     if salvar_clicado:
                         if novo_cli.strip():
                             cursor = conn.cursor()
-                            # Descobre automaticamente quais colunas existem na tabela clientes
                             cursor.execute("PRAGMA table_info(clientes)")
                             colunas_db = [col[1] for col in cursor.fetchall()]
                             
-                            # Mapeia dinamicamente para evitar erro de coluna inexistente
-                            c_nome = 'cliente' if 'cliente' in colunas_db else ('nome' if 'nome' in colunas_db else 'cliente')
-                            c_fone = 'fone' if 'fone' in colunas_db else ('telefone' if 'telefone' in colunas_db else 'fone')
-                            c_doc = 'cpf' if 'cpf' in colunas_db else ('cnpj' if 'cnpj' in colunas_db else ('doc' if 'doc' in colunas_db else 'doc'))
-                            c_end = 'endereco' if 'endereco' in colunas_db else 'endereco'
-                            c_cid = 'cidade' if 'cidade' in colunas_db else 'cidade'
+                            # Monta a query dinamicamente apenas com os campos que existem na tabela
+                            campos = ['cliente']
+                            valores = [novo_cli.strip()]
+                            
+                            if 'cpf' in colunas_db and doc:
+                                campos.append('cpf')
+                                valores.append(doc)
+                            if 'endereco' in colunas_db and endereco:
+                                campos.append('endereco')
+                                valores.append(endereco)
+                            if 'fone' in colunas_db and telefone:
+                                campos.append('fone')
+                                valores.append(telefone)
+                            if 'email' in colunas_db and cidade: # usando o campo cidade para preencher email ou observação se necessário
+                                campos.append('email')
+                                valores.append(cidade)
+                                
+                            placeholders = ", ".join(["?"] * len(campos))
+                            cols_str = ", ".join(campos)
                             
                             try:
-                                sql = f"INSERT INTO clientes ({c_nome}, {c_fone}, {c_doc}, {c_end}, {c_cid}) VALUES (?, ?, ?, ?, ?)"
-                                cursor.execute(sql, (novo_cli.strip(), telefone, doc, endereco, cidade))
+                                sql = f"INSERT INTO clientes ({cols_str}) VALUES ({placeholders})"
+                                cursor.execute(sql, tuple(valores))
                                 conn.commit()
                                 st.success("Cliente cadastrado com sucesso!")
                                 st.rerun()
                             except Exception as ex:
                                 st.error(f"Erro ao salvar no banco: {ex}")
-                            else:
-                                st.warning("Preencha o nome do cliente.")
-                    if excluir_clicado:
-                        if cli_id_selecionado:
-                            cursor = conn.cursor()
-                            cursor.execute("DELETE FROM clientes WHERE id = ?", (cli_id_selecionado,))
-                            conn.commit()
-                            st.warning("Cliente excluído com sucesso!")
-                            st.rerun()
                         else:
-                            st.warning("Nenhum cliente selecionado.")
+                        
+                            st.warning("Preencha o nome do cliente.")
 
                 st.markdown("---")
                 st.dataframe(carregar_dados("SELECT * FROM clientes"), use_container_width=True)
