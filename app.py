@@ -1809,7 +1809,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.sidebar.error("Senha incorreta!")
     else:
         st.sidebar.subheader("🔒 Área Restrita")
-        if st.sidebar.button("Sair do Modo Admin"):
+        if st.sidebar.button("Sair do Modo Admin", key="btn_sair_modo_admin_sidebar"):
             st.session_state.admin_logged = False
             st.rerun()
             
