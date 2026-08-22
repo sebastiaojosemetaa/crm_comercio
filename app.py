@@ -82,7 +82,7 @@ def adequar_banco_e_migrar():
             estoque_atual REAL
         )
     """)
-   cursor.execute("PRAGMA table_info(produtos)")
+    cursor.execute("PRAGMA table_info(produtos)")
     colunas_produtos = [col[1] for col in cursor.fetchall()]
 
     if 'fornecedor' not in colunas_produtos:
