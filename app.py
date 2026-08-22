@@ -521,7 +521,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             ]
         )
         
-        # --- # --- LÓGICA: PDV — FRENTE DE CAIXA COM CARRINHO DE MÚLTIPLOS ITENS ---
+        # --- LÓGICA: PDV — FRENTE DE CAIXA COM CARRINHO DE MÚLTIPLOS ITENS ---
         if menu_admin == "🛒 PDV — Frente de Caixa":
             st.title("🛒 PDV — Frente de Caixa (Múltiplos Produtos)")
             
@@ -557,10 +557,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 if not df_filtrado_p.empty:
                     row_p = df_filtrado_p.iloc[0]
                     
-                    # Busca exata e segura pelo preço de venda
+                    # Procura coluna de preço de venda de forma inteligente
                     for col_v in df_p.columns:
                         c_low = col_v.lower()
-                        if c_low in ['valor_venda', 'preco_venda', 'preço venda (r$)'] or ('venda' in c_low and 'custo' not in c_low):
+                        if 'venda' in c_low or 'preco' in c_low:
                             try:
                                 val_aux = float(row_p[col_v])
                                 if val_aux > 0:
@@ -569,11 +569,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             except:
                                 pass
                     
+                    # Procura fornecedor
                     for col_f in df_p.columns:
                         if 'fornecedor' in col_f.lower():
                             forn_sugerido = str(row_p[col_f])
                             break
                             
+                    # Procura grupo
                     for col_g in df_p.columns:
                         if 'grupo' in col_g.lower():
                             grupo_sugerido = str(row_p[col_g])
