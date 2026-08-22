@@ -1285,43 +1285,46 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["👥 Clientes", "📦 Produtos", "🏢 Fornecedores", "🏷️ Grupos"])            
             
             # --- ABA 1: CLIENTES ---
+            # --- ABA 1: CLIENTES ---
             with tab_cli:
                 st.subheader("Gerenciamento de Clientes")
                 df_cli_atual = carregar_dados("SELECT * FROM clientes")
                 modo_cli = st.radio("Ação (Clientes):", ["➕ Cadastrar Novo Cliente", "✏️ Editar / Excluir Cliente Existente"], horizontal=True)
                 
-                cli_id_selecionado = None
+                cli_id_sel = None
                 val_nome, val_fone, val_doc, val_end, val_cid = "", "", "", "", ""
                 
                 if modo_cli == "✏️ Editar / Excluir Cliente Existente" and not df_cli_atual.empty:
                     col_nome_cli = 'cliente' if 'cliente' in df_cli_atual.columns else ('nome' if 'nome' in df_cli_atual.columns else df_cli_atual.columns[1])
                     col_id_cli = 'id' if 'id' in df_cli_atual.columns else df_cli_atual.columns[0]
                     
-                    opcoes_clientes = {f"{row[col_id_cli]} - {row[col_nome_cli]}": row[col_id_cli] for _, row in df_cli_atual.iterrows()}
-                    cli_escolhido = st.selectbox("Selecione o Cliente:", list(opcoes_clientes.keys()))
-                    
-                    if cli_escolhido:
-                        cli_id_selecionado = opcoes_clientes[cli_escolhido]
-                        dados_cli_sel = df_cli_atual[df_cli_atual[col_id_cli] == cli_id_selecionado].iloc[0]
-                        val_nome = str(dados_cli_sel.get(col_nome_cli, ''))
-                        val_fone = str(dados_cli_sel.get('fone', dados_cli_sel.get('telefone', '')))
-                        val_doc = str(dados_cli_sel.get('cpf', dados_cli_sel.get('cnpj', dados_cli_sel.get('doc', ''))))
-                        val_end = str(dados_cli_sel.get('endereco', ''))
-                        val_cid = str(dados_cli_sel.get('cidade', ''))
+                    opcoes_clientes = {f"{row[col_id_cli]} - {row[col_nome_cli]}": row[col_id_cli] for _, row in df_cli_atual.iterrows() if pd.notna(row[col_nome_cli])}
+                    if opcoes_clientes:
+                        cli_escolhido = st.selectbox("Selecione o Cliente:", list(opcoes_clientes.keys()))
+                        if cli_escolhido:
+                            cli_id_sel = opcoes_clientes[cli_escolhido]
+                            dados_cli = df_cli_atual[df_cli_atual[col_id_cli] == cli_id_sel].iloc[0]
+                            val_nome = str(dados_cli.get(col_nome_cli, ''))
+                            val_fone = str(dados_cli.get('fone', dados_cli.get('telefone', '')))
+                            val_doc = str(dados_cli.get('cpf', dados_cli.get('cnpj', dados_cli.get('doc', ''))))
+                            val_end = str(dados_cli.get('endereco', ''))
+                            val_cid = str(dados_cli.get('email', ''))
 
                 with st.form("form_cad_cliente_completo"):
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        novo_cli = st.text_input("Nome do Cliente / Razão Social", value=val_nome)
-                        telefone = st.text_input("Telefone / WhatsApp", value=val_fone)
-                        doc = st.text_input("CPF / CNPJ", value=val_doc)
-                    with col2:
-                        endereco = st.text_input("Endereço / Logradouro", value=val_end)
-                        cidade = st.text_input("Cidade / UF", value=val_cid)
+                    novo_cli = st.text_input("Nome do Cliente / Razão Social", value=val_nome)
+                    
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        telefone = st.text_input("Telefone / WhatsApp", value=val_fone if val_fone != "nan" else "")
+                    with c2:
+                        cidade = st.text_input("Cidade / UF / Email", value=val_cid if val_cid != "nan" else "")
+                        
+                    doc = st.text_input("CPF / CNPJ", value=val_doc if val_doc != "nan" else "")
+                    endereco = st.text_input("Endereço / Logradouro", value=val_end if val_end != "nan" else "")
                     
                     st.markdown("---")
-                    b_col1, b_col2, b_col3 = st.columns(3)
-                    salvar_clicado = b_col1.form_submit_button("💾 Salvar Cliente", use_container_width=True)
+                    b_coll, b_col2, b_col3 = st.columns(3)
+                    salvar_clicado = b_coll.form_submit_button("💾 Salvar Cliente", use_container_width=True)
                     editar_clicado = b_col2.form_submit_button("✏️ Salvar Alterações", use_container_width=True)
                     excluir_clicado = b_col3.form_submit_button("🗑️ Excluir Cliente", use_container_width=True)
                     
@@ -1331,7 +1334,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             cursor.execute("PRAGMA table_info(clientes)")
                             colunas_db = [col[1] for col in cursor.fetchall()]
                             
-                            # Monta a query dinamicamente apenas com os campos que existem na tabela
                             campos = ['cliente']
                             valores = [novo_cli.strip()]
                             
@@ -1344,7 +1346,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             if 'fone' in colunas_db and telefone:
                                 campos.append('fone')
                                 valores.append(telefone)
-                            if 'email' in colunas_db and cidade: # usando o campo cidade para preencher email ou observação se necessário
+                            if 'email' in colunas_db and cidade:
                                 campos.append('email')
                                 valores.append(cidade)
                                 
@@ -1360,12 +1362,38 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             except Exception as ex:
                                 st.error(f"Erro ao salvar no banco: {ex}")
                         else:
-                        
                             st.warning("Preencha o nome do cliente.")
+                            
+                    if editar_clicado:
+                        if cli_id_sel and novo_cli.strip():
+                            cursor = conn.cursor()
+                            try:
+                                sql = "UPDATE clientes SET cliente = ?, fone = ?, cpf = ?, endereco = ?, email = ? WHERE id = ?"
+                                cursor.execute(sql, (novo_cli.strip(), telefone, doc, endereco, cidade, cli_id_sel))
+                                conn.commit()
+                                st.success("Cliente atualizado com sucesso!")
+                                st.rerun()
+                            except Exception as ex:
+                                st.error(f"Erro ao atualizar: {ex}")
+                        else:
+                            st.warning("Selecione um cliente válido para editar.")
+                            
+                    if excluir_clicado:
+                        if cli_id_sel:
+                            cursor = conn.cursor()
+                            try:
+                                cursor.execute("DELETE FROM clientes WHERE id = ?", (cli_id_sel,))
+                                conn.commit()
+                                st.warning("Cliente excluído com sucesso!")
+                                st.rerun()
+                            except Exception as ex:
+                                st.error(f"Erro ao excluir: {ex}")
+                        else:
+                            st.warning("Nenhum cliente selecionado.")
 
                 st.markdown("---")
                 st.dataframe(carregar_dados("SELECT * FROM clientes"), use_container_width=True)
-
+                
             # --- ABA 2: PRODUTOS ---
             with tab_prod:
                 st.subheader("Gerenciamento de Produtos e Estoque")
