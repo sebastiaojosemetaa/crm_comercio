@@ -1396,28 +1396,29 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 
             # --- ABA 2: PRODUTOS ---
             with tab_prod:
-                st.subheader("Gerenciamento de Produtos e Estoque")
+                st.subheader("Gerenciamento de Produtos e Stock")
                 grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
                 fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
                 df_prod_atual = carregar_dados("SELECT * FROM produtos")
                 
                 modo_prod = st.radio("Ação (Produtos):", ["➕ Cadastrar Novo Produto", "✏️ Editar / Excluir Produto Existente"], horizontal=True)
+                
                 prod_id_sel = None
                 p_nome_v, p_forn_v, p_grupo_v, p_custo_v, p_venda_v, p_est_v = "", fornecedores_opt[0], grupos_opt[0], 10.0, 20.0, 0.0
                 
                 if modo_prod == "✏️ Editar / Excluir Produto Existente" and not df_prod_atual.empty:
-                    col_np = 'nome' if 'nome' in df_prod_atual.columns else ('produto' if 'produto' in df_prod_atual.columns else df_prod_atual.columns[1])
-                    col_idp = 'id' if 'id' in df_prod_atual.columns else df_prod_atual.columns[0]
+                    col_id_p = 'id' if 'id' in df_prod_atual.columns else df_prod_atual.columns[0]
+                    col_nome_p = 'produto' if 'produto' in df_prod_atual.columns else ('nome' if 'nome' in df_prod_atual.columns else df_prod_atual.columns[1])
                     
-                    opcoes_prods = {f"{row[col_idp]} - {row[col_np]}": row[col_idp] for _, row in df_prod_atual.iterrows() if pd.notna(row[col_np])}
-                    if opcoes_prods:
-                        prod_escolhido = st.selectbox("Selecione o Produto:", list(opcoes_prods.keys()))
+                    opcoes_prod = {f"{row[col_id_p]} - {row[col_nome_p]}": row[col_id_p] for _, row in df_prod_atual.iterrows() if pd.notna(row[col_nome_p])}
+                    if opcoes_prod:
+                        prod_escolhido = st.selectbox("Selecione o Produto:", list(opcoes_prod.keys()))
                         if prod_escolhido:
-                            prod_id_sel = opcoes_prods[prod_escolhido]
-                            d_prod = df_prod_atual[df_prod_atual[col_idp] == prod_id_sel].iloc[0]
-                            p_nome_v = str(d_prod.get(col_np, '')) if pd.notna(d_prod.get(col_np)) else ''
-                            p_forn_v = str(d_prod.get('fornecedor', fornecedores_opt[0])) if pd.notna(d_prod.get('fornecedor')) else fornecedores_opt[0]
-                            p_grupo_v = str(d_prod.get('grupo', grupos_opt[0])) if pd.notna(d_prod.get('grupo')) else grupos_opt[0]
+                            prod_id_sel = opcoes_prod[prod_escolhido]
+                            d_prod = df_prod_atual[df_prod_atual[col_id_p] == prod_id_sel].iloc[0]
+                            p_nome_v = str(d_prod.get(col_nome_p, ''))
+                            p_forn_v = str(d_prod.get('fornecedor', fornecedores_opt[0]))
+                            p_grupo_v = str(d_prod.get('grupo', grupos_opt[0]))
                             
                             val_c = d_prod.get('valor_compra', d_prod.get('preco_custo', 10.0))
                             p_custo_v = float(val_c) if pd.notna(val_c) else 10.0
@@ -1429,44 +1430,60 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             p_est_v = float(val_e) if pd.notna(val_e) else 0.0
 
                 with st.form("form_cad_produto_completo"):
-                    col1, col2 = st.columns(2)
-                    with col1:
+                    coll, col2 = st.columns(2)
+                    with coll:
                         novo_prod = st.text_input("Nome do Produto", value=p_nome_v)
                         fornec_prod = st.selectbox("Fornecedor", fornecedores_opt, index=fornecedores_opt.index(p_forn_v) if p_forn_v in fornecedores_opt else 0)
                         grupo_prod = st.selectbox("Grupo / Categoria", grupos_opt, index=grupos_opt.index(p_grupo_v) if p_grupo_v in grupos_opt else 0)
                     with col2:
                         p_custo = st.number_input("Preço de Custo (R$)", min_value=0.0, step=1.0, value=p_custo_v)
                         p_venda = st.number_input("Preço de Venda (R$)", min_value=0.0, step=1.0, value=p_venda_v)
-                        estoque_ini = st.number_input("Estoque Inicial", min_value=0.0, step=1.0, value=p_est_v)
-                    
+                        estoque_ini = st.number_input("Estoque Inicial / Atual", min_value=0.0, step=1.0, value=p_est_v)
+
                     st.markdown("---")
                     bp1, bp2, bp3 = st.columns(3)
                     s_prod = bp1.form_submit_button("💾 Salvar Produto", use_container_width=True)
                     e_prod = bp2.form_submit_button("✏️ Salvar Alterações", use_container_width=True)
                     d_prod_btn = bp3.form_submit_button("🗑️ Excluir Produto", use_container_width=True)
-                    
+
                     if s_prod:
-                        if novo_prod.strip() and salvar_produto_completo(novo_prod.strip(), fornec_prod, grupo_prod, p_custo, p_venda, estoque_ini):
-                            st.success("Produto cadastrado com sucesso!")
-                            st.rerun()
+                        if novo_prod.strip():
+                            try:
+                                salvar_produto_completo(novo_prod.strip(), fornec_prod, grupo_prod, p_custo, p_venda, estoque_ini)
+                                st.success("Produto cadastrado com sucesso!")
+                                st.rerun()
+                            except Exception as ex:
+                                st.error(f"Erro ao salvar produto: {ex}")
+                        else:
+                            st.warning("Preencha o nome do produto.")
+                            
                     if e_prod:
                         if prod_id_sel and novo_prod.strip():
                             cursor = conn.cursor()
-                            cursor.execute("UPDATE produtos SET nome = ?, produto = ?, fornecedor = ?, grupo = ?, valor_compra = ?, valor_venda = ?, estoque_atual = ?, quantidade = ? WHERE id = ?", 
-                                           (novo_prod.strip(), novo_prod.strip(), fornec_prod, grupo_prod, p_custo, p_venda, estoque_ini, estoque_ini, prod_id_sel))
-                            conn.commit()
-                            st.success("Produto atualizado com sucesso!")
-                            st.rerun()
+                            try:
+                                sql = "UPDATE produtos SET produto = ?, grupo = ?, fornecedor = ?, valor_compra = ?, valor_venda = ?, estoque_atual = ? WHERE id = ?"
+                                cursor.execute(sql, (novo_prod.strip(), grupo_prod, fornec_prod, p_custo, p_venda, estoque_ini, prod_id_sel))
+                                conn.commit()
+                                st.success("Produto atualizado com sucesso!")
+                                st.rerun()
+                            except Exception as ex:
+                                st.error(f"Erro ao atualizar produto: {ex}")
+                        else:
+                            st.warning("Selecione um produto válido para editar.")
+                            
                     if d_prod_btn:
                         if prod_id_sel:
                             cursor = conn.cursor()
-                            cursor.execute("DELETE FROM produtos WHERE id = ?", (prod_id_sel,))
-                            conn.commit()
-                            st.warning("Produto excluído com sucesso!")
-                            st.rerun()
+                            try:
+                                cursor.execute("DELETE FROM produtos WHERE id = ?", (prod_id_sel,))
+                                conn.commit()
+                                st.warning("Produto excluído com sucesso!")
+                                st.rerun()
+                            except Exception as ex:
+                                st.error(f"Erro ao excluir produto: {ex}")
+                        else:
+                            st.warning("Nenhum produto selecionado.")
 
-                st.markdown("---")
-                st.dataframe(carregar_dados("SELECT * FROM produtos"), use_container_width=True)
                 st.markdown("---")
                 st.dataframe(carregar_dados("SELECT * FROM produtos"), use_container_width=True)
 
@@ -1572,10 +1589,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     if s_grup:
                         if nome_grupo.strip():
                             cursor = conn.cursor()
-                            # Verifica se já existe antes de inserir
                             cursor.execute("SELECT id FROM grupos WHERE grupo = ?", (nome_grupo.strip(),))
-                            existe = cursor.fetchone()
-                            if existe:
+                            if cursor.fetchone():
                                 st.warning("Este grupo já está cadastrado!")
                             else:
                                 cursor.execute("INSERT INTO grupos (grupo) VALUES (?)", (nome_grupo.strip(),))
