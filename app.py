@@ -589,8 +589,18 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
             with col_s2:
                 qtd_item = st.number_input("Quantidade", min_value=0.1, step=1.0, value=1.0, key="pdv_qtd")
-                # Força o valor sugerido diretamente no input numérico do Streamlit
-                v_unit_item = st.number_input("Preço de Venda (R$)", min_value=0.0, step=1.0, value=float(preco_sugerido), key=f"pdv_vunit_{prod_item}")
+                
+                key_vunit = f"pdv_vunit_{prod_item}"
+                if key_vunit not in st.session_state or st.session_state.get("pdv_produto_atual") != prod_item:
+                    st.session_state[key_vunit] = float(preco_sugerido)
+                    st.session_state["pdv_produto_atual"] = prod_item
+
+                v_unit_item = st.number_input(
+                    "Preço de Venda (R$)", 
+                    min_value=0.0, 
+                    step=1.0, 
+                    key=key_vunit
+                )
             
             valor_total_item = qtd_item * v_unit_item
             st.metric("Valor Total do Item", f"R$ {valor_total_item:.2f}")
