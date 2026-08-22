@@ -1368,18 +1368,24 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     col_np = 'nome' if 'nome' in df_prod_atual.columns else ('produto' if 'produto' in df_prod_atual.columns else df_prod_atual.columns[1])
                     col_idp = 'id' if 'id' in df_prod_atual.columns else df_prod_atual.columns[0]
                     
-                    opcoes_prods = {f"{row[col_idp]} - {row[col_np]}": row[col_idp] for _, row in df_prod_atual.iterrows()}
-                    prod_escolhido = st.selectbox("Selecione o Produto:", list(opcoes_prods.keys()))
-                    
-                    if prod_escolhido:
-                        prod_id_sel = opcoes_prods[prod_escolhido]
-                        d_prod = df_prod_atual[df_prod_atual[col_idp] == prod_id_sel].iloc[0]
-                        p_nome_v = str(d_prod.get(col_np, ''))
-                        p_forn_v = str(d_prod.get('fornecedor', fornecedores_opt[0]))
-                        p_grupo_v = str(d_prod.get('grupo', grupos_opt[0]))
-                        p_custo_v = float(d_prod.get('valor_compra', d_prod.get('preco_custo', 10.0)))
-                        p_venda_v = float(d_prod.get('valor_venda', d_prod.get('preco_venda', 20.0)))
-                        p_est_v = float(d_prod.get('estoque_atual', d_prod.get('quantidade', 0.0)))
+                    opcoes_prods = {f"{row[col_idp]} - {row[col_np]}": row[col_idp] for _, row in df_prod_atual.iterrows() if pd.notna(row[col_np])}
+                    if opcoes_prods:
+                        prod_escolhido = st.selectbox("Selecione o Produto:", list(opcoes_prods.keys()))
+                        if prod_escolhido:
+                            prod_id_sel = opcoes_prods[prod_escolhido]
+                            d_prod = df_prod_atual[df_prod_atual[col_idp] == prod_id_sel].iloc[0]
+                            p_nome_v = str(d_prod.get(col_np, '')) if pd.notna(d_prod.get(col_np)) else ''
+                            p_forn_v = str(d_prod.get('fornecedor', fornecedores_opt[0])) if pd.notna(d_prod.get('fornecedor')) else fornecedores_opt[0]
+                            p_grupo_v = str(d_prod.get('grupo', grupos_opt[0])) if pd.notna(d_prod.get('grupo')) else grupos_opt[0]
+                            
+                            val_c = d_prod.get('valor_compra', d_prod.get('preco_custo', 10.0))
+                            p_custo_v = float(val_c) if pd.notna(val_c) else 10.0
+                            
+                            val_v = d_prod.get('valor_venda', d_prod.get('preco_venda', 20.0))
+                            p_venda_v = float(val_v) if pd.notna(val_v) else 20.0
+                            
+                            val_e = d_prod.get('estoque_atual', d_prod.get('quantidade', 0.0))
+                            p_est_v = float(val_e) if pd.notna(val_e) else 0.0
 
                 with st.form("form_cad_produto_completo"):
                     col1, col2 = st.columns(2)
@@ -1420,43 +1426,3 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
                 st.markdown("---")
                 st.dataframe(carregar_dados("SELECT * FROM produtos"), use_container_width=True)
-
-            # --- ABA 3: FORNECEDORES ---
-            with tab_forn:
-                st.subheader("Gerenciamento de Fornecedores")
-                df_forn_atual = carregar_dados("SELECT * FROM fornecedores") if not carregar_dados("SELECT * FROM fornecedores").empty else pd.DataFrame()
-                
-                with st.form("form_cad_fornecedor"):
-                    nome_forn = st.text_input("Nome do Fornecedor / Empresa")
-                    st.markdown("---")
-                    if st.form_submit_button("💾 Salvar Fornecedor", use_container_width=True):
-                        if nome_forn.strip():
-                            cursor = conn.cursor()
-                            try:
-                                cursor.execute("INSERT INTO fornecedores (fornecedor) VALUES (?)", (nome_forn.strip(),))
-                                conn.commit()
-                                st.success("Fornecedor cadastrado com sucesso!")
-                                st.rerun()
-                            except:
-                                st.error("Erro ao cadastrar fornecedor (já existe?).")
-                st.markdown("---")
-                st.dataframe(carregar_dados("SELECT * FROM fornecedores"), use_container_width=True)
-
-            # --- ABA 4: GRUPOS ---
-            with tab_grup:
-                st.subheader("Gerenciamento de Grupos / Categorias")
-                with st.form("form_cad_grupo"):
-                    nome_grupo = st.text_input("Nome do Grupo / Categoria")
-                    st.markdown("---")
-                    if st.form_submit_button("💾 Salvar Grupo", use_container_width=True):
-                        if nome_grupo.strip():
-                            cursor = conn.cursor()
-                            try:
-                                cursor.execute("INSERT INTO grupos (grupo) VALUES (?)", (nome_grupo.strip(),))
-                                conn.commit()
-                                st.success("Grupo cadastrado com sucesso!")
-                                st.rerun()
-                            except:
-                                st.error("Erro ao cadastrar grupo (já existe?).")
-                st.markdown("---")
-                st.dataframe(carregar_dados("SELECT * FROM grupos"), use_container_width=True)
