@@ -546,8 +546,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             grupo_sugerido = grupos_opt[0]
 
             if not df_p.empty:
-                cols_prod_lower = {c.lower(): c for c in df_p.columns}
-                col_nome_real = cols_prod_lower.get('nome') or df_p.columns[1]
+                # Normaliza as colunas do DataFrame para minúsculas para evitar erros de digitação
+                df_p.columns = [c.lower() for c in df_p.columns]
+                
+                # Identifica a coluna de nome do produto
+                col_nome_real = 'nome' if 'nome' in df_p.columns else df_p.columns[1]
                 
                 df_p['_nome_limpo'] = df_p[col_nome_real].astype(str).str.strip().str.upper()
                 target_nome = str(prod_item).strip().upper()
@@ -557,9 +560,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 if not df_filtrado_p.empty:
                     row_p = df_filtrado_p.iloc[0]
                     
-                    for col_v in df_p.columns:
-                        c_low = col_v.lower()
-                        if 'venda' in c_low or ('preço' in c_low and 'custo' not in c_low):
+                    # Busca direta e segura pelo preço de venda (valor_venda ou preco_venda)
+                    for col_v in ['valor_venda', 'preco_venda', 'venda']:
+                        if col_v in df_p.columns:
                             try:
                                 val_aux = float(row_p[col_v])
                                 if val_aux > 0:
@@ -568,15 +571,23 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             except:
                                 pass
                     
-                    for col_f in df_p.columns:
-                        if 'fornecedor' in col_f.lower():
-                            forn_sugerido = str(row_p[col_f])
-                            break
+                    # Se não achou pelas chaves exatas, procura qualquer coluna que contenha 'venda'
+                    if preco_sugerido == 0.0:
+                        for col_v in df_p.columns:
+                            if 'venda' in col_v and 'custo' not in col_v:
+                                try:
+                                    val_aux = float(row_p[col_v])
+                                    if val_aux > 0:
+                                        preco_sugerido = val_aux
+                                        break
+                                except:
+                                    pass
+
+                    if 'fornecedor' in df_p.columns:
+                        forn_sugerido = str(row_p['fornecedor'])
                             
-                    for col_g in df_p.columns:
-                        if 'grupo' in col_g.lower():
-                            grupo_sugerido = str(row_p[col_g])
-                            break
+                    if 'grupo' in df_p.columns:
+                        grupo_sugerido = str(row_p['grupo'])
 
             col_s1, col_s2 = st.columns(2)
             with col_s1:
@@ -588,7 +599,19 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
             with col_s2:
                 qtd_item = st.number_input("Quantidade", min_value=0.1, step=1.0, value=1.0, key="pdv_qtd")
-                v_unit_item = st.number_input("Preço de Venda (R$)", min_value=0.0, step=1.0, value=float(preco_sugerido), key=f"pdv_vunit_{prod_item}")
+                
+                # Gerenciamento de estado para forçar o preço sugerido no Number Input
+                key_vunit = f"pdv_vunit_{prod_item}"
+                if key_vunit not in st.session_state or st.session_state.get("pdv_produto_atual") != prod_item:
+                    st.session_state[key_vunit] = float(preco_sugerido)
+                    st.session_state["pdv_produto_atual"] = prod_item
+
+                v_unit_item = st.number_input(
+                    "Preço de Venda (R$)", 
+                    min_value=0.0, 
+                    step=1.0, 
+                    key=key_vunit
+                )
             
             valor_total_item = qtd_item * v_unit_item
             st.metric("Valor Total do Item", f"R$ {valor_total_item:.2f}")
