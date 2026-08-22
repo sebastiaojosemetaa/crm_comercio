@@ -557,10 +557,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 if not df_filtrado_p.empty:
                     row_p = df_filtrado_p.iloc[0]
                     
-                    # Procura coluna de preço de venda de forma inteligente
+                    # Busca exata e segura pelo preço de venda
                     for col_v in df_p.columns:
                         c_low = col_v.lower()
-                        if 'venda' in c_low or 'preco' in c_low:
+                        if c_low in ['valor_venda', 'preco_venda', 'preço venda (r$)'] or ('venda' in c_low and 'custo' not in c_low):
                             try:
                                 val_aux = float(row_p[col_v])
                                 if val_aux > 0:
@@ -569,13 +569,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             except:
                                 pass
                     
-                    # Procura fornecedor
                     for col_f in df_p.columns:
                         if 'fornecedor' in col_f.lower():
                             forn_sugerido = str(row_p[col_f])
                             break
                             
-                    # Procura grupo
                     for col_g in df_p.columns:
                         if 'grupo' in col_g.lower():
                             grupo_sugerido = str(row_p[col_g])
