@@ -1816,16 +1816,17 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         menu_admin = st.sidebar.radio(
             "Navegação",
             [
-                "🛒 PDV — Frente de Caixa",
-                "🔓 Abertura e Fechamento de Caixa",
-                "📊 Fechamento & Financeiro",
-                "📋 Pedidos / Orçamentos",
-                "🛒 Registrar Venda",
-                "📥 Entrada de Estoque (Compras)",
-                "📦 Estoque de Produtos",
-                "👥 Cadastros (Clientes / Fornecedores / Grupos)"
-            ]
-        )
+        "🛒 PDV — Frente de Caixa",
+        "🔓 Abertura e Fechamento de Caixa",
+        " Fechamento & Financeiro",
+        " Pedidos / Orçamentos",
+        " Registrar Venda",
+        " Entrada de Estoque (Compras)",
+        " Estoque de Produtos",
+        " Cadastros (Clientes / Fornecedores / Grupos)"
+    ],
+    key="menu_admin_navegacao_sidebar"
+)
         
         # --- LÓGICA: PDV — FRENTE DE CAIXA COM CARRINHO DE MÚLTIPLOS ITENS ---
         if menu_admin == "🛒 PDV — Frente de Caixa":
