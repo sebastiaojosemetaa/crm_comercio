@@ -1426,3 +1426,137 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
                 st.markdown("---")
                 st.dataframe(carregar_dados("SELECT * FROM produtos"), use_container_width=True)
+st.markdown("---")
+                st.dataframe(carregar_dados("SELECT * FROM produtos"), use_container_width=True)
+
+            # --- ABA 3: FORNECEDORES ---
+            with tab_forn:
+                st.subheader("Gerenciamento de Fornecedores")
+                df_forn_atual = carregar_dados("SELECT * FROM fornecedores")
+                
+                modo_forn = st.radio("Ação (Fornecedores):", ["➕ Cadastrar Novo Fornecedor", "✏️ Editar / Excluir Fornecedor Existente"], horizontal=True)
+                forn_id_sel = None
+                nome_forn_v = ""
+                
+                if modo_forn == "✏️ Editar / Excluir Fornecedor Existente" and not df_forn_atual.empty:
+                    col_id_f = 'id' if 'id' in df_forn_atual.columns else df_forn_atual.columns[0]
+                    col_nome_f = 'fornecedor' if 'fornecedor' in df_forn_atual.columns else df_forn_atual.columns[1]
+                    
+                    opcoes_forn = {f"{row[col_id_f]} - {row[col_nome_f]}": row[col_id_f] for _, row in df_forn_atual.iterrows() if pd.notna(row[col_nome_f])}
+                    if opcoes_forn:
+                        forn_escolhido = st.selectbox("Selecione o Fornecedor:", list(opcoes_forn.keys()))
+                        if forn_escolhido:
+                            forn_id_sel = opcoes_forn[forn_escolhido]
+                            d_forn = df_forn_atual[df_forn_atual[col_id_f] == forn_id_sel].iloc[0]
+                            nome_forn_v = str(d_forn.get(col_nome_f, ''))
+
+                with st.form("form_cad_fornecedor_completo"):
+                    nome_forn = st.text_input("Nome do Fornecedor / Empresa", value=nome_forn_v)
+                    
+                    st.markdown("---")
+                    bf1, bf2, bf3 = st.columns(3)
+                    s_forn = bf1.form_submit_button("💾 Salvar Fornecedor", use_container_width=True)
+                    e_forn = bf2.form_submit_button("✏️ Salvar Alterações", use_container_width=True)
+                    d_forn_btn = bf3.form_submit_button("🗑️ Excluir Fornecedor", use_container_width=True)
+                    
+                    if s_forn:
+                        if nome_forn.strip():
+                            cursor = conn.cursor()
+                            try:
+                                cursor.execute("INSERT INTO fornecedores (fornecedor) VALUES (?)", (nome_forn.strip(),))
+                                conn.commit()
+                                st.success("Fornecedor cadastrado com sucesso!")
+                                st.rerun()
+                            except:
+                                st.error("Erro ao cadastrar fornecedor (já existe?).")
+                        else:
+                            st.warning("Preencha o nome do fornecedor.")
+                            
+                    if e_forn:
+                        if forn_id_sel and nome_forn.strip():
+                            cursor = conn.cursor()
+                            cursor.execute("UPDATE fornecedores SET fornecedor = ? WHERE id = ?", (nome_forn.strip(), forn_id_sel))
+                            conn.commit()
+                            st.success("Fornecedor atualizado com sucesso!")
+                            st.rerun()
+                        else:
+                            st.warning("Selecione um fornecedor válido para editar.")
+                            
+                    if d_forn_btn:
+                        if forn_id_sel:
+                            cursor = conn.cursor()
+                            cursor.execute("DELETE FROM fornecedores WHERE id = ?", (forn_id_sel,))
+                            conn.commit()
+                            st.warning("Fornecedor excluído com sucesso!")
+                            st.rerun()
+                        else:
+                            st.warning("Nenhum fornecedor selecionado.")
+
+                st.markdown("---")
+                st.dataframe(carregar_dados("SELECT * FROM fornecedores"), use_container_width=True)
+
+            # --- ABA 4: GRUPOS ---
+            with tab_grup:
+                st.subheader("Gerenciamento de Grupos / Categorias")
+                df_grup_atual = carregar_dados("SELECT * FROM grupos")
+                
+                modo_grup = st.radio("Ação (Grupos):", ["➕ Cadastrar Novo Grupo", "✏️ Editar / Excluir Grupo Existente"], horizontal=True)
+                grup_id_sel = None
+                nome_grup_v = ""
+                
+                if modo_grup == "✏️ Editar / Excluir Grupo Existente" and not df_grup_atual.empty:
+                    col_id_g = 'id' if 'id' in df_grup_atual.columns else df_grup_atual.columns[0]
+                    col_nome_g = 'grupo' if 'grupo' in df_grup_atual.columns else df_grup_atual.columns[1]
+                    
+                    opcoes_grup = {f"{row[col_id_g]} - {row[col_nome_g]}": row[col_id_g] for _, row in df_grup_atual.iterrows() if pd.notna(row[col_nome_g])}
+                    if opcoes_grup:
+                        grup_escolhido = st.selectbox("Selecione o Grupo:", list(opcoes_grup.keys()))
+                        if grup_escolhido:
+                            grup_id_sel = opcoes_grup[grup_escolhido]
+                            d_grup = df_grup_atual[df_grup_atual[col_id_g] == grup_id_sel].iloc[0]
+                            nome_grup_v = str(d_grup.get(col_nome_g, ''))
+
+                with st.form("form_cad_grupo_completo"):
+                    nome_grupo = st.text_input("Nome do Grupo / Categoria", value=nome_grup_v)
+                    
+                    st.markdown("---")
+                    bg1, bg2, bg3 = st.columns(3)
+                    s_grup = bg1.form_submit_button("💾 Salvar Grupo", use_container_width=True)
+                    e_grup = bg2.form_submit_button("✏️ Salvar Alterações", use_container_width=True)
+                    d_grup_btn = bg3.form_submit_button("🗑️ Excluir Grupo", use_container_width=True)
+                    
+                    if s_grup:
+                        if nome_grupo.strip():
+                            cursor = conn.cursor()
+                            try:
+                                cursor.execute("INSERT INTO grupos (grupo) VALUES (?)", (nome_grupo.strip(),))
+                                conn.commit()
+                                st.success("Grupo cadastrado com sucesso!")
+                                st.rerun()
+                            except:
+                                st.error("Erro ao cadastrar grupo (já existe?).")
+                        else:
+                            st.warning("Preencha o nome do grupo.")
+                            
+                    if e_grup:
+                        if grup_id_sel and nome_grupo.strip():
+                            cursor = conn.cursor()
+                            cursor.execute("UPDATE grupos SET grupo = ? WHERE id = ?", (nome_grupo.strip(), grup_id_sel))
+                            conn.commit()
+                            st.success("Grupo atualizado com sucesso!")
+                            st.rerun()
+                        else:
+                            st.warning("Selecione um grupo válido para editar.")
+                            
+                    if d_grup_btn:
+                        if grup_id_sel:
+                            cursor = conn.cursor()
+                            cursor.execute("DELETE FROM grupos WHERE id = ?", (grup_id_sel,))
+                            conn.commit()
+                            st.warning("Grupo excluído com sucesso!")
+                            st.rerun()
+                        else:
+                            st.warning("Nenhum grupo selecionado.")
+
+                st.markdown("---")
+                st.dataframe(carregar_dados("SELECT * FROM grupos"), use_container_width=True)
