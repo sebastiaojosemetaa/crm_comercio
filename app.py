@@ -1347,8 +1347,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 st.rerun()
                             except Exception as ex:
                                 st.error(f"Erro ao salvar no banco: {ex}")
-                        else:
-                            st.warning("Preencha o nome do cliente.")
+                            else:
+                                st.warning("Preencha o nome do cliente.")
                     if excluir_clicado:
                         if cli_id_selecionado:
                             cursor = conn.cursor()
