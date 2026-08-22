@@ -530,9 +530,19 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.warning("⚠️ Atenção: Não há nenhum caixa aberto no momento. Vá em '🔓 Abertura e Fechamento de Caixa' para abrir o caixa antes de registrar vendas.")
             
             clientes_opt = carregar_coluna("clientes", "nome") or ["Carlos Alberto"]
-            produtos_opt = carregar_coluna("produtos", "nome") or ["AMEIXA IMPORTADA", "ABACATE"]
             fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
             grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
+
+            # BUSCA DIRETA E COMPLETA DE TODOS OS PRODUTOS DITO DA TABELA
+            df_p = carregar_dados("SELECT * FROM produtos")
+            
+            if not df_p.empty:
+                df_p.columns = [c.lower() for c in df_p.columns]
+                # Acha a coluna de nome do produto independentemente de como foi nomeada
+                col_nome_p = 'produto' if 'produto' in df_p.columns else ('nome' if 'nome' in df_p.columns else df_p.columns[1])
+                produtos_opt = df_p[col_nome_p].dropna().astype(str).str.strip().unique().tolist()
+            else:
+                produtos_opt = ["AMEIXA IMPORTADA", "ABACATE"]
 
             cliente_pdv = st.selectbox("Selecione o Cliente do Atendimento", clientes_opt)
 
@@ -540,19 +550,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
             prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto")
 
-            df_p = carregar_dados("SELECT * FROM produtos")
             preco_sugerido = 0.0
             forn_sugerido = fornecedores_opt[0]
             grupo_sugerido = grupos_opt[0]
 
             if not df_p.empty:
-                # Normaliza as colunas do DataFrame para minúsculas para evitar erros de digitação
-                df_p.columns = [c.lower() for c in df_p.columns]
-                
-                # Identifica a coluna de nome do produto
-                col_nome_real = 'nome' if 'nome' in df_p.columns else df_p.columns[1]
-                
-                df_p['_nome_limpo'] = df_p[col_nome_real].astype(str).str.strip().str.upper()
+                # Filtra o produto selecionado ignorando diferenças de maiúsculas/minúsculas
+                df_p['_nome_limpo'] = df_p[col_nome_p].astype(str).str.strip().str.upper()
                 target_nome = str(prod_item).strip().upper()
                 
                 df_filtrado_p = df_p[df_p['_nome_limpo'] == target_nome]
@@ -560,7 +564,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 if not df_filtrado_p.empty:
                     row_p = df_filtrado_p.iloc[0]
                     
-                    # Busca direta e segura pelo preço de venda (valor_venda ou preco_venda)
+                    # Varre procurando o preço de venda de forma exata
                     for col_v in ['valor_venda', 'preco_venda', 'venda']:
                         if col_v in df_p.columns:
                             try:
@@ -570,23 +574,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     break
                             except:
                                 pass
-                    
-                    # Se não achou pelas chaves exatas, procura qualquer coluna que contenha 'venda'
-                    if preco_sugerido == 0.0:
-                        for col_v in df_p.columns:
-                            if 'venda' in col_v and 'custo' not in col_v:
-                                try:
-                                    val_aux = float(row_p[col_v])
-                                    if val_aux > 0:
-                                        preco_sugerido = val_aux
-                                        break
-                                except:
-                                    pass
 
-                    if 'fornecedor' in df_p.columns:
+                    if 'fornecedor' in df_p.columns and pd.notna(row_p['fornecedor']):
                         forn_sugerido = str(row_p['fornecedor'])
                             
-                    if 'grupo' in df_p.columns:
+                    if 'grupo' in df_p.columns and pd.notna(row_p['grupo']):
                         grupo_sugerido = str(row_p['grupo'])
 
             col_s1, col_s2 = st.columns(2)
@@ -600,23 +592,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             with col_s2:
                 qtd_item = st.number_input("Quantidade", min_value=0.1, step=1.0, value=1.0, key="pdv_qtd")
                 
-                # Chave única para o preço unitário baseada no produto selecionado
-                key_vunit = f"pdv_vunit_{prod_item}"
-                
-                # Força a atualização do session_state sempre que o produto mudar ou o preço for encontrado
-                if key_vunit not in st.session_state or st.session_state.get("pdv_produto_anterior") != prod_item:
-                    st.session_state[key_vunit] = float(preco_sugerido)
-                    st.session_state["pdv_produto_anterior"] = prod_item
-                else:
-                    # Garante que se o session_state estiver zerado, ele assume o preço sugerido encontrado
-                    if st.session_state[key_vunit] == 0.0 and preco_sugerido > 0.0:
-                        st.session_state[key_vunit] = float(preco_sugerido)
-
+                # Atualiza dinamicamente o preço unitário baseado no produto selecionado
                 v_unit_item = st.number_input(
                     "Preço de Venda (R$)", 
                     min_value=0.0, 
                     step=1.0, 
-                    key=key_vunit
+                    value=float(preco_sugerido),
+                    key=f"vunit_{prod_item}"
                 )
             
             valor_total_item = qtd_item * v_unit_item
