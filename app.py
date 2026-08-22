@@ -1426,7 +1426,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
                 st.markdown("---")
                 st.dataframe(carregar_dados("SELECT * FROM produtos"), use_container_width=True)
-st.markdown("---")
+                st.markdown("---")
                 st.dataframe(carregar_dados("SELECT * FROM produtos"), use_container_width=True)
 
             # --- ABA 3: FORNECEDORES ---
