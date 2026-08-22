@@ -1159,16 +1159,34 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             st.title("📦 Estoque de Produtos e Preços")
             df_prods = carregar_dados("SELECT * FROM produtos")            
             if not df_prods.empty:
+                # UNIFICAÇÃO DAS COLUNAS ANTIGAS E NOVAS
+                if 'nome' not in df_prods.columns and 'produto' in df_prods.columns:
+                    df_prods['nome'] = df_prods['produto']
+                elif 'produto' not in df_prods.columns and 'nome' in df_prods.columns:
+                    df_prods['produto'] = df_prods['nome']
+                else:
+                    # Se ambas existem, preenche os vazios de 'nome' com 'produto' e vice-versa
+                    df_prods['nome'] = df_prods['nome'].fillna(df_prods.get('produto', ''))
+                    df_prods['produto'] = df_prods['produto'].fillna(df_prods['nome'])
+
+                if 'estoque_atual' not in df_prods.columns and 'quantidade' in df_prods.columns:
+                    df_prods['estoque_atual'] = df_prods['quantidade']
+                elif 'quantidade' not in df_prods.columns and 'estoque_atual' in df_prods.columns:
+                    df_prods['quantidade'] = df_prods['estoque_atual']
+                else:
+                    df_prods['estoque_atual'] = df_prods['estoque_atual'].fillna(df_prods.get('quantidade', 0))
+                    df_prods['quantidade'] = df_prods['quantidade'].fillna(df_prods['estoque_atual'])
+
                 cols_atuais = df_prods.columns.tolist()
                 
                 col_id = 'id' if 'id' in cols_atuais else cols_atuais[0]
-                col_nome = 'nome' if 'nome' in cols_atuais else (cols_atuais[1] if len(cols_atuais) > 1 else col_id)
+                col_nome = 'nome' if 'nome' in cols_atuais else 'produto'
                 col_forn = 'fornecedor' if 'fornecedor' in cols_atuais else None
                 col_grupo = 'grupo' if 'grupo' in cols_atuais else None
                 
-                col_pcusto = 'valor_compra' if 'valor_compra' in cols_atuais else ('preco_custo' if 'preco_custo' in cols_atuais else ('preco_compra' if 'preco_compra' in cols_atuais else None))
-                col_pvenda = 'valor_venda' if 'valor_venda' in cols_atuais else ('preco_venda' if 'preco_venda' in cols_atuais else None)
-                col_estoque = 'estoque_atual' if 'estoque_atual' in cols_atuais else ('quantidade' if 'quantidade' in cols_atuais else None)
+                col_pcusto = 'valor_compra' if 'valor_compra' in cols_atuais else ('preco_custo' if 'preco_custo' in cols_atuais else 'preco_compra')
+                col_pvenda = 'valor_venda' if 'valor_venda' in cols_atuais else 'preco_venda'
+                col_estoque = 'estoque_atual' if 'estoque_atual' in cols_atuais else 'quantidade'
 
                 col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
                 total_itens = df_prods[col_estoque].sum() if col_estoque and col_estoque in df_prods.columns else 0.0
@@ -1194,23 +1212,26 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 if grupo_filtro != "TODOS" and col_grupo and col_grupo in df_exibir.columns:
                     df_exibir = df_exibir[df_exibir[col_grupo] == grupo_filtro]
                 
-                st.caption("💡 **Dica:** Altere preços, estoques, fornecedores ou nomes diretamente na tabela e clique em **Salvar Alterações do Estoque**.")
+                # Mantém apenas as colunas principais limpas para exibição
+                colunas_mostrar = ['Deletar', col_id, col_nome, 'fornecedor', 'grupo', 'valor_compra', 'valor_venda', 'estoque_atual']
+                colunas_existentes_exibir = [c for c in colunas_mostrar if c in df_exibir.columns or c == 'Deletar']
                 
-                df_exibir.insert(0, "Deletar", False)
-                
+                if 'Deletar' not in df_exibir.columns:
+                    df_exibir.insert(0, "Deletar", False)
+
                 config_colunas = {
                     "Deletar": st.column_config.CheckboxColumn("Deletar", help="Marque para excluir o produto"),
                     col_id: st.column_config.NumberColumn("ID", disabled=True),
+                    col_nome: st.column_config.TextColumn("Nome do Produto"),
+                    "fornecedor": st.column_config.TextColumn("Fornecedor"),
+                    "grupo": st.column_config.TextColumn("Grupo"),
+                    "valor_compra": st.column_config.NumberColumn("Preço Custo (R$)", min_value=0.0, format="R$ %.2f"),
+                    "valor_venda": st.column_config.NumberColumn("Preço Venda (R$)", min_value=0.0, format="R$ %.2f"),
+                    "estoque_atual": st.column_config.NumberColumn("Qtd Estoque", min_value=0.0, format="%.2f")
                 }
-                if col_nome: config_colunas[col_nome] = st.column_config.TextColumn("Nome do Produto")
-                if col_forn: config_colunas[col_forn] = st.column_config.TextColumn("Fornecedor")
-                if col_grupo: config_colunas[col_grupo] = st.column_config.TextColumn("Grupo")
-                if col_pcusto: config_colunas[col_pcusto] = st.column_config.NumberColumn("Preço Custo (R$)", min_value=0.0, format="R$ %.2f")
-                if col_pvenda: config_colunas[col_pvenda] = st.column_config.NumberColumn("Preço Venda (R$)", min_value=0.0, format="R$ %.2f")
-                if col_estoque: config_colunas[col_estoque] = st.column_config.NumberColumn("Qtd Estoque", min_value=0.0, format="%.2f")
 
                 df_editado_prod = st.data_editor(
-                    df_exibir,
+                    df_exibir[[c for c in colunas_existentes_exibir if c in df_exibir.columns]],
                     key="editor_produtos_estoque_dinamico",
                     use_container_width=True,
                     num_rows="fixed",
@@ -1225,41 +1246,19 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         cursor = conn.cursor()
                         for _, row in df_editado_prod.iterrows():
                             if not row["Deletar"]:
-                                val_n = str(row[col_nome]).strip() if col_nome else ""
-                                val_f = str(row[col_forn]).strip() if col_forn and col_forn in row else ("" if not col_forn else str(row[col_forn]))
-                                val_g = str(row[col_grupo]).strip() if col_grupo and col_grupo in row else ("" if not col_grupo else str(row[col_grupo]))
-                                val_pc = float(row[col_pcusto]) if col_pcusto and col_pcusto in row else 0.0
-                                val_pv = float(row[col_pvenda]) if col_pvenda and col_pvenda in row else 0.0
-                                val_est = float(row[col_estoque]) if col_estoque and col_estoque in row else 0.0
+                                val_n = str(row[col_nome]).strip() if col_nome in row else ""
+                                val_f = str(row['fornecedor']).strip() if 'fornecedor' in row and pd.notna(row['fornecedor']) else ""
+                                val_g = str(row['grupo']).strip() if 'grupo' in row and pd.notna(row['grupo']) else ""
+                                val_pc = float(row['valor_compra']) if 'valor_compra' in row and pd.notna(row['valor_compra']) else 0.0
+                                val_pv = float(row['valor_venda']) if 'valor_venda' in row and pd.notna(row['valor_venda']) else 0.0
+                                val_est = float(row['estoque_atual']) if 'estoque_atual' in row and pd.notna(row['estoque_atual']) else 0.0
                                 rid = int(row[col_id])
 
-                                sql_update = "UPDATE produtos SET "
-                                partes_update = []
-                                valores = []
-                                
-                                if col_nome:
-                                    partes_update.append(f"{col_nome} = ?")
-                                    valores.append(val_n)
-                                if col_forn:
-                                    partes_update.append(f"{col_forn} = ?")
-                                    valores.append(val_f)
-                                if col_grupo:
-                                    partes_update.append(f"{col_grupo} = ?")
-                                    valores.append(val_g)
-                                if col_pcusto:
-                                    partes_update.append(f"{col_pcusto} = ?")
-                                    valores.append(val_pc)
-                                if col_pvenda:
-                                    partes_update.append(f"{col_pvenda} = ?")
-                                    valores.append(val_pv)
-                                if col_estoque:
-                                    partes_update.append(f"{col_estoque} = ?")
-                                    valores.append(val_est)
-                                    
-                                sql_update += ", ".join(partes_update) + f" WHERE {col_id} = ?"
-                                valores.append(rid)
-                                
-                                cursor.execute(sql_update, tuple(valores))
+                                cursor.execute("""
+                                    UPDATE produtos 
+                                    SET nome = ?, produto = ?, fornecedor = ?, grupo = ?, valor_compra = ?, valor_venda = ?, estoque_atual = ?, quantidade = ?
+                                    WHERE id = ?
+                                """, (val_n, val_n, val_f, val_g, val_pc, val_pv, val_est, val_est, rid))
                         
                         conn.commit()
                         st.success("Dados do estoque atualizados com sucesso!")
