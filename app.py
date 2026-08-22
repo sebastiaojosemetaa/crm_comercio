@@ -1849,12 +1849,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
     
     # ... (demais linhas do PDV)
             
-            clientes_opt = carregar_coluna("clientes", "nome") or ["Carlos Alberto"]
-            produtos_opt = carregar_coluna("produtos", "nome") or ["AMEIXA IMPORTADA", "ABACATE"]
-            fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
-            grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
+        clientes_opt = carregar_coluna("clientes", "nome") or ["Carlos Alberto"]
+        produtos_opt = carregar_coluna("produtos", "nome") or ["AMEIXA IMPORTADA", "ABACATE"]
+        fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
+        grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
 
-            cliente_pdv = st.selectbox("Selecione o Cliente do Atendimento", clientes_opt)
+        cliente_pdv = st.selectbox("Selecione o Cliente do Atendimento", clientes_opt)
 
             st.markdown("#### + Adicionar Item ao Carrinho")
             
