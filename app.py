@@ -1828,13 +1828,15 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
     key="menu_admin_navegacao_sidebar"
 )
         
-        # --- LÓGICA: PDV — FRENTE DE CAIXA COM CARRINHO DE MÚLTIPLOS ITENS ---
         if menu_admin == "🛒 PDV — Frente de Caixa":
-            st.title("🛒 PDV — Frente de Caixa (Múltiplos Produtos)")
-            
-            df_caixa_aberto = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
-            if df_caixa_aberto.empty:
-                st.warning("⚠️ Atenção: Não há nenhum caixa aberto no momento. Vá em '🔓 Abertura e Fechamento de Caixa' para abrir o caixa antes de registrar vendas.")
+    st.title("🛒 PDV — Frente de Caixa (Múltiplos Produtos)")
+    
+    # Todo o restante do código do PDV deve ficar recuado (com 4 espaços) aqui dentro:
+    df_caixa_aberto = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
+    if df_caixa_aberto.empty:
+        st.warning("⚠️ Atenção: Não há nenhum caixa aberto no momento...")
+    
+    # ... (demais linhas do PDV)
             
             clientes_opt = carregar_coluna("clientes", "nome") or ["Carlos Alberto"]
             produtos_opt = carregar_coluna("produtos", "nome") or ["AMEIXA IMPORTADA", "ABACATE"]
