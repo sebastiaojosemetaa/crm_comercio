@@ -579,7 +579,8 @@ if perfil_selecionado == "👤 Portal do Cliente":
             else:
                 # Caso nenhuma das opções acima exista, exibe a tabela tratada diretamente em HTML formatado para impressão/PDF do navegador
                 st.info("Para salvar o PDF idêntico, você também pode usar o botão de impressão do navegador (Ctrl+P) com a tabela aberta.")
-        
+        else:
+            st.info(f"Nenhum pedido encontrado para '{st.session_state.cliente_autenticado}'.")
 # ==========================================
 # AMBIENTE 2: ADMINISTRADOR / VENDEDOR
 # ==========================================
