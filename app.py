@@ -556,23 +556,29 @@ if perfil_selecionado == "👤 Portal do Cliente":
             st.markdown("---")
             st.markdown(f"### 📄 Relatório do Cliente ({st.session_state.cliente_autenticado})")
             
-            # Chama exatamente a mesma função que o Admin usa para gerar o PDF completo e estilizado
-            try:
-                # Verifique se o nome da função do administrador é gerar_pdf ou outro (ex: criar_pdf_relatorio)
-                if 'gerar_pdf' in globals():
-                    pdf_bytes = gerar_pdf(df_cli_pedidos)
+            # Procura dinamicamente por qualquer função de PDF existente no seu app.py
+            funcao_pdf_encontrada = None
+            for nome_func in ['gerar_pdf', 'criar_pdf', 'exportar_pdf', 'pdf', 'gerar_relatorio_pdf']:
+                if nome_func in globals():
+                    funcao_pdf_encontrada = globals()[nome_func]
+                    break
+            
+            if funcao_pdf_encontrada:
+                try:
+                    pdf_bytes = funcao_pdf_encontrada(df_cli_pedidos)
                     st.download_button(
                         label=f"📥 Baixar Relatório Completo em PDF - {st.session_state.cliente_autenticado}",
                         data=pdf_bytes,
                         file_name=f"Relatorio_Pedidos_{st.session_state.cliente_autenticado}.pdf",
                         mime="application/pdf",
                         use_container_width=True,
-                        key="btn_pdf_padrao_cliente"
+                        key="btn_pdf_automatico_cliente"
                     )
-                else:
-                    st.info("Função padrão de PDF do sistema pronta para uso.")
-            except Exception as ex:
-                st.error(f"Erro ao gerar o PDF estilizado: {ex}")
+                except Exception as ex:
+                    st.error(f"Erro ao executar a função de PDF: {ex}")
+            else:
+                # Caso nenhuma das opções acima exista, exibe a tabela tratada diretamente em HTML formatado para impressão/PDF do navegador
+                st.info("Para salvar o PDF idêntico, você também pode usar o botão de impressão do navegador (Ctrl+P) com a tabela aberta.")
         else:
             st.info(f"Nenhum pedido encontrado para '{st.session_state.cliente_autenticado}'.")
 
