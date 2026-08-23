@@ -495,9 +495,9 @@ if perfil_selecionado == "👤 Portal do Cliente":
                     st.success("Pedido registrado com sucesso!")
                     st.rerun()
 
-        with aba_historico:
-            st.subheader(f"Meus Pedidos e Orçamentos ({cliente_logado})")
-            df_cli_pedidos = carregar_dados(f"SELECT * FROM pedidos WHERE cliente = '{cliente_logado}'")
+            with aba_historico:
+                st.subheader(f"Meus Pedidos e Orçamentos ({cliente_logado})")
+                df_cli_pedidos = carregar_dados(f"SELECT * FROM pedidos WHERE cliente = '{cliente_logado}'")
             
             if not df_cli_pedidos.empty:
                 df_edit_cli = df_cli_pedidos.copy()
