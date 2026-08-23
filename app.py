@@ -556,29 +556,80 @@ if perfil_selecionado == "👤 Portal do Cliente":
             st.markdown("---")
             st.markdown(f"### 📄 Relatório do Cliente ({st.session_state.cliente_autenticado})")
             
-            # Procura dinamicamente por qualquer função de PDF existente no seu app.py
-            funcao_pdf_encontrada = None
-            for nome_func in ['gerar_pdf', 'criar_pdf', 'exportar_pdf', 'pdf', 'gerar_relatorio_pdf']:
-                if nome_func in globals():
-                    funcao_pdf_encontrada = globals()[nome_func]
-                    break
-            
-            if funcao_pdf_encontrada:
-                try:
-                    pdf_bytes = funcao_pdf_encontrada(df_cli_pedidos)
-                    st.download_button(
-                        label=f"📥 Baixar Relatório Completo em PDF - {st.session_state.cliente_autenticado}",
-                        data=pdf_bytes,
-                        file_name=f"Relatorio_Pedidos_{st.session_state.cliente_autenticado}.pdf",
-                        mime="application/pdf",
-                        use_container_width=True,
-                        key="btn_pdf_automatico_cliente"
-                    )
-                except Exception as ex:
-                    st.error(f"Erro ao executar a função de PDF: {ex}")
-            else:
-                # Caso nenhuma das opções acima exista, exibe a tabela tratada diretamente em HTML formatado para impressão/PDF do navegador
-                st.info("Para salvar o PDF idêntico, você também pode usar o botão de impressão do navegador (Ctrl+P) com a tabela aberta.")
+            # Geração do PDF Corporativo idêntico ao do Administrador
+            import io
+            from reportlab.lib.pagesizes import letter
+            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+            from reportlab.lib import colors
+
+            def gerar_pdf_corporativo_cliente(df_dados, cliente_nome):
+                buffer = io.BytesIO()
+                doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+                elementos = []
+                styles = getSampleStyleSheet()
+                
+                # Cabeçalho
+                estilo_titulo = ParagraphStyle('TituloEmpresa', parent=styles['Heading1'], fontName='Helvetica-Bold', fontSize=18, alignment=1, textColor=colors.HexColor('#003366'))
+                estilo_sub = ParagraphStyle('SubEmpresa', parent=styles['Normal'], fontName='Helvetica', fontSize=9, alignment=1, textColor=colors.HexColor('#333333'))
+                
+                elementos.append(Paragraph("<b>REY DA CEBOLA</b>", estilo_titulo))
+                elementos.append(Paragraph("CNPJ: 194.174.39/000-42 INSC.EST.: 12.426725-4", estilo_sub))
+                elementos.append(Paragraph("CONTATO: (99) 98814-9722 OU (99) 98414-3943", estilo_sub))
+                elementos.append(Spacer(1, 15))
+                
+                estilo_rel = ParagraphStyle('RelTitulo', parent=styles['Heading2'], fontName='Helvetica-Bold', fontSize=12, alignment=1, textColor=colors.HexColor('#003366'))
+                elementos.append(Paragraph(f"<b>Relatório de Pedidos / Orçamentos - {cliente_nome}</b>", estilo_rel))
+                elementos.append(Spacer(1, 10))
+                
+                # Montagem da Tabela
+                dados_tabela = [["Produto", "Qtd Total", "Preço Unitário (R$)", "Valor Total (R$)"]]
+                
+                total_geral = 0.0
+                for _, row in df_dados.iterrows():
+                    prod = str(row.get('produto', ''))
+                    qtd = float(row.get('quantidade', 0))
+                    v_unit = float(row.get('valor_venda', row.get('valor_unitario', 0)))
+                    v_tot = qtd * v_unit
+                    total_geral += v_tot
+                    
+                    dados_tabela.append([prod, f"{qtd:.2f}", f"R$ {v_unit:.2f}", f"R$ {v_tot:.2f}"])
+                
+                # Linha de Total Geral
+                dados_tabela.append(["VALOR TOTAL GERAL", "", "", f"R$ {total_geral:.2f}"])
+                
+                tabela = Table(dados_tabela, colWidths=[200, 80, 110, 110])
+                tabela.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2E5BFF')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 10),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+                    ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#002060')),
+                    ('TEXTCOLOR', (0, -1), (-1, -1), colors.whitesmoke),
+                    ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ]))
+                
+                elementos.append(tabela)
+                doc.build(elementos)
+                buffer.seek(0)
+                return buffer.getvalue()
+
+            try:
+                pdf_bytes = gerar_pdf_corporativo_cliente(df_cli_pedidos, st.session_state.cliente_autenticado)
+                st.download_button(
+                    label=f"📥 Baixar Relatório em PDF Corporativo - {st.session_state.cliente_autenticado}",
+                    data=pdf_bytes,
+                    file_name=f"Relatorio_Pedidos_{st.session_state.cliente_autenticado}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                    key="btn_baixar_pdf_corporativo_cliente"
+                )
+            except Exception as e:
+                st.error(f"Erro ao gerar o PDF corporativo: {e}")
         else:
             st.info(f"Nenhum pedido encontrado para '{st.session_state.cliente_autenticado}'.")
 # ==========================================
