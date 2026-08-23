@@ -554,7 +554,18 @@ if perfil_selecionado == "👤 Portal do Cliente":
                         st.info("Marque a caixa 'Deletar' nos itens que deseja remover.")
 
             st.markdown("---")
-            st.markdown(f"### 📄 Relatório do Cliente ({st.session_state.cliente_autenticado})")
+            st.markdown(f"### 📄 Relatório e Exportação ({st.session_state.cliente_autenticado})")
+            
+            # Converte os dados do cliente para CSV para garantir o download imediato
+            csv_data = df_cli_pedidos.to_csv(index=False).encode('utf-8')
+            
+            st.download_button(
+                label=f"📥 Baixar Relatório em CSV/Excel - {st.session_state.cliente_autenticado}",
+                data=csv_data,
+                file_name=f"relatorio_pedidos_{st.session_state.cliente_autenticado}.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
             
             # Botão de PDF utilizando a função de exportação existente no app
             if 'gerar_pdf_cliente' in globals() or 'gerar_pdf' in globals():
