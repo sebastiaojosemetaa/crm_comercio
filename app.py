@@ -496,7 +496,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                     st.rerun()
 
             with aba_historico:
-            st.subheader(f"Meus Pedidos e Orçamentos ({st.session_state.cliente_autenticado})")
+                st.subheader(f"Meus Pedidos e Orçamentos ({st.session_state.cliente_autenticado})")
             df_cli_pedidos = carregar_dados(f"SELECT * FROM pedidos WHERE cliente = '{st.session_state.cliente_autenticado}'")
             
             if not df_cli_pedidos.empty:
