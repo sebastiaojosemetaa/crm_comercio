@@ -556,25 +556,43 @@ if perfil_selecionado == "👤 Portal do Cliente":
             st.markdown("---")
             st.markdown(f"### 📄 Relatório do Cliente ({st.session_state.cliente_autenticado})")
             
-            # Tenta gerar o PDF usando a função exata que o administrador usa no painel
+            import io
+            from reportlab.lib.pagesizes import letter
+            from reportlab.pdfgen import canvas
+
+            def gerar_pdf_simples(df):
+                buffer = io.BytesIO()
+                p = canvas.Canvas(buffer, pagesize=letter)
+                width, height = letter
+                
+                p.drawString(50, height - 50, f"Relatorio de Pedidos - {st.session_state.cliente_autenticado}")
+                p.drawString(50, height - 70, "-" * 80)
+                
+                y = height - 100
+                for index, row in df.iterrows():
+                    if y < 50:
+                        p.showPage()
+                        y = height - 50
+                    linha_texto = f"Produto: {row.get('produto', '')} | Qtd: {row.get('quantidade', '')} | Total: R$ {row.get('valor_total', '')}"
+                    p.drawString(50, y, linha_texto)
+                    y -= 20
+                    
+                p.save()
+                buffer.seek(0)
+                return buffer.getvalue()
+
             try:
-                # Procura pela função de PDF no escopo global do projeto
-                func_pdf = globals().get('gerar_pdf') or globals().get('exportar_pdf') or globals().get('criar_pdf')
-                if func_pdf:
-                    pdf_data = func_pdf(df_cli_pedidos)
-                    st.download_button(
-                        label=f"📥 Baixar Relatório em PDF - {st.session_state.cliente_autenticado}",
-                        data=pdf_data,
-                        file_name=f"relatorio_pedidos_{st.session_state.cliente_autenticado}.pdf",
-                        mime="application/pdf",
-                        use_container_width=True,
-                        key="btn_pdf_cliente_gerado"
-                    )
-                else:
-                    # Alternativa caso a função tenha outro nome específico no seu código
-                    st.warning("Função de geração de PDF não encontrada no escopo. Verifique o nome da função no painel do administrador.")
-            except Exception as e:
-                st.error(f"Erro ao gerar o PDF: {e}")
+                pdf_bytes = gerar_pdf_simples(df_cli_pedidos)
+                st.download_button(
+                    label=f"📥 Baixar Relatório em PDF - {st.session_state.cliente_autenticado}",
+                    data=pdf_bytes,
+                    file_name=f"relatorio_{st.session_state.cliente_autenticado}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                    key="btn_baixar_pdf_direto"
+                )
+            except Exception as ex:
+                st.error(f"Erro ao gerar PDF: {ex}")
         else:
             st.info(f"Nenhum pedido encontrado para '{st.session_state.cliente_autenticado}'.")
 
