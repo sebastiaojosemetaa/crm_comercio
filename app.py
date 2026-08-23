@@ -497,7 +497,13 @@ if perfil_selecionado == "👤 Portal do Cliente":
 
             with aba_historico:
                 st.subheader(f"Meus Pedidos e Orçamentos ({st.session_state.cliente_autenticado})")
+            
+            # Tenta carregar os pedidos buscando pelo nome exato ou semelhante
             df_cli_pedidos = carregar_dados(f"SELECT * FROM pedidos WHERE cliente = '{st.session_state.cliente_autenticado}'")
+            if df_cli_pedidos.empty:
+                df_cli_pedidos = carregar_dados("SELECT * FROM pedidos")
+                if not df_cli_pedidos.empty and 'cliente' in df_cli_pedidos.columns:
+                    df_cli_pedidos = df_cli_pedidos[df_cli_pedidos['cliente'].astype(str).str.strip().str.lower() == str(st.session_state.cliente_autenticado).strip().lower()]
             
             if not df_cli_pedidos.empty:
                 df_edit_cli = df_cli_pedidos.copy()
@@ -518,16 +524,15 @@ if perfil_selecionado == "👤 Portal do Cliente":
                         try:
                             cursor = conn.cursor()
                             for index, row in df_atualizado_cliente.iterrows():
+                                qtd = float(row.get('quantidade', 1))
+                                v_unit = float(row.get('valor_venda', row.get('valor_unitario', 0)))
+                                v_total = qtd * v_unit
+                                
                                 cursor.execute("""
                                     UPDATE pedidos 
-                                    SET quantidade = ?, valor_venda = ?, valor_total = ? 
+                                    SET quantidade = ?, valor_total = ? 
                                     WHERE id = ?
-                                """, (
-                                    row.get('quantidade', 1), 
-                                    row.get('valor_venda', 0), 
-                                    float(row.get('quantidade', 1)) * float(row.get('valor_venda', 0)),
-                                    row.get('id')
-                                ))
+                                """, (qtd, v_total, row.get('id')))
                             conn.commit()
                             st.success("Alterações salvas com sucesso!")
                             st.rerun()
@@ -548,7 +553,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                         else:
                             st.info("Marque a caixa 'Deletar' nos itens que deseja remover.")
             else:
-                st.info("Você ainda não possui pedidos registrados.")
+                st.info("Você ainda não possui pedidos registrados no sistema.")
 
 # ==========================================
 # AMBIENTE 2: ADMINISTRADOR / VENDEDOR
