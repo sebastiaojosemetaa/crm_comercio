@@ -565,25 +565,25 @@ if perfil_selecionado == "👤 Portal do Cliente":
 
             def gerar_pdf_corporativo_cliente(df_dados, cliente_nome):
                 buffer = io.BytesIO()
-                # Reduzido o topMargin para começar mais acima na folha
-                doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=15, bottomMargin=30)
+                # Margem superior ultra reduzida para colar no topo da folha
+                doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=5, bottomMargin=30)
                 elementos = []
                 styles = getSampleStyleSheet()
                 
-                # Cabeçalho compactado e sem espaço excessivo
-                estilo_titulo = ParagraphStyle('TituloEmpresa', parent=styles['Heading1'], fontName='Helvetica-Bold', fontSize=16, alignment=1, textColor=colors.HexColor('#003366'), spaceAfter=2)
-                estilo_sub = ParagraphStyle('SubEmpresa', parent=styles['Normal'], fontName='Helvetica', fontSize=8, alignment=1, textColor=colors.HexColor('#333333'), spaceAfter=1)
+                # Estilos com espaçamento (leading) zerado ou mínimo entre as linhas
+                estilo_titulo = ParagraphStyle('TituloEmpresa', parent=styles['Heading1'], fontName='Helvetica-Bold', fontSize=15, alignment=1, textColor=colors.HexColor('#003366'), spaceAfter=0, leading=16)
+                estilo_sub = ParagraphStyle('SubEmpresa', parent=styles['Normal'], fontName='Helvetica', fontSize=8, alignment=1, textColor=colors.HexColor('#333333'), spaceAfter=0, leading=10)
                 
                 elementos.append(Paragraph("<b>REY DA CEBOLA</b>", estilo_titulo))
                 elementos.append(Paragraph("CNPJ: 194.174.39/000-42 INSC.EST.: 12.426725-4", estilo_sub))
                 elementos.append(Paragraph("CONTATO: (99) 98814-9722 OU (99) 98414-3943", estilo_sub))
                 
-                # Espaçamento mínimo e direto antes da linha azul do título do relatório
-                elementos.append(Spacer(1, 8))
+                # Pequeno espaço antes do título do relatório
+                elementos.append(Spacer(1, 4))
                 
-                estilo_rel = ParagraphStyle('RelTitulo', parent=styles['Heading2'], fontName='Helvetica-Bold', fontSize=11, alignment=1, textColor=colors.HexColor('#003366'), spaceAfter=6)
+                estilo_rel = ParagraphStyle('RelTitulo', parent=styles['Heading2'], fontName='Helvetica-Bold', fontSize=10, alignment=1, textColor=colors.HexColor('#003366'), spaceAfter=4, leading=12)
                 elementos.append(Paragraph(f"<b>Relatório de Pedidos / Orçamentos - {cliente_nome}</b>", estilo_rel))
-                elementos.append(Spacer(1, 6))
+                elementos.append(Spacer(1, 4))
                 
                 # Montagem da Tabela
                 dados_tabela = [["Produto", "Qtd Total", "Preço Unitário (R$)", "Valor Total (R$)"]]
@@ -608,8 +608,8 @@ if perfil_selecionado == "👤 Portal do Cliente":
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                     ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
                     ('FONTSIZE', (0, 0), (-1, 0), 9),
-                    ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
-                    ('TOPPADDING', (0, 0), (-1, 0), 6),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 4),
+                    ('TOPPADDING', (0, 0), (-1, 0), 4),
                     ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#002060')),
                     ('TEXTCOLOR', (0, -1), (-1, -1), colors.whitesmoke),
                     ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
