@@ -565,12 +565,10 @@ if perfil_selecionado == "👤 Portal do Cliente":
 
             def gerar_pdf_corporativo_cliente(df_dados, cliente_nome):
                 buffer = io.BytesIO()
-                # Margem superior ultra reduzida para colar no topo da folha
                 doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=5, bottomMargin=30)
                 elementos = []
                 styles = getSampleStyleSheet()
                 
-                # Estilos com espaçamento (leading) zerado ou mínimo entre as linhas
                 estilo_titulo = ParagraphStyle('TituloEmpresa', parent=styles['Heading1'], fontName='Helvetica-Bold', fontSize=15, alignment=1, textColor=colors.HexColor('#003366'), spaceAfter=0, leading=16)
                 estilo_sub = ParagraphStyle('SubEmpresa', parent=styles['Normal'], fontName='Helvetica', fontSize=8, alignment=1, textColor=colors.HexColor('#333333'), spaceAfter=0, leading=10)
                 
@@ -578,10 +576,8 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 elementos.append(Paragraph("CNPJ: 194.174.39/000-42 INSC.EST.: 12.426725-4", estilo_sub))
                 elementos.append(Paragraph("CONTATO: (99) 98814-9722 OU (99) 98414-3943", estilo_sub))
                 
-                # Pequeno espaço antes do título do relatório
-                elementos.append(Spacer(1, 4))
-                
-                estilo_rel = ParagraphStyle('RelTitulo', parent=styles['Heading2'], fontName='Helvetica-Bold', fontSize=10, alignment=1, textColor=colors.HexColor('#003366'), spaceAfter=4, leading=12)
+                # Removido o espaçador anterior para colar o título logo abaixo do contato
+                estilo_rel = ParagraphStyle('RelTitulo', parent=styles['Heading2'], fontName='Helvetica-Bold', fontSize=10, alignment=1, textColor=colors.HexColor('#003366'), spaceBefore=4, spaceAfter=4, leading=12)
                 elementos.append(Paragraph(f"<b>Relatório de Pedidos / Orçamentos - {cliente_nome}</b>", estilo_rel))
                 elementos.append(Spacer(1, 4))
                 
