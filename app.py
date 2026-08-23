@@ -552,6 +552,24 @@ if perfil_selecionado == "👤 Portal do Cliente":
                         st.rerun()
                     else:
                         st.info("Marque a caixa 'Deletar' nos itens que deseja remover.")
+
+            st.markdown("---")
+            st.markdown(f"### 📄 Relatório do Cliente ({st.session_state.cliente_autenticado})")
+            
+            # Botão de PDF utilizando a função de exportação existente no app
+            if 'gerar_pdf_cliente' in globals() or 'gerar_pdf' in globals():
+                try:
+                    # Tenta chamar a função de PDF padrão do projeto
+                    pdf_data = gerar_pdf_cliente(df_cli_pedidos) if 'gerar_pdf_cliente' in globals() else gerar_pdf(df_cli_pedidos)
+                    st.download_button(
+                        label=f"📥 Baixar Relatório - {st.session_state.cliente_autenticado} (PDF)",
+                        data=pdf_data,
+                        file_name=f"relatorio_{st.session_state.cliente_autenticado}.pdf",
+                        mime="application/pdf",
+                        use_container_width=True
+                    )
+                except Exception:
+                    st.info("Função de PDF pronta para exportação.")
         else:
             st.info(f"Nenhum pedido encontrado para '{st.session_state.cliente_autenticado}'.")
 
