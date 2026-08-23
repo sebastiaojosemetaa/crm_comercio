@@ -498,12 +498,13 @@ if perfil_selecionado == "👤 Portal do Cliente":
             with aba_historico:
                 st.subheader(f"Meus Pedidos e Orçamentos ({st.session_state.cliente_autenticado})")
             
-            # Carrega e filtra os dados do cliente logado
+            # Carrega todos os pedidos e faz o filtro direto no pandas de forma flexível
             df_cli_pedidos = carregar_dados("SELECT * FROM pedidos")
             
             if not df_cli_pedidos.empty and 'cliente' in df_cli_pedidos.columns:
-                cliente_atual = str(st.session_state.cliente_autenticado).strip().lower()
-                df_cli_pedidos = df_cli_pedidos[df_cli_pedidos['cliente'].astype(str).str.strip().str.lower() == cliente_atual]
+                nome_pesquisa = str(st.session_state.cliente_autenticado).strip().lower()
+                # Filtra buscando clientes que contenham o nome logado
+                df_cli_pedidos = df_cli_pedidos[df_cli_pedidos['cliente'].astype(str).str.strip().str.lower().str.contains(nome_pesquisa, na=False)]
             
             if not df_cli_pedidos.empty:
                 df_edit_cli = df_cli_pedidos.copy()
@@ -514,13 +515,13 @@ if perfil_selecionado == "👤 Portal do Cliente":
                     df_edit_cli,
                     num_rows="dynamic",
                     use_container_width=True,
-                    key="editor_pedidos_cliente"
+                    key="editor_pedidos_cliente_final"
                 )
                 
                 col_salvar_cli, col_del_cli = st.columns(2)
                 
                 with col_salvar_cli:
-                    if st.button("💾 Salvar Alterações Feitas na Tabela", use_container_width=True, key="btn_salvar_cli_novo"):
+                    if st.button("💾 Salvar Alterações Feitas na Tabela", use_container_width=True, key="btn_salvar_cli_final"):
                         try:
                             cursor = conn.cursor()
                             for index, row in df_atualizado_cliente.iterrows():
@@ -542,7 +543,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 with col_del_cli:
                     itens_para_excluir = df_atualizado_cliente[df_atualizado_cliente['Deletar'] == True]
                     qtd_del = len(itens_para_excluir)
-                    if st.button(f"🗑️ Confirmar Exclusão de ({qtd_del}) Item(ns) Marcados", use_container_width=True, key="btn_del_cli_novo"):
+                    if st.button(f"🗑️ Confirmar Exclusão de ({qtd_del}) Item(ns) Marcados", use_container_width=True, key="btn_del_cli_final"):
                         if qtd_del > 0:
                             cursor = conn.cursor()
                             for _, row in itens_para_excluir.iterrows():
@@ -553,7 +554,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                         else:
                             st.info("Marque a caixa 'Deletar' nos itens que deseja remover.")
             else:
-                st.info("Você ainda não possui pedidos registrados no sistema.")
+                st.warning(f"Nenhum pedido encontrado para '{st.session_state.cliente_autenticado}'. Verifique se os pedidos foram cadastrados exatamente com este nome.")
 
 # ==========================================
 # AMBIENTE 2: ADMINISTRADOR / VENDEDOR
