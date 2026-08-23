@@ -496,28 +496,59 @@ if perfil_selecionado == "👤 Portal do Cliente":
                     st.rerun()
 
         with aba_historico:
-            df_pedidos = carregar_dados(f"SELECT * FROM vendas WHERE TRIM(cliente) = TRIM('{st.session_state.cliente_autenticado}')")
-            if not df_pedidos.empty:
-                soma_total = df_pedidos['valor_total'].sum() if 'valor_total' in df_pedidos.columns else 0.0
-                st.markdown(f"**Itens Registrados:** {len(df_pedidos)} | **Soma dos Valores:** R$ {soma_total:,.2f}")
-                
-                if st.button("🔄 Atualizar Valores com Estoque (Preço Custo)"):
-                    sincronizar_valores_com_estoque("vendas", "compra")
-                    st.success("Tabela atualizada com o Preço de Custo!")
-                    st.rerun()
-
-                st.markdown("---")
-                cols_exibir = [c for c in ['id', 'cliente', 'produto', 'fornecedor', 'quantidade', 'valor_venda', 'valor_total', 'data'] if c in df_pedidos.columns]
-                st.dataframe(df_pedidos[cols_exibir], use_container_width=True)
-                pdf_cli = gerar_pdf_tabela_pedidos(df_pedidos, cliente_nome=st.session_state.cliente_autenticado)
-                st.download_button(
-                    label=f"Baixar Relatório de Pedidos ({st.session_state.cliente_autenticado}) em PDF",
-                    data=pdf_cli,
-                    file_name=f"Relatorio_Pedidos_{st.session_state.cliente_autenticado}.pdf",
-                    mime="application/pdf"
+            st.subheader(f"Meus Pedidos e Orçamentos ({cliente_logado})")
+            df_cli_pedidos = carregar_dados(f"SELECT * FROM pedidos WHERE cliente = '{cliente_logado}'")
+            
+            if not df_cli_pedidos.empty:
+                df_edit_cli = df_cli_pedidos.copy()
+                if 'Deletar' not in df_edit_cli.columns:
+                    df_edit_cli.insert(0, 'Deletar', False)
+                    
+                df_atualizado_cliente = st.data_editor(
+                    df_edit_cli,
+                    num_rows="dynamic",
+                    use_container_width=True,
+                    key="editor_pedidos_cliente"
                 )
+                
+                col_salvar_cli, col_del_cli = st.columns(2)
+                
+                with col_salvar_cli:
+                    if st.button("💾 Salvar Alterações Feitas na Tabela", use_container_width=True):
+                        try:
+                            cursor = conn.cursor()
+                            for index, row in df_atualizado_cliente.iterrows():
+                                cursor.execute("""
+                                    UPDATE pedidos 
+                                    SET quantidade = ?, valor_venda = ?, valor_total = ? 
+                                    WHERE id = ?
+                                """, (
+                                    row.get('quantidade', 1), 
+                                    row.get('valor_venda', 0), 
+                                    float(row.get('quantidade', 1)) * float(row.get('valor_venda', 0)),
+                                    row.get('id')
+                                ))
+                            conn.commit()
+                            st.success("Alterações salvas com sucesso!")
+                            st.rerun()
+                        except Exception as ex:
+                            st.error(f"Erro ao salvar alterações: {ex}")
+                            
+                with col_del_cli:
+                    itens_para_excluir = df_atualizado_cliente[df_atualizado_cliente['Deletar'] == True]
+                    qtd_del = len(itens_para_excluir)
+                    if st.button(f"🗑️ Confirmar Exclusão de ({qtd_del}) Item(ns) Marcados", use_container_width=True):
+                        if qtd_del > 0:
+                            cursor = conn.cursor()
+                            for _, row in itens_para_excluir.iterrows():
+                                cursor.execute("DELETE FROM pedidos WHERE id = ?", (row.get('id'),))
+                            conn.commit()
+                            st.warning(f"{qtd_del} item(ns) excluído(s) com sucesso!")
+                            st.rerun()
+                        else:
+                            st.info("Marque a caixa 'Deletar' nos itens que deseja remover.")
             else:
-                st.warning("Nenhum pedido encontrado para o seu usuário.")
+                st.info("Você ainda não possui pedidos registrados.")
 
 # ==========================================
 # AMBIENTE 2: ADMINISTRADOR / VENDEDOR
