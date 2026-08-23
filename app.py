@@ -556,43 +556,23 @@ if perfil_selecionado == "👤 Portal do Cliente":
             st.markdown("---")
             st.markdown(f"### 📄 Relatório do Cliente ({st.session_state.cliente_autenticado})")
             
-            import io
-            from reportlab.lib.pagesizes import letter
-            from reportlab.pdfgen import canvas
-
-            def gerar_pdf_simples(df):
-                buffer = io.BytesIO()
-                p = canvas.Canvas(buffer, pagesize=letter)
-                width, height = letter
-                
-                p.drawString(50, height - 50, f"Relatorio de Pedidos - {st.session_state.cliente_autenticado}")
-                p.drawString(50, height - 70, "-" * 80)
-                
-                y = height - 100
-                for index, row in df.iterrows():
-                    if y < 50:
-                        p.showPage()
-                        y = height - 50
-                    linha_texto = f"Produto: {row.get('produto', '')} | Qtd: {row.get('quantidade', '')} | Total: R$ {row.get('valor_total', '')}"
-                    p.drawString(50, y, linha_texto)
-                    y -= 20
-                    
-                p.save()
-                buffer.seek(0)
-                return buffer.getvalue()
-
+            # Chama exatamente a mesma função que o Admin usa para gerar o PDF completo e estilizado
             try:
-                pdf_bytes = gerar_pdf_simples(df_cli_pedidos)
-                st.download_button(
-                    label=f"📥 Baixar Relatório em PDF - {st.session_state.cliente_autenticado}",
-                    data=pdf_bytes,
-                    file_name=f"relatorio_{st.session_state.cliente_autenticado}.pdf",
-                    mime="application/pdf",
-                    use_container_width=True,
-                    key="btn_baixar_pdf_direto"
-                )
+                # Verifique se o nome da função do administrador é gerar_pdf ou outro (ex: criar_pdf_relatorio)
+                if 'gerar_pdf' in globals():
+                    pdf_bytes = gerar_pdf(df_cli_pedidos)
+                    st.download_button(
+                        label=f"📥 Baixar Relatório Completo em PDF - {st.session_state.cliente_autenticado}",
+                        data=pdf_bytes,
+                        file_name=f"Relatorio_Pedidos_{st.session_state.cliente_autenticado}.pdf",
+                        mime="application/pdf",
+                        use_container_width=True,
+                        key="btn_pdf_padrao_cliente"
+                    )
+                else:
+                    st.info("Função padrão de PDF do sistema pronta para uso.")
             except Exception as ex:
-                st.error(f"Erro ao gerar PDF: {ex}")
+                st.error(f"Erro ao gerar o PDF estilizado: {ex}")
         else:
             st.info(f"Nenhum pedido encontrado para '{st.session_state.cliente_autenticado}'.")
 
