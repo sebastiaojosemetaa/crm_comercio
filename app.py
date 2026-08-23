@@ -554,33 +554,27 @@ if perfil_selecionado == "👤 Portal do Cliente":
                         st.info("Marque a caixa 'Deletar' nos itens que deseja remover.")
 
             st.markdown("---")
-            st.markdown(f"### 📄 Relatório e Exportação ({st.session_state.cliente_autenticado})")
+            st.markdown(f"### 📄 Relatório do Cliente ({st.session_state.cliente_autenticado})")
             
-            # Converte os dados do cliente para CSV para garantir o download imediato
-            csv_data = df_cli_pedidos.to_csv(index=False).encode('utf-8')
-            
-            st.download_button(
-                label=f"📥 Baixar Relatório em CSV/Excel - {st.session_state.cliente_autenticado}",
-                data=csv_data,
-                file_name=f"relatorio_pedidos_{st.session_state.cliente_autenticado}.csv",
-                mime="text/csv",
-                use_container_width=True
-            )
-            
-            # Botão de PDF utilizando a função de exportação existente no app
-            if 'gerar_pdf_cliente' in globals() or 'gerar_pdf' in globals():
-                try:
-                    # Tenta chamar a função de PDF padrão do projeto
-                    pdf_data = gerar_pdf_cliente(df_cli_pedidos) if 'gerar_pdf_cliente' in globals() else gerar_pdf(df_cli_pedidos)
+            # Tenta gerar o PDF usando a função exata que o administrador usa no painel
+            try:
+                # Procura pela função de PDF no escopo global do projeto
+                func_pdf = globals().get('gerar_pdf') or globals().get('exportar_pdf') or globals().get('criar_pdf')
+                if func_pdf:
+                    pdf_data = func_pdf(df_cli_pedidos)
                     st.download_button(
-                        label=f"📥 Baixar Relatório - {st.session_state.cliente_autenticado} (PDF)",
+                        label=f"📥 Baixar Relatório em PDF - {st.session_state.cliente_autenticado}",
                         data=pdf_data,
-                        file_name=f"relatorio_{st.session_state.cliente_autenticado}.pdf",
+                        file_name=f"relatorio_pedidos_{st.session_state.cliente_autenticado}.pdf",
                         mime="application/pdf",
-                        use_container_width=True
+                        use_container_width=True,
+                        key="btn_pdf_cliente_gerado"
                     )
-                except Exception:
-                    st.info("Função de PDF pronta para exportação.")
+                else:
+                    # Alternativa caso a função tenha outro nome específico no seu código
+                    st.warning("Função de geração de PDF não encontrada no escopo. Verifique o nome da função no painel do administrador.")
+            except Exception as e:
+                st.error(f"Erro ao gerar o PDF: {e}")
         else:
             st.info(f"Nenhum pedido encontrado para '{st.session_state.cliente_autenticado}'.")
 
