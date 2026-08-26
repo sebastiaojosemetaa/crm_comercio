@@ -506,7 +506,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
             df_cli_pedidos = df_cli_pedidos[df_cli_pedidos['cliente'].astype(str).str.strip().str.lower().str.contains(nome_pesq, na=False)]
         if not df_cli_pedidos.empty:
       # Verifica se existe a coluna codigo_venda para fazer a separação
-      if "codigo_venda" in df_cli_pedidos.columns:
+        if "codigo_venda" in df_cli_pedidos.columns:
         codigos_venda = df_cli_pedidos["codigo_venda"].dropna().unique()
 
         for cod in codigos_venda:
