@@ -1082,6 +1082,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 label="💰 Valor Total Geral da Seleção",
                                 value=f"R$ {total_geral:,.2f}",
                             )
+                        if "Valor Total" in df_registros.columns:
+            total_geral = df_registros["Valor Total"].sum()
+            st.markdown(f"### 💰 Valor Total Geral: R$ {total_geral:,.2f}")
                     df_editado = st.data_editor(
                         df_registros,
                         key=f"editor_registros_{menu_admin}",
