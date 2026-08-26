@@ -505,23 +505,23 @@ if perfil_selecionado == "👤 Portal do Cliente":
             nome_pesq = str(st.session_state.cliente_autenticado).strip().lower()
             df_cli_pedidos = df_cli_pedidos[df_cli_pedidos['cliente'].astype(str).str.strip().str.lower().str.contains(nome_pesq, na=False)]
         if not df_cli_pedidos.empty:
-        # Verifica se a coluna codigo_venda existe no DataFrame
-        if "codigo_venda" in df_cli_pedidos.columns:
-            codigos_venda = df_cli_pedidos["codigo_venda"].dropna().unique()
+        # Se existir a coluna codigo_venda, agrupamos por ela
+        if 'codigo_venda' in df_cli_pedidos.columns:
+            codigos_venda = df_cli_pedidos['codigo_venda'].dropna().unique()
             
             for cod in codigos_venda:
-                df_item_venda = df_cli_pedidos[df_cli_pedidos["codigo_venda"] == cod]
+                df_item_venda = df_cli_pedidos[df_cli_pedidos['codigo_venda'] == cod]
                 
-                data_venda = df_item_venda["data"].iloc[0] if "data" in df_item_venda.columns else ""
-                valor_total_pedido = df_item_venda["valor_total"].sum() if "valor_total" in df_item_venda.columns else 0.0
+                data_venda = df_item_venda['data'].iloc[0] if 'data' in df_item_venda.columns else ""
+                valor_total_pedido = df_item_venda['valor_total'].sum() if 'valor_total' in df_item_venda.columns else 0.0
                 
                 with st.expander(f"🛒 Pedido ID: {cod} | Data: {data_venda} | Total: R$ {valor_total_pedido:.2f}"):
-                    st.dataframe(df_item_venda[["id", "produto", "fornecedor", "qtd", "valor_total", "grupo"]], use_container_width=True)
+                    st.dataframe(df_item_venda[['id', 'produto', 'fornecedor', 'qtd', 'valor_total', 'grupo']], use_container_width=True)
+        
         else:
-            # Caso contrário, exibe a tabela padrão com o editor de dados
             df_edit_cli = df_cli_pedidos.copy()
-            if "Deletar" not in df_edit_cli.columns:
-                df_edit_cli.insert(0, "Deletar", False)
+            if 'Deletar' not in df_edit_cli.columns:
+                df_edit_cli.insert(0, 'Deletar', False)
 
             df_atualizado_cliente = st.data_editor(
                 df_edit_cli,
