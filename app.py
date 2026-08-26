@@ -505,7 +505,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
             nome_pesq = str(st.session_state.cliente_autenticado).strip().lower()
             df_cli_pedidos = df_cli_pedidos[df_cli_pedidos['cliente'].astype(str).str.strip().str.lower().str.contains(nome_pesq, na=False)]
         if not df_cli_pedidos.empty:
-        # Se existir a coluna codigo_venda, agrupamos por ela
+        # Agrupamos diretamente por codigo_venda de forma segura
         if 'codigo_venda' in df_cli_pedidos.columns:
             codigos_venda = df_cli_pedidos['codigo_venda'].dropna().unique()
             
@@ -518,7 +518,8 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 with st.expander(f"🛒 Pedido ID: {cod} | Data: {data_venda} | Total: R$ {valor_total_pedido:.2f}"):
                     st.dataframe(df_item_venda[['id', 'produto', 'fornecedor', 'qtd', 'valor_total', 'grupo']], use_container_width=True)
         
-        else:
+        # Se por acaso não achar a coluna, exibe a tabela normal para não travar
+        if 'codigo_venda' not in df_cli_pedidos.columns:
             df_edit_cli = df_cli_pedidos.copy()
             if 'Deletar' not in df_edit_cli.columns:
                 df_edit_cli.insert(0, 'Deletar', False)
