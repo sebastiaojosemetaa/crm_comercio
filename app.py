@@ -495,153 +495,92 @@ if perfil_selecionado == "👤 Portal do Cliente":
                     st.success("Pedido registrado com sucesso!")
                     st.rerun()
 
-            with aba_historico:
-                st.subheader(f"Meus Pedidos e Orçamentos ({st.session_state.cliente_autenticado})")
-        
-        # Carrega os dados direto da tabela pedidos
-        df_cli_pedidos = carregar_dados("SELECT * FROM pedidos")
-        
-        if not df_cli_pedidos.empty and 'cliente' in df_cli_pedidos.columns:
-            nome_pesq = str(st.session_state.cliente_autenticado).strip().lower()
-            df_cli_pedidos = df_cli_pedidos[df_cli_pedidos['cliente'].astype(str).str.strip().str.lower().str.contains(nome_pesq, na=False)]
-        if not df_cli_pedidos.empty:
-        codigos = df_cli_pedidos['codigo_venda'].dropna().unique() if 'codigo_venda' in df_cli_pedidos.columns else []
-        
-        for cod in codigos:
-            df_item_venda = df_cli_pedidos[df_cli_pedidos['codigo_venda'] == cod]
-            data_venda = df_item_venda['data'].iloc[0] if 'data' in df_item_venda.columns else ""
-            val_total = df_item_venda['valor_total'].sum() if 'valor_total' in df_item_venda.columns else 0.0
+        with aba_historico:
+            st.subheader(f"Meus Pedidos e Orçamentos ({st.session_state.cliente_autenticado})")
             
-            with st.expander(f"🛒 Pedido ID: {cod} | Data: {data_venda} | Total: R$ {val_total:.2f}"):
-                st.dataframe(df_item_venda[['id', 'produto', 'fornecedor', 'qtd', 'valor_total', 'grupo']], use_container_width=True)
-        
-        if len(codigos) == 0:
-            df_edit_cli = df_cli_pedidos.copy()
-            if 'Deletar' not in df_edit_cli.columns:
-                df_edit_cli.insert(0, 'Deletar', False)
-
-            df_atualizado_cliente = st.data_editor(
-                df_edit_cli,
-                num_rows="dynamic",
-                use_container_width=True,
-                key="editor_pedidos_cliente_direto"
-            )
+            df_cli_pedidos = carregar_dados("SELECT * FROM vendas")
             
-            col_salvar_cli, col_del_cli = st.columns(2)
+            if not df_cli_pedidos.empty and 'cliente' in df_cli_pedidos.columns:
+                nome_pesq = str(st.session_state.cliente_autenticado).strip().lower()
+                df_cli_pedidos = df_cli_pedidos[df_cli_pedidos['cliente'].astype(str).str.strip().str.lower().str.contains(nome_pesq, na=False)]
             
-            with col_salvar_cli:
-                if st.button("💾 Salvar Alterações Feitas na Tabela", use_container_width=True, key="btn_salv_cli_dir"):
-                    try:
-                        cursor = conn.cursor()
-                        for index, row in df_atualizado_cliente.iterrows():
-                            qtd = float(row.get('quantidade', 1))
-                            v_unit = float(row.get('valor_venda', row.get('valor_unitario', 0)))
-                            v_total = qtd * v_unit
-                            
-                            cursor.execute("""
-                                UPDATE pedidos 
-                                SET quantidade = ?, valor_total = ? 
-                                WHERE id = ?
-                            """, (qtd, v_total, row.get('id')))
-                        conn.commit()
-                        st.success("Alterações salvas com sucesso!")
-                        st.rerun()
-                    except Exception as ex:
-                        st.error(f"Erro ao salvar alterações: {ex}")
-                        
-            with col_del_cli:
-                itens_para_excluir = df_atualizado_cliente[df_atualizado_cliente['Deletar'] == True]
-                qtd_del = len(itens_para_excluir)
-                if st.button(f"🗑️ Confirmar Exclusão de ({qtd_del}) Item(ns) Marcados", use_container_width=True, key="btn_del_cli_dir"):
-                    if qtd_del > 0:
-                        cursor = conn.cursor()
-                        for _, row in itens_para_excluir.iterrows():
-                            cursor.execute("DELETE FROM pedidos WHERE id = ?", (row.get('id'),))
-                        conn.commit()
-                        st.warning(f"{qtd_del} item(ns) excluído(s) com sucesso!")
-                        st.rerun()
-                    else:
-                        st.info("Marque a caixa 'Deletar' nos itens que deseja remover.")
-
-            st.markdown("---")
-            st.markdown(f"### 📄 Relatório do Cliente ({st.session_state.cliente_autenticado})")
-            
-            # Geração do PDF Corporativo idêntico ao do Administrador
-            import io
-            from reportlab.lib.pagesizes import letter
-            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-            from reportlab.lib import colors
-
-            def gerar_pdf_corporativo_cliente(df_dados, cliente_nome):
-                buffer = io.BytesIO()
-                doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=5, bottomMargin=30)
-                elementos = []
-                styles = getSampleStyleSheet()
+            if not df_cli_pedidos.empty:
+                codigos = df_cli_pedidos['codigo_venda'].dropna().unique() if 'codigo_venda' in df_cli_pedidos.columns else []
                 
-                estilo_titulo = ParagraphStyle('TituloEmpresa', parent=styles['Heading1'], fontName='Helvetica-Bold', fontSize=15, alignment=1, textColor=colors.HexColor('#003366'), spaceAfter=0, leading=16)
-                estilo_sub = ParagraphStyle('SubEmpresa', parent=styles['Normal'], fontName='Helvetica', fontSize=8, alignment=1, textColor=colors.HexColor('#333333'), spaceAfter=0, leading=10)
-                
-                elementos.append(Paragraph("<b>REY DA CEBOLA</b>", estilo_titulo))
-                elementos.append(Paragraph("CNPJ: 194.174.39/000-42 INSC.EST.: 12.426725-4", estilo_sub))
-                elementos.append(Paragraph("CONTATO: (99) 98814-9722 OU (99) 98414-3943", estilo_sub))
-                
-                # Removido o espaçador anterior para colar o título logo abaixo do contato
-                estilo_rel = ParagraphStyle('RelTitulo', parent=styles['Heading2'], fontName='Helvetica-Bold', fontSize=10, alignment=1, textColor=colors.HexColor('#003366'), spaceBefore=4, spaceAfter=4, leading=12)
-                elementos.append(Paragraph(f"<b>Relatório de Pedidos / Orçamentos - {cliente_nome}</b>", estilo_rel))
-                elementos.append(Spacer(1, 4))
-                
-                # Montagem da Tabela
-                dados_tabela = [["Produto", "Qtd Total", "Preço Unitário (R$)", "Valor Total (R$)"]]
-                
-                total_geral = 0.0
-                for _, row in df_dados.iterrows():
-                    prod = str(row.get('produto', ''))
-                    qtd = float(row.get('quantidade', 0))
-                    v_unit = float(row.get('valor_venda', row.get('valor_unitario', 0)))
-                    v_tot = qtd * v_unit
-                    total_geral += v_tot
+                for cod in codigos:
+                    df_item_venda = df_cli_pedidos[df_cli_pedidos['codigo_venda'] == cod]
+                    data_venda = df_item_venda['data'].iloc[0] if 'data' in df_item_venda.columns else ""
+                    val_total = df_item_venda['valor_total'].sum() if 'valor_total' in df_item_venda.columns else 0.0
                     
-                    dados_tabela.append([prod, f"{qtd:.2f}", f"R$ {v_unit:.2f}", f"R$ {v_tot:.2f}"])
+                    with st.expander(f"🛒 Pedido ID: {cod} | Data: {data_venda} | Total: R$ {val_total:.2f}"):
+                        st.dataframe(df_item_venda[['id', 'produto', 'fornecedor', 'qtd', 'valor_total', 'grupo']], use_container_width=True)
                 
-                # Linha de Total Geral
-                dados_tabela.append(["VALOR TOTAL GERAL", "", "", f"R$ {total_geral:.2f}"])
-                
-                tabela = Table(dados_tabela, colWidths=[200, 80, 110, 110])
-                tabela.setStyle(TableStyle([
-                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2E5BFF')),
-                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                    ('FONTSIZE', (0, 0), (-1, 0), 9),
-                    ('BOTTOMPADDING', (0, 0), (-1, 0), 4),
-                    ('TOPPADDING', (0, 0), (-1, 0), 4),
-                    ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#002060')),
-                    ('TEXTCOLOR', (0, -1), (-1, -1), colors.whitesmoke),
-                    ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
-                    ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ]))
-                
-                elementos.append(tabela)
-                doc.build(elementos)
-                buffer.seek(0)
-                return buffer.getvalue()
+                if len(codigos) == 0:
+                    df_edit_cli = df_cli_pedidos.copy()
+                    if 'Deletar' not in df_edit_cli.columns:
+                        df_edit_cli.insert(0, 'Deletar', False)
 
-            try:
-                pdf_bytes = gerar_pdf_corporativo_cliente(df_cli_pedidos, st.session_state.cliente_autenticado)
-                st.download_button(
-                    label=f"📥 Baixar Relatório em PDF Corporativo - {st.session_state.cliente_autenticado}",
-                    data=pdf_bytes,
-                    file_name=f"Relatorio_Pedidos_{st.session_state.cliente_autenticado}.pdf",
-                    mime="application/pdf",
-                    use_container_width=True,
-                    key="btn_baixar_pdf_corporativo_cliente"
-                )
-            except Exception as e:
-                st.error(f"Erro ao gerar o PDF corporativo: {e}")
-        else:
-            st.info(f"Nenhum pedido encontrado para '{st.session_state.cliente_autenticado}'.")
+                    df_atualizado_cliente = st.data_editor(
+                        df_edit_cli,
+                        num_rows="dynamic",
+                        use_container_width=True,
+                        key="editor_pedidos_cliente_direto"
+                    )
+                    
+                    col_salvar_cli, col_del_cli = st.columns(2)
+                    
+                    with col_salvar_cli:
+                        if st.button("💾 Salvar Alterações Feitas na Tabela", use_container_width=True, key="btn_salv_cli_dir"):
+                            try:
+                                cursor = conn.cursor()
+                                for index, row in df_atualizado_cliente.iterrows():
+                                    qtd = float(row.get('quantidade', 1))
+                                    v_unit = float(row.get('valor_venda', row.get('valor_unitario', 0)))
+                                    v_total = qtd * v_unit
+                                    
+                                    cursor.execute("""
+                                        UPDATE vendas 
+                                        SET quantidade = ?, valor_total = ? 
+                                        WHERE id = ?
+                                    """, (qtd, v_total, row.get('id')))
+                                conn.commit()
+                                st.success("Alterações salvas com sucesso!")
+                                st.rerun()
+                            except Exception as ex:
+                                st.error(f"Erro ao salvar alterações: {ex}")
+                                
+                    with col_del_cli:
+                        itens_para_excluir = df_atualizado_cliente[df_atualizado_cliente['Deletar'] == True]
+                        qtd_del = len(itens_para_excluir)
+                        if st.button(f"🗑️ Confirmar Exclusão de ({qtd_del}) Item(ns) Marcados", use_container_width=True, key="btn_del_cli_dir"):
+                            if qtd_del > 0:
+                                cursor = conn.cursor()
+                                for _, row in itens_para_excluir.iterrows():
+                                    cursor.execute("DELETE FROM vendas WHERE id = ?", (row.get('id'),))
+                                conn.commit()
+                                st.warning(f"{qtd_del} item(ns) excluído(s) com sucesso!")
+                                st.rerun()
+                            else:
+                                st.info("Marque a caixa 'Deletar' nos itens que deseja remover.")
+
+                st.markdown("---")
+                st.markdown(f"### 📄 Relatório do Cliente ({st.session_state.cliente_autenticado})")
+                
+                try:
+                    pdf_bytes = gerar_pdf_tabela_pedidos(df_cli_pedidos, st.session_state.cliente_autenticado)
+                    st.download_button(
+                        label=f"📥 Baixar Relatório em PDF Corporativo - {st.session_state.cliente_autenticado}",
+                        data=pdf_bytes,
+                        file_name=f"Relatorio_Pedidos_{st.session_state.cliente_autenticado}.pdf",
+                        mime="application/pdf",
+                        use_container_width=True,
+                        key="btn_baixar_pdf_corporativo_cliente"
+                    )
+                except Exception as e:
+                    st.error(f"Erro ao gerar o PDF corporativo: {e}")
+            else:
+                st.info(f"Nenhum pedido encontrado para '{st.session_state.cliente_autenticado}'.")
+
 # ==========================================
 # AMBIENTE 2: ADMINISTRADOR / VENDEDOR
 # ==========================================
@@ -687,12 +626,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
             grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
 
-            # BUSCA DIRETA E COMPLETA DE TODOS OS PRODUTOS DITO DA TABELA
             df_p = carregar_dados("SELECT * FROM produtos")
             
             if not df_p.empty:
                 df_p.columns = [c.lower() for c in df_p.columns]
-                # Acha a coluna de nome do produto independentemente de como foi nomeada
                 col_nome_p = 'produto' if 'produto' in df_p.columns else ('nome' if 'nome' in df_p.columns else df_p.columns[1])
                 produtos_opt = df_p[col_nome_p].dropna().astype(str).str.strip().unique().tolist()
             else:
@@ -709,7 +646,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             grupo_sugerido = grupos_opt[0]
 
             if not df_p.empty:
-                # Filtra o produto selecionado ignorando diferenças de maiúsculas/minúsculas
                 df_p['_nome_limpo'] = df_p[col_nome_p].astype(str).str.strip().str.upper()
                 target_nome = str(prod_item).strip().upper()
                 
@@ -718,7 +654,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 if not df_filtrado_p.empty:
                     row_p = df_filtrado_p.iloc[0]
                     
-                    # Varre procurando o preço de venda de forma exata
                     for col_v in ['valor_venda', 'preco_venda', 'venda']:
                         if col_v in df_p.columns:
                             try:
@@ -746,7 +681,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             with col_s2:
                 qtd_item = st.number_input("Quantidade", min_value=0.1, step=1.0, value=1.0, key="pdv_qtd")
                 
-                # Atualiza dinamicamente o preço unitário baseado no produto selecionado
                 v_unit_item = st.number_input(
                     "Preço de Venda (R$)", 
                     min_value=0.0, 
@@ -1282,13 +1216,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             st.title("📦 Estoque de Produtos e Preços")
             df_prods = carregar_dados("SELECT * FROM produtos")            
             if not df_prods.empty:
-                # UNIFICAÇÃO DAS COLUNAS ANTIGAS E NOVAS
                 if 'nome' not in df_prods.columns and 'produto' in df_prods.columns:
                     df_prods['nome'] = df_prods['produto']
                 elif 'produto' not in df_prods.columns and 'nome' in df_prods.columns:
                     df_prods['produto'] = df_prods['nome']
                 else:
-                    # Se ambas existem, preenche os vazios de 'nome' com 'produto' e vice-versa
                     df_prods['nome'] = df_prods['nome'].fillna(df_prods.get('produto', ''))
                     df_prods['produto'] = df_prods['produto'].fillna(df_prods['nome'])
 
@@ -1335,7 +1267,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 if grupo_filtro != "TODOS" and col_grupo and col_grupo in df_exibir.columns:
                     df_exibir = df_exibir[df_exibir[col_grupo] == grupo_filtro]
                 
-                # Mantém apenas as colunas principais limpas para exibição
                 colunas_mostrar = ['Deletar', col_id, col_nome, 'fornecedor', 'grupo', 'valor_compra', 'valor_venda', 'estoque_atual']
                 colunas_existentes_exibir = [c for c in colunas_mostrar if c in df_exibir.columns or c == 'Deletar']
                 
@@ -1407,8 +1338,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             st.title("👥 Cadastros Gerais")
             tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["👥 Clientes", "📦 Produtos", "🏢 Fornecedores", "🏷️ Grupos"])            
             
-            # --- ABA 1: CLIENTES ---
-            # --- ABA 1: CLIENTES ---
             with tab_cli:
                 st.subheader("Gerenciamento de Clientes")
                 df_cli_atual = carregar_dados("SELECT * FROM clientes")
@@ -1517,7 +1446,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.markdown("---")
                 st.dataframe(carregar_dados("SELECT * FROM clientes"), use_container_width=True)
                 
-            # --- ABA 2: PRODUTOS ---
             with tab_prod:
                 st.subheader("Gerenciamento de Produtos e Stock")
                 grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
@@ -1610,7 +1538,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.markdown("---")
                 st.dataframe(carregar_dados("SELECT * FROM produtos"), use_container_width=True)
 
-            # --- ABA 3: FORNECEDORES ---
             with tab_forn:
                 st.subheader("Gerenciamento de Fornecedores")
                 df_forn_atual = carregar_dados("SELECT * FROM fornecedores")
@@ -1643,7 +1570,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     if s_forn:
                         if nome_forn.strip():
                             cursor = conn.cursor()
-                            # Verifica se já existe antes de inserir para evitar erro
                             cursor.execute("SELECT id FROM fornecedores WHERE fornecedor = ?", (nome_forn.strip(),))
                             existe = cursor.fetchone()
                             if existe:
@@ -1679,7 +1605,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.markdown("---")
                 st.dataframe(carregar_dados("SELECT * FROM fornecedores"), use_container_width=True)
 
-            # --- ABA 4: GRUPOS ---
             with tab_grup:
                 st.subheader("Gerenciamento de Grupos / Categorias")
                 df_grup_atual = carregar_dados("SELECT * FROM grupos")
