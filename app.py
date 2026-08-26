@@ -1071,11 +1071,18 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         config_cols["forma_pagamento"] = st.column_config.SelectboxColumn("Forma Pagamento", options=["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito", "Crediário / Fiado"])
                         config_cols["valor_recebido"] = st.column_config.NumberColumn("Valor Recebido / Haver", min_value=0.0, format="R$ %.2f")
                         
-                        if "Valor Total" in df_registros.columns:
-                          total_geral = df_registros["Valor Total"].sum()
-                          st.metric(
-                              label="💰 Valor Total Geral da Seleção", value=f"R$ {total_geral:,.2f}"
-                          )
+                        # Procura a coluna de valor total ignorando maiúsculas/minúsculas
+    col_total = next(
+        (c for c in df_registros.columns if "valor" in c.lower() and "total" in c.lower()),
+        None
+    )
+    
+    if col_total:
+        total_geral = df_registros[col_total].sum()
+        st.metric(
+            label="💰 Valor Total Geral da Seleção", 
+            value=f"R$ {total_geral:,.2f}"
+        )
                     df_editado = st.data_editor(
                         df_registros,
                         key=f"editor_registros_{menu_admin}",
