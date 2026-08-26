@@ -506,7 +506,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
             df_cli_pedidos = df_cli_pedidos[df_cli_pedidos['cliente'].astype(str).str.strip().str.lower().str.contains(nome_pesq, na=False)]
         if not df_cli_pedidos.empty:
         # Extrai os códigos de venda únicos de forma segura
-        codigos = df_cli_pedidos['codigo_venda'].dropna().unique() if 'codigo_venda' in df_cli_pedidos.columns else []
+            codigos = df_cli_pedidos['codigo_venda'].dropna().unique() if 'codigo_venda' in df_cli_pedidos.columns else []
         
         if len(codigos) > 0:
             for cod in codigos:
