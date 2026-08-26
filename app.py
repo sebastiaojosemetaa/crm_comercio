@@ -1074,14 +1074,14 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         # Procura a coluna de valor total ignorando maiúsculas/minúsculas
                         col_total = next(
                         (c for c in df_registros.columns if "valor" in c.lower() and "total" in c.lower()),
-                    None
-                )
+                        None
+                    )
                 
                     if col_total:
                         total_geral = df_registros[col_total].sum()
                         st.metric(
-                            label="💰 Valor Total Geral da Seleção", 
-                            value=f"R$ {total_geral:,.2f}"
+                            label="💰 Valor Total Geral da Seleção",
+                            value=f"R$ {total_geral:,.2f}",
                         )
                     df_editado = st.data_editor(
                         df_registros,
