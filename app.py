@@ -507,7 +507,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
         if not df_cli_pedidos.empty:
         # Agrupamos diretamente por codigo_venda de forma segura
         if 'codigo_venda' in df_cli_pedidos.columns:
-            codigos_venda = df_cli_pedidos['codigo_venda'].dropna().unique()
+                codigos_venda = df_cli_pedidos['codigo_venda'].dropna().unique()
             
             for cod in codigos_venda:
                 df_item_venda = df_cli_pedidos[df_cli_pedidos['codigo_venda'] == cod]
