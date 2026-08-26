@@ -504,18 +504,48 @@ if perfil_selecionado == "👤 Portal do Cliente":
         if not df_cli_pedidos.empty and 'cliente' in df_cli_pedidos.columns:
             nome_pesq = str(st.session_state.cliente_autenticado).strip().lower()
             df_cli_pedidos = df_cli_pedidos[df_cli_pedidos['cliente'].astype(str).str.strip().str.lower().str.contains(nome_pesq, na=False)]
-        
         if not df_cli_pedidos.empty:
-            df_edit_cli = df_cli_pedidos.copy()
-            if 'Deletar' not in df_edit_cli.columns:
-                df_edit_cli.insert(0, 'Deletar', False)
-                
-            df_atualizado_cliente = st.data_editor(
-                df_edit_cli,
-                num_rows="dynamic",
+      # Verifica se existe a coluna codigo_venda para fazer a separação
+      if "codigo_venda" in df_cli_pedidos.columns:
+        codigos_venda = df_cli_pedidos["codigo_venda"].dropna().unique()
+
+        for cod in codigos_venda:
+          df_item_venda = df_cli_pedidos[
+              df_cli_pedidos["codigo_venda"] == cod
+          ]
+
+          data_venda = (
+              df_item_venda["data"].iloc[0]
+              if "data" in df_item_venda.columns
+              else ""
+          )
+          valor_total_pedido = (
+              df_item_venda["valor_total"].sum()
+              if "valor_total" in df_item_venda.columns
+              else 0.0
+          )
+
+          with st.expander(
+              f"🛒 Pedido ID: {cod} | Data: {data_venda} | Total: R$"
+              f" {valor_total_pedido:.2f}"
+          ):
+            st.dataframe(
+                df_item_venda[
+                    ["id", "produto", "fornecedor", "qtd", "valor_total", "grupo"]
+                ],
                 use_container_width=True,
-                key="editor_pedidos_cliente_direto"
             )
+      else:
+        # Fallback caso a coluna ainda não exista em registros antigos
+        df_edit_cli = df_cli_pedidos.copy()
+        if "Deletar" not in df_edit_cli.columns:
+          df_edit_cli.insert(0, "Deletar", False)
+        st.data_editor(
+            df_edit_cli,
+            num_rows="dynamic",
+            use_container_width=True,
+            key="editor_pedidos_cliente_direto",
+        )
             
             col_salvar_cli, col_del_cli = st.columns(2)
             
