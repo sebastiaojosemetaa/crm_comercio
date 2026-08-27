@@ -524,14 +524,14 @@ if perfil_selecionado == "👤 Portal do Cliente":
             if 'Deletar' not in df_edit_cli.columns:
                 df_edit_cli.insert(0, 'Deletar', False)
 
-                    df_atualizado_cliente = st.data_editor(
+                df_atualizado_cliente = st.data_editor(
                         df_edit_cli,
                         num_rows="dynamic",
                         use_container_width=True,
                         key="editor_pedidos_cliente_direto"
                     )
                     
-                    col_salvar_cli, col_del_cli = st.columns(2)
+                col_salvar_cli, col_del_cli = st.columns(2)
                     
                     with col_salvar_cli:
                         if st.button("💾 Salvar Alterações Feitas na Tabela", use_container_width=True, key="btn_salv_cli_dir"):
