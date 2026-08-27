@@ -872,7 +872,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     
                     if not df_filtrado_admin.empty:
                         row_adm = df_filtrado_admin.iloc[0]
-                        for col_v in ['valor_venda', 'preco_venda', 'venda', 'valor_compra', 'preco_compra']:
+                        for col_v in ['valor_compra', 'preco_compra', 'custo', 'valor_venda', 'preco_venda', 'venda']:
                             if col_v in df_p_admin.columns:
                                 try:
                                     val_aux = float(row_adm[col_v])
