@@ -1048,7 +1048,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.rerun()
 
         with col_btn_pdf:
-            st.write("") 
+            st.write("")
+```[cite: 1] 
                             try:
                                 import io
                                 from reportlab.lib.pagesizes import letter
