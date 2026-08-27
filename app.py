@@ -1159,11 +1159,16 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.dataframe(carregar_dados("SELECT * FROM compras"), use_container_width=True)
 
         elif menu_admin == "📦 Estoque de Produtos":
-            st.title("📦 Estoque de Produtos e Preços")
+    st.title("📦 Estoque de Produtos e Preços")
     df_produtos = carregar_dados("SELECT id, produto, quantidade, valor_compra, valor_venda, grupo, fornecedor FROM produtos")
     
     if not df_produtos.empty:
-        df_editado = st.data_editor(df_produtos, use_container_width=True, hide_index=True, key="editor_estoque_produtos")
+        df_editado = st.data_editor(
+            df_produtos, 
+            use_container_width=True, 
+            hide_index=True, 
+            key="editor_estoque_produtos"
+        )
 
         if st.button("💾 Salvar Alterações no Estoque", type="primary"):
             cursor = conn.cursor()
