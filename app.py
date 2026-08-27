@@ -458,16 +458,60 @@ if perfil_selecionado == "👤 Portal do Cliente":
         
         with aba_novo:
             st.subheader("➕ Registrar Novo Pedido")
-            produtos_opt = carregar_coluna("produtos", "nome") or ["AMEIXA IMPORTADA", "ABACATE", "CEBOLA CAIXA 1"]
+            
+            # Carregar dados do banco para consulta automática
+            df_p_cli = carregar_dados("SELECT * FROM produtos")
+            if not df_p_cli.empty:
+                df_p_cli.columns = [c.lower() for c in df_p_cli.columns]
+                col_nome_p = 'produto' if 'produto' in df_p_cli.columns else ('nome' if 'nome' in df_p_cli.columns else df_p_cli.columns[1])
+                produtos_opt = df_p_cli[col_nome_p].dropna().astype(str).str.strip().unique().tolist()
+            else:
+                produtos_opt = ["AMEIXA IMPORTADA", "ABACATE", "CEBOLA CAIXA 1"]
+                df_p_cli = pd.DataFrame()
+
             fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
             grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
             
+            # Seleção do produto primeiro para capturar os valores associados
+            prod = st.selectbox("Selecione o Produto", produtos_opt, key="cliente_sel_produto")
+            
+            # Valores padrão iniciais
+            preco_sugerido_cli = 0.0
+            forn_sugerido_cli = fornecedores_opt[0]
+            grupo_sugerido_cli = grupos_opt[0]
+
+            if not df_p_cli.empty:
+                df_p_cli['_nome_limpo'] = df_p_cli[col_nome_p].astype(str).str.strip().str.upper()
+                target_nome = str(prod).strip().upper()
+                df_filtrado_cli = df_p_cli[df_p_cli['_nome_limpo'] == target_nome]
+                
+                if not df_filtrado_cli.empty:
+                    row_cli = df_filtrado_cli.iloc[0]
+                    # Buscar preço (compra ou venda dependendo do que usa no pedido)
+                    for col_v in ['valor_compra', 'preco_compra', 'valor_venda', 'preco_venda']:
+                        if col_v in df_p_cli.columns:
+                            try:
+                                val_aux = float(row_cli[col_v])
+                                if val_aux > 0:
+                                    preco_sugerido_cli = val_aux
+                                    break
+                            except:
+                                pass
+
+                    if 'fornecedor' in df_p_cli.columns and pd.notna(row_cli['fornecedor']):
+                        forn_sugerido_cli = str(row_cli['fornecedor'])
+                    if 'grupo' in df_p_cli.columns and pd.notna(row_cli['grupo']):
+                        grupo_sugerido_cli = str(row_cli['grupo'])
+
             with st.form("form_novo_pedido_cliente"):
-                prod = st.selectbox("Selecione o Produto", produtos_opt)
-                fornec = st.selectbox("Selecione o Fornecedor", fornecedores_opt)
-                grupo = st.selectbox("Selecione o Grupo", grupos_opt)
+                idx_f_cli = fornecedores_opt.index(forn_sugerido_cli) if fornecedores_opt and forn_sugerido_cli in fornecedores_opt else 0
+                fornec = st.selectbox("Selecione o Fornecedor", fornecedores_opt, index=idx_f_cli)
+                
+                idx_g_cli = grupos_opt.index(grupo_sugerido_cli) if grupos_opt and grupo_sugerido_cli in grupos_opt else 0
+                grupo = st.selectbox("Selecione o Grupo", grupos_opt, index=idx_g_cli)
+                
                 qtd = st.number_input("Quantidade", min_value=0.1, step=0.5, value=1.0)
-                v_unit = st.number_input("Preço de Custo (R$)", min_value=0.0, step=1.0, value=100.0)
+                v_unit = st.number_input("Preço Unitário (R$)", min_value=0.0, step=1.0, value=float(preco_sugerido_cli))
                 
                 if st.form_submit_button("Confirmar Pedido"):
                     salvar_pedido_ou_venda(st.session_state.cliente_autenticado, prod, fornec, grupo, qtd, v_unit, tipo="PEDIDO")
