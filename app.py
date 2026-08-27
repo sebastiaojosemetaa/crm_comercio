@@ -567,8 +567,8 @@ for cod in codigos:
                             else:
                                 st.info("Marque a caixa 'Deletar' nos itens que deseja remover.")
 
-                st.markdown("---")
-                st.markdown(f"### 📄 Relatório do Cliente ({st.session_state.cliente_autenticado})")
+                    st.markdown("---")
+                    st.markdown(f"### 📄 Relatório do Cliente ({st.session_state.cliente_autenticado})")
                 
                 try:
                     pdf_bytes = gerar_pdf_tabela_pedidos(df_cli_pedidos, st.session_state.cliente_autenticado)
