@@ -1217,16 +1217,29 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         produto_escolhido = st.selectbox("Produto", produtos_opt)
                         
                         # BUSCAR O VALOR DE COMPRA CADASTRADO NO BANCO DE DADOS
-                        cursor = conn.cursor()
-                        cursor.execute("SELECT valor_compra FROM produtos WHERE nome = ?", (produto_escolhido,))
-                        resultado = cursor.fetchone()
-                        preco_cadastrado = float(resultado[0]) if resultado and resultado[0] is not None else 0.0
-                    
-                        fornecedor_escolhido = st.selectbox("Fornecedor", fornecedores_opt)
-                        quantidade = st.number_input("Quantidade", min_value=0.0, format="%.2f")
-                    
-                    with col2:
-                        grupo_escolhido = st.selectbox("Grupo", grupos_opt)
+                        with col1:
+            produto_escolhido = st.selectbox("Produto", produtos_opt, key="prod_entrada_estoque")
+
+            # BUSCAR O VALOR DE COMPRA CADASTRADO NO BANCO DE DADOS
+            cursor = conn.cursor()
+            cursor.execute("SELECT valor_compra FROM produtos WHERE nome = ?", (produto_escolhido,))
+            resultado = cursor.fetchone()
+            preco_cadastrado = float(resultado[0]) if resultado and resultado[0] is not None else 0.0
+
+            fornecedor_escolhido = st.selectbox("Fornecedor", fornecedores_opt)
+            quantidade = st.number_input("Quantidade", min_value=0.0, format="%.2f")
+
+        with col2:
+            grupo_escolhido = st.selectbox("Grupo", grupos_opt)
+            
+            # ADICIONE AQUI O PREÇO DE CUSTO USANDO O VALOR CADASTRADO E UMA CHAVE DINÂMICA
+            preco_custo = st.number_input(
+                "Preço de Custo (R$)", 
+                min_value=0.0, 
+                value=preco_cadastrado, 
+                format="%.2f", 
+                key=f"custo_compra_{produto_escolhido}"
+            )
                         
                         # PASSAR O VALOR CADASTRADO PARA O PARÂMETRO 'value'
                         preco_custo = st.number_input("Preço de Custo Unitário (R$)", min_value=0.0, value=preco_cadastrado, format="%.2f")
