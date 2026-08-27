@@ -958,10 +958,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     df_registros.insert(0, "Deletar", False)
                     df_editado = st.data_editor(df_registros, key=f"editor_reg_{menu_admin}", use_container_width=True, hide_index=True)
                     
-                    if st.button("💾 Salvar Alterações na Tabela", type="primary", key="btn_salvar_edicao_tabela"):
+                    if st.button("💾 Salvar Alterações na Tabela (Excluir Itens Marcados / Editar)", type="primary", key="btn_salvar_edicao_tabela"):
                         cursor = conn.cursor()
                         for _, row in df_editado.iterrows():
-                            if not row["Deletar"]:
+                            if row["Deletar"]:
+                                cursor.execute("DELETE FROM vendas WHERE id = ?", (int(row["id"]),))
+                            else:
                                 v_tot = float(row["quantidade"]) * float(row["valor_venda"])
                                 cursor.execute("""
                                     UPDATE vendas SET cliente = ?, produto = ?, fornecedor = ?, quantidade = ?, 
@@ -969,86 +971,60 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 """, (str(row["cliente"]), str(row["produto"]), str(row["fornecedor"]), 
                                       float(row["quantidade"]), float(row["valor_venda"]), v_tot, str(row["grupo"]), int(row["id"])))
                         conn.commit()
-                        st.success("Alterações salvas!")
+                        st.success("Alterações e exclusões por item salvas com sucesso!")
                         st.rerun()
 
                     # --- AÇÕES RÁPIDAS POR PEDIDO COMPLETO ---
                     st.divider()
-                    st.subheader("⚡ Ações Rápidas por Pedido (Pedido Completo)")
+                    st.subheader("⚡ Ações Rápidas por Pedido Completo")
                     
                     if 'data' in df_registros.columns and 'cliente' in df_registros.columns:
-                        # Criar uma identificação única para o pedido combinando Cliente e Data
                         df_registros['pedido_id'] = df_registros['cliente'].astype(str) + " — " + df_registros['data'].astype(str)
                         pedidos_unicos = df_registros['pedido_id'].unique().tolist()
                         
-                        col_p_sel, col_btn_conv, col_btn_pdf = st.columns([2, 1, 1])
+                        col_p_sel, col_btn_conv, col_btn_exc, col_btn_pdf = st.columns([2, 1, 1, 1])
                         with col_p_sel:
                             pedido_escolhido = st.selectbox("Selecione o Pedido (Cliente + Data):", pedidos_unicos, key="sel_pedido_completo")
                         
-                        # Filtrar todos os itens pertencentes a este pedido
                         df_itens_pedido = df_registros[df_registros['pedido_id'] == pedido_escolhido]
                         
                         with col_btn_conv:
                             st.write("") 
-                            if st.button("🔄 Converter Pedido Inteiro", key="btn_conv_inteiro", type="primary"):
+                            if st.button("🔄 Converter Pedido", key="btn_conv_inteiro", type="primary"):
                                 cursor = conn.cursor()
                                 for _, itm in df_itens_pedido.iterrows():
                                     cursor.execute("UPDATE vendas SET tipo = 'VENDA' WHERE id = ?", (int(itm['id']),))
                                 conn.commit()
-                                st.success("Todos os itens deste pedido foram convertidos em Venda com sucesso!")
+                                st.success("Pedido inteiro convertido em Venda!")
+                                st.rerun()
+
+                        with col_btn_exc:
+                            st.write("") 
+                            if st.button("🗑️ Excluir Pedido", key="btn_exc_inteiro", type="secondary"):
+                                cursor = conn.cursor()
+                                for _, itm in df_itens_pedido.iterrows():
+                                    cursor.execute("DELETE FROM vendas WHERE id = ?", (int(itm['id']),))
+                                conn.commit()
+                                st.success("Pedido completo excluído com sucesso!")
                                 st.rerun()
                                 
                         with col_btn_pdf:
                             st.write("") 
-                            # Gerador de PDF embutido para garantir funcionamento imediato
-                            try:
-                                from reportlab.lib.pagesizes import letter
-                                from reportlab.pdfgen import canvas
-                                import io
-
-                                buffer = io.BytesIO()
-                                p = canvas.Canvas(buffer, pagesize=letter)
-                                width, height = letter
-                                
-                                p.drawString(50, height - 50, "ORÇAMENTO / PEDIDO - CRM COMÉRCIO")
-                                p.drawString(50, height - 70, f"Referência: {pedido_escolhido}")
-                                p.line(50, height - 80, width - 50, height - 80)
-                                
-                                y_pos = height - 110
-                                p.drawString(50, y_pos, "Produto")
-                                p.drawString(250, y_pos, "Qtd")
-                                p.drawString(320, y_pos, "Preço Unit.")
-                                p.drawString(420, y_pos, "Total")
-                                y_pos -= 20
-                                
-                                total_geral_pdf = 0.0
-                                for _, itm in df_itens_pedido.iterrows():
-                                    p.drawString(50, y_pos, str(itm.get('produto', '')))
-                                    p.drawString(250, y_pos, str(itm.get('quantidade', '')))
-                                    p.drawString(320, y_pos, f"R$ {float(itm.get('valor_venda', 0)):,.2f}")
-                                    v_t = float(itm.get('quantidade', 0)) * float(itm.get('valor_venda', 0))
-                                    total_geral_pdf += v_t
-                                    p.drawString(420, y_pos, f"R$ {v_t:,.2f}")
-                                    y_pos -= 20
-                                    
-                                p.line(50, y_pos, width - 50, y_pos)
-                                y_pos -= 25
-                                p.drawString(320, y_pos, f"Total Geral: R$ {total_geral_pdf:,.2f}")
-                                
-                                p.showPage()
-                                p.save()
-                                buffer.seek(0)
-                                pdf_bytes = buffer.getvalue()
-
-                                st.download_button(
-                                    label="📄 Baixar PDF do Pedido",
-                                    data=pdf_bytes,
-                                    file_name=f"pedido_{pedido_escolhido.replace('—', '_').strip()}.pdf",
-                                    mime="application/pdf",
-                                    key="download_pdf_pedido_completo"
-                                )
-                            except Exception as e:
-                                st.error(f"Erro ao gerar PDF: {e}")
+                            # Chama o gerador de PDF original do sistema se estiver disponível
+                            if 'gerar_pdf_orcamento' in globals():
+                                try:
+                                    pdf_bytes = gerar_pdf_orcamento(df_itens_pedido)
+                                    st.download_button(
+                                        label="📄 Baixar PDF",
+                                        data=pdf_bytes,
+                                        file_name=f"relatorio_pedidos.pdf",
+                                        mime="application/pdf",
+                                        key="download_pdf_original"
+                                    )
+                                except Exception as e:
+                                    st.error(f"Erro ao gerar PDF: {e}")
+                            else:
+                                st.warning("Função original de PDF não encontrada no escopo.")
                 else:
                     st.info("Nenhum registro encontrado.")
 
