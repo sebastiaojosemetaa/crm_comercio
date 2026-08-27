@@ -1146,11 +1146,17 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             with aba_historico_compras:
                 st.dataframe(carregar_dados("SELECT * FROM compras"), use_container_width=True)
 
-        elif menu_admin == "📦 Estoque de Produtos":
+        elelif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
-            df_produtos = carregar_dados("SELECT id, nome, estoque_atual as quantidade, valor_compra, valor_venda, grupo, fornecedor FROM produtos")
+            df_produtos = carregar_dados("SELECT * FROM produtos")
             
+            # Garante que as colunas essenciais existam no DataFrame
             if not df_produtos.empty:
+                if 'estoque_atual' not in df_produtos.columns and 'quantidade' in df_produtos.columns:
+                    df_produtos = df_produtos.rename(columns={'quantidade': 'estoque_atual'})
+                elif 'quantidade' not in df_produtos.columns and 'estoque_atual' in df_produtos.columns:
+                    df_produtos = df_produtos.rename(columns={'estoque_atual': 'quantidade'})
+                
                 df_editado = st.data_editor(df_produtos, use_container_width=True, hide_index=True, key="editor_estoque_produtos")
 
                 col1, col2 = st.columns(2)
@@ -1158,8 +1164,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     if st.button("💾 Salvar Alterações no Estoque", type="primary"):
                         cursor = conn.cursor()
                         for index, row in df_editado.iterrows():
+                            # Identifica o nome correto da coluna de quantidade para salvar
+                            qtd_val = float(row.get('quantidade', row.get('estoque_atual', 0)) or 0)
                             query = "UPDATE produtos SET nome = ?, estoque_atual = ?, valor_compra = ?, valor_venda = ?, grupo = ?, fornecedor = ? WHERE id = ?"
-                            dados = (row['nome'], float(row['quantidade'] or 0), float(row['valor_compra'] or 0), float(row['valor_venda'] or 0), row['grupo'], row['fornecedor'], row['id'])
+                            dados = (row['nome'], qtd_val, float(row['valor_compra'] or 0), float(row['valor_venda'] or 0), row['grupo'], row['fornecedor'], row['id'])
                             cursor.execute(query, dados)
                         conn.commit()
                         st.success("Estoque e preços atualizados com sucesso!")
@@ -1170,12 +1178,24 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         cursor = conn.cursor()
                         cursor.execute("""
                             UPDATE vendas 
-                            SET valor_venda = (SELECT valor_venda FROM produtos WHERE produtos.nome = vendas.produto),
-                                valor_total = quantidade * (SELECT valor_venda FROM produtos WHERE produtos.nome = vendas.produto)
-                            WHERE produto IN (SELECT nome FROM produtos)
+                            SET valor_venda = (
+                                SELECT valor_venda 
+                                FROM produtos 
+                                WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
+                            ),
+                            valor_total = quantidade * (
+                                SELECT valor_venda 
+                                FROM produtos 
+                                WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
+                            )
+                            WHERE TRIM(UPPER(produto)) IN (SELECT TRIM(UPPER(nome)) FROM produtos)
                         """)
+                        linhas_afetadas = cursor.rowcount
                         conn.commit()
-                        st.success("Preços atualizados com o Valor de Venda do estoque!")
+                        if linhas_afetadas > 0:
+                            st.success(f"Preços atualizados com sucesso! ({linhas_afetadas} itens modificados)")
+                        else:
+                            st.warning("Nenhum produto correspondente foi encontrado na tabela de estoque.")
                         st.rerun()
             else:
                 st.info("Nenhum produto cadastrado.")
