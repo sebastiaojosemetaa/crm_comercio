@@ -580,10 +580,10 @@ for cod in codigos:
                         use_container_width=True,
                         key="btn_baixar_pdf_corporativo_cliente"
                     )
-                except Exception as e:
-                    st.error(f"Erro ao gerar o PDF corporativo: {e}")
-            else:
-                st.info(f"Nenhum pedido encontrado para '{st.session_state.cliente_autenticado}'.")
+                    except Exception as e:
+                        st.error(f"Erro ao gerar o PDF corporativo: {e}")
+                else:
+                    st.info(f"Nenhum pedido encontrado para '{st.session_state.cliente_autenticado}'.")
 
 # ==========================================
 # AMBIENTE 2: ADMINISTRADOR / VENDEDOR
