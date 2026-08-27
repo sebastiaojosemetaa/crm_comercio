@@ -907,20 +907,18 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 texto_botao_atualizar = "🔄 Atualizar Preços de Venda" if not is_modo_pedido else "🔄 Atualizar Preços de Custo"
                 if st.button(texto_botao_atualizar, key=f"btn_atualizar_precos_{menu_admin}"):
                     cursor = conn.cursor()
-                    coluna_alvo_estoque = 'valor_venda' if not is_modo_pedido else 'valor_compra'
                     
-                    # Atualização segura linha por linha para evitar erros de subconsulta no SQLite
-                    cursor.execute(f"SELECT id, produto FROM vendas")
+                    cursor.execute("SELECT id, produto FROM vendas")
                     todas_vendas_db = cursor.fetchall()
                     linhas_afetadas = 0
                     
                     for v_id, v_prod in todas_vendas_db:
                         if v_prod:
-                            cursor.execute(f"SELECT {coluna_alvo_estoque} FROM produtos WHERE TRIM(UPPER(nome)) = TRIM(UPPER(?))", (v_prod,))
+                            cursor.execute("SELECT valor_venda FROM produtos WHERE TRIM(UPPER(nome)) = TRIM(UPPER(?))", (v_prod,))
                             res_prod = cursor.fetchone()
                             if res_prod and res_prod[0] is not None:
                                 novo_preco = float(res_prod[0])
-                                cursor.execute(f"""
+                                cursor.execute("""
                                     UPDATE vendas 
                                     SET valor_venda = ?, valor_total = quantidade * ? 
                                     WHERE id = ?
