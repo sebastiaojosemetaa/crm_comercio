@@ -1130,7 +1130,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         for index, row in df_editado.iterrows():
                             qtd_val = float(row.get('quantidade', row.get('estoque_atual', 0)) or 0)
                             query = "UPDATE produtos SET nome = ?, estoque_atual = ?, valor_compra = ?, valor_venda = ?, grupo = ?, fornecedor = ? WHERE id = ?"
-                            dados = (row['nome'], qtd_val, float(row['valor_compra'] or 0), float(row['valor_venda'] or 0), row['grupo'], row['fornecedor'], row['id'])
+                            dados = (row['produto'], qtd_val, float(row['valor_compra'] or 0), float(row['valor_venda'] or 0), row['grupo'], row['fornecedor'], row['id'])
                             cursor.execute(query, dados)
                         conn.commit()
                         st.success("Estoque e preços atualizados com sucesso!")
