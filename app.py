@@ -508,15 +508,16 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 codigos = df_cli_pedidos['codigo_venda'].dropna().unique() if 'codigo_venda' in df_cli_pedidos.columns else []
                 
                 for cod in codigos:
-                    df_item_venda = df_cli_pedidos[df_cli_pedidos['codigo_venda'] == cod]
-                    data_venda = df_item_venda['data'].iloc[0] if 'data' in df_item_venda.columns else ""
-                    col_t_item = next((c for c in df_item_vendam.columns if "valor" in c.lower() and "total" in c.lower()), "Valor Total")
-val_total = df_item_venda[col_t_item].sum() if col_t_item in df_item_venda.columns else 0.0
-                    
-        with st.expander(f"🛒 Pedido ID: {cod} | Data: {data_venda} | Total: R$ {val_total:.2f}"):
-                        cols_desejadas = ['id', 'produto', 'fornecedor', 'qtd', col_t_item, 'grupo']
-                        cols_existentes = [c for c in cols_desejadas if c in df_item_venda.columns]
-                        st.dataframe(df_item_venda[cols_existentes], use_container_width=True)
+        df_item_venda = df_cli_pedidos[df_cli_pedidos['codigo_venda'] == cod]
+        data_venda = df_item_venda['data'].iloc[0] if 'data' in df_item_venda.columns else ""
+        
+        col_t_item = next((c for c in df_item_venda.columns if "valor" in c.lower() and "total" in c.lower()), "Valor Total")
+        val_total = df_item_venda[col_t_item].sum() if col_t_item in df_item_venda.columns else 0.0
+
+        with st.expander(f"🛒 Pedido ID: {cod} | Data: {data_venda} | Total: R$ {val_total:,.2f}"):
+            cols_desejadas = ['id', 'produto', 'fornecedor', 'qtd', col_t_item, 'grupo']
+            cols_existentes = [c for c in cols_desejadas if c in df_item_venda.columns]
+            st.dataframe(df_item_venda[cols_existentes], use_container_width=True)
                 
                 if len(codigos) == 0:
                     df_edit_cli = df_cli_pedidos.copy()
