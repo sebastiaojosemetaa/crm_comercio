@@ -1165,15 +1165,30 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
     if not df_produtos.empty:
         df_editado = st.data_editor(df_produtos, use_container_width=True, hide_index=True, key="editor_estoque_produtos")
 
-        if st.button("💾 Salvar Alterações no Estoque", type="primary"):
-            cursor = conn.cursor()
-            for index, row in df_editado.iterrows():
-                query = "UPDATE produtos SET produto = ?, quantidade = ?, valor_compra = ?, valor_venda = ?, grupo = ?, fornecedor = ? WHERE id = ?"
-                dados = (row['produto'], float(row['quantidade'] or 0), float(row['valor_compra'] or 0), float(row['valor_venda'] or 0), row['grupo'], row['fornecedor'], row['id'])
-                cursor.execute(query, dados)
-            conn.commit()
-            st.success("Estoque e preços atualizados com sucesso!")
-            st.rerun()
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("💾 Salvar Alterações no Estoque", type="primary"):
+                cursor = conn.cursor()
+                for index, row in df_editado.iterrows():
+                    query = "UPDATE produtos SET produto = ?, quantidade = ?, valor_compra = ?, valor_venda = ?, grupo = ?, fornecedor = ? WHERE id = ?"
+                    dados = (row['produto'], float(row['quantidade'] or 0), float(row['valor_compra'] or 0), float(row['valor_venda'] or 0), row['grupo'], row['fornecedor'], row['id'])
+                    cursor.execute(query, dados)
+                conn.commit()
+                st.success("Estoque e preços atualizados com sucesso!")
+                st.rerun()
+
+        with col2:
+            if st.button("🔄 Atualizar Preços nas Vendas"):
+                cursor = conn.cursor()
+                cursor.execute("""
+                    UPDATE vendas 
+                    SET valor_venda = (SELECT valor_venda FROM produtos WHERE produtos.produto = vendas.produto),
+                        valor_total = quantidade * (SELECT valor_venda FROM produtos WHERE produtos.produto = vendas.produto)
+                    WHERE produto IN (SELECT produto FROM produtos)
+                """)
+                conn.commit()
+                st.success("Preços de venda atualizados com sucesso nas comissões/pedidos!")
+                st.rerun()
     else:
         st.info("Nenhum produto cadastrado.")
 
