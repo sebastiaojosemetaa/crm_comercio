@@ -914,7 +914,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     
                     for v_id, v_prod in todas_vendas_db:
                         if v_prod:
-                            cursor.execute("SELECT valor_venda FROM produtos WHERE TRIM(UPPER(nome)) = TRIM(UPPER(?))", (v_prod,))
+                            cursor.execute("SELECT valor_venda FROM produtos WHERE TRIM(UPPER(descricao)) = TRIM(UPPER(?))", (v_prod,))
                             res_prod = cursor.fetchone()
                             if res_prod and res_prod[0] is not None:
                                 novo_preco = float(res_prod[0])
