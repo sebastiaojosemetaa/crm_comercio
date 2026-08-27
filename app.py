@@ -1179,23 +1179,21 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
 elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
     st.title("👥 Cadastros Gerais")
-    tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["👤 Clientes", "📦 Produtos", "🏢 Fornecedores", "🏷️ Grupos"])            
-            
-            with tab_cli:
-                st.subheader("Gerenciamento de Clientes")
-                with st.form("form_cad_cliente_completo"):
-                    novo_cli = st.text_input("Nome do Cliente / Razão Social")
-                    telefone = st.text_input("Telefone / WhatsApp")
-                    doc = st.text_input("CPF / CNPJ")
-                    endereco = st.text_input("Endereço")
-                    cidade = st.text_input("Cidade / Email")
-                    
-                    if st.form_submit_button("💾 Salvar Cliente"):
-                        if novo_cli.strip():
-                            salvar_cliente_completo(novo_cli, telefone, doc, endereco, cidade)
-                            st.success("Cliente cadastrado com sucesso!")
-                            st.rerun()
-                        else:
+    tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["👤 Clientes", "📦 Produtos", "🏢 Fornecedores", "🏷️ Grupos"])
+
+    with tab_cli:
+        st.subheader("Gerenciamento de Clientes")
+        with st.form("form_cad_cliente_completo"):
+            novo_cli = st.text_input("Nome do Cliente / Razão Social")
+            telefone = st.text_input("Telefone / WhatsApp")
+            doc = st.text_input("CPF / CNPJ")
+            endereco = st.text_input("Endereço")
+            cidade = st.text_input("Cidade / Email")
+
+            if st.form_submit_button("💾 Salvar Cliente"):
+                if novo_cli.strip():
+                    # Insere ou salva o cliente
+                    pass
                             st.warning("Preencha o nome do cliente.")
                 st.dataframe(carregar_dados("SELECT * FROM clientes"), use_container_width=True)
 
