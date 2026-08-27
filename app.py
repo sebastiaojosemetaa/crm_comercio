@@ -570,7 +570,7 @@ for cod in codigos:
                     st.markdown("---")
                     st.markdown(f"### 📄 Relatório do Cliente ({st.session_state.cliente_autenticado})")
                 
-                try:
+                    try:
                     pdf_bytes = gerar_pdf_tabela_pedidos(df_cli_pedidos, st.session_state.cliente_autenticado)
                     st.download_button(
                         label=f"📥 Baixar Relatório em PDF Corporativo - {st.session_state.cliente_autenticado}",
