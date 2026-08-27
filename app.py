@@ -823,7 +823,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             with aba_cad:
                 clientes_opt = carregar_coluna("clientes", "nome") or ["Carlos Alberto"]
                 
-                # Carregar o DataFrame completo de produtos para buscar preço, fornecedor e grupo
+                # Carregar o DataFrame completo de produtos
                 df_p_admin = carregar_dados("SELECT * FROM produtos")
                 if not df_p_admin.empty:
                     df_p_admin.columns = [c.lower() for c in df_p_admin.columns]
@@ -837,6 +837,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
                 grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
 
+                # Seleção do produto fora do formulário para disparar a atualização na hora
                 prod_item = st.selectbox("Selecione o Produto", produtos_opt, key="ped_select_produto")
 
                 if prod_item == "➕ Cadastrar Novo Produto...":
@@ -858,7 +859,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 st.error("Digite o nome do produto.")
                     st.stop()
                 
-                # Buscar valores sugeridos do produto selecionado
+                # Buscar valores exatos do produto selecionado no banco
                 preco_sugerido_admin = 0.0
                 forn_sugerido_admin = fornecedores_opt[0]
                 grupo_sugerido_admin = grupos_opt[0]
@@ -870,7 +871,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     
                     if not df_filtrado_admin.empty:
                         row_adm = df_filtrado_admin.iloc[0]
-                        for col_v in ['valor_venda', 'preco_venda', 'venda', 'valor_compra']:
+                        # Procura pelas colunas de preço de venda ou compra
+                        for col_v in ['valor_venda', 'preco_venda', 'venda', 'valor_compra', 'preco_compra']:
                             if col_v in df_p_admin.columns:
                                 try:
                                     val_aux = float(row_adm[col_v])
@@ -881,20 +883,22 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     pass
 
                         if 'fornecedor' in df_p_admin.columns and pd.notna(row_adm['fornecedor']):
-                            forn_sugerido_admin = str(row_adm['fornecedor'])
+                            forn_sugerido_admin = str(row_adm['fornecedor']).strip()
                         if 'grupo' in df_p_admin.columns and pd.notna(row_adm['grupo']):
-                            grupo_sugerido_admin = str(row_adm['grupo'])
+                            grupo_sugerido_admin = str(row_adm['grupo']).strip()
+
+                # Definir índices seguros para os selects
+                idx_f_adm = fornecedores_opt.index(forn_sugerido_admin) if fornecedores_opt and forn_sugerido_admin in fornecedores_opt else 0
+                idx_g_adm = grupos_opt.index(grupo_sugerido_admin) if grupos_opt and grupo_sugerido_admin in grupos_opt else 0
 
                 with st.form("form_cad_pedido_individual"):
                     cliente_ped = st.selectbox("Cliente", clientes_opt, key="ped_cli_ind")
-                    
-                    idx_f_adm = fornecedores_opt.index(forn_sugerido_admin) if fornecedores_opt and forn_sugerido_admin in fornecedores_opt else 0
                     fornec_ped = st.selectbox("Fornecedor", fornecedores_opt, index=idx_f_adm, key="ped_forn_ind")
-                    
-                    idx_g_adm = grupos_opt.index(grupo_sugerido_admin) if grupos_opt and grupo_sugerido_admin in grupos_opt else 0
                     grupo_ped = st.selectbox("Grupo", grupos_opt, index=idx_g_adm, key="ped_grupo_ind")
                     
                     qtd_ped = st.number_input("Quantidade", min_value=0.1, step=1.0, value=1.0, key="ped_qtd_ind")
+                    
+                    # O campo de preço agora assume o valor exato buscado do banco para o produto escolhido
                     v_venda_ped = st.number_input("Preço Unitário (R$)", min_value=0.0, step=1.0, value=float(preco_sugerido_admin), key="ped_v_ind")
                     
                     tipo_reg = "PEDIDO" if is_modo_pedido else "VENDA"
