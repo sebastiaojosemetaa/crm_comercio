@@ -965,13 +965,17 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     linhas_afetadas = cursor.rowcount
                     conn.commit()
                     
+                    # Limpa o cache do editor na sessão para forçar a leitura do banco atualizado
+                    editor_key = f"editor_reg_{menu_admin}"
+                    if editor_key in st.session_state:
+                        del st.session_state[editor_key]
+                    
                     if linhas_afetadas > 0:
                         st.success(f"Preços atualizados com sucesso! ({linhas_afetadas} itens modificados)")
                     else:
                         st.warning("Nenhum produto correspondente foi encontrado na tabela de estoque para atualizar.")
                     
-                    st.rerun()
-                
+                    st.rerun()                
                 st.markdown("---")
                 
                 s_d1, s_d2 = d_inicio.strftime("%Y-%m-%d"), d_fim.strftime("%Y-%m-%d")
