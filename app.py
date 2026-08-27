@@ -906,10 +906,47 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 
                 tipo_reg = "PEDIDO" if is_modo_pedido else "VENDA"
                 if st.button(f"Salvar {tipo_reg}", type="primary"):
-                    salvar_pedido_ou_venda(cliente_ped, prod_item, fornec_ped, grupo_ped, qtd_ped, v_venda_ped, tipo=tipo_reg)
-                    st.success(f"{tipo_reg} cadastrado com sucesso!")
+                    cursor = conn.cursor()
+                    tipo_banco = 'ORÇAMENTO' if is_modo_pedido else 'VENDA'
+                    
+                    # Verifica se o produto já foi lançado para este cliente hoje
+                    cursor.execute("""
+                        SELECT id, quantidade FROM vendas 
+                        WHERE TRIM(cliente) = TRIM(?) AND TRIM(produto) = TRIM(?) AND tipo = ? 
+                        AND substr(data, 1, 10) = date('now')
+                    """, (cliente_ped, prod_item, tipo_banco))
+                    item_existente = cursor.fetchone()
+                    
+                    if item_existente:
+                        # Soma a quantidade e atualiza o valor total
+                        novo_qtd = float(item_existente[1]) + float(qtd_ped)
+                        novo_total = novo_qtd * float(v_venda_ped)
+                        cursor.execute("""
+                            UPDATE vendas SET quantidade = ?, valor_total = ? WHERE id = ?
+                        """, (novo_qtd, novo_total, item_existente[0]))
+                    else:
+                        # Insere novo item normalmente
+                        cursor.execute("""
+                            INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, tipo, data)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))
+                        """, (cliente_ped, prod_item, fornec_ped, grupo_ped, float(qtd_ped), float(v_venda_ped), float(qtd_ped) * float(v_venda_ped), tipo_banco))
+                    
+                    conn.commit()
+                    st.success(f"{tipo_reg} atualizado com sucesso!")
                     st.rerun()
 
+                # --- EXIBIÇÃO DOS ITENS JÁ LANÇADOS NO PEDIDO ATUAL ---
+                st.divider()
+                st.subheader("🛒 Itens já lançados neste Pedido (Hoje)")
+                tipo_banco_atual = 'ORÇAMENTO' if is_modo_pedido else 'VENDA'
+                df_parcial = carregar_dados(f"SELECT id, produto, quantidade, valor_venda, valor_total FROM vendas WHERE TRIM(cliente) = TRIM('{cliente_ped}') AND tipo = '{tipo_banco_atual}' AND substr(data, 1, 10) = date('now')")
+
+                if not df_parcial.empty:
+                    st.dataframe(df_parcial, use_container_width=True, hide_index=True)
+                    total_parcial = df_parcial['valor_total'].sum()
+                    st.markdown(f"### **Valor Total Acumulado: R$ {total_parcial:,.2f}**")
+                else:
+                    st.info("Nenhum item lançado para este cliente hoje.")
             if aba_baixa is not None:
                 with aba_baixa:
                     st.subheader("💵 Baixa de Débitos & Lançamento de Haver")
