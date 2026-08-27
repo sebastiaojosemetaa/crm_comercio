@@ -1173,8 +1173,8 @@ with col2:
                         else:
                             st.warning("Nenhum produto correspondente foi encontrado na tabela de estoque.")
                         st.rerun()
-            else:
-                st.info("Nenhum produto cadastrado.")
+                        else:
+                            st.info("Nenhum produto cadastrado.")
 
         elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
             st.title("👥 Cadastros Gerais")
