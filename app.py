@@ -504,24 +504,37 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 nome_pesq = str(st.session_state.cliente_autenticado).strip().lower()
                 df_cli_pedidos = df_cli_pedidos[df_cli_pedidos['cliente'].astype(str).str.strip().str.lower().str.contains(nome_pesq, na=False)]
             
-# Garante que o dataframe de pedidos do cliente existe
-    if 'df_cli_pedidos' not in locals():
-        df_cli_pedidos = pd.DataFrame()
-
-    codigos = []
-    
-    if not df_cli_pedidos.empty:
-        col_codigo = next((c for c in df_cli_pedidos.columns if 'codigo' in c.lower() and 'venda' in c.lower()), None)
-        if col_codigo and col_codigo in df_cli_pedidos.columns:
-            codigos = df_cli_pedidos[col_codigo].dropna().unique()
+# Garante que o dataframe de pedidos do cliente existe e não está vazio
+    if 'df_cli_pedidos' in locals() and not df_cli_pedidos.empty:
         
-        col_t_item = next((c for c in df_item_venda.columns if "valor" in c.lower() and "total" in c.lower()), "Valor Total")
-        val_total = df_item_venda[col_t_item].sum() if col_t_item in df_item_venda.columns else 0.0
-
-        with st.expander(f"🛒 Pedido ID: {cod} | Data: {data_venda} | Total: R$ {val_total:,.2f}"):
-            cols_desejadas = ['id', 'produto', 'fornecedor', 'qtd', col_t_item, 'grupo']
-            cols_existentes = [c for c in cols_desejadas if c in df_item_venda.columns]
-            st.dataframe(df_item_venda[cols_existentes], use_container_width=True)
+        # Identifica com segurança a coluna de código da venda
+        col_codigo = next((c for c in df_cli_pedidos.columns if 'codigo' in c.lower() and 'venda' in c.lower()), None)
+        if not col_codigo and 'codigo_venda' in df_cli_pedidos.columns:
+            col_codigo = 'codigo_venda'
+            
+        codigos = df_cli_pedidos[col_codigo].dropna().unique() if col_codigo and col_codigo in df_cli_pedidos.columns else []
+        
+        for cod in codigos:
+            # Filtra os itens do pedido atual
+            df_item_venda = df_cli_pedidos[df_cli_pedidos[col_codigo] == cod] if col_codigo else pd.DataFrame()
+            
+            if not df_item_venda.empty:
+                data_venda = str(df_item_venda['data'].iloc[0]) if 'data' in df_item_venda.columns else ""
+                
+                # Procura a coluna de valor total de forma inteligente
+                col_t_item = next((c for c in df_item_venda.columns if "valor" in c.lower() and "total" in c.lower()), None)
+                if not col_t_item:
+                    col_t_item = next((c for c in df_item_venda.columns if "total" in c.lower()), None)
+                
+                # Calcula o total com segurança caso a coluna seja numérica
+                val_total = 0.0
+                if col_t_item and col_t_item in df_item_venda.columns:
+                    val_total = pd.to_numeric(df_item_venda[col_t_item], errors='coerce').sum()
+                
+                with st.expander(f"🛒 Pedido ID: {cod} | Data: {data_venda} | Total: R$ {val_total:,.2f}"):
+                    cols_desejadas = ['id', 'produto', 'fornecedor', 'qtd', col_t_item, 'grupo']
+                    cols_existentes = [c for c in cols_desejadas if c and c in df_item_venda.columns]
+                    st.dataframe(df_item_venda[cols_existentes], use_container_width=True)
                 
         if len(codigos) == 0:
             df_edit_cli = df_cli_pedidos.copy()
