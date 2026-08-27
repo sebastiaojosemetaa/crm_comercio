@@ -1128,8 +1128,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     if st.button("💾 Salvar Alterações no Estoque", type="primary"):
                         cursor = conn.cursor()
                         for index, row in df_editado.iterrows():
-                            qtd_val = float(row.get('quantidade', row.get('estoque_atual', 0)) or 0)
-                            query = "UPDATE produtos SET nome = ?, estoque_atual = ?, valor_compra = ?, valor_venda = ?, grupo = ?, fornecedor = ? WHERE id = ?"
+                            query = "UPDATE produtos SET produto = ?, quantidade = ?, valor_compra = ?, valor_venda = ?, grupo = ?, fornecedor = ? WHERE id = ?"
                             dados = (row['produto'], qtd_val, float(row['valor_compra'] or 0), float(row['valor_venda'] or 0), row['grupo'], row['fornecedor'], row['id'])
                             cursor.execute(query, dados)
                         conn.commit()
