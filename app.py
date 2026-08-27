@@ -971,6 +971,44 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         conn.commit()
                         st.success("Alterações salvas!")
                         st.rerun()
+
+                    # --- BOTÕES DE AÇÃO POR PEDIDO (CONVERTER / PDF) ---
+                    st.divider()
+                    st.subheader("⚡ Ações Rápidas por Pedido")
+                    
+                    # Selecionar o ID do registro para executar a ação
+                    ids_disponiveis = df_registros['id'].tolist() if 'id' in df_registros.columns else []
+                    if ids_disponiveis:
+                        col_id_sel, col_btn_conv, col_btn_pdf = st.columns([2, 1, 1])
+                        with col_id_sel:
+                            id_selecionado = st.selectbox("Selecione o ID do Pedido para Ação:", ids_disponiveis, key="sel_id_acao_pedido")
+                        
+                        # Filtrar dados do pedido selecionado
+                        row_selecionada = df_registros[df_registros['id'] == id_selecionado].iloc[0]
+                        
+                        with col_btn_conv:
+                            st.write("") # espaçamento
+                            if st.button("🔄 Converter em Venda", key=f"conv_venda_{id_selecionado}"):
+                                cursor = conn.cursor()
+                                cursor.execute("UPDATE vendas SET tipo = 'VENDA' WHERE id = ?", (int(id_selecionado),))
+                                conn.commit()
+                                st.success(f"Pedido #{id_selecionado} convertido em Venda com sucesso!")
+                                st.rerun()
+                                
+                        with col_btn_pdf:
+                            st.write("") # espaçamento
+                            # Verifica se a função de gerar PDF existe no código principal para evitar erros
+                            if 'gerar_pdf_orcamento' in globals():
+                                pdf_bytes = gerar_pdf_orcamento(row_selecionada)
+                                st.download_button(
+                                    label="📄 Baixar PDF",
+                                    data=pdf_bytes,
+                                    file_name=f"pedido_{id_selecionado}.pdf",
+                                    mime="application/pdf",
+                                    key=f"download_pdf_{id_selecionado}"
+                                )
+                            else:
+                                st.info("Função de PDF não carregada.")
                 else:
                     st.info("Nenhum registro encontrado.")
 
