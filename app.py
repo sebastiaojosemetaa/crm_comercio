@@ -891,7 +891,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     st.success(f"Haver de R$ {valor_haver:,.2f} aplicado com sucesso!")
                                     st.rerun()
 
-            with aba_list:
+with aba_list:
     st.subheader("🔍 Edição Direta na Tabela & Gestão por Cliente")
     
     clientes_filtro = ["TODOS"] + (carregar_coluna("clientes", "nome") or carregar_coluna("vendas", "cliente"))
