@@ -1020,6 +1020,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         pedidos_unicos = df_registros['pedido_id'].unique().tolist()
                         
                         col_p_sel, col_btn_conv, col_btn_exc, col_btn_pdf = st.columns([2, 1, 1, 1])
+        col_p_sel, col_btn_conv, col_btn_exc, col_btn_pdf = st.columns([2, 1, 1, 1])
+        with col_p_sel:
+            pedido_escolhido = st.selectbox("Selecione o Pedido (Cliente + Data):", pedidos_unicos, key="sel_pedido_completo")
+            df_itens_pedido = df_registros[df_registros['pedido_id'] == pedido_escolhido]
+
+        st.dataframe(df_itens_pedido, use_container_width=True, hide_index=True)
+
         with col_btn_conv:
             st.write("")
             if st.button("🔄 Converter Pedido", key="btn_conv_inteiro", type="primary"):
@@ -1030,15 +1037,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.success("Pedido inteiro convertido em Venda!")
                 st.rerun()
 
-                        with col_btn_conv:
+        with col_btn_exc:
             st.write("")
-            if st.button("🔄 Converter Pedido", key="btn_conv_inteiro", type="primary"):
-                cursor = conn.cursor()
-                for _, itm in df_itens_pedido.iterrows():
-                    cursor.execute("UPDATE vendas SET tipo = 'VENDA' WHERE id = ?", (int(itm['id']),))
-                conn.commit()
-                st.success("Pedido inteiro convertido em Venda!")
-                st.rerun()
 
         with col_btn_exc:
             st.write("") 
