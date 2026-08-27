@@ -1053,13 +1053,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             try:
                 import io
                 from reportlab.lib.pagesizes import letter
-                # restante do código...
-                                from reportlab.lib.pagesizes import letter
-                                from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-                                from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-                                from reportlab.lib import colors
+                from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+                from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+                from reportlab.lib import colors
 
-                                buffer = io.BytesIO()
+                buffer = io.BytesIO()
+                # O restante do seu código do PDF continua a partir daqui...
                                 # Reduz a margem superior da página para colar mais no topo
                                 doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=15, bottomMargin=30)
                                 elementos = []
