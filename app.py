@@ -1049,9 +1049,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
         with col_btn_pdf:
             st.write("")
-```[cite: 1] 
-                            try:
-                                import io
+
+            try:
+                import io
+                from reportlab.lib.pagesizes import letter
+                # restante do código...
                                 from reportlab.lib.pagesizes import letter
                                 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
                                 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
