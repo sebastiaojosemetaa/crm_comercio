@@ -1126,14 +1126,24 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 col1, col2 = st.columns(2)
                 with col1:
                     if st.button("💾 Salvar Alterações no Estoque", type="primary"):
-                        cursor = conn.cursor()
-                        for index, row in df_editado.iterrows():
-                            query = "UPDATE produtos SET produto = ?, quantidade = ?, valor_compra = ?, valor_venda = ?, grupo = ?, fornecedor = ? WHERE id = ?"
-                            dados = (row['produto'], qtd_val, float(row['valor_compra'] or 0), float(row['valor_venda'] or 0), row['grupo'], row['fornecedor'], row['id'])
-                            cursor.execute(query, dados)
-                        conn.commit()
-                        st.success("Estoque e preços atualizados com sucesso!")
-                        st.rerun()
+    cursor = conn.cursor()
+    for row in df_editado.itertuples():
+        # Trata os valores de forma segura usando os atributos do tupla
+        qtd_val = float(getattr(row, 'quantidade', 0) or 0)
+        v_compra = float(getattr(row, 'valor_compra', 0) or 0)
+        v_venda = float(getattr(row, 'valor_venda', 0) or 0)
+        grupo = getattr(row, 'grupo', 'Geral')
+        fornecedor = getattr(row, 'fornecedor', None)
+        prod_id = getattr(row, 'id', None)
+        prod_nome = getattr(row, 'produto', '')
+        
+        query = "UPDATE produtos SET produto = ?, quantidade = ?, valor_compra = ?, valor_venda = ?, grupo = ?, fornecedor = ? WHERE id = ?"
+        dados = (prod_nome, qtd_val, v_compra, v_venda, grupo, fornecedor, prod_id)
+        cursor.execute(query, dados)
+        
+    conn.commit()
+    st.success("Estoque e preços atualizados com sucesso!")
+    st.rerun()
 
                 with col2:
                     if st.button("🔄 Atualizar Preços nas Vendas"):
