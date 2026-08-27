@@ -891,184 +891,184 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     st.success(f"Haver de R$ {valor_haver:,.2f} aplicado com sucesso!")
                                     st.rerun()
 
-with aba_list:
-    st.subheader("🔍 Edição Direta na Tabela & Gestão por Cliente")
-    
-    clientes_filtro = ["TODOS"] + (carregar_coluna("clientes", "nome") or carregar_coluna("vendas", "cliente"))
-    
-    col_f1, col_f2, col_f3 = st.columns(3)
-    with col_f1:
-        cliente_sel = st.selectbox("Filtrar por Cliente:", clientes_filtro, key=f"filtro_cli_tabela_{menu_admin}")
-    with col_f2:
-        d_inicio = st.date_input("Data Inicial do Filtro", value=date(2025, 1, 1), key=f"filtro_d_ini_{menu_admin}")
-    with col_f3:
-        d_fim = st.date_input("Data Final do Filtro", value=date.today(), key=f"filtro_d_fim_{menu_admin}")
+            with aba_list:
+                st.subheader("🔍 Edição Direta na Tabela & Gestão por Cliente")
+                
+                clientes_filtro = ["TODOS"] + (carregar_coluna("clientes", "nome") or carregar_coluna("vendas", "cliente"))
+                
+                col_f1, col_f2, col_f3 = st.columns(3)
+                with col_f1:
+                    cliente_sel = st.selectbox("Filtrar por Cliente:", clientes_filtro, key=f"filtro_cli_tabela_{menu_admin}")
+                with col_f2:
+                    d_inicio = st.date_input("Data Inicial do Filtro", value=date(2025, 1, 1), key=f"filtro_d_ini_{menu_admin}")
+                with col_f3:
+                    d_fim = st.date_input("Data Final do Filtro", value=date.today(), key=f"filtro_d_fim_{menu_admin}")
 
-    texto_botao_atualizar = "🔄 Atualizar Preços de Venda" if not is_modo_pedido else "🔄 Atualizar Preços de Custo"
-    if st.button(texto_botao_atualizar, key=f"btn_atualizar_precos_{menu_admin}"):
-        cursor = conn.cursor()
-        coluna_alvo_estoque = 'valor_venda' if not is_modo_pedido else 'valor_compra'
-        
-        query_update = f"""
-    UPDATE vendas 
-    SET valor_venda = COALESCE((
-        SELECT {coluna_alvo_estoque} 
-        FROM produtos 
-        WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
-    ), valor_venda),
-    valor_total = quantidade * COALESCE((
-        SELECT {coluna_alvo_estoque} 
-        FROM produtos 
-        WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
-    ), valor_venda)
-    WHERE TRIM(UPPER(produto)) IN (SELECT TRIM(UPPER(nome)) FROM produtos)
-"""
-        cursor.execute(query_update)
-        linhas_afetadas = cursor.rowcount
-        conn.commit()
-        
-        editor_key = f"editor_reg_{menu_admin}"
-        if editor_key in st.session_state:
-            del st.session_state[editor_key]
-        
-        if linhas_afetadas > 0:
-            st.success(f"Preços atualizados com sucesso! ({linhas_afetadas} itens modificados)")
-        else:
-            st.warning("Nenhum produto correspondente foi encontrado na tabela de estoque para atualizar.")
-        
-        st.rerun()
-    
-    st.markdown("---")
-    
-    s_d1, s_d2 = d_inicio.strftime("%Y-%m-%d"), d_fim.strftime("%Y-%m-%d")
-    query_filt = f"SELECT * FROM vendas WHERE substr(data, 1, 10) >= '{s_d1}' AND substr(data, 1, 10) <= '{s_d2}'"
-    if cliente_sel != "TODOS":
-        query_filt += f" AND TRIM(cliente) = TRIM('{cliente_sel}')"
+                texto_botao_atualizar = "🔄 Atualizar Preços de Venda" if not is_modo_pedido else "🔄 Atualizar Preços de Custo"
+                if st.button(texto_botao_atualizar, key=f"btn_atualizar_precos_{menu_admin}"):
+                    cursor = conn.cursor()
+                    coluna_alvo_estoque = 'valor_venda' if not is_modo_pedido else 'valor_compra'
+                    
+                    query_update = f"""
+                        UPDATE vendas 
+                        SET valor_venda = COALESCE((
+                            SELECT {coluna_alvo_estoque} 
+                            FROM produtos 
+                            WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
+                        ), valor_venda),
+                        valor_total = quantidade * COALESCE((
+                            SELECT {coluna_alvo_estoque} 
+                            FROM produtos 
+                            WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
+                        ), valor_venda)
+                        WHERE TRIM(UPPER(produto)) IN (SELECT TRIM(UPPER(nome)) FROM produtos)
+                    """
+                    cursor.execute(query_update)
+                    linhas_afetadas = cursor.rowcount
+                    conn.commit()
+                    
+                    editor_key = f"editor_reg_{menu_admin}"
+                    if editor_key in st.session_state:
+                        del st.session_state[editor_key]
+                    
+                    if linhas_afetadas > 0:
+                        st.success(f"Preços atualizados com sucesso! ({linhas_afetadas} itens modificados)")
+                    else:
+                        st.warning("Nenhum produto correspondente foi encontrado na tabela de estoque para atualizar.")
+                    
+                    st.rerun()
+                
+                st.markdown("---")
+                
+                s_d1, s_d2 = d_inicio.strftime("%Y-%m-%d"), d_fim.strftime("%Y-%m-%d")
+                query_filt = f"SELECT * FROM vendas WHERE substr(data, 1, 10) >= '{s_d1}' AND substr(data, 1, 10) <= '{s_d2}'"
+                if cliente_sel != "TODOS":
+                    query_filt += f" AND TRIM(cliente) = TRIM('{cliente_sel}')"
 
-    df_registros = carregar_dados(query_filt)
-    if not df_registros.empty:
-        df_registros.insert(0, "Deletar", False)
-        df_editado = st.data_editor(df_registros, key=f"editor_reg_{menu_admin}", use_container_width=True, hide_index=True)
-        
-        col_b1, col_b2 = st.columns([1, 3])
-        with col_b1:
-            btn_salvar_superior = st.button("💾 Atualizar Valores / Salvar", type="primary", key=f"btn_salvar_edicao_{menu_admin}")
-        
-        if btn_salvar_superior:
-            cursor = conn.cursor()
-            for _, row in df_editado.iterrows():
-                if row["Deletar"]:
-                    cursor.execute("DELETE FROM vendas WHERE id = ?", (int(row["id"]),))
-                else:
-                    v_tot = float(row["quantidade"]) * float(row["valor_venda"])
-                    cursor.execute("""
-                        UPDATE vendas SET cliente = ?, produto = ?, fornecedor = ?, quantidade = ?, 
-                            valor_venda = ?, valor_total = ?, grupo = ? WHERE id = ?
-                    """, (str(row["cliente"]), str(row["produto"]), str(row["fornecedor"]), 
-                        float(row["quantidade"]), float(row["valor_venda"]), v_tot, str(row["grupo"]), int(row["id"])))
-            conn.commit()
-            st.success("Alterações e exclusões por item salvas com sucesso!")
-            st.rerun()
-
-        st.divider()
-        st.subheader("⚡ Ações Rápidas por Pedido Completo")
-        
-        if 'data' in df_registros.columns and 'cliente' in df_registros.columns:
-            df_registros['pedido_id'] = df_registros['cliente'].astype(str) + " — " + df_registros['data'].astype(str)
-            pedidos_unicos = df_registros['pedido_id'].unique().tolist()
-            
-            col_p_sel, col_btn_conv, col_btn_exc, col_btn_pdf = st.columns([2, 1, 1, 1])
-            with col_p_sel:
-                pedido_escolhido = st.selectbox("Selecione o Pedido (Cliente + Data):", pedidos_unicos, key=f"sel_pedido_completo_{menu_admin}")
-                df_itens_pedido = df_registros[df_registros['pedido_id'] == pedido_escolhido]
-
-            st.dataframe(df_itens_pedido, use_container_width=True, hide_index=True)
-
-            with col_btn_conv:
-                st.write("")
-                if not is_modo_pedido:
-                    st.empty()
-                else:
-                    if st.button("🔄 Converter Pedido", key=f"btn_conv_inteiro_{menu_admin}", type="primary"):
+                df_registros = carregar_dados(query_filt)
+                if not df_registros.empty:
+                    df_registros.insert(0, "Deletar", False)
+                    df_editado = st.data_editor(df_registros, key=f"editor_reg_{menu_admin}", use_container_width=True, hide_index=True)
+                    
+                    col_b1, col_b2 = st.columns([1, 3])
+                    with col_b1:
+                        btn_salvar_superior = st.button("💾 Atualizar Valores / Salvar", type="primary", key=f"btn_salvar_edicao_{menu_admin}")
+                    
+                    if btn_salvar_superior:
                         cursor = conn.cursor()
-                        for _, itm in df_itens_pedido.iterrows():
-                            cursor.execute("UPDATE vendas SET tipo = 'VENDA' WHERE id = ?", (int(itm['id']),))
+                        for _, row in df_editado.iterrows():
+                            if row["Deletar"]:
+                                cursor.execute("DELETE FROM vendas WHERE id = ?", (int(row["id"]),))
+                            else:
+                                v_tot = float(row["quantidade"]) * float(row["valor_venda"])
+                                cursor.execute("""
+                                    UPDATE vendas SET cliente = ?, produto = ?, fornecedor = ?, quantidade = ?, 
+                                        valor_venda = ?, valor_total = ?, grupo = ? WHERE id = ?
+                                """, (str(row["cliente"]), str(row["produto"]), str(row["fornecedor"]), 
+                                    float(row["quantidade"]), float(row["valor_venda"]), v_tot, str(row["grupo"]), int(row["id"])))
                         conn.commit()
-                        st.success("Pedido inteiro convertido em Venda!")
+                        st.success("Alterações e exclusões por item salvas com sucesso!")
                         st.rerun()
 
-            with col_btn_exc:
-                st.write("")
-                if st.button("🗑️ Excluir Pedido", key=f"btn_exc_inteiro_{menu_admin}"):
-                    cursor = conn.cursor()
-                    for _, itm in df_itens_pedido.iterrows():
-                        cursor.execute("DELETE FROM vendas WHERE id = ?", (int(itm['id']),))
-                    conn.commit()
-                    st.success("Pedido excluído com sucesso!")
-                    st.rerun()
-
-            with col_btn_pdf:
-                st.write("") 
-                try:
-                    buffer = io.BytesIO()
-                    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=15, bottomMargin=30)
-                    elementos = []
-                    estilos = getSampleStyleSheet()
-
-                    titulo_estilo = ParagraphStyle('Titulo', parent=estilos['Heading1'], fontName='Helvetica-Bold', fontSize=15, leading=16, alignment=1, textColor=colors.HexColor('#111111'), spaceAfter=2)
-                    subtitulo_estilo = ParagraphStyle('SubTitulo', parent=estilos['Normal'], fontName='Helvetica', fontSize=8.5, leading=10, alignment=1, textColor=colors.HexColor('#333333'), spaceAfter=1)
+                    st.divider()
+                    st.subheader("⚡ Ações Rápidas por Pedido Completo")
                     
-                    elementos.append(Paragraph("<b>REY DA CEBOLA</b>", titulo_estilo))
-                    elementos.append(Paragraph("CNPJ: 194.174.39/000-42 INSC.EST.: 12.426725-4", subtitulo_estilo))
-                    elementos.append(Paragraph("CONTATO: (99) 98814-9722 OU (99) 98414-3943", subtitulo_estilo))
-                    elementos.append(Spacer(1, 4))
-                    
-                    elementos.append(Paragraph(f"<b>Relatório de Pedidos / Orçamentos</b><br/>{pedido_escolhido}", ParagraphStyle('Cab', parent=subtitulo_estilo, fontSize=10, leading=12, fontName='Helvetica-Bold', alignment=1, spaceAfter=6)))
+                    if 'data' in df_registros.columns and 'cliente' in df_registros.columns:
+                        df_registros['pedido_id'] = df_registros['cliente'].astype(str) + " — " + df_registros['data'].astype(str)
+                        pedidos_unicos = df_registros['pedido_id'].unique().tolist()
+                        
+                        col_p_sel, col_btn_conv, col_btn_exc, col_btn_pdf = st.columns([2, 1, 1, 1])
+                        with col_p_sel:
+                            pedido_escolhido = st.selectbox("Selecione o Pedido (Cliente + Data):", pedidos_unicos, key=f"sel_pedido_completo_{menu_admin}")
+                            df_itens_pedido = df_registros[df_registros['pedido_id'] == pedido_escolhido]
 
-                    dados_tabela = [["Produto", "Qtd Total", "Preço Unitário (R$)", "Valor Total (R$)"]]
-                    total_geral = 0.0
+                        st.dataframe(df_itens_pedido, use_container_width=True, hide_index=True)
 
-                    for _, itm in df_itens_pedido.iterrows():
-                        prod = str(itm.get('produto', ''))
-                        qtd = float(itm.get('quantidade', 0))
-                        v_unit = float(itm.get('valor_venda', 0))
-                        v_tot = qtd * v_unit
-                        total_geral += v_tot
-                        dados_tabela.append([prod, f"{qtd:.2f}", f"R$ {v_unit:,.2f}", f"R$ {v_tot:,.2f}"])
+                        with col_btn_conv:
+                            st.write("")
+                            if not is_modo_pedido:
+                                st.empty()
+                            else:
+                                if st.button("🔄 Converter Pedido", key=f"btn_conv_inteiro_{menu_admin}", type="primary"):
+                                    cursor = conn.cursor()
+                                    for _, itm in df_itens_pedido.iterrows():
+                                        cursor.execute("UPDATE vendas SET tipo = 'VENDA' WHERE id = ?", (int(itm['id']),))
+                                    conn.commit()
+                                    st.success("Pedido inteiro convertido em Venda!")
+                                    st.rerun()
 
-                    dados_tabela.append(["VALOR TOTAL GERAL", "", "", f"R$ {total_geral:,.2f}"])
+                        with col_btn_exc:
+                            st.write("")
+                            if st.button("🗑️ Excluir Pedido", key=f"btn_exc_inteiro_{menu_admin}"):
+                                cursor = conn.cursor()
+                                for _, itm in df_itens_pedido.iterrows():
+                                    cursor.execute("DELETE FROM vendas WHERE id = ?", (int(itm['id']),))
+                                conn.commit()
+                                st.success("Pedido excluído com sucesso!")
+                                st.rerun()
 
-                    t = Table(dados_tabela, colWidths=[210, 80, 110, 110])
-                    t.setStyle(TableStyle([
-                        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2b579a')),
-                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                        ('FONTSIZE', (0, 0), (-1, 0), 9.5),
-                        ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
-                        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#111111')),
-                        ('TEXTCOLOR', (0, -1), (-1, -1), colors.whitesmoke),
-                        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
-                        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-                        ('FONTSIZE', (0, 1), (-1, -1), 8.5),
-                    ]))
+                        with col_btn_pdf:
+                            st.write("") 
+                            try:
+                                buffer = io.BytesIO()
+                                doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=15, bottomMargin=30)
+                                elementos = []
+                                estilos = getSampleStyleSheet()
 
-                    elementos.append(t)
-                    doc.build(elementos)
-                    buffer.seek(0)
-                    pdf_bytes = buffer.getvalue()
+                                titulo_estilo = ParagraphStyle('Titulo', parent=estilos['Heading1'], fontName='Helvetica-Bold', fontSize=15, leading=16, alignment=1, textColor=colors.HexColor('#111111'), spaceAfter=2)
+                                subtitulo_estilo = ParagraphStyle('SubTitulo', parent=estilos['Normal'], fontName='Helvetica', fontSize=8.5, leading=10, alignment=1, textColor=colors.HexColor('#333333'), spaceAfter=1)
+                                
+                                elementos.append(Paragraph("<b>REY DA CEBOLA</b>", titulo_estilo))
+                                elementos.append(Paragraph("CNPJ: 194.174.39/000-42 INSC.EST.: 12.426725-4", subtitulo_estilo))
+                                elementos.append(Paragraph("CONTATO: (99) 98814-9722 OU (99) 98414-3943", subtitulo_estilo))
+                                elementos.append(Spacer(1, 4))
+                                
+                                elementos.append(Paragraph(f"<b>Relatório de Pedidos / Orçamentos</b><br/>{pedido_escolhido}", ParagraphStyle('Cab', parent=subtitulo_estilo, fontSize=10, leading=12, fontName='Helvetica-Bold', alignment=1, spaceAfter=6)))
 
-                    st.download_button(
-                        label="📄 Baixar PDF",
-                        data=pdf_bytes,
-                        file_name=f"pedido_{pedido_escolhido.replace('—', '_').strip()}.pdf",
-                        mime="application/pdf",
-                        key=f"download_pdf_{menu_admin}"
-                    )
-                except Exception as e:
-                    st.error(f"Erro ao gerar PDF: {e}")
-    else:
-        st.info("Nenhum registro encontrado.")
+                                dados_tabela = [["Produto", "Qtd Total", "Preço Unitário (R$)", "Valor Total (R$)"]]
+                                total_geral = 0.0
+
+                                for _, itm in df_itens_pedido.iterrows():
+                                    prod = str(itm.get('produto', ''))
+                                    qtd = float(itm.get('quantidade', 0))
+                                    v_unit = float(itm.get('valor_venda', 0))
+                                    v_tot = qtd * v_unit
+                                    total_geral += v_tot
+                                    dados_tabela.append([prod, f"{qtd:.2f}", f"R$ {v_unit:,.2f}", f"R$ {v_tot:,.2f}"])
+
+                                dados_tabela.append(["VALOR TOTAL GERAL", "", "", f"R$ {total_geral:,.2f}"])
+
+                                t = Table(dados_tabela, colWidths=[210, 80, 110, 110])
+                                t.setStyle(TableStyle([
+                                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2b579a')),
+                                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                                    ('FONTSIZE', (0, 0), (-1, 0), 9.5),
+                                    ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+                                    ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#111111')),
+                                    ('TEXTCOLOR', (0, -1), (-1, -1), colors.whitesmoke),
+                                    ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+                                    ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                                    ('FONTSIZE', (0, 1), (-1, -1), 8.5),
+                                ]))
+
+                                elementos.append(t)
+                                doc.build(elementos)
+                                buffer.seek(0)
+                                pdf_bytes = buffer.getvalue()
+
+                                st.download_button(
+                                    label="📄 Baixar PDF",
+                                    data=pdf_bytes,
+                                    file_name=f"pedido_{pedido_escolhido.replace('—', '_').strip()}.pdf",
+                                    mime="application/pdf",
+                                    key=f"download_pdf_{menu_admin}"
+                                )
+                            except Exception as e:
+                                st.error(f"Erro ao gerar PDF: {e}")
+                else:
+                    st.info("Nenhum registro encontrado.")
 
         elif menu_admin == "📥 Entrada de Estoque (Compras)":
             st.title("📥 Entrada de Estoque (Compras)")
