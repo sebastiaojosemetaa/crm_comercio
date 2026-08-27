@@ -909,22 +909,24 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     cursor = conn.cursor()
                     coluna_alvo_estoque = 'valor_venda' if not is_modo_pedido else 'valor_compra'
                     
-                    query_update = f"""
-                        UPDATE vendas 
-                        SET valor_venda = COALESCE((
-                            SELECT {coluna_alvo_estoque} 
-                            FROM produtos 
-                            WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
-                        ), valor_venda),
-                        valor_total = quantidade * COALESCE((
-                            SELECT {coluna_alvo_estoque} 
-                            FROM produtos 
-                            WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
-                        ), valor_venda)
-                        WHERE TRIM(UPPER(produto)) IN (SELECT TRIM(UPPER(nome)) FROM produtos)
-                    """
-                    cursor.execute(query_update)
-                    linhas_afetadas = cursor.rowcount
+                    # Atualização segura linha por linha para evitar erros de subconsulta no SQLite
+                    cursor.execute(f"SELECT id, produto FROM vendas")
+                    todas_vendas_db = cursor.fetchall()
+                    linhas_afetadas = 0
+                    
+                    for v_id, v_prod in todas_vendas_db:
+                        if v_prod:
+                            cursor.execute(f"SELECT {coluna_alvo_estoque} FROM produtos WHERE TRIM(UPPER(nome)) = TRIM(UPPER(?))", (v_prod,))
+                            res_prod = cursor.fetchone()
+                            if res_prod and res_prod[0] is not None:
+                                novo_preco = float(res_prod[0])
+                                cursor.execute(f"""
+                                    UPDATE vendas 
+                                    SET valor_venda = ?, valor_total = quantidade * ? 
+                                    WHERE id = ?
+                                """, (novo_preco, novo_preco, v_id))
+                                linhas_afetadas += 1
+                                
                     conn.commit()
                     
                     editor_key = f"editor_reg_{menu_admin}"
@@ -1148,21 +1150,17 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 with col2:
                     if st.button("🔄 Atualizar Preços nas Vendas"):
                         cursor = conn.cursor()
-                        cursor.execute("""
-                            UPDATE vendas 
-                            SET valor_venda = COALESCE((
-                                SELECT valor_venda 
-                                FROM produtos 
-                                WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
-                            ), valor_venda),
-                            valor_total = quantidade * COALESCE((
-                                SELECT valor_venda 
-                                FROM produtos 
-                                WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
-                            ), valor_venda)
-                            WHERE TRIM(UPPER(produto)) IN (SELECT TRIM(UPPER(nome)) FROM produtos)
-                        """)
-                        linhas_afetadas = cursor.rowcount
+                        cursor.execute("SELECT id, nome, valor_venda FROM produtos")
+                        prods_db = cursor.fetchall()
+                        linhas_afetadas = 0
+                        for p_id, p_nome, p_venda in prods_db:
+                            if p_nome and p_venda is not None:
+                                cursor.execute("""
+                                    UPDATE vendas 
+                                    SET valor_venda = ?, valor_total = quantidade * ? 
+                                    WHERE TRIM(UPPER(produto)) = TRIM(UPPER(?))
+                                """, (p_venda, p_venda, p_nome))
+                                linhas_afetadas += cursor.rowcount
                         conn.commit()
                         
                         if "editor_estoque_produtos" in st.session_state:
