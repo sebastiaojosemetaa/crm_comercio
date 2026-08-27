@@ -1124,26 +1124,26 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 df_editado = st.data_editor(df_produtos, use_container_width=True, hide_index=True, key="editor_estoque_produtos")
 
                 col1, col2 = st.columns(2)
-                with col1:
-            if st.button("💾 Salvar Alterações no Estoque", type="primary"):
+with col1:
+    if st.button("💾 Salvar Alterações no Estoque", type="primary"):
         cursor = conn.cursor()
-    for row in df_editado.itertuples():
-        # Trata os valores de forma segura usando os atributos do tupla
-        qtd_val = float(getattr(row, 'quantidade', 0) or 0)
-        v_compra = float(getattr(row, 'valor_compra', 0) or 0)
-        v_venda = float(getattr(row, 'valor_venda', 0) or 0)
-        grupo = getattr(row, 'grupo', 'Geral')
-        fornecedor = getattr(row, 'fornecedor', None)
-        prod_id = getattr(row, 'id', None)
-        prod_nome = getattr(row, 'produto', '')
-        
-        query = "UPDATE produtos SET produto = ?, quantidade = ?, valor_compra = ?, valor_venda = ?, grupo = ?, fornecedor = ? WHERE id = ?"
-        dados = (prod_nome, qtd_val, v_compra, v_venda, grupo, fornecedor, prod_id)
-        cursor.execute(query, dados)
-        
-    conn.commit()
-    st.success("Estoque e preços atualizados com sucesso!")
-    st.rerun()
+        for row in df_editado.itertuples():
+            # Trata os valores de forma segura usando os atributos do tupla
+            qtd_val = float(getattr(row, 'quantidade', 0) or 0)
+            v_compra = float(getattr(row, 'valor_compra', 0) or 0)
+            v_venda = float(getattr(row, 'valor_venda', 0) or 0)
+            grupo = getattr(row, 'grupo', 'Geral')
+            fornecedor = getattr(row, 'fornecedor', None)
+            prod_id = getattr(row, 'id', None)
+            prod_nome = getattr(row, 'produto', '')
+            
+            query = "UPDATE produtos SET produto = ?, quantidade = ?, valor_compra = ?, valor_venda = ?, grupo = ?, fornecedor = ? WHERE id = ?"
+            dados = (prod_nome, qtd_val, v_compra, v_venda, grupo, fornecedor, prod_id)
+            cursor.execute(query, dados)
+            
+        conn.commit()
+        st.success("Estoque e preços atualizados com sucesso!")
+        st.rerun()
 
                 with col2:
                     if st.button("🔄 Atualizar Preços nas Vendas"):
