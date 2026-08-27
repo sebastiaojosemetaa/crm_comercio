@@ -505,7 +505,8 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 df_cli_pedidos = df_cli_pedidos[df_cli_pedidos['cliente'].astype(str).str.strip().str.lower().str.contains(nome_pesq, na=False)]
             
             if not df_cli_pedidos.empty:
-                codigos = df_cli_pedidos['codigo_venda'].dropna().unique() if 'codigo_venda' in df_cli_pedidos.columns else []
+                col_codigo = next((c for c in df_cli_pedidos.columns if 'codigo' in c.lower() and 'venda' in c.lower()), None)
+                codigos = df_cli_pedidos[col_codigo].dropna().unique() if col_codigo else []
                 
     for cod in codigos:
         df_item_venda = df_cli_pedidos[df_cli_pedidos['codigo_venda'] == cod]
