@@ -519,10 +519,10 @@ if perfil_selecionado == "👤 Portal do Cliente":
             cols_existentes = [c for c in cols_desejadas if c in df_item_venda.columns]
             st.dataframe(df_item_venda[cols_existentes], use_container_width=True)
                 
-                if len(codigos) == 0:
-                    df_edit_cli = df_cli_pedidos.copy()
-                    if 'Deletar' not in df_edit_cli.columns:
-                        df_edit_cli.insert(0, 'Deletar', False)
+        if len(codigos) == 0:
+            df_edit_cli = df_cli_pedidos.copy()
+            if 'Deletar' not in df_edit_cli.columns:
+                df_edit_cli.insert(0, 'Deletar', False)
 
                     df_atualizado_cliente = st.data_editor(
                         df_edit_cli,
