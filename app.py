@@ -1030,18 +1030,18 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.success("Pedido inteiro convertido em Venda!")
                 st.rerun()
 
-                        with col_btn_exc:
-                            st.write("") 
-                            if st.button("🗑️ Excluir Pedido", key="btn_exc_inteiro", type="secondary"):
-                                cursor = conn.cursor()
-                                for _, itm in df_itens_pedido.iterrows():
-                                    cursor.execute("DELETE FROM vendas WHERE id = ?", (int(itm['id']),))
-                                conn.commit()
-                                st.success("Pedido completo excluído com sucesso!")
-                                st.rerun()
-                                
-                        with col_btn_pdf:
-                            st.write("") 
+                        with col_btn_conv:
+            st.write("")
+            if st.button("🔄 Converter Pedido", key="btn_conv_inteiro", type="primary"):
+                cursor = conn.cursor()
+                for _, itm in df_itens_pedido.iterrows():
+                    cursor.execute("UPDATE vendas SET tipo = 'VENDA' WHERE id = ?", (int(itm['id']),))
+                conn.commit()
+                st.success("Pedido inteiro convertido em Venda!")
+                st.rerun()
+
+        with col_btn_exc:
+            st.write("") 
                             try:
                                 import io
                                 from reportlab.lib.pagesizes import letter
