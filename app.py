@@ -1159,13 +1159,38 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.dataframe(carregar_dados("SELECT * FROM compras"), use_container_width=True)
 
         elif menu_admin == "📦 Estoque de Produtos":
-            st.title("📦 Estoque de Produtos e Preços")
-            df_prods = carregar_dados("SELECT * FROM produtos")            
-            if not df_prods.empty:
-                st.dataframe(df_prods, use_container_width=True)
-            else:
-                st.info("Nenhum produto cadastrado.")
+    st.title("📦 Estoque de Produtos e Preços")
+    df_produtos = carregar_dados("SELECT id, produto, quantidade, valor_compra, valor_venda, grupo, fornecedor FROM produtos")
+    
+    if not df_produtos.empty:
+        df_editado = st.data_editor(
+            df_produtos, 
+            use_container_width=True, 
+            hide_index=True,
+            key="editor_estoque_produtos"
+        )
 
+        if st.button("💾 Salvar Alterações no Estoque", type="primary"):
+            cursor = conn.cursor()
+            for _, row in df_editado.iterrows():
+                cursor.execute("""
+                    UPDATE produtos 
+                    SET produto = ?, quantidade = ?, valor_compra = ?, valor_venda = ?, grupo = ?, fornecedor = ? 
+                    WHERE id = ?
+                """, (
+                    row['produto'], 
+                    float(row['quantidade'] or 0), 
+                    float(row['valor_compra'] or 0), 
+                    float(row['valor_venda'] or 0), 
+                    row['grupo'], 
+                    row['fornecedor'], 
+                    row['id']
+                ))
+            conn.commit()
+            st.success("Estoque e preços atualizados com sucesso!")
+            st.rerun()
+    else:
+        st.info("Nenhum produto cadastrado.")
         elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
             st.title("👥 Cadastros Gerais")
             tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["👥 Clientes", "📦 Produtos", "🏢 Fornecedores", "🏷️ Grupos"])            
