@@ -1145,7 +1145,7 @@ with col1:
         st.success("Estoque e preços atualizados com sucesso!")
         st.rerun()
 
-                with col2:
+with col2:
                     if st.button("🔄 Atualizar Preços nas Vendas"):
                         cursor = conn.cursor()
                         cursor.execute("""
