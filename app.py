@@ -1146,7 +1146,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             with aba_historico_compras:
                 st.dataframe(carregar_dados("SELECT * FROM compras"), use_container_width=True)
 
-        elelif menu_admin == "📦 Estoque de Produtos":
+        elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
             df_produtos = carregar_dados("SELECT * FROM produtos")
             
@@ -1164,7 +1164,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     if st.button("💾 Salvar Alterações no Estoque", type="primary"):
                         cursor = conn.cursor()
                         for index, row in df_editado.iterrows():
-                            # Identifica o nome correto da coluna de quantidade para salvar
                             qtd_val = float(row.get('quantidade', row.get('estoque_atual', 0)) or 0)
                             query = "UPDATE produtos SET nome = ?, estoque_atual = ?, valor_compra = ?, valor_venda = ?, grupo = ?, fornecedor = ? WHERE id = ?"
                             dados = (row['nome'], qtd_val, float(row['valor_compra'] or 0), float(row['valor_venda'] or 0), row['grupo'], row['fornecedor'], row['id'])
