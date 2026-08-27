@@ -602,7 +602,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
             col_s1, col_s2 = st.columns(2)
             with col_s1:
-                idx_f = fornecedores_opt.index(forn_sugerido) if forneconores_opt := fornecedores_opt and forn_sugerido in fornecedores_opt else 0
+                idx_f = fornecedores_opt.index(forn_sugerido) if fornecedores_opt and forn_sugerido in fornecedores_opt else 0
                 fornec_item = st.selectbox("Fornecedor", fornecedores_opt, index=idx_f, key="pdv_forn_input")
                 idx_g = grupos_opt.index(grupo_sugerido) if grupo_sugerido in grupos_opt else 0
                 grupo_item = st.selectbox("Grupo", grupos_opt, index=idx_g, key="pdv_grupo_input")
