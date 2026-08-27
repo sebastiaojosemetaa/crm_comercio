@@ -827,7 +827,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     
                     if not df_filtrado_admin.empty:
                         row_adm = df_filtrado_admin.iloc[0]
-                        for col_v in ['valor_compra', 'preco_compra', 'custo', 'valor_venda', 'preco_venda', 'venda']:
+                        # AQUI ESTÁ A DIFERENÇA: PEDIDOS BUSCA VALOR_COMPRA, REGISTRAR VENDA BUSCA VALOR_VENDA
+                        col_alvo_preco = 'valor_compra' if is_modo_pedido else 'valor_venda'
+                        for col_v in [col_alvo_preco, 'valor_venda', 'preco_venda', 'valor_compra', 'preco_compra', 'custo', 'venda']:
                             if col_v in df_p_admin.columns:
                                 try:
                                     val_aux = float(row_adm[col_v])
@@ -855,7 +857,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 grupo_ped = st.selectbox("Grupo", grupos_opt, key="ped_grupo_ind")
                 
                 qtd_ped = st.number_input("Quantidade", min_value=0.1, step=1.0, value=1.0, key="ped_qtd_ind")
-                v_venda_ped = st.number_input("Preço Unitário (R$)", min_value=0.0, step=1.0, key="ped_v_ind")
+                
+                label_preco_input = "Preço de Custo Unitário (R$)" if is_modo_pedido else "Preço de Venda Unitário (R$)"
+                v_venda_ped = st.number_input(label_preco_input, min_value=0.0, step=1.0, key="ped_v_ind")
                 
                 tipo_reg = "PEDIDO" if is_modo_pedido else "VENDA"
                 if st.button(f"Salvar {tipo_reg}", type="primary"):
@@ -927,29 +931,29 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             with aba_list:
                 st.subheader("🔍 Edição Direta na Tabela & Gestão por Cliente")
                 
-                # --- CORREÇÃO APLICADA AQUI ---
-                # Salvamos a escolha do filtro no session_state ANTES de renderizar o selectbox
                 clientes_filtro = ["TODOS"] + (carregar_coluna("clientes", "nome") or carregar_coluna("vendas", "cliente"))
                 
                 col_f1, col_f2, col_f3 = st.columns(3)
                 with col_f1:
-                    cliente_sel = st.selectbox("Filtrar por Cliente:", clientes_filtro, key="filtro_cli_tabela")
+                    cliente_sel = st.selectbox("Filtrar por Cliente:", clientes_filtro, key=f"filtro_cli_tabela_{menu_admin}")
                 with col_f2:
-                    d_inicio = st.date_input("Data Inicial do Filtro", value=date(2025, 1, 1), key="filtro_d_ini")
+                    d_inicio = st.date_input("Data Inicial do Filtro", value=date(2025, 1, 1), key=f"filtro_d_ini_{menu_admin}")
                 with col_f3:
-                    d_fim = st.date_input("Data Final do Filtro", value=date.today(), key="filtro_d_fim")
+                    d_fim = st.date_input("Data Final do Filtro", value=date.today(), key=f"filtro_d_fim_{menu_admin}")
 
-                # BOTÃO DE ATUALIZAR PREÇOS NAS VENDAS
-                if st.button("🔄 Atualizar Preços nas Vendas", key="btn_atualizar_precos_vendas_superior"):
+                # BOTÃO DE ATUALIZAR PREÇOS NAS VENDAS/PEDIDOS
+                texto_botao_atualizar = "🔄 Atualizar Preços de Venda" if not is_modo_pedido else "🔄 Atualizar Preços de Custo"
+                if st.button(texto_botao_atualizar, key=f"btn_atualizar_precos_{menu_admin}"):
                     cursor = conn.cursor()
-                    cursor.execute("""
+                    coluna_alvo_estoque = 'valor_venda' if not is_modo_pedido else 'valor_compra'
+                    cursor.execute(f"""
                         UPDATE vendas 
-                        SET valor_venda = (SELECT valor_venda FROM produtos WHERE produtos.nome = vendas.produto),
-                            valor_total = quantidade * (SELECT valor_venda FROM produtos WHERE produtos.nome = vendas.produto)
+                        SET valor_venda = (SELECT {coluna_alvo_estoque} FROM produtos WHERE produtos.nome = vendas.produto),
+                            valor_total = quantidade * (SELECT {coluna_alvo_estoque} FROM produtos WHERE produtos.nome = vendas.produto)
                         WHERE produto IN (SELECT nome FROM produtos)
                     """)
                     conn.commit()
-                    st.success("Preços das vendas atualizados com base nos valores da tabela de produtos!")
+                    st.success("Preços atualizados com base nos valores da tabela de produtos!")
                     st.rerun()
                 
                 st.markdown("---")
@@ -966,7 +970,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     
                     col_b1, col_b2 = st.columns([1, 3])
                     with col_b1:
-                        btn_salvar_superior = st.button("💾 Atualizar Valores / Salvar", type="primary", key="btn_salvar_edicao_superior")
+                        btn_salvar_superior = st.button("💾 Atualizar Valores / Salvar", type="primary", key=f"btn_salvar_edicao_{menu_admin}")
                     
                     if btn_salvar_superior:
                         cursor = conn.cursor()
@@ -993,24 +997,27 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         
                         col_p_sel, col_btn_conv, col_btn_exc, col_btn_pdf = st.columns([2, 1, 1, 1])
                         with col_p_sel:
-                            pedido_escolhido = st.selectbox("Selecione o Pedido (Cliente + Data):", pedidos_unicos, key="sel_pedido_completo")
+                            pedido_escolhido = st.selectbox("Selecione o Pedido (Cliente + Data):", pedidos_unicos, key=f"sel_pedido_completo_{menu_admin}")
                             df_itens_pedido = df_registros[df_registros['pedido_id'] == pedido_escolhido]
 
                         st.dataframe(df_itens_pedido, use_container_width=True, hide_index=True)
 
                         with col_btn_conv:
                             st.write("")
-                            if st.button("🔄 Converter Pedido", key="btn_conv_inteiro", type="primary"):
-                                cursor = conn.cursor()
-                                for _, itm in df_itens_pedido.iterrows():
-                                    cursor.execute("UPDATE vendas SET tipo = 'VENDA' WHERE id = ?", (int(itm['id']),))
-                                conn.commit()
-                                st.success("Pedido inteiro convertido em Venda!")
-                                st.rerun()
+                            if not is_modo_pedido:
+                                st.empty()
+                            else:
+                                if st.button("🔄 Converter Pedido", key=f"btn_conv_inteiro_{menu_admin}", type="primary"):
+                                    cursor = conn.cursor()
+                                    for _, itm in df_itens_pedido.iterrows():
+                                        cursor.execute("UPDATE vendas SET tipo = 'VENDA' WHERE id = ?", (int(itm['id']),))
+                                    conn.commit()
+                                    st.success("Pedido inteiro convertido em Venda!")
+                                    st.rerun()
 
                         with col_btn_exc:
                             st.write("")
-                            if st.button("🗑️ Excluir Pedido", key="btn_exc_inteiro"):
+                            if st.button("🗑️ Excluir Pedido", key=f"btn_exc_inteiro_{menu_admin}"):
                                 cursor = conn.cursor()
                                 for _, itm in df_itens_pedido.iterrows():
                                     cursor.execute("DELETE FROM vendas WHERE id = ?", (int(itm['id']),))
@@ -1031,8 +1038,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 
                                 elementos.append(Paragraph("<b>REY DA CEBOLA</b>", titulo_estilo))
                                 elementos.append(Paragraph("CNPJ: 194.174.39/000-42 INSC.EST.: 12.426725-4", subtitulo_estilo))
-                                elements.append(Paragraph("CONTATO: (99) 98814-9722 OU (99) 98414-3943", subtitulo_estilo))
-                                elements.append(Spacer(1, 4))
+                                elementos.append(Paragraph("CONTATO: (99) 98814-9722 OU (99) 98414-3943", subtitulo_estilo))
+                                elementos.append(Spacer(1, 4))
                                 
                                 elementos.append(Paragraph(f"<b>Relatório de Pedidos / Orçamentos</b><br/>{pedido_escolhido}", ParagraphStyle('Cab', parent=subtitulo_estilo, fontSize=10, leading=12, fontName='Helvetica-Bold', alignment=1, spaceAfter=6)))
 
@@ -1074,7 +1081,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     data=pdf_bytes,
                                     file_name=f"pedido_{pedido_escolhido.replace('—', '_').strip()}.pdf",
                                     mime="application/pdf",
-                                    key="download_pdf_original_rey"
+                                    key=f"download_pdf_{menu_admin}"
                                 )
                             except Exception as e:
                                 st.error(f"Erro ao gerar PDF: {e}")
@@ -1114,7 +1121,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         )
                     
                     if st.form_submit_button("Registrar Entrada no Estoque"):
-                        registrar_compra(produto_escolh_ido if 'produto_escolh_ido' in locals() else produto_escolhido, fornecedor_escolhido, grupo_escolhido, quantidade, preco_custo)
+                        registrar_compra(produto_escolhido, fornecedor_escolhido, grupo_escolhido, quantidade, preco_custo)
                         cursor.execute("UPDATE produtos SET estoque_atual = COALESCE(estoque_atual, 0) + ? WHERE TRIM(nome) = TRIM(?)", (quantidade, produto_escolhido))
                         conn.commit()
                         st.success("Entrada registrada com sucesso e estoque atualizado!")
