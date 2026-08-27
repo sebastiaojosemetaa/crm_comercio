@@ -909,7 +909,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         cursor = conn.cursor()
         coluna_alvo_estoque = 'valor_venda' if not is_modo_pedido else 'valor_compra'
         
-        # Correção aplicada aqui: mantendo a interpolação segura para o nome da coluna do estoque
         query_update = f"""
             UPDATE vendas 
             SET valor_venda = COALESCE((
