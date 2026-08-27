@@ -823,7 +823,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             with aba_cad:
                 clientes_opt = carregar_coluna("clientes", "nome") or ["Carlos Alberto"]
                 
-                # Carregar o DataFrame completo de produtos
                 df_p_admin = carregar_dados("SELECT * FROM produtos")
                 if not df_p_admin.empty:
                     df_p_admin.columns = [c.lower() for c in df_p_admin.columns]
@@ -837,26 +836,24 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
                 grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
 
-                # Seleção do produto fora do formulário para disparar a atualização na hora
                 prod_item = st.selectbox("Selecione o Produto", produtos_opt, key="ped_select_produto")
 
                 if prod_item == "➕ Cadastrar Novo Produto...":
                     st.warning("⚠️ Preencha os dados abaixo para cadastrar o novo produto:")
-                    with st.form("form_cadastro_rapido_prod"):
-                        novo_nome_prod = st.text_input("Nome do Novo Produto").strip().upper()
-                        c_f_r = st.selectbox("Fornecedor", fornecedores_opt)
-                        c_g_r = st.selectbox("Grupo", grupos_opt)
-                        c_qtd_r = st.number_input("Qtd Inicial em Estoque", min_value=0.0, value=0.0)
-                        c_custo_r = st.number_input("Preço de Custo (R$)", min_value=0.0, value=0.0)
-                        c_venda_r = st.number_input("Preço de Venda (R$)", min_value=0.0, value=0.0)
-                        
-                        if st.form_submit_button("Salvar e Selecionar Produto"):
-                            if novo_nome_prod:
-                                salvar_produto_completo(novo_nome_prod, c_f_r, c_g_r, c_custo_r, c_venda_r, c_qtd_r)
-                                st.success(f"Produto '{novo_nome_prod}' cadastrado com sucesso!")
-                                st.rerun()
-                            else:
-                                st.error("Digite o nome do produto.")
+                    novo_nome_prod = st.text_input("Nome do Novo Produto").strip().upper()
+                    c_f_r = st.selectbox("Fornecedor", fornecedores_opt, key="cad_f_rapido")
+                    c_g_r = st.selectbox("Grupo", grupos_opt, key="cad_g_rapido")
+                    c_qtd_r = st.number_input("Qtd Inicial em Estoque", min_value=0.0, value=0.0, key="cad_q_rapido")
+                    c_custo_r = st.number_input("Preço de Custo (R$)", min_value=0.0, value=0.0, key="cad_c_rapido")
+                    c_venda_r = st.number_input("Preço de Venda (R$)", min_value=0.0, value=0.0, key="cad_v_rapido")
+                    
+                    if st.button("Salvar e Selecionar Produto"):
+                        if novo_nome_prod:
+                            salvar_produto_completo(novo_nome_prod, c_f_r, c_g_r, c_custo_r, c_venda_r, c_qtd_r)
+                            st.success(f"Produto '{novo_nome_prod}' cadastrado com sucesso!")
+                            st.rerun()
+                        else:
+                            st.error("Digite o nome do produto.")
                     st.stop()
                 
                 # Buscar valores exatos do produto selecionado no banco
@@ -871,7 +868,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     
                     if not df_filtrado_admin.empty:
                         row_adm = df_filtrado_admin.iloc[0]
-                        # Procura pelas colunas de preço de venda ou compra
                         for col_v in ['valor_venda', 'preco_venda', 'venda', 'valor_compra', 'preco_compra']:
                             if col_v in df_p_admin.columns:
                                 try:
@@ -887,25 +883,22 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         if 'grupo' in df_p_admin.columns and pd.notna(row_adm['grupo']):
                             grupo_sugerido_admin = str(row_adm['grupo']).strip()
 
-                # Definir índices seguros para os selects
                 idx_f_adm = fornecedores_opt.index(forn_sugerido_admin) if fornecedores_opt and forn_sugerido_admin in fornecedores_opt else 0
                 idx_g_adm = grupos_opt.index(grupo_sugerido_admin) if grupos_opt and grupo_sugerido_admin in grupos_opt else 0
 
-                with st.form("form_cad_pedido_individual"):
-                    cliente_ped = st.selectbox("Cliente", clientes_opt, key="ped_cli_ind")
-                    fornec_ped = st.selectbox("Fornecedor", fornecedores_opt, index=idx_f_adm, key="ped_forn_ind")
-                    grupo_ped = st.selectbox("Grupo", grupos_opt, index=idx_g_adm, key="ped_grupo_ind")
-                    
-                    qtd_ped = st.number_input("Quantidade", min_value=0.1, step=1.0, value=1.0, key="ped_qtd_ind")
-                    
-                    # O campo de preço agora assume o valor exato buscado do banco para o produto escolhido
-                    v_venda_ped = st.number_input("Preço Unitário (R$)", min_value=0.0, step=1.0, value=float(preco_sugerido_admin), key="ped_v_ind")
-                    
-                    tipo_reg = "PEDIDO" if is_modo_pedido else "VENDA"
-                    if st.form_submit_button(f"Salvar {tipo_reg}"):
-                        salvar_pedido_ou_venda(cliente_ped, prod_item, fornec_ped, grupo_ped, qtd_ped, v_venda_ped, tipo=tipo_reg)
-                        st.success(f"{tipo_reg} cadastrado com sucesso!")
-                        st.rerun()
+                # Campos soltos sem st.form para atualizar dinamicamente ao trocar o produto
+                cliente_ped = st.selectbox("Cliente", clientes_opt, key="ped_cli_ind")
+                fornec_ped = st.selectbox("Fornecedor", fornecedores_opt, index=idx_f_adm, key="ped_forn_ind")
+                grupo_ped = st.selectbox("Grupo", grupos_opt, index=idx_g_adm, key="ped_grupo_ind")
+                
+                qtd_ped = st.number_input("Quantidade", min_value=0.1, step=1.0, value=1.0, key="ped_qtd_ind")
+                v_venda_ped = st.number_input("Preço Unitário (R$)", min_value=0.0, step=1.0, value=float(preco_sugerido_admin), key="ped_v_ind")
+                
+                tipo_reg = "PEDIDO" if is_modo_pedido else "VENDA"
+                if st.button(f"Salvar {tipo_reg}", type="primary"):
+                    salvar_pedido_ou_venda(cliente_ped, prod_item, fornec_ped, grupo_ped, qtd_ped, v_venda_ped, tipo=tipo_reg)
+                    st.success(f"{tipo_reg} cadastrado com sucesso!")
+                    st.rerun()
 
             if aba_baixa is not None:
                 with aba_baixa:
@@ -925,26 +918,25 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             col_m2.metric("Total Já Pago", f"R$ {tot_recebido:,.2f}")
                             col_m3.metric("Saldo Devedor Restante", f"R$ {total_pendente:,.2f}", delta_color="inverse")
                             
-                            with st.form("form_lancar_haver"):
-                                valor_haver = st.number_input("Valor do Haver / Pagamento Recebido (R$)", min_value=0.0, step=1.0, value=0.0)
-                                forma_pgto_baixa = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito"])
-                                
-                                if st.form_submit_button("Aplicar Haver"):
-                                    if valor_haver > 0:
-                                        baixar_debito_cliente(cliente_baixa, valor_haver, forma_pagamento=forma_pgto_baixa)
-                                        st.success(f"Haver de R$ {valor_haver:,.2f} aplicado com sucesso!")
-                                        st.rerun()
+                            valor_haver = st.number_input("Valor do Haver / Pagamento Recebido (R$)", min_value=0.0, step=1.0, value=0.0, key="val_haver_input")
+                            forma_pgto_baixa = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito"], key="fp_haver_input")
+                            
+                            if st.button("Aplicar Haver"):
+                                if valor_haver > 0:
+                                    baixar_debito_cliente(cliente_baixa, valor_haver, forma_pagamento=forma_pgto_baixa)
+                                    st.success(f"Haver de R$ {valor_haver:,.2f} aplicado com sucesso!")
+                                    st.rerun()
 
             with aba_list:
                 st.subheader("🔍 Edição Direta na Tabela & Gestão por Cliente")
                 col_f1, col_f2, col_f3 = st.columns(3)
                 with col_f1:
                     clientes_filtro = ["TODOS"] + (carregar_coluna("clientes", "nome") or carregar_coluna("vendas", "cliente"))
-                    cliente_sel = st.selectbox("Filtrar por Cliente:", clientes_filtro)
+                    cliente_sel = st.selectbox("Filtrar por Cliente:", clientes_filtro, key="filtro_cli_tabela")
                 with col_f2:
-                    d_inicio = st.date_input("Data Inicial do Filtro", value=date(2025, 1, 1))
+                    d_inicio = st.date_input("Data Inicial do Filtro", value=date(2025, 1, 1), key="filtro_d_ini")
                 with col_f3:
-                    d_fim = st.date_input("Data Final do Filtro", value=date.today())
+                    d_fim = st.date_input("Data Final do Filtro", value=date.today(), key="filtro_d_fim")
                     
                 s_d1, s_d2 = d_inicio.strftime("%Y-%m-%d"), d_fim.strftime("%Y-%m-%d")
                 query_filt = f"SELECT * FROM vendas WHERE substr(data, 1, 10) >= '{s_d1}' AND substr(data, 1, 10) <= '{s_d2}'"
@@ -956,7 +948,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     df_registros.insert(0, "Deletar", False)
                     df_editado = st.data_editor(df_registros, key=f"editor_reg_{menu_admin}", use_container_width=True, hide_index=True)
                     
-                    if st.button("💾 Salvar Alterações na Tabela", type="primary"):
+                    if st.button("💾 Salvar Alterações na Tabela", type="primary", key="btn_salvar_edicao_tabela"):
                         cursor = conn.cursor()
                         for _, row in df_editado.iterrows():
                             if not row["Deletar"]:
