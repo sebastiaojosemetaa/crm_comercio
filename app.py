@@ -85,49 +85,13 @@ def adequar_banco_e_migrar():
     cursor.execute("PRAGMA table_info(produtos)")
     colunas_produtos = [col[1] for col in cursor.fetchall()]
 
-    if 'fornecedor' not in colunas_produtos:
-        try:
-            cursor.execute("ALTER TABLE produtos ADD COLUMN fornecedor TEXT")
-        except:
-            pass
-
-    if 'grupo' not in colunas_produtos:
-        try:
-            cursor.execute("ALTER TABLE produtos ADD COLUMN grupo TEXT")
-        except:
-            pass
-
-    if 'valor_compra' not in colunas_produtos:
-        try:
-            cursor.execute("ALTER TABLE produtos ADD COLUMN valor_compra REAL")
-        except:
-            pass
-
-    if 'valor_venda' not in colunas_produtos:
-        try:
-            cursor.execute("ALTER TABLE produtos ADD COLUMN valor_venda REAL")
-        except:
-            pass
-
-    if 'estoque_atual' not in colunas_produtos:
-        try:
-            cursor.execute("ALTER TABLE produtos ADD COLUMN estoque_atual REAL")
-        except:
-            pass 
+    for col_nome, col_tipo in [('fornecedor', 'TEXT'), ('grupo', 'TEXT'), ('valor_compra', 'REAL'), ('valor_venda', 'REAL'), ('estoque_atual', 'REAL')]:
+        if col_nome not in colunas_produtos:
+            try:
+                cursor.execute(f"ALTER TABLE produtos ADD COLUMN {col_nome} {col_tipo}")
+            except:
+                pass
             
-    cursor.execute("PRAGMA table_info(produtos)")
-    colunas_produtos = [col[1] for col in cursor.fetchall()]
-    if 'nome' not in colunas_produtos and 'descricao' in colunas_produtos:
-        try:
-            cursor.execute("ALTER TABLE produtos RENAME COLUMN descricao TO nome")
-        except:
-            pass
-    elif 'nome' not in colunas_produtos:
-        try:
-            cursor.execute("ALTER TABLE produtos ADD COLUMN nome TEXT")
-        except:
-            pass
-
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS clientes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -940,9 +904,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 with col_f3:
                     d_fim = st.date_input("Data Final do Filtro", value=date.today(), key=f"filtro_d_fim_{menu_admin}")
 
-                # ==========================================
-                # BOTÃO DE ATUALIZAR PREÇOS CORRIGIDO
-                # ==========================================
                 texto_botao_atualizar = "🔄 Atualizar Preços de Venda" if not is_modo_pedido else "🔄 Atualizar Preços de Custo"
                 if st.button(texto_botao_atualizar, key=f"btn_atualizar_precos_{menu_admin}"):
                     cursor = conn.cursor()
@@ -965,7 +926,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     linhas_afetadas = cursor.rowcount
                     conn.commit()
                     
-                    # Limpa o cache do editor na sessão para forçar a leitura do banco atualizado
                     editor_key = f"editor_reg_{menu_admin}"
                     if editor_key in st.session_state:
                         del st.session_state[editor_key]
@@ -975,7 +935,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     else:
                         st.warning("Nenhum produto correspondente foi encontrado na tabela de estoque para atualizar.")
                     
-                    st.rerun()                
+                    st.rerun()
+                
                 st.markdown("---")
                 
                 s_d1, s_d2 = d_inicio.strftime("%Y-%m-%d"), d_fim.strftime("%Y-%m-%d")
@@ -1194,6 +1155,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         """)
                         linhas_afetadas = cursor.rowcount
                         conn.commit()
+                        
+                        if "editor_estoque_produtos" in st.session_state:
+                            del st.session_state["editor_estoque_produtos"]
+                            
                         if linhas_afetadas > 0:
                             st.success(f"Preços atualizados com sucesso! ({linhas_afetadas} itens modificados)")
                         else:
