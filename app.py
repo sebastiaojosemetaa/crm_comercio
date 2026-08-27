@@ -507,7 +507,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
             if not df_cli_pedidos.empty:
                 codigos = df_cli_pedidos['codigo_venda'].dropna().unique() if 'codigo_venda' in df_cli_pedidos.columns else []
                 
-                for cod in codigos:
+    for cod in codigos:
         df_item_venda = df_cli_pedidos[df_cli_pedidos['codigo_venda'] == cod]
         data_venda = df_item_venda['data'].iloc[0] if 'data' in df_item_venda.columns else ""
         
