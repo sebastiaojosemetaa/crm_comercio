@@ -1058,6 +1058,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 from reportlab.lib import colors
 
                 buffer = io.BytesIO()
+                doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=15, bottomMargin=30)
+                elementos = []
+                # Restante do código...)
                 # O restante do seu código do PDF continua a partir daqui...
                                 # Reduz a margem superior da página para colar mais no topo
                                 doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=15, bottomMargin=30)
