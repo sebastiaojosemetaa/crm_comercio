@@ -1039,8 +1039,15 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
         with col_btn_exc:
             st.write("")
+            if st.button("🗑️ Excluir Pedido", key="btn_exc_inteiro"):
+                cursor = conn.cursor()
+                for _, itm in df_itens_pedido.iterrows():
+                    cursor.execute("DELETE FROM vendas WHERE id = ?", (int(itm['id']),))
+                conn.commit()
+                st.success("Pedido excluído com sucesso!")
+                st.rerun()
 
-        with col_btn_exc:
+        with col_btn_pdf:
             st.write("") 
                             try:
                                 import io
