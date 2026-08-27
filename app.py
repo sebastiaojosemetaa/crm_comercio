@@ -946,14 +946,30 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 if st.button(texto_botao_atualizar, key=f"btn_atualizar_precos_{menu_admin}"):
                     cursor = conn.cursor()
                     coluna_alvo_estoque = 'valor_venda' if not is_modo_pedido else 'valor_compra'
+                    
+                    # Executa a atualização limpando espaços e ignorando maiúsculas/minúsculas
                     cursor.execute(f"""
                         UPDATE vendas 
-                        SET valor_venda = (SELECT {coluna_alvo_estoque} FROM produtos WHERE produtos.nome = vendas.produto),
-                            valor_total = quantidade * (SELECT {coluna_alvo_estoque} FROM produtos WHERE produtos.nome = vendas.produto)
-                        WHERE produto IN (SELECT nome FROM produtos)
+                        SET valor_venda = (
+                            SELECT {coluna_alvo_estoque} 
+                            FROM produtos 
+                            WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
+                        ),
+                        valor_total = quantidade * (
+                            SELECT {coluna_alvo_estoque} 
+                            FROM produtos 
+                            WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
+                        )
+                        WHERE TRIM(UPPER(produto)) IN (SELECT TRIM(UPPER(nome)) FROM produtos)
                     """)
+                    linhas_afetadas = cursor.rowcount
                     conn.commit()
-                    st.success("Preços atualizados com base nos valores da tabela de produtos!")
+                    
+                    if linhas_afetadas > 0:
+                        st.success(f"Preços atualizados com sucesso! ({linhas_afetadas} itens modificados)")
+                    else:
+                        st.warning("Nenhum produto correspondente foi encontrado na tabela de estoque para atualizar.")
+                    
                     st.rerun()
                 
                 st.markdown("---")
