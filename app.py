@@ -892,61 +892,55 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     st.rerun()
 
             with aba_list:
-                st.subheader("🔍 Edição Direta na Tabela & Gestão por Cliente")
+            st.subheader("🔍 Edição Direta na Tabela & Gestão por Cliente")
+            
+            clientes_filtro = ["TODOS"] + (carregar_coluna("clientes", "nome") or carregar_coluna("vendas", "cliente"))
+            
+            col_f1, col_f2, col_f3 = st.columns(3)
+            with col_f1:
+                cliente_sel = st.selectbox("Filtrar por Cliente:", clientes_filtro, key=f"filtro_cli_tabela_{menu_admin}")
+            with col_f2:
+                d_inicio = st.date_input("Data Inicial do Filtro", value=date(2025, 1, 1), key=f"filtro_d_ini_{menu_admin}")
+            with col_f3:
+                d_fim = st.date_input("Data Final do Filtro", value=date.today(), key=f"filtro_d_fim_{menu_admin}")
+
+            texto_botao_atualizar = "🔄 Atualizar Preços de Venda" if not is_modo_pedido else "🔄 Atualizar Preços de Custo"
+            if st.button(texto_botao_atualizar, key=f"btn_atualizar_precos_{menu_admin}"):
+                cursor = conn.cursor()
                 
-                clientes_filtro = ["TODOS"] + (carregar_coluna("clientes", "nome") or carregar_coluna("vendas", "cliente"))
+                cursor.execute("SELECT id, produto FROM vendas")
+                todas_vendas_db = cursor.fetchall()
+                linhas_afetadas = 0
                 
-                col_f1, col_f2, col_f3 = st.columns(3)
-                texto_botao_atualizar = "🔄 Atualizar Preços de Venda" if not is_modo_pedido else "🔄 Atualizar Preços de Custo"
-                if st.button(texto_botao_atualizar, key=f"btn_atualizar_precos_{menu_admin}"):
-                    cursor = conn.cursor()
-                    
-                    cursor.execute("SELECT id, produto FROM vendas")
-                    todas_vendas_db = cursor.fetchall()
-                    linhas_afetadas = 0
-                    
-                    for v_id, v_prod in todas_vendas_db:
-                        if v_prod:
-                            cursor.execute("SELECT valor_venda FROM produtos WHERE TRIM(UPPER(produto)) = TRIM(UPPER(?))", (v_prod,))
-                            res_prod = cursor.fetchone()
-                            if res_prod and res_prod[0] is not None:
-                                novo_preco = float(res_prod[0])
-                                cursor.execute("""
-                                    UPDATE vendas 
-                                    SET valor_venda = ?, valor_total = quantidade * ? 
-                                    WHERE id = ?
-                                """, (novo_preco, novo_preco, v_id))
-                                linhas_afetadas += 1
-                                
-                    conn.commit()
-                    
-                    editor_key = f"editor_reg_{menu_admin}"
-                    if editor_key in st.session_state:
-                        del st.session_state[editor_key]
-                    
-                    if linhas_afetadas > 0:
-                        st.success(f"Preços atualizados com sucesso! ({linhas_afetadas} itens modificados)")
-                    else:
-                        st.warning("Nenhum produto correspondente foi encontrado na tabela de estoque para atualizar.")
-                    
-                    st.rerun()
-                                
-                    conn.commit()
-                    
-                    editor_key = f"editor_reg_{menu_admin}"
-                    if editor_key in st.session_state:
-                        del st.session_state[editor_key]
-                    
-                    if linhas_afetadas > 0:
-                        st.success(f"Preços atualizados com sucesso! ({linhas_afetadas} itens modificados)")
-                    else:
-                        st.warning("Nenhum produto correspondente foi encontrado na tabela de estoque para atualizar.")
-                    
-                    st.rerun()
+                for v_id, v_prod in todas_vendas_db:
+                    if v_prod:
+                        cursor.execute("SELECT valor_venda FROM produtos WHERE TRIM(UPPER(produto)) = TRIM(UPPER(?))", (v_prod,))
+                        res_prod = cursor.fetchone()
+                        if res_prod and res_prod[0] is not None:
+                            novo_preco = float(res_prod[0])
+                            cursor.execute("""
+                                UPDATE vendas 
+                                SET valor_venda = ?, valor_total = quantidade * ? 
+                                WHERE id = ?
+                            """, (novo_preco, novo_preco, v_id))
+                            linhas_afetadas += 1
+                            
+                conn.commit()
                 
-                st.markdown("---")
+                editor_key = f"editor_reg_{menu_admin}"
+                if editor_key in st.session_state:
+                    del st.session_state[editor_key]
                 
-                s_d1, s_d2 = d_inicio.strftime("%Y-%m-%d"), d_fim.strftime("%Y-%m-%d")
+                if linhas_afetadas > 0:
+                    st.success(f"Preços atualizados com sucesso! ({linhas_afetadas} itens modificados)")
+                else:
+                    st.warning("Nenhum produto correspondente foi encontrado na tabela de estoque para atualizar.")
+                
+                st.rerun()
+            
+            st.markdown("---")
+            
+            s_d1, s_d2 = d_inicio.strftime("%Y-%m-%d"), d_fim.strftime("%Y-%m-%d")
                 query_filt = f"SELECT * FROM vendas WHERE substr(data, 1, 10) >= '{s_d1}' AND substr(data, 1, 10) <= '{s_d2}'"
                 if cliente_sel != "TODOS":
                     query_filt += f" AND TRIM(cliente) = TRIM('{cliente_sel}')"
