@@ -553,7 +553,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                             except Exception as ex:
                                 st.error(f"Erro ao salvar alterações: {ex}")
                                 
-                    with col_del_cli:
+                with col_del_cli:
                         itens_para_excluir = df_atualizado_cliente[df_atualizado_cliente['Deletar'] == True]
                         qtd_del = len(itens_para_excluir)
                         if st.button(f"🗑️ Confirmar Exclusão de ({qtd_del}) Item(ns) Marcados", use_container_width=True, key="btn_del_cli_dir"):
