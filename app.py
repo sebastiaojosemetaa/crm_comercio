@@ -1055,20 +1055,21 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 from reportlab.lib import colors
 
                                 buffer = io.BytesIO()
-                                doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+                                # Reduz a margem superior da página para colar mais no topo
+                                doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=15, bottomMargin=30)
                                 elementos = []
                                 estilos = getSampleStyleSheet()
 
-                                titulo_estilo = ParagraphStyle('Titulo', parent=estilos['Heading1'], fontName='Helvetica-Bold', fontSize=15, alignment=1, textColor=colors.HexColor('#111111'))
-                                subtitulo_estilo = ParagraphStyle('SubTitulo', parent=estilos['Normal'], fontName='Helvetica', fontSize=8.5, alignment=1, textColor=colors.HexColor('#333333'))
+                                # Estilos ajustados sem espaço entre as linhas (leading apertado)
+                                titulo_estilo = ParagraphStyle('Titulo', parent=estilos['Heading1'], fontName='Helvetica-Bold', fontSize=15, leading=16, alignment=1, textColor=colors.HexColor('#111111'), spaceAfter=2)
+                                subtitulo_estilo = ParagraphStyle('SubTitulo', parent=estilos['Normal'], fontName='Helvetica', fontSize=8.5, leading=10, alignment=1, textColor=colors.HexColor('#333333'), spaceAfter=1)
                                 
                                 elementos.append(Paragraph("<b>REY DA CEBOLA</b>", titulo_estilo))
                                 elementos.append(Paragraph("CNPJ: 194.174.39/000-42 INSC.EST.: 12.426725-4", subtitulo_estilo))
                                 elementos.append(Paragraph("CONTATO: (99) 98814-9722 OU (99) 98414-3943", subtitulo_estilo))
-                                elementos.append(Spacer(1, 8))
+                                elementos.append(Spacer(1, 4)) # Espaço mínimo apenas antes da tabela
                                 
-                                elementos.append(Paragraph(f"<b>Relatório de Pedidos / Orçamentos</b><br/>{pedido_escolhido}", ParagraphStyle('Cab', parent=subtitulo_estilo, fontSize=10, fontName='Helvetica-Bold', alignment=1)))
-                                elementos.append(Spacer(1, 10))
+                                elementos.append(Paragraph(f"<b>Relatório de Pedidos / Orçamentos</b><br/>{pedido_escolhido}", ParagraphStyle('Cab', parent=subtitulo_estilo, fontSize=10, leading=12, fontName='Helvetica-Bold', alignment=1, spaceAfter=6)))
 
                                 dados_tabela = [["Produto", "Qtd Total", "Preço Unitário (R$)", "Valor Total (R$)"]]
                                 total_geral = 0.0
