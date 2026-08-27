@@ -533,7 +533,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                     
                 col_salvar_cli, col_del_cli = st.columns(2)
                     
-                    with col_salvar_cli:
+                with col_salvar_cli:
                         if st.button("💾 Salvar Alterações Feitas na Tabela", use_container_width=True, key="btn_salv_cli_dir"):
                             try:
                                 cursor = conn.cursor()
