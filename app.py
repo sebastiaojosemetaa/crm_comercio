@@ -910,20 +910,20 @@ with aba_list:
         coluna_alvo_estoque = 'valor_venda' if not is_modo_pedido else 'valor_compra'
         
         query_update = f"""
-            UPDATE vendas 
-            SET valor_venda = COALESCE((
-                SELECT {coluna_alvo_estoque} 
-                FROM produtos 
-                WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
-            ), valor_venda),
-            valor_total = quantidade * COALESCE((
-                SELECT {coluna_alvo_estoque} 
-                FROM produtos 
-                WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
-            ), valor_venda)
-            WHERE TRIM(UPPER(produto)) IN (SELECT TRIM(UPPER(nome)) FROM produtos)
-        """
-        cursor.execute(query_update)
+    UPDATE vendas 
+    SET valor_venda = COALESCE((
+        SELECT {coluna_alvo_estoque} 
+        FROM produtos 
+        WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
+    ), valor_venda),
+    valor_total = quantidade * COALESCE((
+        SELECT {coluna_alvo_estoque} 
+        FROM produtos 
+        WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
+    ), valor_venda)
+    WHERE TRIM(UPPER(produto)) IN (SELECT TRIM(UPPER(nome)) FROM produtos)
+"""
+cursor.execute(query_update)
         linhas_afetadas = cursor.rowcount
         conn.commit()
         
