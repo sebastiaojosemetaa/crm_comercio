@@ -1126,7 +1126,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 col1, col2 = st.columns(2)
                 with col1:
                     if st.button("💾 Salvar Alterações no Estoque", type="primary"):
-    cursor = conn.cursor()
+        cursor = conn.cursor()
     for row in df_editado.itertuples():
         # Trata os valores de forma segura usando os atributos do tupla
         qtd_val = float(getattr(row, 'quantidade', 0) or 0)
