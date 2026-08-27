@@ -513,7 +513,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                     col_t_item = next((c for c in df_item_vendam.columns if "valor" in c.lower() and "total" in c.lower()), "Valor Total")
 val_total = df_item_venda[col_t_item].sum() if col_t_item in df_item_venda.columns else 0.0
                     
-                    with st.expander(f"🛒 Pedido ID: {cod} | Data: {data_venda} | Total: R$ {val_total:.2f}"):
+        with st.expander(f"🛒 Pedido ID: {cod} | Data: {data_venda} | Total: R$ {val_total:.2f}"):
                         cols_desejadas = ['id', 'produto', 'fornecedor', 'qtd', col_t_item, 'grupo']
                         cols_existentes = [c for c in cols_desejadas if c in df_item_venda.columns]
                         st.dataframe(df_item_venda[cols_existentes], use_container_width=True)
