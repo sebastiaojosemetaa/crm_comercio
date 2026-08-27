@@ -488,7 +488,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 if not df_filtrado_cli.empty:
                     row_cli = df_filtrado_cli.iloc[0]
                     # Buscar preço (compra ou venda dependendo do que usa no pedido)
-                    for col_v in ['valor_compra', 'preco_compra', 'valor_venda', 'preco_venda']:
+                    for col_v in ['valor_compra', 'preco_compra', 'custo', 'valor_venda', 'preco_venda', 'venda']:
                         if col_v in df_p_cli.columns:
                             try:
                                 val_aux = float(row_cli[col_v])
