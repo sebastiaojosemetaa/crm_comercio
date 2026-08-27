@@ -927,7 +927,19 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             with aba_list:
                 st.subheader("🔍 Edição Direta na Tabela & Gestão por Cliente")
                 
-                # BOTÃO DE ATUALIZAR PREÇOS NAS VENDAS (POSICIONADO NA PARTE SUPERIOR DA TELA DE REGISTRO/VENDAS)
+                # --- CORREÇÃO APLICADA AQUI ---
+                # Salvamos a escolha do filtro no session_state ANTES de renderizar o selectbox
+                clientes_filtro = ["TODOS"] + (carregar_coluna("clientes", "nome") or carregar_coluna("vendas", "cliente"))
+                
+                col_f1, col_f2, col_f3 = st.columns(3)
+                with col_f1:
+                    cliente_sel = st.selectbox("Filtrar por Cliente:", clientes_filtro, key="filtro_cli_tabela")
+                with col_f2:
+                    d_inicio = st.date_input("Data Inicial do Filtro", value=date(2025, 1, 1), key="filtro_d_ini")
+                with col_f3:
+                    d_fim = st.date_input("Data Final do Filtro", value=date.today(), key="filtro_d_fim")
+
+                # BOTÃO DE ATUALIZAR PREÇOS NAS VENDAS
                 if st.button("🔄 Atualizar Preços nas Vendas", key="btn_atualizar_precos_vendas_superior"):
                     cursor = conn.cursor()
                     cursor.execute("""
@@ -942,15 +954,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 
                 st.markdown("---")
                 
-                col_f1, col_f2, col_f3 = st.columns(3)
-                with col_f1:
-                    clientes_filtro = ["TODOS"] + (carregar_coluna("clientes", "nome") or carregar_coluna("vendas", "cliente"))
-                    cliente_sel = st.selectbox("Filtrar por Cliente:", clientes_filtro, key="filtro_cli_tabela")
-                with col_f2:
-                    d_inicio = st.date_input("Data Inicial do Filtro", value=date(2025, 1, 1), key="filtro_d_ini")
-                with col_f3:
-                    d_fim = st.date_input("Data Final do Filtro", value=date.today(), key="filtro_d_fim")
-                    
                 s_d1, s_d2 = d_inicio.strftime("%Y-%m-%d"), d_fim.strftime("%Y-%m-%d")
                 query_filt = f"SELECT * FROM vendas WHERE substr(data, 1, 10) >= '{s_d1}' AND substr(data, 1, 10) <= '{s_d2}'"
                 if cliente_sel != "TODOS":
@@ -1028,8 +1031,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 
                                 elementos.append(Paragraph("<b>REY DA CEBOLA</b>", titulo_estilo))
                                 elementos.append(Paragraph("CNPJ: 194.174.39/000-42 INSC.EST.: 12.426725-4", subtitulo_estilo))
-                                elementos.append(Paragraph("CONTATO: (99) 98814-9722 OU (99) 98414-3943", subtitulo_estilo))
-                                elementos.append(Spacer(1, 4))
+                                elements.append(Paragraph("CONTATO: (99) 98814-9722 OU (99) 98414-3943", subtitulo_estilo))
+                                elements.append(Spacer(1, 4))
                                 
                                 elementos.append(Paragraph(f"<b>Relatório de Pedidos / Orçamentos</b><br/>{pedido_escolhido}", ParagraphStyle('Cab', parent=subtitulo_estilo, fontSize=10, leading=12, fontName='Helvetica-Bold', alignment=1, spaceAfter=6)))
 
@@ -1111,7 +1114,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         )
                     
                     if st.form_submit_button("Registrar Entrada no Estoque"):
-                        registrar_compra(produto_escolhido, fornecedor_escolhido, grupo_escolhido, quantidade, preco_custo)
+                        registrar_compra(produto_escolh_ido if 'produto_escolh_ido' in locals() else produto_escolhido, fornecedor_escolhido, grupo_escolhido, quantidade, preco_custo)
                         cursor.execute("UPDATE produtos SET estoque_atual = COALESCE(estoque_atual, 0) + ? WHERE TRIM(nome) = TRIM(?)", (quantidade, produto_escolhido))
                         conn.commit()
                         st.success("Entrada registrada com sucesso e estoque atualizado!")
