@@ -923,7 +923,7 @@ with aba_list:
     ), valor_venda)
     WHERE TRIM(UPPER(produto)) IN (SELECT TRIM(UPPER(nome)) FROM produtos)
 """
-cursor.execute(query_update)
+        cursor.execute(query_update)
         linhas_afetadas = cursor.rowcount
         conn.commit()
         
