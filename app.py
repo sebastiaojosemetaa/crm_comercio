@@ -827,7 +827,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     
                     if not df_filtrado_admin.empty:
                         row_adm = df_filtrado_admin.iloc[0]
-                        # AQUI ESTÁ A DIFERENÇA: PEDIDOS BUSCA VALOR_COMPRA, REGISTRAR VENDA BUSCA VALOR_VENDA
                         col_alvo_preco = 'valor_compra' if is_modo_pedido else 'valor_venda'
                         for col_v in [col_alvo_preco, 'valor_venda', 'preco_venda', 'valor_compra', 'preco_compra', 'custo', 'venda']:
                             if col_v in df_p_admin.columns:
@@ -941,25 +940,26 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 with col_f3:
                     d_fim = st.date_input("Data Final do Filtro", value=date.today(), key=f"filtro_d_fim_{menu_admin}")
 
-                # BOTÃO DE ATUALIZAR PREÇOS NAS VENDAS/PEDIDOS
+                # ==========================================
+                # BOTÃO DE ATUALIZAR PREÇOS CORRIGIDO
+                # ==========================================
                 texto_botao_atualizar = "🔄 Atualizar Preços de Venda" if not is_modo_pedido else "🔄 Atualizar Preços de Custo"
                 if st.button(texto_botao_atualizar, key=f"btn_atualizar_precos_{menu_admin}"):
                     cursor = conn.cursor()
                     coluna_alvo_estoque = 'valor_venda' if not is_modo_pedido else 'valor_compra'
                     
-                    # Executa a atualização limpando espaços e ignorando maiúsculas/minúsculas
                     cursor.execute(f"""
                         UPDATE vendas 
-                        SET valor_venda = (
+                        SET valor_venda = COALESCE((
                             SELECT {coluna_alvo_estoque} 
                             FROM produtos 
                             WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
-                        ),
-                        valor_total = quantidade * (
+                        ), valor_venda),
+                        valor_total = quantidade * COALESCE((
                             SELECT {coluna_alvo_estoque} 
                             FROM produtos 
                             WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
-                        )
+                        ), valor_venda)
                         WHERE TRIM(UPPER(produto)) IN (SELECT TRIM(UPPER(nome)) FROM produtos)
                     """)
                     linhas_afetadas = cursor.rowcount
@@ -1150,7 +1150,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             st.title("📦 Estoque de Produtos e Preços")
             df_produtos = carregar_dados("SELECT * FROM produtos")
             
-            # Garante que as colunas essenciais existam no DataFrame
             if not df_produtos.empty:
                 if 'estoque_atual' not in df_produtos.columns and 'quantidade' in df_produtos.columns:
                     df_produtos = df_produtos.rename(columns={'quantidade': 'estoque_atual'})
@@ -1177,16 +1176,16 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         cursor = conn.cursor()
                         cursor.execute("""
                             UPDATE vendas 
-                            SET valor_venda = (
+                            SET valor_venda = COALESCE((
                                 SELECT valor_venda 
                                 FROM produtos 
                                 WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
-                            ),
-                            valor_total = quantidade * (
+                            ), valor_venda),
+                            valor_total = quantidade * COALESCE((
                                 SELECT valor_venda 
                                 FROM produtos 
                                 WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
-                            )
+                            ), valor_venda)
                             WHERE TRIM(UPPER(produto)) IN (SELECT TRIM(UPPER(nome)) FROM produtos)
                         """)
                         linhas_afetadas = cursor.rowcount
