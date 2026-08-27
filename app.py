@@ -926,6 +926,22 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
             with aba_list:
                 st.subheader("🔍 Edição Direta na Tabela & Gestão por Cliente")
+                
+                # BOTÃO DE ATUALIZAR PREÇOS NAS VENDAS (POSICIONADO NA PARTE SUPERIOR DA TELA DE REGISTRO/VENDAS)
+                if st.button("🔄 Atualizar Preços nas Vendas", key="btn_atualizar_precos_vendas_superior"):
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        UPDATE vendas 
+                        SET valor_venda = (SELECT valor_venda FROM produtos WHERE produtos.nome = vendas.produto),
+                            valor_total = quantidade * (SELECT valor_venda FROM produtos WHERE produtos.nome = vendas.produto)
+                        WHERE produto IN (SELECT nome FROM produtos)
+                    """)
+                    conn.commit()
+                    st.success("Preços das vendas atualizados com base nos valores da tabela de produtos!")
+                    st.rerun()
+                
+                st.markdown("---")
+                
                 col_f1, col_f2, col_f3 = st.columns(3)
                 with col_f1:
                     clientes_filtro = ["TODOS"] + (carregar_coluna("clientes", "nome") or carregar_coluna("vendas", "cliente"))
@@ -945,7 +961,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     df_registros.insert(0, "Deletar", False)
                     df_editado = st.data_editor(df_registros, key=f"editor_reg_{menu_admin}", use_container_width=True, hide_index=True)
                     
-                    # BOTÃO ADICIONADO NA TELA SUPERIOR (LOGO ABAIXO DA TABELA EDITÁVEL)
                     col_b1, col_b2 = st.columns([1, 3])
                     with col_b1:
                         btn_salvar_superior = st.button("💾 Atualizar Valores / Salvar", type="primary", key="btn_salvar_edicao_superior")
@@ -1129,12 +1144,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         cursor = conn.cursor()
                         cursor.execute("""
                             UPDATE vendas 
-                            SET valor_venda = (SELECT valor_compra FROM produtos WHERE produtos.nome = vendas.produto),
-                                valor_total = quantidade * (SELECT valor_compra FROM produtos WHERE produtos.nome = vendas.produto)
+                            SET valor_venda = (SELECT valor_venda FROM produtos WHERE produtos.nome = vendas.produto),
+                                valor_total = quantidade * (SELECT valor_venda FROM produtos WHERE produtos.nome = vendas.produto)
                             WHERE produto IN (SELECT nome FROM produtos)
                         """)
                         conn.commit()
-                        st.success("Preços atualizados com o Valor de Compra do estoque!")
+                        st.success("Preços atualizados com o Valor de Venda do estoque!")
                         st.rerun()
             else:
                 st.info("Nenhum produto cadastrado.")
