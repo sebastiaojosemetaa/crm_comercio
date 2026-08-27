@@ -582,8 +582,8 @@ for cod in codigos:
                     )
                     except Exception as e:
                         st.error(f"Erro ao gerar o PDF corporativo: {e}")
-                else:
-                    st.info(f"Nenhum pedido encontrado para '{st.session_state.cliente_autenticado}'.")
+                        else:
+                            st.info(f"Nenhum pedido encontrado para '{st.session_state.cliente_autenticado}'.")
 
 # ==========================================
 # AMBIENTE 2: ADMINISTRADOR / VENDEDOR
