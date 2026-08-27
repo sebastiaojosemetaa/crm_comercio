@@ -1182,12 +1182,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 cursor = conn.cursor()
                 cursor.execute("""
                     UPDATE vendas 
-                    SET valor_venda = (SELECT valor_venda FROM produtos WHERE produtos.produto = vendas.produto),
-                        valor_total = quantidade * (SELECT valor_venda FROM produtos WHERE produtos.produto = vendas.produto)
+                    SET valor_venda = (SELECT valor_compra FROM produtos WHERE produtos.produto = vendas.produto),
+                        valor_total = quantidade * (SELECT valor_compra FROM produtos WHERE produtos.produto = vendas.produto)
                     WHERE produto IN (SELECT produto FROM produtos)
                 """)
                 conn.commit()
-                st.success("Preços de venda atualizados com sucesso nas comissões/pedidos!")
+                st.success("Preços atualizados com o Valor de Compra do estoque!")
                 st.rerun()
     else:
         st.info("Nenhum produto cadastrado.")
