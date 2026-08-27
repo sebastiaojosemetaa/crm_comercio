@@ -897,13 +897,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 clientes_filtro = ["TODOS"] + (carregar_coluna("clientes", "nome") or carregar_coluna("vendas", "cliente"))
                 
                 col_f1, col_f2, col_f3 = st.columns(3)
-                with col_f1:
-                    cliente_sel = st.selectbox("Filtrar por Cliente:", clientes_filtro, key=f"filtro_cli_tabela_{menu_admin}")
-                with col_f2:
-                    d_inicio = st.date_input("Data Inicial do Filtro", value=date(2025, 1, 1), key=f"filtro_d_ini_{menu_admin}")
-                with col_f3:
-                    d_fim = st.date_input("Data Final do Filtro", value=date.today(), key=f"filtro_d_fim_{menu_admin}")
-
                 texto_botao_atualizar = "🔄 Atualizar Preços de Venda" if not is_modo_pedido else "🔄 Atualizar Preços de Custo"
                 if st.button(texto_botao_atualizar, key=f"btn_atualizar_precos_{menu_admin}"):
                     cursor = conn.cursor()
@@ -914,7 +907,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     
                     for v_id, v_prod in todas_vendas_db:
                         if v_prod:
-                            cursor.execute("SELECT valor_venda FROM produtos WHERE TRIM(UPPER(descricao)) = TRIM(UPPER(?))", (v_prod,))
+                            cursor.execute("SELECT valor_venda FROM produtos WHERE TRIM(UPPER(produto)) = TRIM(UPPER(?))", (v_prod,))
                             res_prod = cursor.fetchone()
                             if res_prod and res_prod[0] is not None:
                                 novo_preco = float(res_prod[0])
@@ -924,6 +917,19 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     WHERE id = ?
                                 """, (novo_preco, novo_preco, v_id))
                                 linhas_afetadas += 1
+                                
+                    conn.commit()
+                    
+                    editor_key = f"editor_reg_{menu_admin}"
+                    if editor_key in st.session_state:
+                        del st.session_state[editor_key]
+                    
+                    if linhas_afetadas > 0:
+                        st.success(f"Preços atualizados com sucesso! ({linhas_afetadas} itens modificados)")
+                    else:
+                        st.warning("Nenhum produto correspondente foi encontrado na tabela de estoque para atualizar.")
+                    
+                    st.rerun()
                                 
                     conn.commit()
                     
