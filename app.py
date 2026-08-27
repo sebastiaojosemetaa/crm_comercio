@@ -521,7 +521,7 @@ for cod in codigos:
 
         if len(codigos) == 0:
         # (mantenha o conteúdo original se houver, ou ajuste a identação do bloco abaixo)
-        pass
+            pass
     else:
                     df_edit_cli = df_cli_pedidos.copy()
                     if 'Deletar' not in df_edit_cli.columns:
