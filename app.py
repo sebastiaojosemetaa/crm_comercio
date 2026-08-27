@@ -836,6 +836,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
                 grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
 
+                # Inicializar o controle de mudança de produto na sessão
+                if "last_prod_admin" not in st.session_state:
+                    st.session_state.last_prod_admin = None
+
                 prod_item = st.selectbox("Selecione o Produto", produtos_opt, key="ped_select_produto")
 
                 if prod_item == "➕ Cadastrar Novo Produto...":
@@ -883,16 +887,22 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         if 'grupo' in df_p_admin.columns and pd.notna(row_adm['grupo']):
                             grupo_sugerido_admin = str(row_adm['grupo']).strip()
 
-                idx_f_adm = fornecedores_opt.index(forn_sugerido_admin) if fornecedores_opt and forn_sugerido_admin in fornecedores_opt else 0
-                idx_g_adm = grupos_opt.index(grupo_sugerido_admin) if grupos_opt and grupo_sugerido_admin in grupos_opt else 0
+                # Se o usuário trocou de produto, atualiza as chaves na sessão forçadamente
+                if st.session_state.last_prod_admin != prod_item:
+                    st.session_state.last_prod_admin = prod_item
+                    st.session_state["ped_v_ind"] = float(preco_sugerido_admin)
+                    if forn_sugerido_admin in fornecedores_opt:
+                        st.session_state["ped_forn_ind"] = forn_sugerido_admin
+                    if grupo_sugerido_admin in grupos_opt:
+                        st.session_state["ped_grupo_ind"] = grupo_sugerido_admin
 
-                # Campos soltos sem st.form para atualizar dinamicamente ao trocar o produto
+                # Campos soltos com suporte à sessão atualizada
                 cliente_ped = st.selectbox("Cliente", clientes_opt, key="ped_cli_ind")
-                fornec_ped = st.selectbox("Fornecedor", fornecedores_opt, index=idx_f_adm, key="ped_forn_ind")
-                grupo_ped = st.selectbox("Grupo", grupos_opt, index=idx_g_adm, key="ped_grupo_ind")
+                fornec_ped = st.selectbox("Fornecedor", fornecedores_opt, key="ped_forn_ind")
+                grupo_ped = st.selectbox("Grupo", grupos_opt, key="ped_grupo_ind")
                 
                 qtd_ped = st.number_input("Quantidade", min_value=0.1, step=1.0, value=1.0, key="ped_qtd_ind")
-                v_venda_ped = st.number_input("Preço Unitário (R$)", min_value=0.0, step=1.0, value=float(preco_sugerido_admin), key="ped_v_ind")
+                v_venda_ped = st.number_input("Preço Unitário (R$)", min_value=0.0, step=1.0, key="ped_v_ind")
                 
                 tipo_reg = "PEDIDO" if is_modo_pedido else "VENDA"
                 if st.button(f"Salvar {tipo_reg}", type="primary"):
