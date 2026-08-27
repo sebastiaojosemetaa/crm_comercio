@@ -1010,21 +1010,71 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 
                         with col_btn_pdf:
                             st.write("") 
-                            # Chama o gerador de PDF original do sistema se estiver disponível
-                            if 'gerar_pdf_orcamento' in globals():
-                                try:
-                                    pdf_bytes = gerar_pdf_orcamento(df_itens_pedido)
-                                    st.download_button(
-                                        label="📄 Baixar PDF",
-                                        data=pdf_bytes,
-                                        file_name=f"relatorio_pedidos.pdf",
-                                        mime="application/pdf",
-                                        key="download_pdf_original"
-                                    )
-                                except Exception as e:
-                                    st.error(f"Erro ao gerar PDF: {e}")
-                            else:
-                                st.warning("Função original de PDF não encontrada no escopo.")
+                            try:
+                                import io
+                                from reportlab.lib.pagesizes import letter
+                                from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+                                from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+                                from reportlab.lib import colors
+
+                                buffer = io.BytesIO()
+                                doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+                                elementos = []
+                                estilos = getSampleStyleSheet()
+
+                                titulo_estilo = ParagraphStyle('Titulo', parent=estilos['Heading1'], fontName='Helvetica-Bold', fontSize=15, alignment=1, textColor=colors.HexColor('#111111'))
+                                subtitulo_estilo = ParagraphStyle('SubTitulo', parent=estilos['Normal'], fontName='Helvetica', fontSize=8.5, alignment=1, textColor=colors.HexColor('#333333'))
+                                
+                                elementos.append(Paragraph("<b>REY DA CEBOLA</b>", titulo_estilo))
+                                elementos.append(Paragraph("CNPJ: 194.174.39/000-42 INSC.EST.: 12.426725-4", subtitulo_estilo))
+                                elementos.append(Paragraph("CONTATO: (99) 98814-9722 OU (99) 98414-3943", subtitulo_estilo))
+                                elementos.append(Spacer(1, 8))
+                                
+                                elementos.append(Paragraph(f"<b>Relatório de Pedidos / Orçamentos</b><br/>{pedido_escolhido}", ParagraphStyle('Cab', parent=subtitulo_estilo, fontSize=10, fontName='Helvetica-Bold', alignment=1)))
+                                elementos.append(Spacer(1, 10))
+
+                                dados_tabela = [["Produto", "Qtd Total", "Preço Unitário (R$)", "Valor Total (R$)"]]
+                                total_geral = 0.0
+
+                                for _, itm in df_itens_pedido.iterrows():
+                                    prod = str(itm.get('produto', ''))
+                                    qtd = float(itm.get('quantidade', 0))
+                                    v_unit = float(itm.get('valor_venda', 0))
+                                    v_tot = qtd * v_unit
+                                    total_geral += v_tot
+                                    dados_tabela.append([prod, f"{qtd:.2f}", f"R$ {v_unit:,.2f}", f"R$ {v_tot:,.2f}"])
+
+                                dados_tabela.append(["VALOR TOTAL GERAL", "", "", f"R$ {total_geral:,.2f}"])
+
+                                t = Table(dados_tabela, colWidths=[210, 80, 110, 110])
+                                t.setStyle(TableStyle([
+                                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2b579a')),
+                                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                                    ('FONTSIZE', (0, 0), (-1, 0), 9.5),
+                                    ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+                                    ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#111111')),
+                                    ('TEXTCOLOR', (0, -1), (-1, -1), colors.whitesmoke),
+                                    ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+                                    ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                                    ('FONTSIZE', (0, 1), (-1, -1), 8.5),
+                                ]))
+
+                                elementos.append(t)
+                                doc.build(elementos)
+                                buffer.seek(0)
+                                pdf_bytes = buffer.getvalue()
+
+                                st.download_button(
+                                    label="📄 Baixar PDF",
+                                    data=pdf_bytes,
+                                    file_name=f"pedido_{pedido_escolhido.replace('—', '_').strip()}.pdf",
+                                    mime="application/pdf",
+                                    key="download_pdf_original_rey"
+                                )
+                            except Exception as e:
+                                st.error(f"Erro ao gerar PDF: {e}")
                 else:
                     st.info("Nenhum registro encontrado.")
 
