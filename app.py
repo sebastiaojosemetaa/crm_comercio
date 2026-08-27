@@ -945,7 +945,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     df_registros.insert(0, "Deletar", False)
                     df_editado = st.data_editor(df_registros, key=f"editor_reg_{menu_admin}", use_container_width=True, hide_index=True)
                     
-                    if st.button("💾 Salvar Alterações na Tabela (Excluir Itens Marcados / Editar)", type="primary", key="btn_salvar_edicao_tabela"):
+                    # BOTÃO ADICIONADO NA TELA SUPERIOR (LOGO ABAIXO DA TABELA EDITÁVEL)
+                    col_b1, col_b2 = st.columns([1, 3])
+                    with col_b1:
+                        btn_salvar_superior = st.button("💾 Atualizar Valores / Salvar", type="primary", key="btn_salvar_edicao_superior")
+                    
+                    if btn_salvar_superior:
                         cursor = conn.cursor()
                         for _, row in df_editado.iterrows():
                             if row["Deletar"]:
