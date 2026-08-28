@@ -1206,8 +1206,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         """, (novo_custo, ped_id))
                                         atualizados += 1
                             
-                conn_aux.commit()
-                conn_aux.close()
+                        conn_aux.commit()
+                        conn_aux.close()
                 
                 st.success(f"Preços de custo atualizados com sucesso! ({atualizados} itens modificados)")
                 st.rerun()
