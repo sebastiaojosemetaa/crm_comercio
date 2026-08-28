@@ -1138,10 +1138,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     with col2:
                         grupo_escolhido = st.selectbox("Grupo", grupos_opt)
                         preco_custo = st.number_input(
-                            "Preço de Custo Unitário (R$)", 
-                            min_value=0.0, 
-                            value=preco_cadastrado, 
-                            format="%.2f", 
+                            "Preço de Custo Unitário (R$)",
+                            min_value=0.0,
+                            value=float(preco_cadastrado),
+                            format="%.2f",
                             key=f"custo_compra_{produto_escolhido}"
                         )
                     
