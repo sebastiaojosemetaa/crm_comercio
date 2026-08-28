@@ -1181,7 +1181,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.rerun()
 
                 with col2:
-                                    with col2:
                     if st.button("🔄 Atualizar Preços de Custo"):
                         cursor = conn.cursor()
                         # Atualiza o valor_venda (que armazena o custo no caso de tipo='ORÇAMENTO') 
