@@ -1181,46 +1181,35 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.rerun()
 
                 with col2:
+                                    with col2:
                     if st.button("🔄 Atualizar Preços de Custo"):
-                        import sqlite3
-                        try:
-                            conn_aux = sqlite3.connect("comercio.db")
-                            cursor_aux = conn_aux.cursor()
-                            
-                            # Mapeia os custos atuais do estoque em letras maiúsculas para evitar erros de digitação
-                            cursor_aux.execute("SELECT nome, valor_compra FROM produtos")
-                            produtos_dict = {}
-                            for row in cursor_aux.fetchall():
-                                if row[0]:
-                                    nome_prod = str(row[0]).strip().upper()
-                                    try:
-                                        produtos_dict[nome_prod] = float(row[1]) if row[1] is not None else 0.0
-                                    except:
-                                        produtos_dict[nome_prod] = 0.0
-                            
-                            # Busca os pedidos salvos
-                            cursor_aux.execute("SELECT id, produto FROM pedidos")
-                            pedidos = cursor_aux.fetchall()
-                            
-                            atualizados = 0
-                            for ped_id, prod_nome in pedidos:
-                                if prod_nome:
-                                    nome_chave = str(prod_nome).strip().upper()
-                                    if nome_chave in produtos_dict:
-                                        novo_custo = produtos_dict[nome_chave]
-                                        cursor_aux.execute(
-                                            "UPDATE pedidos SET valor_compra = ? WHERE id = ?", 
-                                            (novo_custo, ped_id)
-                                        )
-                                        atualizados += 1
-                                        
-                            conn_aux.commit()
-                            conn_aux.close()
-                            
-                            st.success(f"Sucesso! {atualizados} itens atualizados com os preços de custo do estoque.")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Erro ao atualizar custos: {e}")
+                        cursor = conn.cursor()
+                        # Atualiza o valor_venda (que armazena o custo no caso de tipo='ORÇAMENTO') 
+                        # buscando o valor_compra atualizado na tabela produtos
+                        cursor.execute("""
+                            UPDATE vendas 
+                            SET valor_venda = (
+                                SELECT valor_compra 
+                                FROM produtos 
+                                WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
+                            ),
+                            valor_total = quantidade * (
+                                SELECT valor_compra 
+                                FROM produtos 
+                                WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
+                            )
+                            WHERE tipo = 'ORÇAMENTO' 
+                            AND TRIM(UPPER(produto)) IN (SELECT TRIM(UPPER(nome)) FROM produtos)
+                        """)
+                        linhas_afetadas = cursor.rowcount
+                        conn.commit()
+                        
+                        if linhas_afetadas > 0:
+                            st.success(f"Sucesso! {linhas_afetadas} itens de pedidos foram atualizados com os preços de custo do estoque.")
+                        else:
+                            st.warning("Nenhum pedido pendente correspondente foi encontrado para atualizar.")
+                        
+                        st.rerun()
             
         elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
             st.title("👥 Cadastros Gerais")
