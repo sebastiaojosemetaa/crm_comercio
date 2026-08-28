@@ -1181,34 +1181,34 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.rerun()
 
                 with col2:
-                    if st.button("🔄 Atualizar Preços nas Vendas"):
-                        cursor = conn.cursor()
-                        cursor.execute("""
-                            UPDATE vendas 
-                            SET valor_venda = (
-                                SELECT valor_venda 
-                                FROM produtos 
-                                WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
-                            ),
-                            valor_compra = (
-                                SELECT valor_compra 
-                                FROM produtos 
-                                WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
-                            ),
-                            valor_total = quantidade * (
-                                SELECT valor_venda 
-                                FROM produtos 
-                                WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
-                            )
-                            WHERE TRIM(UPPER(produto)) IN (SELECT TRIM(UPPER(nome)) FROM produtos)
-                        """)
-                        linhas_afetadas = cursor.rowcount
-                        conn.commit()
-                        if linhas_afetadas > 0:
-                            st.success(f"Preços atualizados com sucesso! ({linhas_afetadas} itens modificados)")
-                        else:
-                            st.warning("Nenhum produto correspondente foi encontrado na tabela de estoque.")
-                        st.rerun()
+                    if st.button("🔄 Atualizar Preços de Custo"):
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE pedidos 
+                SET valor_venda = (
+                    SELECT valor_venda 
+                    FROM produtos 
+                    WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(pedidos.produto))
+                ),
+                valor_compra = (
+                    SELECT valor_compra 
+                    FROM produtos 
+                    WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(pedidos.produto))
+                ),
+                valor_total = quantidade * (
+                    SELECT valor_venda 
+                    FROM produtos 
+                    WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(pedidos.produto))
+                )
+                WHERE TRIM(UPPER(produto)) IN (SELECT TRIM(UPPER(nome)) FROM produtos)
+            """)
+            linhas_afetadas = cursor.rowcount
+            conn.commit()
+            if linhas_afetadas > 0:
+                st.success(f"Preços atualizados com sucesso! ({linhas_afetadas} itens modificados)")
+            else:
+                st.warning("Nenhum produto correspondente foi encontrado na tabela de estoque.")
+            st.rerun()
 
         elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
             st.title("👥 Cadastros Gerais")
