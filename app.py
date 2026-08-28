@@ -1196,20 +1196,20 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 pedidos_db = cursor_aux.fetchall()
                 
                                 atualizados = 0
-                for ped_id, prod_nome in pedidos_db:
-                    if prod_nome:
-                        nome_limpo = str(prod_nome).strip().upper()
-                        if nome_limpo in produtos_db:
-                            novo_custo = produtos_db[nome_limpo]
-                            cursor_aux.execute("""
-                                UPDATE pedidos 
-                                SET valor_compra = ? 
-                                WHERE id = ?
-                            """, (novo_custo, ped_id))
-                            atualizados += 1
-                            
-                conn_aux.commit()
-                conn_aux.close()
+                                for ped_id, prod_nome in pedidos_db:
+                                    if prod_nome:
+                                        nome_limpo = str(prod_nome).strip().upper()
+                                        if nome_limpo in produtos_db:
+                                            novo_custo = produtos_db[nome_limpo]
+                                            cursor_aux.execute("""
+                                                UPDATE pedidos 
+                                                SET valor_compra = ? 
+                                                WHERE id = ?
+                                            """, (novo_custo, ped_id))
+                                            atualizados += 1
+                                            
+                                conn_aux.commit()
+                                conn_aux.close()
                 
                 st.success(f"Preços de custo atualizados com sucesso! ({atualizados} itens modificados)")
                 st.rerun()
