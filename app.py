@@ -1182,26 +1182,26 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
                 with col2:
                     if st.button("🔄 Atualizar Preços de Custo"):
-            cursor = conn.cursor()
-            cursor.execute("""
-                UPDATE pedidos 
-                SET valor_venda = (
-                    SELECT valor_venda 
-                    FROM produtos 
-                    WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(pedidos.produto))
-                ),
-                valor_compra = (
-                    SELECT valor_compra 
-                    FROM produtos 
-                    WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(pedidos.produto))
-                ),
-                valor_total = quantidade * (
-                    SELECT valor_venda 
-                    FROM produtos 
-                    WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(pedidos.produto))
-                )
-                WHERE TRIM(UPPER(produto)) IN (SELECT TRIM(UPPER(nome)) FROM produtos)
-            """)
+                        cursor = conn.cursor()
+                        cursor.execute("""
+                            UPDATE pedidos 
+                            SET valor_venda = (
+                                SELECT valor_venda 
+                                FROM produtos 
+                                WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(pedidos.produto))
+                            ),
+                            valor_compra = (
+                                SELECT valor_compra 
+                                FROM produtos 
+                                WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(pedidos.produto))
+                            ),
+                            valor_total = quantidade * (
+                                SELECT valor_venda 
+                                FROM produtos 
+                                WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(pedidos.produto))
+                            )
+                            WHERE TRIM(UPPER(produto)) IN (SELECT TRIM(UPPER(nome)) FROM produtos)
+                        """)
             linhas_afetadas = cursor.rowcount
             conn.commit()
             if linhas_afetadas > 0:
