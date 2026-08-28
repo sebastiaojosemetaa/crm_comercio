@@ -1197,7 +1197,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 FROM produtos 
                                 WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
                             )
-                            WHERE tipo = 'ORÇAMENTO' 
+                            WHERE tipo = 'Pedidos / Orçamentos' 
                             AND TRIM(UPPER(produto)) IN (SELECT TRIM(UPPER(nome)) FROM produtos)
                         """)
                         linhas_afetadas = cursor.rowcount
