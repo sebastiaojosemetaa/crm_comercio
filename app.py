@@ -1185,28 +1185,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         import sqlite3
                         conn_aux = sqlite3.connect("comercio.db")
                         cursor_aux = conn_aux.cursor()
-                        
-                        # Vamos ver quais produtos existem no estoque e seus custos
-                        cursor_aux.execute("SELECT name FROM sqlite_master WHERE type='table';")
-                        tabelas = [t[0] for t in cursor_aux.fetchall()]
-                        
-                        cursor_aux.execute("SELECT * FROM produtos LIMIT 5")
-                        colunas_prod = [description[0] for description in cursor_aux.description]
-                        amostra_prod = cursor_aux.fetchall()
-                        
+                        cursor_aux.execute("PRAGMA table_info(produtos);")
+                        colunas = cursor_aux.fetchall()
                         conn_aux.close()
-                        
-                        st.warning(f"Tabelas: {tabelas}")
-                        st.info(f"Colunas na tabela produtos: {colunas_prod}")
-                        st.write(f"Amostra de produtos no banco: {amostra_prod}")
-                        
-                        if atualizados > 0:
-                            st.success(f"Sucesso! {atualizados} preços de custo atualizados.")
-                            st.rerun()
-                        else:
-                            st.warning("Nenhum item foi atualizado. Verifique se os produtos 'AMEIXA IMPORTADA' e 'ABACATE' estão cadastrados exatamente com esses nomes na tabela de Estoque de Produtos.")
-                            
-                        st.rerun()
+                        st.error(f"COLUNAS DA TABELA PRODUTOS: {colunas}")
             
         elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
             st.title("👥 Cadastros Gerais")
