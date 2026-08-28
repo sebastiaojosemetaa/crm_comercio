@@ -1202,15 +1202,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 )
                 WHERE TRIM(UPPER(produto)) IN (SELECT TRIM(UPPER(nome)) FROM produtos)
             """)
-                        linhas_afetadas = cursor.rowcount
-                        conn.commit()
-                        if linhas_afetadas > 0:
-                            st.success(f"Preços atualizados com sucesso! ({linhas_afetadas} itens modificados)")
-                        else:
-                            st.warning("Nenhum produto correspondente foi encontrado na tabela de estoque.")
-                        st.rerun()
+            linhas_afetadas = cursor.rowcount
+            conn.commit()
+            if linhas_afetadas > 0:
+                st.success(f"Preços atualizados com sucesso! ({linhas_afetadas} itens modificados)")
             else:
-                st.info("Nenhum produto cadastrado.")
+                st.warning("Nenhum produto correspondente foi encontrado na tabela de estoque.")
+            st.rerun()
 
         elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
             st.title("👥 Cadastros Gerais")
