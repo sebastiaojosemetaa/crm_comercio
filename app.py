@@ -1485,7 +1485,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     with col2:
                         p_custo = st.number_input("Preço de Custo (R$)", min_value=0.0, step=1.0, value=p_custo_v)
                         p_venda = st.number_input("Preço de Venda (R$)", min_value=0.0, step=1.0, value=p_venda_v)
-                        estoque_ini = st.number_input("Estoque Inicial / Atual", min_value=0.0, step=1.0, value=p_estoque_v)
+                        estoque_inicial = st.number_input("Estoque Inicial / Atual", min_value=0.0, step=1.0, value=p_estoque_v)
 
                     st.markdown("---")
                     bp1, bp2, bp3 = st.columns(3)
