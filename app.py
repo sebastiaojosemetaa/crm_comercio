@@ -1182,21 +1182,26 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
                 with col2:
                     if st.button("🔄 Atualizar Preços nas Vendas"):
-                        cursor = conn.cursor()
-                        cursor.execute("""
-                            UPDATE vendas 
-                            SET valor_venda = (
-                                SELECT valor_venda 
-                                FROM produtos 
-                                WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
-                            ),
-                            valor_total = quantidade * (
-                                SELECT valor_venda 
-                                FROM produtos 
-                                WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
-                            )
-                            WHERE TRIM(UPPER(produto)) IN (SELECT TRIM(UPPER(nome)) FROM produtos)
-                        """)
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE vendas 
+                SET valor_venda = (
+                    SELECT valor_venda 
+                    FROM produtos 
+                    WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
+                ),
+                valor_compra = (
+                    SELECT valor_compra 
+                    FROM produtos 
+                    WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
+                ),
+                valor_total = quantidade * (
+                    SELECT valor_venda 
+                    FROM produtos 
+                    WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
+                )
+                WHERE TRIM(UPPER(produto)) IN (SELECT TRIM(UPPER(nome)) FROM produtos)
+            """)
                         linhas_afetadas = cursor.rowcount
                         conn.commit()
                         if linhas_afetadas > 0:
