@@ -1195,7 +1195,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 cursor_aux.execute("SELECT id, produto FROM pedidos")
                                 pedidos_db = cursor_aux.fetchall()
                 
-                atualizados = 0
+                                atualizados = 0
                 for ped_id, prod_nome in pedidos_db:
                     if prod_nome:
                         nome_limpo = str(prod_nome).strip().upper()
