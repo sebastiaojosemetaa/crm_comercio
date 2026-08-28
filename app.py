@@ -1182,7 +1182,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
                 with col2:
                     if st.button("🔄 Atualizar Preços de Custo"):
-            try:
+                            try:
                 import sqlite3
                 conn_aux = sqlite3.connect("comercio.db") # Ajuste o nome do banco se necessário, ou use a sua variável de conexão existente
                 cursor_aux = conn_aux.cursor()
