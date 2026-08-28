@@ -2556,67 +2556,338 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
         elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
             st.title("👥 Cadastros Gerais")
-            tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["👤 Clientes", "📦 Produtos", "🏢 Fornecedores", "🏷️ Grupos"])
-
+            tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["👥 Clientes", "📦 Produtos", "🏢 Fornecedores", "🏷️ Grupos"])            
+            
             with tab_cli:
                 st.subheader("Gerenciamento de Clientes")
-                with st.form("form_cad_cliente_completo"):
-                    novo_cli = st.text_input("Nome do Cliente / Razão Social")
-                    telefone = st.text_input("Telefone / WhatsApp")
-                    doc = st.text_input("CPF / CNPJ")
-                    endereco = st.text_input("Endereço")
-                    cidade = st.text_input("Cidade / Email")
+                df_cli_atual = carregar_dados("SELECT * FROM clientes")
+                modo_cli = st.radio("Ação (Clientes):", ["➕ Cadastrar Novo Cliente", "✏️ Editar / Excluir Cliente Existente"], horizontal=True)
+                
+                cli_id_sel = None
+                val_nome, val_fone, val_doc, val_end, val_cid = "", "", "", "", ""
+                
+                if modo_cli == "✏️ Editar / Excluir Cliente Existente" and not df_cli_atual.empty:
+                    col_nome_cli = 'cliente' if 'cliente' in df_cli_atual.columns else ('nome' if 'nome' in df_cli_atual.columns else df_cli_atual.columns[1])
+                    col_id_cli = 'id' if 'id' in df_cli_atual.columns else df_cli_atual.columns[0]
+                    
+                    opcoes_clientes = {f"{row[col_id_cli]} - {row[col_nome_cli]}": row[col_id_cli] for _, row in df_cli_atual.iterrows() if pd.notna(row[col_nome_cli])}
+                    if opcoes_clientes:
+                        cli_escolhido = st.selectbox("Selecione o Cliente:", list(opcoes_clientes.keys()))
+                        if cli_escolhido:
+                            cli_id_sel = opcoes_clientes[cli_escolhido]
+                            dados_cli = df_cli_atual[df_cli_atual[col_id_cli] == cli_id_sel].iloc[0]
+                            val_nome = str(dados_cli.get(col_nome_cli, ''))
+                            val_fone = str(dados_cli.get('fone', dados_cli.get('telefone', '')))
+                            val_doc = str(dados_cli.get('cpf', dados_cli.get('cnpj', dados_cli.get('doc', ''))))
+                            val_end = str(dados_cli.get('endereco', ''))
+                            val_cid = str(dados_cli.get('email', ''))
 
-                    if st.form_submit_button("💾 Salvar Cliente"):
+                with st.form("form_cad_cliente_completo"):
+                    novo_cli = st.text_input("Nome do Cliente / Razão Social", value=val_nome)
+                    
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        telefone = st.text_input("Telefone / WhatsApp", value=val_fone if val_fone != "nan" else "")
+                    with c2:
+                        cidade = st.text_input("Cidade / UF / Email", value=val_cid if val_cid != "nan" else "")
+                        
+                    doc = st.text_input("CPF / CNPJ", value=val_doc if val_doc != "nan" else "")
+                    endereco = st.text_input("Endereço / Logradouro", value=val_end if val_end != "nan" else "")
+                    
+                    st.markdown("---")
+                    b_coll, b_col2, b_col3 = st.columns(3)
+                    salvar_clicado = b_coll.form_submit_button("💾 Salvar Cliente", use_container_width=True)
+                    editar_clicado = b_col2.form_submit_button("✏️ Salvar Alterações", use_container_width=True)
+                    excluir_clicado = b_col3.form_submit_button("🗑️ Excluir Cliente", use_container_width=True)
+                    
+                    if salvar_clicado:
                         if novo_cli.strip():
-                            salvar_cliente_completo(novo_cli, telefone, doc, endereco, cidade)
-                            st.success("Cliente cadastrado com sucesso!")
-                            st.rerun()
+                            cursor = conn.cursor()
+                            cursor.execute("PRAGMA table_info(clientes)")
+                            colunas_db = [col[1] for col in cursor.fetchall()]
+                            
+                            campos = ['cliente']
+                            valores = [novo_cli.strip()]
+                            
+                            if 'cpf' in colunas_db and doc:
+                                campos.append('cpf')
+                                valores.append(doc)
+                            if 'endereco' in colunas_db and endereco:
+                                campos.append('endereco')
+                                valores.append(endereco)
+                            if 'fone' in colunas_db and telefone:
+                                campos.append('fone')
+                                valores.append(telefone)
+                            if 'email' in colunas_db and cidade:
+                                campos.append('email')
+                                valores.append(cidade)
+                                
+                            placeholders = ", ".join(["?"] * len(campos))
+                            cols_str = ", ".join(campos)
+                            
+                            try:
+                                sql = f"INSERT INTO clientes ({cols_str}) VALUES ({placeholders})"
+                                cursor.execute(sql, tuple(valores))
+                                conn.commit()
+                                st.success("Cliente cadastrado com sucesso!")
+                                st.rerun()
+                            except Exception as ex:
+                                st.error(f"Erro ao salvar no banco: {ex}")
                         else:
                             st.warning("Preencha o nome do cliente.")
-                st.dataframe(carregar_dados("SELECT * FROM clientes"), use_container_width=True)
+                            
+                    if editar_clicado:
+                        if cli_id_sel and novo_cli.strip():
+                            cursor = conn.cursor()
+                            try:
+                                sql = "UPDATE clientes SET cliente = ?, fone = ?, cpf = ?, endereco = ?, email = ? WHERE id = ?"
+                                cursor.execute(sql, (novo_cli.strip(), telefone, doc, endereco, cidade, cli_id_sel))
+                                conn.commit()
+                                st.success("Cliente atualizado com sucesso!")
+                                st.rerun()
+                            except Exception as ex:
+                                st.error(f"Erro ao atualizar: {ex}")
+                        else:
+                            st.warning("Selecione um cliente válido para editar.")
+                            
+                    if excluir_clicado:
+                        if cli_id_sel:
+                            cursor = conn.cursor()
+                            try:
+                                cursor.execute("DELETE FROM clientes WHERE id = ?", (cli_id_sel,))
+                                conn.commit()
+                                st.warning("Cliente excluído com sucesso!")
+                                st.rerun()
+                            except Exception as ex:
+                                st.error(f"Erro ao excluir: {ex}")
+                        else:
+                            st.warning("Nenhum cliente selecionado.")
 
+                st.markdown("---")
+                st.dataframe(carregar_dados("SELECT * FROM clientes"), use_container_width=True)
+                
             with tab_prod:
-                st.subheader("Gerenciamento de Produtos")
+                st.subheader("Gerenciamento de Produtos e Stock")
                 grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
                 fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
+                df_prod_atual = carregar_dados("SELECT * FROM produtos")
                 
-                with st.form("form_cad_produto_completo"):
-                    novo_prod = st.text_input("Nome do Produto")
-                    fornec_prod = st.selectbox("Fornecedor", fornecedores_opt)
-                    grupo_prod = st.selectbox("Grupo / Categoria", grupos_opt)
-                    p_custo = st.number_input("Preço de Custo (R$)", min_value=0.0, value=10.0)
-                    p_venda = st.number_input("Preço de Venda (R$)", min_value=0.0, value=20.0)
-                    estoque_ini = st.number_input("Estoque Inicial", min_value=0.0, value=0.0)
+                modo_prod = st.radio("Ação (Produtos):", ["➕ Cadastrar Novo Produto", "✏️ Editar / Excluir Produto Existente"], horizontal=True)
+                
+                prod_id_sel = None
+                p_nome_v, p_forn_v, p_grupo_v, p_custo_v, p_venda_v, p_est_v = "", fornecedores_opt[0], grupos_opt[0], 10.0, 20.0, 0.0
+                
+                if modo_prod == "✏️ Editar / Excluir Produto Existente" and not df_prod_atual.empty:
+                    col_id_p = 'id' if 'id' in df_prod_atual.columns else df_prod_atual.columns[0]
+                    col_nome_p = 'produto' if 'produto' in df_prod_atual.columns else ('nome' if 'nome' in df_prod_atual.columns else df_prod_atual.columns[1])
+                    
+                    opcoes_prod = {f"{row[col_id_p]} - {row[col_nome_p]}": row[col_id_p] for _, row in df_prod_atual.iterrows() if pd.notna(row[col_nome_p])}
+                    if opcoes_prod:
+                        prod_escolhido = st.selectbox("Selecione o Produto:", list(opcoes_prod.keys()))
+                        if prod_escolhido:
+                            prod_id_sel = opcoes_prod[prod_escolhido]
+                            d_prod = df_prod_atual[df_prod_atual[col_id_p] == prod_id_sel].iloc[0]
+                            p_nome_v = str(d_prod.get(col_nome_p, ''))
+                            p_forn_v = str(d_prod.get('fornecedor', fornecedores_opt[0]))
+                            p_grupo_v = str(d_prod.get('grupo', grupos_opt[0]))
+                            
+                            val_c = d_prod.get('valor_compra', d_prod.get('preco_custo', 10.0))
+                            p_custo_v = float(val_c) if pd.notna(val_c) else 10.0
+                            
+                            val_v = d_prod.get('valor_venda', d_prod.get('preco_venda', 20.0))
+                            p_venda_v = float(val_v) if pd.notna(val_v) else 20.0
+                            
+                            val_e = d_prod.get('estoque_atual', d_prod.get('quantidade', 0.0))
+                            p_est_v = float(val_e) if pd.notna(val_e) else 0.0
 
-                    if st.form_submit_button("💾 Salvar Produto"):
+                with st.form("form_cad_produto_completo"):
+                    coll, col2 = st.columns(2)
+                    with coll:
+                        novo_prod = st.text_input("Nome do Produto", value=p_nome_v)
+                        fornec_prod = st.selectbox("Fornecedor", fornecedores_opt, index=fornecedores_opt.index(p_forn_v) if p_forn_v in fornecedores_opt else 0)
+                        grupo_prod = st.selectbox("Grupo / Categoria", grupos_opt, index=grupos_opt.index(p_grupo_v) if p_grupo_v in grupos_opt else 0)
+                    with col2:
+                        p_custo = st.number_input("Preço de Custo (R$)", min_value=0.0, step=1.0, value=p_custo_v)
+                        p_venda = st.number_input("Preço de Venda (R$)", min_value=0.0, step=1.0, value=p_venda_v)
+                        estoque_ini = st.number_input("Estoque Inicial / Atual", min_value=0.0, step=1.0, value=p_est_v)
+
+                    st.markdown("---")
+                    bp1, bp2, bp3 = st.columns(3)
+                    s_prod = bp1.form_submit_button("💾 Salvar Produto", use_container_width=True)
+                    e_prod = bp2.form_submit_button("✏️ Salvar Alterações", use_container_width=True)
+                    d_prod_btn = bp3.form_submit_button("🗑️ Excluir Produto", use_container_width=True)
+
+                    if s_prod:
                         if novo_prod.strip():
-                            salvar_produto_completo(novo_prod.strip(), fornec_prod, grupo_prod, p_custo, p_venda, estoque_ini)
-                            st.success("Produto cadastrado com sucesso!")
-                            st.rerun()
+                            try:
+                                salvar_produto_completo(novo_prod.strip(), fornec_prod, grupo_prod, p_custo, p_venda, estoque_ini)
+                                st.success("Produto cadastrado com sucesso!")
+                                st.rerun()
+                            except Exception as ex:
+                                st.error(f"Erro ao salvar produto: {ex}")
                         else:
                             st.warning("Preencha o nome do produto.")
+                            
+                    if e_prod:
+                        if prod_id_sel and novo_prod.strip():
+                            cursor = conn.cursor()
+                            try:
+                                sql = "UPDATE produtos SET produto = ?, grupo = ?, fornecedor = ?, valor_compra = ?, valor_venda = ?, estoque_atual = ? WHERE id = ?"
+                                cursor.execute(sql, (novo_prod.strip(), grupo_prod, fornec_prod, p_custo, p_venda, estoque_ini, prod_id_sel))
+                                conn.commit()
+                                st.success("Produto atualizado com sucesso!")
+                                st.rerun()
+                            except Exception as ex:
+                                st.error(f"Erro ao atualizar produto: {ex}")
+                        else:
+                            st.warning("Selecione um produto válido para editar.")
+                            
+                    if d_prod_btn:
+                        if prod_id_sel:
+                            cursor = conn.cursor()
+                            try:
+                                cursor.execute("DELETE FROM produtos WHERE id = ?", (prod_id_sel,))
+                                conn.commit()
+                                st.warning("Produto excluído com sucesso!")
+                                st.rerun()
+                            except Exception as ex:
+                                st.error(f"Erro ao excluir produto: {ex}")
+                        else:
+                            st.warning("Nenhum produto selecionado.")
+
+                st.markdown("---")
                 st.dataframe(carregar_dados("SELECT * FROM produtos"), use_container_width=True)
 
             with tab_forn:
                 st.subheader("Gerenciamento de Fornecedores")
+                df_forn_atual = carregar_dados("SELECT * FROM fornecedores")
+                
+                modo_forn = st.radio("Ação (Fornecedores):", ["➕ Cadastrar Novo Fornecedor", "✏️ Editar / Excluir Fornecedor Existente"], horizontal=True)
+                forn_id_sel = None
+                nome_forn_v = ""
+                
+                if modo_forn == "✏️ Editar / Excluir Fornecedor Existente" and not df_forn_atual.empty:
+                    col_id_f = 'id' if 'id' in df_forn_atual.columns else df_forn_atual.columns[0]
+                    col_nome_f = 'fornecedor' if 'fornecedor' in df_forn_atual.columns else df_forn_atual.columns[1]
+                    
+                    opcoes_forn = {f"{row[col_id_f]} - {row[col_nome_f]}": row[col_id_f] for _, row in df_forn_atual.iterrows() if pd.notna(row[col_nome_f])}
+                    if opcoes_forn:
+                        forn_escolhido = st.selectbox("Selecione o Fornecedor:", list(opcoes_forn.keys()))
+                        if forn_escolhido:
+                            forn_id_sel = opcoes_forn[forn_escolhido]
+                            d_forn = df_forn_atual[df_forn_atual[col_id_f] == forn_id_sel].iloc[0]
+                            nome_forn_v = str(d_forn.get(col_nome_f, ''))
+
                 with st.form("form_cad_fornecedor_completo"):
-                    nome_forn = st.text_input("Nome do Fornecedor / Empresa")
-                    if st.form_submit_button("💾 Salvar Fornecedor"):
+                    nome_forn = st.text_input("Nome do Fornecedor / Empresa", value=nome_forn_v)
+                    
+                    st.markdown("---")
+                    bf1, bf2, bf3 = st.columns(3)
+                    s_forn = bf1.form_submit_button("💾 Salvar Fornecedor", use_container_width=True)
+                    e_forn = bf2.form_submit_button("✏️ Salvar Alterações", use_container_width=True)
+                    d_forn_btn = bf3.form_submit_button("🗑️ Excluir Fornecedor", use_container_width=True)
+                    
+                    if s_forn:
                         if nome_forn.strip():
-                            salvar_simples("fornecedores", "fornecedor", nome_forn)
-                            st.success("Fornecedor cadastrado com sucesso!")
+                            cursor = conn.cursor()
+                            cursor.execute("SELECT id FROM fornecedores WHERE fornecedor = ?", (nome_forn.strip(),))
+                            existe = cursor.fetchone()
+                            if existe:
+                                st.warning("Este fornecedor já está cadastrado!")
+                            else:
+                                cursor.execute("INSERT INTO fornecedores (fornecedor) VALUES (?)", (nome_forn.strip(),))
+                                conn.commit()
+                                st.success("Fornecedor cadastrado com sucesso!")
+                                st.rerun()
+                        else:
+                            st.warning("Preencha o nome do fornecedor.")
+                            
+                    if e_forn:
+                        if forn_id_sel and nome_forn.strip():
+                            cursor = conn.cursor()
+                            cursor.execute("UPDATE fornecedores SET fornecedor = ? WHERE id = ?", (nome_forn.strip(), forn_id_sel))
+                            conn.commit()
+                            st.success("Fornecedor atualizado com sucesso!")
                             st.rerun()
+                        else:
+                            st.warning("Selecione um fornecedor válido para editar.")
+                            
+                    if d_forn_btn:
+                        if forn_id_sel:
+                            cursor = conn.cursor()
+                            cursor.execute("DELETE FROM fornecedores WHERE id = ?", (forn_id_sel,))
+                            conn.commit()
+                            st.warning("Fornecedor excluído com sucesso!")
+                            st.rerun()
+                        else:
+                            st.warning("Nenhum fornecedor selecionado.")
+
+                st.markdown("---")
                 st.dataframe(carregar_dados("SELECT * FROM fornecedores"), use_container_width=True)
 
             with tab_grup:
                 st.subheader("Gerenciamento de Grupos / Categorias")
+                df_grup_atual = carregar_dados("SELECT * FROM grupos")
+                
+                modo_grup = st.radio("Ação (Grupos):", ["➕ Cadastrar Novo Grupo", "✏️ Editar / Excluir Grupo Existente"], horizontal=True)
+                grup_id_sel = None
+                nome_grup_v = ""
+                
+                if modo_grup == "✏️ Editar / Excluir Grupo Existente" and not df_grup_atual.empty:
+                    col_id_g = 'id' if 'id' in df_grup_atual.columns else df_grup_atual.columns[0]
+                    col_nome_g = 'grupo' if 'grupo' in df_grup_atual.columns else df_grup_atual.columns[1]
+                    
+                    opcoes_grup = {f"{row[col_id_g]} - {row[col_nome_g]}": row[col_id_g] for _, row in df_grup_atual.iterrows() if pd.notna(row[col_nome_g])}
+                    if opcoes_grup:
+                        grup_escolhido = st.selectbox("Selecione o Grupo:", list(opcoes_grup.keys()))
+                        if grup_escolhido:
+                            grup_id_sel = opcoes_grup[grup_escolhido]
+                            d_grup = df_grup_atual[df_grup_atual[col_id_g] == grup_id_sel].iloc[0]
+                            nome_grup_v = str(d_grup.get(col_nome_g, ''))
+
                 with st.form("form_cad_grupo_completo"):
-                    nome_grupo = st.text_input("Nome do Grupo / Categoria")
-                    if st.form_submit_button("💾 Salvar Grupo"):
+                    nome_grupo = st.text_input("Nome do Grupo / Categoria", value=nome_grup_v)
+                    
+                    st.markdown("---")
+                    bg1, bg2, bg3 = st.columns(3)
+                    s_grup = bg1.form_submit_button("💾 Salvar Grupo", use_container_width=True)
+                    e_grup = bg2.form_submit_button("✏️ Salvar Alterações", use_container_width=True)
+                    d_grup_btn = bg3.form_submit_button("🗑️ Excluir Grupo", use_container_width=True)
+                    
+                    if s_grup:
                         if nome_grupo.strip():
-                            salvar_simples("grupos", "grupo", nome_grupo)
-                            st.success("Grupo cadastrado com sucesso!")
+                            cursor = conn.cursor()
+                            cursor.execute("SELECT id FROM grupos WHERE grupo = ?", (nome_grupo.strip(),))
+                            if cursor.fetchone():
+                                st.warning("Este grupo já está cadastrado!")
+                            else:
+                                cursor.execute("INSERT INTO grupos (grupo) VALUES (?)", (nome_grupo.strip(),))
+                                conn.commit()
+                                st.success("Grupo cadastrado com sucesso!")
+                                st.rerun()
+                        else:
+                            st.warning("Preencha o nome do grupo.")
+                            
+                    if e_grup:
+                        if grup_id_sel and nome_grupo.strip():
+                            cursor = conn.cursor()
+                            cursor.execute("UPDATE grupos SET grupo = ? WHERE id = ?", (nome_grupo.strip(), grup_id_sel))
+                            conn.commit()
+                            st.success("Grupo atualizado com sucesso!")
                             st.rerun()
+                        else:
+                            st.warning("Selecione um grupo válido para editar.")
+                            
+                    if d_grup_btn:
+                        if grup_id_sel:
+                            cursor = conn.cursor()
+                            cursor.execute("DELETE FROM grupos WHERE id = ?", (grup_id_sel,))
+                            conn.commit()
+                            st.warning("Grupo excluído com sucesso!")
+                            st.rerun()
+                        else:
+                            st.warning("Nenhum grupo selecionado.")
+
+                st.markdown("---")
                 st.dataframe(carregar_dados("SELECT * FROM grupos"), use_container_width=True)
 
