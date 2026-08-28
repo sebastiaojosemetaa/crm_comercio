@@ -1183,12 +1183,26 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 with col2:
                     if st.button("🔄 Atualizar Preços de Custos"):
                         import sqlite3
-                        conn_aux = sqlite3.connect("comercio.db")
-                        cursor_aux = conn_aux.cursor()
-                        cursor_aux.execute("PRAGMA table_info(produtos);")
-                        colunas = cursor_aux.fetchall()
-                        conn_aux.close()
-                        st.error(f"COLUNAS DA TABELA PRODUTOS: {colunas}")
+                        try:
+                            conn_aux = sqlite3.connect("comercio.db")
+                            cursor_aux = conn_aux.cursor()
+                            
+                            cursor_aux.execute("SELECT nome, valor_compra FROM produtos")
+                            prod_dict = {str(r[0]).strip().upper(): r[1] for r in cursor_aux.fetchall() if r[0]}
+                            
+                            cursor_aux.execute("SELECT id, produto FROM pedidos")
+                            for pid, pnome in cursor_aux.fetchall():
+                                if pnome:
+                                    chave = str(pnome).strip().upper()
+                                    if chave in prod_dict:
+                                        cursor_aux.execute("UPDATE pedidos SET valor_compra = ? WHERE id = ?", (prod_dict[chave], pid))
+                            
+                            conn_aux.commit()
+                            conn_aux.close()
+                            st.success("Preços de custo sincronizados com sucesso!")
+                            st.rerun()
+                        except Exception as ex:
+                            st.error(f"Erro ao atualizar: {ex}")
             
         elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
             st.title("👥 Cadastros Gerais")
