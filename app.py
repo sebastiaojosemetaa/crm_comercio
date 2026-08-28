@@ -1536,7 +1536,16 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             st.warning("Nenhum produto selecionado.")
 
                 st.markdown("---")
-                st.dataframe(carregar_dados("SELECT * FROM produtos"), use_container_width=True)
+                # Carrega os dados e reorganiza/filtra as colunas para exibição limpa
+                df_exibicao_prod = carregar_dados("SELECT * FROM produtos")
+                if not df_exibicao_prod.empty:
+                    if 'estoque_atual' in df_exibicao_prod.columns and 'quantidade' in df_exibicao_prod.columns:
+                        df_exibicao_prod['quantidade'] = df_exibicao_prod['quantidade'].fillna(df_exibicao_prod['estoque_atual'])
+                    
+                    colunas_para_remover = [c for c in ['estoque_atual', 'nome'] if c in df_exibicao_prod.columns]
+                    df_exibicao_prod = df_exibicao_prod.drop(columns=colunas_para_remover)
+                
+                st.dataframe(df_exibicao_prod, use_container_width=True)
 
             with tab_forn:
                 st.subheader("Gerenciamento de Fornecedores")
