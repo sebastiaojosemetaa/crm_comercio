@@ -1186,37 +1186,19 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         conn_aux = sqlite3.connect("comercio.db")
                         cursor_aux = conn_aux.cursor()
                         
-                        # Pega os preços de custo do estoque
-                        cursor_aux.execute("SELECT nome, valor_compra FROM produtos")
-                        produtos_db = {}
-                        for row in cursor_aux.fetchall():
-                            if row[0]:
-                                produtos_db[str(row[0]).strip().upper()] = row[1]
+                        # Vamos ver quais produtos existem no estoque e seus custos
+                        cursor_aux.execute("SELECT name FROM sqlite_master WHERE type='table';")
+                        tabelas = [t[0] for t in cursor_aux.fetchall()]
                         
-                        atualizados = 0
+                        cursor_aux.execute("SELECT * FROM produtos LIMIT 5")
+                        colunas_prod = [description[0] for description in cursor_aux.description]
+                        amostra_prod = cursor_aux.fetchall()
                         
-                        # Tenta atualizar buscando pela coluna 'produto' e também pela coluna 'nome' se existir
-                        for coluna_prod in ['produto', 'nome']:
-                            try:
-                                cursor_aux.execute(f"SELECT id, {coluna_prod} FROM pedidos")
-                                pedidos_db = cursor_aux.fetchall()
-                                
-                                for ped_id, prod_nome in pedidos_db:
-                                    if prod_nome:
-                                        nome_limpo = str(prod_nome).strip().upper()
-                                        if nome_limpo in produtos_db:
-                                            novo_custo = produtos_db[nome_limpo]
-                                            cursor_aux.execute(f"""
-                                                UPDATE pedidos 
-                                                SET valor_compra = ? 
-                                                WHERE id = ?
-                                            """, (novo_custo, ped_id))
-                                            atualizados += 1
-                            except:
-                                pass
-                                
-                        conn_aux.commit()
                         conn_aux.close()
+                        
+                        st.warning(f"Tabelas: {tabelas}")
+                        st.info(f"Colunas na tabela produtos: {colunas_prod}")
+                        st.write(f"Amostra de produtos no banco: {amostra_prod}")
                         
                         if atualizados > 0:
                             st.success(f"Sucesso! {atualizados} preços de custo atualizados.")
