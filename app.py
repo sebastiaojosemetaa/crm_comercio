@@ -1181,28 +1181,46 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.rerun()
 
                 with col2:
-                    if st.button("🔄 Atualizar Preços de Custos"):
+                    if st.button("🔄 Atualizar Preços de Custo"):
                         import sqlite3
                         try:
                             conn_aux = sqlite3.connect("comercio.db")
                             cursor_aux = conn_aux.cursor()
                             
+                            # Mapeia os custos atuais do estoque em letras maiúsculas para evitar erros de digitação
                             cursor_aux.execute("SELECT nome, valor_compra FROM produtos")
-                            prod_dict = {str(r[0]).strip().upper(): r[1] for r in cursor_aux.fetchall() if r[0]}
+                            produtos_dict = {}
+                            for row in cursor_aux.fetchall():
+                                if row[0]:
+                                    nome_prod = str(row[0]).strip().upper()
+                                    try:
+                                        produtos_dict[nome_prod] = float(row[1]) if row[1] is not None else 0.0
+                                    except:
+                                        produtos_dict[nome_prod] = 0.0
                             
+                            # Busca os pedidos salvos
                             cursor_aux.execute("SELECT id, produto FROM pedidos")
-                            for pid, pnome in cursor_aux.fetchall():
-                                if pnome:
-                                    chave = str(pnome).strip().upper()
-                                    if chave in prod_dict:
-                                        cursor_aux.execute("UPDATE pedidos SET valor_compra = ? WHERE id = ?", (prod_dict[chave], pid))
+                            pedidos = cursor_aux.fetchall()
                             
+                            atualizados = 0
+                            for ped_id, prod_nome in pedidos:
+                                if prod_nome:
+                                    nome_chave = str(prod_nome).strip().upper()
+                                    if nome_chave in produtos_dict:
+                                        novo_custo = produtos_dict[nome_chave]
+                                        cursor_aux.execute(
+                                            "UPDATE pedidos SET valor_compra = ? WHERE id = ?", 
+                                            (novo_custo, ped_id)
+                                        )
+                                        atualizados += 1
+                                        
                             conn_aux.commit()
                             conn_aux.close()
-                            st.success("Preços de custo sincronizados com sucesso!")
+                            
+                            st.success(f"Sucesso! {atualizados} itens atualizados com os preços de custo do estoque.")
                             st.rerun()
-                        except Exception as ex:
-                            st.error(f"Erro ao atualizar: {ex}")
+                        except Exception as e:
+                            st.error(f"Erro ao atualizar custos: {e}")
             
         elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
             st.title("👥 Cadastros Gerais")
