@@ -1,4 +1,4 @@
-import streamlit as st
+[cite: 2]import streamlit as st
 import sqlite3
 import pandas as pd
 from datetime import datetime, date
@@ -336,7 +336,7 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral", d_inicio=None, d_fi
     else:
         df_resumo = pd.DataFrame(columns=['produto', 'quantidade', 'valor_venda', 'valor_total'])
 
-    table_data = [["Produto", "Qtd Total", "Preço Unitário (R$)", "Valor Total (R$)"]]
+    table_data = [["Produto", "Qtd Total", "Preço Custo Unitário (R$)", "Valor Total (R$)"]]
     valor_total_geral = 0.0
     for _, row in df_resumo.iterrows():
         prod = str(row['produto'])
@@ -445,7 +445,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 
                 if not df_filtrado_cli.empty:
                     row_cli = df_filtrado_cli.iloc[0]
-                    for col_v in ['valor_compra', 'preco_compra', 'custo', 'valor_venda', 'preco_venda', 'venda']:
+                    for col_v in ['valor_compra', 'preco_compra', 'custo']:
                         if col_v in df_p_cli.columns:
                             try:
                                 val_aux = float(row_cli[col_v])
@@ -468,7 +468,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 grupo = st.selectbox("Selecione o Grupo", grupos_opt, index=idx_g_cli)
                 
                 qtd = st.number_input("Quantidade", min_value=0.1, step=0.5, value=1.0)
-                v_unit = st.number_input("Preço Unitário (R$)", min_value=0.0, step=1.0, value=float(preco_sugerido_cli))
+                v_unit = st.number_input("Preço de Custo Unitário (R$)", min_value=0.0, step=1.0, value=float(preco_sugerido_cli))
                 
                 if st.form_submit_button("Confirmar Pedido"):
                     salvar_pedido_ou_venda(st.session_state.cliente_autenticado, prod, fornec, grupo, qtd, v_unit, tipo="PEDIDO")
@@ -496,9 +496,9 @@ if perfil_selecionado == "👤 Portal do Cliente":
                         val_total = pd.to_numeric(df_item_venda[col_t_item], errors='coerce').sum() if col_t_item in df_item_venda.columns else 0.0
                         
                         with st.expander(f"🛒 Pedido ID: {cod} | Data: {data_venda} | Total: R$ {val_total:,.2f}"):
-                            cols_desejadas = ['id', 'produto', 'fornecedor', 'quantidade', 'valor_total', 'grupo']
+                            cols_desejadas = ['id', 'produto', 'fornecedor', 'quantidade', 'valor_venda', 'valor_total', 'grupo']
                             cols_existentes = [c for c in cols_desejadas if c in df_item_venda.columns]
-                            st.dataframe(df_item_venda[cols_existentes], use_container_width=True)
+                            st.dataframe(df_item_venda[cols_existentes].rename(columns={'valor_venda': 'valor_compra'}), use_container_width=True)
                 
                 st.markdown("---")
                 st.markdown(f"### 📄 Relatório do Cliente ({st.session_state.cliente_autenticado})")
@@ -827,7 +827,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     
                     if not df_filtrado_admin.empty:
                         row_adm = df_filtrado_admin.iloc[0]
-                        # AQUI ESTÁ A DIFERENÇA: PEDIDOS BUSCA VALOR_COMPRA, REGISTRAR VENDA BUSCA VALOR_VENDA
                         col_alvo_preco = 'valor_compra' if is_modo_pedido else 'valor_venda'
                         for col_v in [col_alvo_preco, 'valor_venda', 'preco_venda', 'valor_compra', 'preco_compra', 'custo', 'venda']:
                             if col_v in df_p_admin.columns:
@@ -892,7 +891,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.divider()
                 st.subheader("🛒 Itens já lançados neste Pedido (Hoje)")
                 tipo_banco_atual = 'ORÇAMENTO' if is_modo_pedido else 'VENDA'
-                df_parcial = carregar_dados(f"SELECT id, produto, quantidade, valor_venda, valor_total FROM vendas WHERE TRIM(cliente) = TRIM('{cliente_ped}') AND tipo = '{tipo_banco_atual}' AND substr(data, 1, 10) = date('now')")
+                df_parcial = carregar_dados(f"SELECT id, produto, quantidade, valor_venda as valor_compra, valor_total FROM vendas WHERE TRIM(cliente) = TRIM('{cliente_ped}') AND tipo = '{tipo_banco_atual}' AND substr(data, 1, 10) = date('now')")
 
                 if not df_parcial.empty:
                     st.dataframe(df_parcial, use_container_width=True, hide_index=True)
@@ -947,7 +946,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     cursor = conn.cursor()
                     coluna_alvo_estoque = 'valor_venda' if not is_modo_pedido else 'valor_compra'
                     
-                    # Executa a atualização limpando espaços e ignorando maiúsculas/minúsculas
                     cursor.execute(f"""
                         UPDATE vendas 
                         SET valor_venda = (
@@ -982,8 +980,17 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 df_registros = carregar_dados(query_filt)
                 if not df_registros.empty:
                     df_registros.insert(0, "Deletar", False)
+                    
+                    # Renomeia dinamicamente a coluna para exibir valor_compra na tela de pedidos
+                    if is_modo_pedido and 'valor_venda' in df_registros.columns:
+                        df_registros = df_registros.rename(columns={'valor_venda': 'valor_compra'})
+                        
                     df_editado = st.data_editor(df_registros, key=f"editor_reg_{menu_admin}", use_container_width=True, hide_index=True)
                     
+                    # Se foi renomeada para exibição, volta para o nome interno para salvar no banco
+                    if is_modo_pedido and 'valor_compra' in df_editado.columns:
+                        df_editado = df_editado.rename(columns={'valor_compra': 'valor_venda'})
+
                     col_b1, col_b2 = st.columns([1, 3])
                     with col_b1:
                         btn_salvar_superior = st.button("💾 Atualizar Valores / Salvar", type="primary", key=f"btn_salvar_edicao_{menu_admin}")
@@ -1008,13 +1015,15 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.subheader("⚡ Ações Rápidas por Pedido Completo")
                     
                     if 'data' in df_registros.columns and 'cliente' in df_registros.columns:
-                        df_registros['pedido_id'] = df_registros['cliente'].astype(str) + " — " + df_registros['data'].astype(str)
-                        pedidos_unicos = df_registros['pedido_id'].unique().tolist()
+                        # Restaura temporariamente para exibição correta nas ações rápidas
+                        df_exibicao_rapida = df_registros.rename(columns={'valor_venda': 'valor_compra'}) if is_modo_pedido else df_registros.copy()
+                        df_exibicao_rapida['pedido_id'] = df_exibicao_rapida['cliente'].astype(str) + " — " + df_exibicao_rapida['data'].astype(str)
+                        pedidos_unicos = df_exibicao_rapida['pedido_id'].unique().tolist()
                         
                         col_p_sel, col_btn_conv, col_btn_exc, col_btn_pdf = st.columns([2, 1, 1, 1])
                         with col_p_sel:
                             pedido_escolhido = st.selectbox("Selecione o Pedido (Cliente + Data):", pedidos_unicos, key=f"sel_pedido_completo_{menu_admin}")
-                            df_itens_pedido = df_registros[df_registros['pedido_id'] == pedido_escolhido]
+                            df_itens_pedido = df_exibicao_rapida[df_exibicao_rapida['pedido_id'] == pedido_escolhido]
 
                         st.dataframe(df_itens_pedido, use_container_width=True, hide_index=True)
 
@@ -1059,13 +1068,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 
                                 elementos.append(Paragraph(f"<b>Relatório de Pedidos / Orçamentos</b><br/>{pedido_escolhido}", ParagraphStyle('Cab', parent=subtitulo_estilo, fontSize=10, leading=12, fontName='Helvetica-Bold', alignment=1, spaceAfter=6)))
 
-                                dados_tabela = [["Produto", "Qtd Total", "Preço Unitário (R$)", "Valor Total (R$)"]]
+                                dados_tabela = [["Produto", "Qtd Total", "Preço Custo Unitário (R$)", "Valor Total (R$)"]]
                                 total_geral = 0.0
 
                                 for _, itm in df_itens_pedido.iterrows():
                                     prod = str(itm.get('produto', ''))
                                     qtd = float(itm.get('quantidade', 0))
-                                    v_unit = float(itm.get('valor_venda', 0))
+                                    v_unit = float(itm.get('valor_compra' if is_modo_pedido else 'valor_venda', 0))
                                     v_tot = qtd * v_unit
                                     total_geral += v_tot
                                     dados_tabela.append([prod, f"{qtd:.2f}", f"R$ {v_unit:,.2f}", f"R$ {v_tot:,.2f}"])
@@ -1150,7 +1159,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             st.title("📦 Estoque de Produtos e Preços")
             df_produtos = carregar_dados("SELECT * FROM produtos")
             
-            # Garante que as colunas essenciais existam no DataFrame
             if not df_produtos.empty:
                 if 'estoque_atual' not in df_produtos.columns and 'quantidade' in df_produtos.columns:
                     df_produtos = df_produtos.rename(columns={'quantidade': 'estoque_atual'})
