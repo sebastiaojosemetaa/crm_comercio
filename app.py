@@ -479,16 +479,56 @@ if perfil_selecionado == "👤 Portal do Cliente":
         
         with aba_novo:
             st.subheader("➕ Registrar Novo Pedido")
-            produtos_opt = carregar_coluna("produtos", "nome") or ["AMEIXA IMPORTADA", "ABACATE", "CEBOLA CAIXA 1"]
+            
+            df_p_cli = carregar_dados("SELECT * FROM produtos")
+            if not df_p_cli.empty:
+                df_p_cli.columns = [c.lower() for c in df_p_cli.columns]
+                col_nome_p = 'produto' if 'produto' in df_p_cli.columns else ('nome' if 'nome' in df_p_cli.columns else df_p_cli.columns[1])
+                produtos_opt = df_p_cli[col_nome_p].dropna().astype(str).str.strip().unique().tolist()
+            else:
+                produtos_opt = ["AMEIXA IMPORTADA", "ABACATE", "CEBOLA CAIXA 1"]
+                df_p_cli = pd.DataFrame()
+
             fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
             grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
             
+            prod = st.selectbox("Selecione o Produto", produtos_opt, key="cliente_sel_produto")
+            
+            preco_sugerido_cli = 0.0
+            forn_sugerido_cli = fornecedores_opt[0]
+            grupo_sugerido_cli = grupos_opt[0]
+
+            if not df_p_cli.empty:
+                df_p_cli['_nome_limpo'] = df_p_cli[col_nome_p].astype(str).str.strip().str.upper()
+                target_nome = str(prod).strip().upper()
+                df_filtrado_cli = df_p_cli[df_p_cli['_nome_limpo'] == target_nome]
+                
+                if not df_filtrado_cli.empty:
+                    row_cli = df_filtrado_cli.iloc[0]
+                    for col_v in ['valor_compra', 'preco_compra', 'custo', 'valor_venda', 'preco_venda', 'venda']:
+                        if col_v in df_p_cli.columns:
+                            try:
+                                val_aux = float(row_cli[col_v])
+                                if val_aux > 0:
+                                    preco_sugerido_cli = val_aux
+                                    break
+                            except:
+                                pass
+
+                    if 'fornecedor' in df_p_cli.columns and pd.notna(row_cli['fornecedor']):
+                        forn_sugerido_cli = str(row_cli['fornecedor'])
+                    if 'grupo' in df_p_cli.columns and pd.notna(row_cli['grupo']):
+                        grupo_sugerido_cli = str(row_cli['grupo'])
+
             with st.form("form_novo_pedido_cliente"):
-                prod = st.selectbox("Selecione o Produto", produtos_opt)
-                fornec = st.selectbox("Selecione o Fornecedor", fornecedores_opt)
-                grupo = st.selectbox("Selecione o Grupo", grupos_opt)
+                idx_f_cli = fornecedores_opt.index(forn_sugerido_cli) if fornecedores_opt and forn_sugerido_cli in fornecedores_opt else 0
+                fornec = st.selectbox("Selecione o Fornecedor", fornecedores_opt, index=idx_f_cli)
+                
+                idx_g_cli = grupos_opt.index(grupo_sugerido_cli) if grupos_opt and grupo_sugerido_cli in grupos_opt else 0
+                grupo = st.selectbox("Selecione o Grupo", grupos_opt, index=idx_g_cli)
+                
                 qtd = st.number_input("Quantidade", min_value=0.1, step=0.5, value=1.0)
-                v_unit = st.number_input("Preço de Custo (R$)", min_value=0.0, step=1.0, value=100.0)
+                v_unit = st.number_input("Preço Unitário (R$)", min_value=0.0, step=1.0, value=float(preco_sugerido_cli))
                 
                 if st.form_submit_button("Confirmar Pedido"):
                     salvar_pedido_ou_venda(st.session_state.cliente_autenticado, prod, fornec, grupo, qtd, v_unit, tipo="PEDIDO")
@@ -505,79 +545,35 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 df_cli_pedidos = df_cli_pedidos[df_cli_pedidos['cliente'].astype(str).str.strip().str.lower().str.contains(nome_pesq, na=False)]
             
             if not df_cli_pedidos.empty:
-                codigos = df_cli_pedidos['codigo_venda'].dropna().unique() if 'codigo_venda' in df_cli_pedidos.columns else []
+                col_codigo = next((c for c in df_cli_pedidos.columns if 'codigo' in c.lower()), 'codigo')
+                codigos = df_cli_pedidos[col_codigo].dropna().unique() if col_codigo in df_cli_pedidos.columns else []
                 
                 for cod in codigos:
-                    df_item_venda = df_cli_pedidos[df_cli_pedidos['codigo_venda'] == cod]
-                    data_venda = df_item_venda['data'].iloc[0] if 'data' in df_item_venda.columns else ""
-                    val_total = df_item_venda['valor_total'].sum() if 'valor_total' in df_item_venda.columns else 0.0
-                    
-                    with st.expander(f"🛒 Pedido ID: {cod} | Data: {data_venda} | Total: R$ {val_total:.2f}"):
-                        st.dataframe(df_item_venda[['id', 'produto', 'fornecedor', 'qtd', 'valor_total', 'grupo']], use_container_width=True)
+                    df_item_venda = df_cli_pedidos[df_cli_pedidos[col_codigo] == cod]
+                    if not df_item_venda.empty:
+                        data_venda = str(df_item_venda['data'].iloc[0]) if 'data' in df_item_venda.columns else ""
+                        col_t_item = next((c for c in df_item_venda.columns if "total" in c.lower()), 'valor_total')
+                        val_total = pd.to_numeric(df_item_venda[col_t_item], errors='coerce').sum() if col_t_item in df_item_venda.columns else 0.0
+                        
+                        with st.expander(f"🛒 Pedido ID: {cod} | Data: {data_venda} | Total: R$ {val_total:,.2f}"):
+                            cols_desejadas = ['id', 'produto', 'fornecedor', 'quantidade', 'valor_total', 'grupo']
+                            cols_existentes = [c for c in cols_desejadas if c in df_item_venda.columns]
+                            st.dataframe(df_item_venda[cols_existentes], use_container_width=True)
                 
-                if len(codigos) == 0:
-                    df_edit_cli = df_cli_pedidos.copy()
-                    if 'Deletar' not in df_edit_cli.columns:
-                        df_edit_cli.insert(0, 'Deletar', False)
-
-                    df_atualizado_cliente = st.data_editor(
-                        df_edit_cli,
-                        num_rows="dynamic",
-                        use_container_width=True,
-                        key="editor_pedidos_cliente_direto"
-                    )
-                    
-                    col_salvar_cli, col_del_cli = st.columns(2)
-                    
-                    with col_salvar_cli:
-                        if st.button("💾 Salvar Alterações Feitas na Tabela", use_container_width=True, key="btn_salv_cli_dir"):
-                            try:
-                                cursor = conn.cursor()
-                                for index, row in df_atualizado_cliente.iterrows():
-                                    qtd = float(row.get('quantidade', 1))
-                                    v_unit = float(row.get('valor_venda', row.get('valor_unitario', 0)))
-                                    v_total = qtd * v_unit
-                                    
-                                    cursor.execute("""
-                                        UPDATE vendas 
-                                        SET quantidade = ?, valor_total = ? 
-                                        WHERE id = ?
-                                    """, (qtd, v_total, row.get('id')))
-                                conn.commit()
-                                st.success("Alterações salvas com sucesso!")
-                                st.rerun()
-                            except Exception as ex:
-                                st.error(f"Erro ao salvar alterações: {ex}")
-                                
-                    with col_del_cli:
-                        itens_para_excluir = df_atualizado_cliente[df_atualizado_cliente['Deletar'] == True]
-                        qtd_del = len(itens_para_excluir)
-                        if st.button(f"🗑️ Confirmar Exclusão de ({qtd_del}) Item(ns) Marcados", use_container_width=True, key="btn_del_cli_dir"):
-                            if qtd_del > 0:
-                                cursor = conn.cursor()
-                                for _, row in itens_para_excluir.iterrows():
-                                    cursor.execute("DELETE FROM vendas WHERE id = ?", (row.get('id'),))
-                                conn.commit()
-                                st.warning(f"{qtd_del} item(ns) excluído(s) com sucesso!")
-                                st.rerun()
-                            else:
-                                st.info("Marque a caixa 'Deletar' nos itens que deseja remover.")
-
                 st.markdown("---")
                 st.markdown(f"### 📄 Relatório do Cliente ({st.session_state.cliente_autenticado})")
-                
                 try:
                     pdf_bytes = gerar_pdf_tabela_pedidos(df_cli_pedidos, st.session_state.cliente_autenticado)
                     st.download_button(
-                        label=f"📥 Baixar Relatório em PDF Corporativo - {st.session_state.cliente_autenticado}",
+                        label=f"📥 Baixar Relatório em PDF - {st.session_state.cliente_autenticado}",
                         data=pdf_bytes,
                         file_name=f"Relatorio_Pedidos_{st.session_state.cliente_autenticado}.pdf",
                         mime="application/pdf",
                         use_container_width=True,
-                        key="btn_baixar_pdf_corporativo_cliente"
+                        key="btn_baixar_pdf_cliente"
                     )
                 except Exception as e:
-                    st.error(f"Erro ao gerar o PDF corporativo: {e}")
+                    st.error(f"Erro ao gerar o PDF: {e}")
             else:
                 st.info(f"Nenhum pedido encontrado para '{st.session_state.cliente_autenticado}'.")
 
