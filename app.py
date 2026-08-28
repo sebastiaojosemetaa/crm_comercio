@@ -1186,26 +1186,23 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         conn_aux = sqlite3.connect("comercio.db")
                         cursor_aux = conn_aux.cursor()
                         
-                        # Pega todos os produtos e seus preços de custo do estoque
                         cursor_aux.execute("SELECT nome, valor_compra FROM produtos")
                         produtos_db = {}
                         for row in cursor_aux.fetchall():
                             if row[0]:
-                                nome_limpo = str(row[0]).strip().upper()
-                                produtos_db[nome_limpo] = row[1]
+                                produtos_db[str(row[0]).strip().upper()] = row[1]
                         
-                        # Pega os pedidos salvos
                         cursor_aux.execute("SELECT id, produto FROM pedidos")
                         pedidos_db = cursor_aux.fetchall()
                         
                         atualizados = 0
-                        nao_encontrados = []
+                        amostra_nao_encontrados = []
                         
                         for ped_id, prod_nome in pedidos_db:
                             if prod_nome:
-                                nome_pedido_limpo = str(prod_nome).strip().upper()
-                                if nome_pedido_limpo in produtos_db:
-                                    novo_custo = produtos_db[nome_pedido_limpo]
+                                nome_limpo = str(prod_nome).strip().upper()
+                                if nome_limpo in produtos_db:
+                                    novo_custo = produtos_db[nome_limpo]
                                     cursor_aux.execute("""
                                         UPDATE pedidos 
                                         SET valor_compra = ? 
@@ -1213,15 +1210,17 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     """, (novo_custo, ped_id))
                                     atualizados += 1
                                 else:
-                                    nao_encontrados.append(prod_nome)
-                                    
+                                    if len(amostra_nao_encontrados) < 3:
+                                        amostra_nao_encontrados.append(prod_nome)
+                                        
                         conn_aux.commit()
                         conn_aux.close()
                         
                         if atualizados > 0:
-                            st.success(f"Sucesso! {atualizados} itens tiveram o preço de custo atualizado.")
+                            st.success(f"Sucesso! {atualizados} itens atualizados.")
+                            st.rerun()
                         else:
-                            st.warning("Nenhum preço foi alterado. Verifique se os nomes dos produtos nos Pedidos batem exatamente com os nomes cadastrados no Estoque de Produtos.")
+                            st.error(f"Nenhum produto correspondente. Exemplos nos pedidos não achados no estoque: {amostra_nao_encontrados}")
                             
                         st.rerun()
             
