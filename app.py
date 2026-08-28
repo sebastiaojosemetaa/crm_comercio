@@ -1182,7 +1182,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
                 with col2:
                     if st.button("🔄 Atualizar Preços nas Vendas"):
-            cursor = conn.cursor()
+        cursor = conn.cursor()
             cursor.execute("""
                 UPDATE vendas 
                 SET valor_venda = (
