@@ -1183,17 +1183,17 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 with col2:
                     if st.button("🔄 Atualizar Preços de Custo"):
                             try:
-                            import sqlite3
-                            conn_aux = sqlite3.connect("comercio.db") # Ajuste o nome do banco se necessário, ou use a sua variável de conexão existente
-                            cursor_aux = conn_aux.cursor()
-                            
-                            # Pega todos os produtos e seus custos reais do estoque
-                            cursor_aux.execute("SELECT nome, valor_compra FROM produtos")
-                            produtos_db = {str(row[0]).strip().upper(): row[1] for row in cursor_aux.fetchall()}
-                            
-                            # Pega todos os itens da tabela pedidos
-                            cursor_aux.execute("SELECT id, produto FROM pedidos")
-                            pedidos_db = cursor_aux.fetchall()
+                                import sqlite3
+                                conn_aux = sqlite3.connect("comercio.db") # Ajuste o nome do banco se necessário, ou use a sua variável de conexão existente
+                                cursor_aux = conn_aux.cursor()
+                                
+                                # Pega todos os produtos e seus custos reais do estoque
+                                cursor_aux.execute("SELECT nome, valor_compra FROM produtos")
+                                produtos_db = {str(row[0]).strip().upper(): row[1] for row in cursor_aux.fetchall()}
+                                
+                                # Pega todos os itens da tabela pedidos
+                                cursor_aux.execute("SELECT id, produto FROM pedidos")
+                                pedidos_db = cursor_aux.fetchall()
                 
                 atualizados = 0
                 for ped_id, prod_nome in pedidos_db:
