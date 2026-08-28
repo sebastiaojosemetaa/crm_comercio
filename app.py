@@ -218,11 +218,11 @@ def salvar_cliente_completo(nome, telefone, doc, endereco, cidade):
     except sqlite3.IntegrityError:
         return False
 
-def salvar_produto_completo(nome, fornecedor, grupo, preco_custo, preco_venda, estoque_inicial):
+def salvar_produto_completo(fornecedor, grupo, preco_custo, preco_venda, estoque_inicial):
     cursor = conn.cursor()
     try:
         cursor.execute("""
-            INSERT INTO produtos (nome, fornecedor, grupo, valor_compra, valor_venda, estoque_atual) 
+            INSERT INTO produtos (fornecedor, grupo, valor_compra, valor_venda, estoque) 
             VALUES (?, ?, ?, ?, ?, ?)
         """, (nome.strip(), fornecedor, grupo, preco_custo, preco_venda, estoque_inicial))
         conn.commit()
@@ -230,7 +230,7 @@ def salvar_produto_completo(nome, fornecedor, grupo, preco_custo, preco_venda, e
     except sqlite3.IntegrityError:
         cursor.execute("""
             UPDATE produtos 
-            SET fornecedor = ?, grupo = ?, valor_compra = ?, valor_venda = ?, estoque_atual = ?
+            SET fornecedor = ?, grupo = ?, valor_compra = ?, valor_venda = ?
             WHERE TRIM(nome) = TRIM(?)
         """, (fornecedor, grupo, preco_custo, preco_venda, estoque_inicial, nome.strip()))
         conn.commit()
