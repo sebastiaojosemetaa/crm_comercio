@@ -1182,10 +1182,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
                 with col2:
                     if st.button("🔄 Atualizar Preços de Custo"):
-                        import sqlite3
                         try:
-                            conn_aux = sqlite3.connect("comercio.db")
-                            cursor_aux = conn_aux.cursor()
+                            cursor_aux = conn.cursor()
                             
                             # Mapeia os custos atuais do estoque em letras maiúsculas para evitar erros de digitação
                             cursor_aux.execute("SELECT nome, valor_compra FROM produtos")
@@ -1198,25 +1196,23 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     except:
                                         produtos_dict[nome_prod] = 0.0
                             
-                            # Busca os pedidos salvos
-                            cursor_aux.execute("SELECT id, produto FROM pedidos")
-                            pedidos = cursor_aux.fetchall()
+                            # Busca os itens salvos na tabela correta (vendas)
+                            cursor_aux.execute("SELECT id, produto FROM vendas")
+                            registros_vendas = cursor_aux.fetchall()
                             
                             atualizados = 0
-                            for ped_id, prod_nome in pedidos:
+                            for reg_id, prod_nome in registros_vendas:
                                 if prod_nome:
                                     nome_chave = str(prod_nome).strip().upper()
                                     if nome_chave in produtos_dict:
                                         novo_custo = produtos_dict[nome_chave]
                                         cursor_aux.execute(
-                                            "UPDATE pedidos SET valor_compra = ? WHERE id = ?", 
-                                            (novo_custo, ped_id)
+                                            "UPDATE vendas SET valor_venda = ? WHERE id = ?", 
+                                            (novo_custo, reg_id)
                                         )
                                         atualizados += 1
                                         
-                            conn_aux.commit()
-                            conn_aux.close()
-                            
+                            conn.commit()
                             st.success(f"Sucesso! {atualizados} itens atualizados com os preços de custo do estoque.")
                             st.rerun()
                         except Exception as e:
