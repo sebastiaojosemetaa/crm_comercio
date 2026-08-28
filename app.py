@@ -1501,9 +1501,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 st.rerun()
                             except Exception as ex:
                                 st.error(f"Erro ao salvar produto: {ex}")
-                        else:
-                            st.warning("Preencha o nome do produto.")
-                            
+                           
                     if e_prod:
                         if prod_id_sel and novo_prod.strip():
                             cursor = conn.cursor()
