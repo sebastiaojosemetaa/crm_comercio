@@ -357,23 +357,29 @@ def deletar_pedidos_cliente(cliente_nome, s_d1, s_d2):
 def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo):
     cursor = conn.cursor()
     
-    cursor.execute("PRAGMA table_info(compras)")
-    colunas_tabela = [col[1] for col in cursor.fetchall()]
+    # Recria a tabela limpa com a estrutura unificada correta
+    cursor.execute("DROP TABLE IF EXISTS compras")
+    cursor.execute("""
+        CREATE TABLE compras (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            produto TEXT,
+            fornecedor TEXT,
+            grupo TEXT,
+            quantidade REAL,
+            valor_custo REAL,
+            valor_total REAL,
+            data TEXT
+        )
+    """)
     
     valor_total = quantidade * valor_custo
     data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    if "valor_compra" in colunas_tabela:
-        cursor.execute("""
-            INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_compra, valor_venda, valor_total, data)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (produto, fornecedor, grupo, quantidade, valor_custo, 0.0, valor_total, data_atual))
-    else:
-        cursor.execute("""
-            INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data_atual))
-        
+    cursor.execute("""
+        INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data_atual))
+    
     conn.commit()
 
 # -----------------------------------------------------------------------------
