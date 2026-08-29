@@ -249,11 +249,13 @@ def salvar_produto_completo(nome, fornecedor, grupo, preco_custo, preco_venda, e
     cursor = conn.cursor()
     try:
         cursor.execute("""
-            INSERT INTO produtos (nome, fornecedor, grupo, valor_compra, valor_venda, estoque_atual) 
+            INSERT INTO produtos (produto, fornecedor, grupo, valor_compra, valor_venda, quantidade)
             VALUES (?, ?, ?, ?, ?, ?)
         """, (nome.strip(), fornecedor, grupo, preco_custo, preco_venda, estoque_inicial))
         conn.commit()
         return True
+    except sqlite3.IntegrityError:
+        return False
     except sqlite3.IntegrityError:
         cursor.execute("""
             UPDATE produtos 
