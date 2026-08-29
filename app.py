@@ -352,38 +352,24 @@ def deletar_pedidos_cliente(cliente_nome, s_d1, s_d2):
     conn.commit()
     return cursor.rowcount
 
-def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo):
+def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo, valor_venda):
     cursor = conn.cursor()
     valor_total = float(quantidade) * float(valor_custo)
     data_atual = datetime.now().strftime("%Y-%m-%d %H:%M")
     
-    # Tenta buscar o preço de venda considerando os nomes mais comuns de colunas
-    valor_venda = 0.0
-    try:
-        cursor.execute("SELECT valor_venda FROM produtos WHERE produto = ? OR nome = ?", (produto, produto))
-        res = cursor.fetchone()
-        if res and res[0] is not None:
-            valor_venda = res[0]
-        else:
-            cursor.execute("SELECT preco_venda FROM produtos WHERE produto = ? OR nome = ?", (produto, produto))
-            res2 = cursor.fetchone()
-            if res2 and res2[0] is not None:
-                valor_venda = res2[0]
-    except Exception:
-        valor_venda = 0.0
-
-    # Insere na tabela compras com o valor de venda capturado
+    # Insere na tabela compras incluindo o valor de venda informado
     cursor.execute("""
         INSERT INTO compras (produto, fornecedor, quantidade, valor_compra, valor_venda, valor_total, data)
         VALUES (?, ?, ?, ?, ?, ?, ?)
     """, (produto, fornecedor, quantidade, valor_custo, valor_venda, valor_total, data_atual))
     
-    # Atualiza o estoque do produto na tabela produtos
+    # Atualiza o estoque e também o preço de venda na tabela produtos
     cursor.execute("""
         UPDATE produtos 
-        SET quantidade = COALESCE(quantidade, 0) + ? 
+        SET quantidade = COALESCE(quantidade, 0) + ?, 
+            valor_venda = COALESCE(?, valor_venda)
         WHERE produto = ? OR nome = ?
-    """, (quantidade, produto, produto))
+    """, (quantidade, valor_venda, produto, produto))
     
     conn.commit()
 
@@ -1236,17 +1222,15 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         
             with aba_historico_compras:
                 st.subheader("Histórico de Entradas / Compras")
-            
-                # Puxa o histórico de compras e traz o grupo da tabela de produtos
+
                 query_historico = """
                     SELECT c.*, p.grupo 
                     FROM compras c 
                     LEFT JOIN produtos p ON c.produto = p.produto OR c.produto = p.nome
                 """
                 df_historico = carregar_dados(query_historico)
-            
+
                 if not df_historico.empty:
-                    # Cria duas colunas para os filtros ficarem lado a lado
                     col_f1, col_f2 = st.columns(2)
                     
                     with col_f1:
@@ -1255,16 +1239,46 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             filtro_forn = st.selectbox("Filtrar por Fornecedor", fornecedores_disponiveis, key="filtro_forn_hist")
                             if filtro_forn != "Todos":
                                 df_historico = df_historico[df_historico['fornecedor'] == filtro_forn]
-            
+
                     with col_f2:
                         if 'grupo' in df_historico.columns:
                             grupos_disponiveis = ["Todos"] + list(df_historico['grupo'].dropna().unique())
                             filtro_grupo = st.selectbox("Filtrar por Grupo", grupos_disponiveis, key="filtro_grupo_hist")
                             if filtro_grupo != "Todos":
                                 df_historico = df_historico[df_historico['grupo'] == filtro_grupo]
-            
-                # Exibe a tabela filtrada com a nova coluna de grupo
+
                 st.dataframe(df_historico, use_container_width=True)
+
+                # Seção para alterar um registro do histórico pelo ID
+                st.markdown("---")
+                st.subheader("Editar Registro do Histórico")
+                if not df_historico.empty and 'id' in df_historico.columns:
+                    ids_disponiveis = df_historico['id'].tolist()
+                    id_selecionado = st.selectbox("Selecione o ID do registro para alterar", ids_disponiveis)
+                    
+                    # Pega os dados atuais do ID selecionado
+                    registro_atual = df_historico[df_historico['id'] == id_selecionado].iloc[0]
+                    
+                    col_e1, col_e2, col_e3 = st.columns(3)
+                    with col_e1:
+                        novo_qtd = st.number_input("Nova Quantidade", value=float(registro_atual['quantidade']), key="edit_qtd")
+                    with col_e2:
+                        novo_custo = st.number_input("Novo Valor Custo", value=float(registro_atual['valor_compra']), key="edit_custo")
+                    with col_e3:
+                        val_venda_atual = float(registro_atual['valor_venda']) if pd.notna(registro_atual['valor_venda']) else 0.0
+                        novo_venda = st.number_input("Novo Valor Venda", value=val_venda_atual, key="edit_venda")
+                    
+                    if st.button("Salvar Alterações"):
+                        cursor = conn.cursor()
+                        novo_total = novo_qtd * novo_custo
+                        cursor.execute("""
+                            UPDATE compras 
+                            SET quantidade = ?, valor_compra = ?, valor_venda = ?, valor_total = ?
+                            WHERE id = ?
+                        """, (novo_qtd, novo_custo, novo_venda, novo_total, id_selecionado))
+                        conn.commit()
+                        st.success("Registro alterado com sucesso!")
+                        st.rerun()
 
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
