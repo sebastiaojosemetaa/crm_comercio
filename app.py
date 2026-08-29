@@ -1229,16 +1229,17 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             aba_compra, aba_historico_compras = st.tabs(["📦 Dar Entrada in Estoque", "📋 Histórico de Entradas / Compras"])
                 
             lista_produtos = carregar_coluna("produtos", "nome") or carregar_coluna("produtos", "produto") or ["ABACATE", "AMEIXA IMPORTADA"]
-            lista_grupos = carregar_coluna("grupos", "grupo") or ["GERAL", "FRUTAS"]
+            lista_produtos = carregar_coluna("produtos", "nome") or ["PRODUTO EXEMPLO"]
+            lista_grupos = carregar_coluna("produtos", "grupo") or ["GERAL"]
             lista_fornecedores = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
-            lista_produtos = carregar_coluna("produtos", "nome") or ["PRODUTO EXEMPLO"]    
-        with st.container():
-            with st.form("form_entrada_estoque"):
-                col1, col2 = st.columns(2)
-                with col1:
-                    produto_escolhido = st.selectbox("Produto", lista_produtos)
-                with col2:
-                    grupo_escolhido = st.selectbox("Grupo", lista_grupos)
+        
+            with st.container():
+                with st.form("form_entrada_estoque"):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        produto_escolhido = st.selectbox("Produto", lista_produtos)
+                    with col2:
+                        grupo_escolhido = st.selectbox("Grupo", lista_grupos)
                     
                 col3, col4 = st.columns(2)
                 with col3:
