@@ -1202,13 +1202,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.info("Nenhum registro encontrado para o filtro selecionado.")
 
         elif menu_admin == "📥 Entrada de Estoque (Compras)":
-            st.title("📥 Entrada de Estoque (Compras)")
-            aba_compra, aba_historico_compras = st.tabs(["📦 Dar Entrada in Estoque", "📋 Histórico de Entradas / Compras"])
-                
+            st.title("📦 Entrada de Estoque (Compras)")
+            aba_compra, aba_historico_compras = st.tabs(["🛒 Dar Entrada em Estoque", "📋 Histórico de Entradas / Compras"])
+        
             produtos_opt = carregar_coluna("produtos", "produto") or ["AMEIXA IMPORTADA", "ABACATE"]
             fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
             grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
-            
+        
             with aba_compra:
                 with st.form("form_entrada_estoque"):
                     col1, col2 = st.columns(2)
@@ -1219,7 +1219,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     with col2:
                         grupo_escolhido = st.selectbox("Grupo", grupos_opt)
                         preco_custo = st.number_input("Preço de Custo Unitário (R$)", min_value=0.0, format="%.2f")
-                    
+                        preco_venda = st.number_input("Preço de Venda Unitário (R$)", min_value=0.0, format="%.2f")
+        
                     enviado = st.form_submit_button("Registrar Entrada no Estoque")
                     if enviado:
                         registrar_compra(produto_escolhido, fornecedor_escolhido, grupo_escolhido, quantidade, preco_custo)
@@ -1228,7 +1229,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         conn.commit()
                         st.success("Entrada registrada com sucesso e estoque atualizado!")
                         st.rerun()
-                        
+        
             with aba_historico_compras:
                 df_compras = pd.read_sql("SELECT * FROM compras", conn)
                 st.dataframe(df_compras, use_container_width=True)
