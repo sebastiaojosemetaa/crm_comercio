@@ -1256,7 +1256,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 with col6:
                     preco_venda = st.number_input("Preço de Venda Unitário (R$)", min_value=0.0, format="%.2f")
 
-            submitted = st.form_submit_button("Registrar Entrada no Estoque")
+                   submitted = st.form_submit_button("Registrar Entrada no Estoque")
                 if submitted:
                     registrar_compra(produto_escolhido, fornecedor_escolhido, grupo_escolhido, quantidade, preco_custo, preco_venda)
                     st.success("Entrada registrada com sucesso!")
