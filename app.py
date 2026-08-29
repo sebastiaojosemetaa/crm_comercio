@@ -301,8 +301,10 @@ def salvar_pedido_ou_venda(cliente, produto, fornecedor, grupo, quantidade, valo
     conn.commit()
 def registrar_compra(produto, fornecedor, grupo, quantidade, preco_custo, preco_venda):
     cursor = conn.cursor()
+    # Recria a tabela com a estrutura correta
+    cursor.execute("DROP TABLE IF EXISTS compras")
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS compras (
+        CREATE TABLE compras (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             produto TEXT,
             fornecedor TEXT,
