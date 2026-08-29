@@ -1281,8 +1281,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     with col_f2:
                         if 'grupo' in df_historico.columns:
                             grupos_disponiveis = ["Todos"]
-                            if not df_historico.empty and 'grupo' in df_historico.columns:
-                                grupos_disponiveis += list(df_historico['grupo'].dropna().unique())
+                            coluna_grupo = 'grupo' if 'grupo' in df_historico.columns else ('grupos' if 'grupos' in df_historico.columns else None)
+                            if not df_historico.empty and coluna_grupo:
+                                grupos_disponiveis += list(df_historico[coluna_grupo].dropna().unique())
                             
                             filtro_grupo = st.selectbox("Filtrar por Grupo", grupos_disponiveis, key="filtro_grupo_hist")
 
