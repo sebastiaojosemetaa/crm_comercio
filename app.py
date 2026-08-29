@@ -1512,8 +1512,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         if prod_id_sel and novo_prod.strip():
                             cursor = conn.cursor()
                             try:
-                                # Atualiza incluindo explicitamente a quantidade/estoque correto
-                                sql = "UPDATE produtos SET produto = ?, grupo = ?, fornecedor = ?, valor_compra = ?, valor_venda = ?, quantidade = ? WHERE id = ?"
+                                sql = "UPDATE produtos SET produto = ?, grupo = ?, fornecedor = ?, valor_compra = ?, valor_venda = ?, estoque_atual = ? WHERE id = ?"
                                 cursor.execute(sql, (novo_prod.strip(), grupo_prod, fornec_prod, p_custo, p_venda, estoque_ini, prod_id_sel))
                                 conn.commit()
                                 st.success("Produto atualizado com sucesso!")
@@ -1537,16 +1536,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             st.warning("Nenhum produto selecionado.")
 
                 st.markdown("---")
-                # Carrega os dados e reorganiza/filtra as colunas para exibição limpa
-                df_exibicao_prod = carregar_dados("SELECT * FROM produtos")
-                if not df_exibicao_prod.empty:
-                    if 'estoque_atual' in df_exibicao_prod.columns and 'quantidade' in df_exibicao_prod.columns:
-                        df_exibicao_prod['quantidade'] = df_exibicao_prod['quantidade'].fillna(df_exibicao_prod['estoque_atual'])
-                    
-                    colunas_para_remover = [c for c in ['estoque_atual', 'nome'] if c in df_exibicao_prod.columns]
-                    df_exibicao_prod = df_exibicao_prod.drop(columns=colunas_para_remover)
-                
-                st.dataframe(df_exibicao_prod, use_container_width=True)
+                st.dataframe(carregar_dados("SELECT * FROM produtos"), use_container_width=True)
 
             with tab_forn:
                 st.subheader("Gerenciamento de Fornecedores")
