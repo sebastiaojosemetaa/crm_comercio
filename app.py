@@ -1207,7 +1207,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     if enviado:
                         registrar_compra(produto_escolhido, fornecedor_escolhido, grupo_escolhido, quantidade, preco_custo)
                         cursor = conn.cursor()
-                        cursor.execute("UPDATE produtos SET estoque_atual = COALESCE(estoque_atual, 0) + ? WHERE TRIM(nome) = TRIM(?)", (quantidade, produto_escolhido))
+                        cursor.execute("UPDATE produtos SET quantidade = COALESCE(quantidade, 0) + ? WHERE TRIM(produto) = TRIM(?)", (quantidade, produto_escolhيدo))
                         conn.commit()
                         st.success("Entrada registrada com sucesso e estoque atualizado!")
                         st.rerun()
