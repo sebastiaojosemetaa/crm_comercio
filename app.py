@@ -351,7 +351,14 @@ def deletar_pedidos_cliente(cliente_nome, s_d1, s_d2):
     """, (cliente_nome, s_d1, s_d2))
     conn.commit()
     return cursor.rowcount
+    lista_produtos = carregar_coluna("produtos", "nome") or carregar_coluna("produtos", "produto") or ["ABACATE", "AMEIXA IMPORTADA"]
+    lista_grupos = carregar_coluna("grupos", "grupo") or ["GERAL", "FRUTAS"]
+    lista_fornecedores = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
 
+    with st.form("form_entrada_estoque"):
+        col1, col2 = st.columns(2)
+        with col1:
+            produto_escolhido = st.selectbox("Produto", lista_produtos)
 with st.form("form_entrada_estoque"):
     col1, col2 = st.columns(2)
     with col1:
