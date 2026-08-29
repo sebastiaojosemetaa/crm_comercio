@@ -299,7 +299,30 @@ def salvar_pedido_ou_venda(cliente, produto, fornecedor, grupo, quantidade, valo
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (cliente.strip(), produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, str(valor_recebido), tipo, cod_status, data_atual))
     conn.commit()
-
+def registrar_compra(produto, fornecedor, grupo, quantidade, preco_custo, preco_venda):
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS compras (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            produto TEXT,
+            fornecedor TEXT,
+            grupo TEXT,
+            quantidade REAL,
+            valor_compra REAL,
+            valor_venda REAL,
+            valor_total REAL,
+            data TEXT
+        )
+    """)
+    from datetime import datetime
+    data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    valor_total = quantidade * preco_custo
+    
+    cursor.execute("""
+        INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_compra, valor_venda, valor_total, data)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (produto, fornecedor, grupo, quantidade, preco_custo, preco_venda, valor_total, data_atual))
+    conn.commit()
 def baixar_debito_cliente(cliente_nome, valor_haver, forma_pagamento="Dinheiro"):
     cursor = conn.cursor()
     cursor.execute("""
