@@ -1294,7 +1294,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.success("Registro alterado com sucesso!")
                         st.rerun()
 
-        elif menu_admin == "📦 Estoque de Produtos":
+        if menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
             df_prods = carregar_dados("SELECT * FROM produtos")            
             if not df_prods.empty:
