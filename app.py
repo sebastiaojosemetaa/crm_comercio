@@ -152,7 +152,6 @@ def adequar_banco_e_migrar():
         )
     """)
 
-    cursor.execute("DROP TABLE IF EXISTS compras")
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS compras (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
