@@ -1536,7 +1536,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             st.warning("Nenhum produto selecionado.")
 
                 st.markdown("---")
-                st.dataframe(carregar_dados("SELECT * FROM produtos"), use_container_width=True)
+                df_temp_prod = carregar_dados("SELECT * FROM produtos")
+                if not df_temp_prod.empty:
+                    df_temp_prod = df_temp_prod.drop(columns=['estoque_atual', 'nome'], errors='ignore')
+                st.dataframe(df_temp_prod, use_container_width=True)
 
             with tab_forn:
                 st.subheader("Gerenciamento de Fornecedores")
