@@ -1203,9 +1203,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             st.title("📥 Entrada de Estoque (Compras)")
             aba_compra, aba_historico_compras = st.tabs(["📦 Dar Entrada in Estoque", "📋 Histórico de Entradas / Compras"])
                 
-            produtos_opt = carregar_coluna("produtos", "nome") or ["AMEIXA IMPORTADA", "ABACATE"]
-            fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
-            grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
+            lista_produtos = carregar_coluna("produtos", "nome") or carregar_coluna("produtos", "produto") or ["ABACATE", "AMEIXA IMPORTADA"]
+            lista_grupos = carregar_coluna("grupos", "grupo") or ["GERAL", "FRUTAS"]
+            lista_fornecedores = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
             
         with aba_compra:
             with st.form("form_entrada_estoque"):
