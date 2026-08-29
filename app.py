@@ -357,12 +357,22 @@ def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo):
     valor_total = float(quantidade) * float(valor_custo)
     data_atual = datetime.now().strftime("%Y-%m-%d %H:%M")
     
-    # Busca o preço de venda cadastrado para esse produto
-    cursor.execute("SELECT valor_venda FROM produtos WHERE produto = ? OR nome = ?", (produto, produto))
-    res_venda = cursor.fetchone()
-    valor_venda = res_venda[0] if res_venda and res_venda[0] is not None else 0.0
-    
-    # Insere na tabela compras incluindo o valor_venda capturado
+    # Tenta buscar o preço de venda considerando os nomes mais comuns de colunas
+    valor_venda = 0.0
+    try:
+        cursor.execute("SELECT valor_venda FROM produtos WHERE produto = ? OR nome = ?", (produto, produto))
+        res = cursor.fetchone()
+        if res and res[0] is not None:
+            valor_venda = res[0]
+        else:
+            cursor.execute("SELECT preco_venda FROM produtos WHERE produto = ? OR nome = ?", (produto, produto))
+            res2 = cursor.fetchone()
+            if res2 and res2[0] is not None:
+                valor_venda = res2[0]
+    except Exception:
+        valor_venda = 0.0
+
+    # Insere na tabela compras com o valor de venda capturado
     cursor.execute("""
         INSERT INTO compras (produto, fornecedor, quantidade, valor_compra, valor_venda, valor_total, data)
         VALUES (?, ?, ?, ?, ?, ?, ?)
