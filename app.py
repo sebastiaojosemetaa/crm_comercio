@@ -352,26 +352,30 @@ def deletar_pedidos_cliente(cliente_nome, s_d1, s_d2):
     conn.commit()
     return cursor.rowcount
 
-def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo, valor_venda):
-    cursor = conn.cursor()
-    valor_total = float(quantidade) * float(valor_custo)
-    data_atual = datetime.now().strftime("%Y-%m-%d %H:%M")
-    
-    # Insere na tabela compras incluindo o valor de venda informado
-    cursor.execute("""
-        INSERT INTO compras (produto, fornecedor, quantidade, valor_compra, valor_venda, valor_total, data)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (produto, fornecedor, quantidade, valor_custo, valor_venda, valor_total, data_atual))
-    
-    # Atualiza o estoque e também o preço de venda na tabela produtos
-    cursor.execute("""
-        UPDATE produtos 
-        SET quantidade = COALESCE(quantidade, 0) + ?, 
-            valor_venda = COALESCE(?, valor_venda)
-        WHERE produto = ? OR nome = ?
-    """, (quantidade, valor_venda, produto, produto))
-    
-    conn.commit()
+with st.form("form_entrada_estoque"):
+    col1, col2 = st.columns(2)
+    with col1:
+        produto_escolhido = st.selectbox("Produto", lista_produtos)
+    with col2:
+        grupo_escolhido = st.selectbox("Grupo", lista_grupos)
+        
+    col3, col4 = st.columns(2)
+    with col3:
+        fornecedor_escolhido = st.selectbox("Fornecedor", lista_fornecedores)
+    with col4:
+        preco_custo = st.number_input("Preço de Custo Unitário (R$)", min_value=0.0, format="%.2f")
+
+    col5, col6 = st.columns(2)
+    with col5:
+        quantidade = st.number_input("Quantidade", min_value=0.0, format="%.2f")
+    with col6:
+        preco_venda = st.number_input("Preço de Venda Unitário (R$)", min_value=0.0, format="%.2f")
+
+    submitted = st.form_submit_button("Registrar Entrada no Estoque")
+    if submitted:
+        registrar_compra(produto_escolhido, fornecedor_escolhido, grupo_escolhido, quantidade, preco_custo, preco_venda)
+        st.success("Entrada registrada com sucesso!")
+        st.rerun()
 
 # -----------------------------------------------------------------------------
 # GERADOR DE PDF
@@ -1202,23 +1206,29 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
             with aba_compra:
                 with st.form("form_entrada_estoque"):
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        produto_escolhido = st.selectbox("Produto", produtos_opt)
-                        fornecedor_escolhido = st.selectbox("Fornecedor", fornecedores_opt)
-                        quantidade = st.number_input("Quantidade", min_value=0.0, format="%.2f")
-                    with col2:
-                        grupo_escolhido = st.selectbox("Grupo", grupos_opt)
-                        preco_custo = st.number_input("Preço de Custo Unitário (R$)", min_value=0.0, format="%.2f")
-                    
-                    enviado = st.form_submit_button("Registrar Entrada no Estoque")
-                    if enviado:
-                        registrar_compra(produto_escolhido, fornecedor_escolhido, grupo_escolhido, quantidade, preco_custo)
-                        cursor = conn.cursor()
-                        cursor.execute("UPDATE produtos SET estoque_atual = COALESCE(estoque_atual, 0) + ? WHERE TRIM(nome) = TRIM(?)", (quantidade, produto_escolhido))
-                        conn.commit()
-                        st.success("Entrada registrada com sucesso e estoque atualizado!")
-                        st.rerun()
+    col1, col2 = st.columns(2)
+    with col1:
+        produto_escolhido = st.selectbox("Produto", lista_produtos)
+    with col2:
+        grupo_escolhido = st.selectbox("Grupo", lista_grupos)
+        
+    col3, col4 = st.columns(2)
+    with col3:
+        fornecedor_escolhido = st.selectbox("Fornecedor", lista_fornecedores)
+    with col4:
+        preco_custo = st.number_input("Preço de Custo Unitário (R$)", min_value=0.0, format="%.2f")
+
+    col5, col6 = st.columns(2)
+    with col5:
+        quantidade = st.number_input("Quantidade", min_value=0.0, format="%.2f")
+    with col6:
+        preco_venda = st.number_input("Preço de Venda Unitário (R$)", min_value=0.0, format="%.2f")
+
+    submitted = st.form_submit_button("Registrar Entrada no Estoque")
+    if submitted:
+        registrar_compra(produto_escolhido, fornecedor_escolhido, grupo_escolhido, quantidade, preco_custo, preco_venda)
+        st.success("Entrada registrada com sucesso!")
+        st.rerun()
                         
             with aba_historico_compras:
                 st.subheader("Histórico de Entradas / Compras")
