@@ -1230,6 +1230,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.success("Entrada registrada com sucesso e estoque atualizado!")
                         st.rerun()
         
+                st.markdown("---")
+                st.markdown("### Últimas Compras Registradas")
+                df_compras_recente = pd.read_sql("SELECT * FROM compras ORDER BY id DESC LIMIT 5", conn)
+                st.dataframe(df_compras_recente, use_container_width=True)
+        
             with aba_historico_compras:
                 df_compras = pd.read_sql("SELECT * FROM compras", conn)
                 st.dataframe(df_compras, use_container_width=True)
