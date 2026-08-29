@@ -1220,6 +1220,36 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.rerun()
                         
             with aba_historico_compras:
+                st.subheader("Histórico de Entradas / Compras")
+            
+                # Puxa o histórico de compras e traz o grupo da tabela de produtos
+                query_historico = """
+                    SELECT c.*, p.grupo 
+                    FROM compras c 
+                    LEFT JOIN produtos p ON c.produto = p.produto OR c.produto = p.nome
+                """
+                df_historico = carregar_dados(query_historico)
+            
+                if not df_historico.empty:
+                    # Cria duas colunas para os filtros ficarem lado a lado
+                    col_f1, col_f2 = st.columns(2)
+                    
+                    with col_f1:
+                        if 'fornecedor' in df_historico.columns:
+                            fornecedores_disponiveis = ["Todos"] + list(df_historico['fornecedor'].dropna().unique())
+                            filtro_forn = st.selectbox("Filtrar por Fornecedor", fornecedores_disponiveis, key="filtro_forn_hist")
+                            if filtro_forn != "Todos":
+                                df_historico = df_historico[df_historico['fornecedor'] == filtro_forn]
+            
+                    with col_f2:
+                        if 'grupo' in df_historico.columns:
+                            grupos_disponiveis = ["Todos"] + list(df_historico['grupo'].dropna().unique())
+                            filtro_grupo = st.selectbox("Filtrar por Grupo", grupos_disponiveis, key="filtro_grupo_hist")
+                            if filtro_grupo != "Todos":
+                                df_historico = df_historico[df_historico['grupo'] == filtro_grupo]
+            
+                # Exibe a tabela filtrada com a nova coluna de grupo
+                st.dataframe(df_historico, use_container_width=True)
 
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
