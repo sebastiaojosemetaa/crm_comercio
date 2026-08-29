@@ -1232,7 +1232,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             lista_grupos = carregar_coluna("grupos", "grupo") or ["GERAL", "FRUTAS"]
             lista_fornecedores = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
             
-        with aba_compra:
+        with st.container():
             with st.form("form_entrada_estoque"):
                 col1, col2 = st.columns(2)
                 with col1:
