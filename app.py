@@ -1244,23 +1244,24 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     with col2:
                         grupo_escolhido = st.selectbox("Grupo", lista_grupos)
                     
-                col3, col4 = st.columns(2)
-                with col3:
-                    fornecedor_escolhido = st.selectbox("Fornecedor", lista_fornecedores)
-                with col4:
-                    preco_custo = st.number_input("Preço de Custo Unitário (R$)", min_value=0.0, format="%.2f")
-
-                col5, col6 = st.columns(2)
-                with col5:
-                    quantidade = st.number_input("Quantidade", min_value=0.0, format="%.2f")
-                with col6:
-                    preco_venda = st.number_input("Preço de Venda Unitário (R$)", min_value=0.0, format="%.2f")
-
-                   submitted = st.form_submit_button("Registrar Entrada no Estoque")
-                if submitted:
-                    registrar_compra(produto_escolhido, fornecedor_escolhido, grupo_escolhido, quantidade, preco_custo, preco_venda)
-                    st.success("Entrada registrada com sucesso!")
-                    st.rerun()
+                    col3, col4 = st.columns(2)
+                    with col3:
+                        fornecedor_escolhido = st.selectbox("Fornecedor", lista_fornecedores)
+                    with col4:
+                        preco_custo = st.number_input("Preço de Custo Unitário (R$)", min_value=0.0, format="%.2f")
+                    
+                    col5, col6 = st.columns(2)
+                    with col5:
+                        quantidade = st.number_input("Quantidade", min_value=0.0, format="%.2f")
+                    with col6:
+                        preco_venda = st.number_input("Preço de Venda Unitário (R$)", min_value=0.0, format="%.2f")
+        
+                    submitted = st.form_submit_button("Registrar Entrada no Estoque")
+                    
+                    if submitted:
+                        registrar_compra(produto_escolhido, fornecedor_escolhido, grupo_escolhido, quantidade, preco_custo, preco_venda)
+                        st.success("Entrada registrada com sucesso!")
+                        st.rerun()
                         
             with aba_historico_compras:
                 st.subheader("Histórico de Entradas / Compras")
