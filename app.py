@@ -1205,7 +1205,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
             
             with aba_compra:
-    with st.form("form_entrada_estoque"):
+   with st.form("form_entrada_estoque"):
         col1, col2 = st.columns(2)
         with col1:
             produto_escolhido = st.selectbox("Produto", lista_produtos)
