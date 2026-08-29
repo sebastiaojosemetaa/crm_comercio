@@ -356,41 +356,27 @@ def deletar_pedidos_cliente(cliente_nome, s_d1, s_d2):
 
 def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo):
     cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS compras (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            produto TEXT,
-            fornecedor TEXT,
-            grupo TEXT,
-            quantidade REAL,
-            valor_custo REAL,
-            valor_total REAL,
-            data TEXT
-        )
-    """)
-    try:
-        cursor.execute("SELECT produto FROM compras LIMIT 1")
-    except sqlite3.OperationalError:
-        cursor.execute("DROP TABLE compras")
-        cursor.execute("""
-            CREATE TABLE compras (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                produto TEXT,
-                fornecedor TEXT,
-                grupo TEXT,
-                quantidade REAL,
-                valor_custo REAL,
-                valor_total REAL,
-                data TEXT
-            )
-        """)
-
+    
+    # Verifica quais colunas realmente existem na tabela 'compras' do banco
+    cursor.execute("PRAGMA table_info(compras)")
+    colunas_tabela = [col[1] for col in cursor.fetchall()]
+    
     valor_total = quantidade * valor_custo
     data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    cursor.execute("""
-        INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data_atual))
+    
+    # Se a tabela usa o modelo antigo com valor_compra
+    if "valor_compra" in colunas_tabela:
+        cursor.execute("""
+            INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_compra, valor_venda, valor_total, data)
+            VALUES (?, ?, ?, ?, ?, 0, ?, ?)
+        """, (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data_atual))
+    else:
+        # Modelo padrão com valor_custo
+        cursor.execute("""
+            INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data_atual))
+        
     conn.commit()
 
 # -----------------------------------------------------------------------------
