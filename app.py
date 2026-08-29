@@ -1279,15 +1279,23 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 df_historico = df_historico[df_historico['fornecedor'] == filtro_forn]
 
                     with col_f2:
-                        if 'grupo' in df_historico.columns:
-                            grupos_disponiveis = ["Todos"]
-                            coluna_grupo = 'grupo' if 'grupo' in df_historico.columns else ('grupos' if 'grupos' in df_historico.columns else None)
-                            if not df_historico.empty and coluna_grupo:
-                                grupos_disponiveis += list(df_historico[coluna_grupo].dropna().unique())
-                            
-                            filtro_grupo = st.selectbox("Filtrar por Grupo", grupos_disponiveis, key="filtro_grupo_hist")
-
-                st.dataframe(df_historico, use_container_width=True)
+                        grupos_disponiveis = ["Todos"]
+                        try:
+                            if not df_historico.empty:
+                                if 'grupo' in df_historico.columns:
+                                    grupos_disponiveis += list(df_historico['grupo'].dropna().unique())
+                                elif 'grupos' in df_historico.columns:
+                                    grupos_disponiveis += list(df_historico['grupos'].dropna().unique())
+                        except Exception:
+                            pass
+                        
+                        filtro_grupo = st.selectbox("Filtrar por Grupo", grupos_disponiveis, key="filtro_grupo_hist")
+                        if filtro_grupo != "Todos":
+                            col_g = 'grupo' if 'grupo' in df_historico.columns else 'grupos'
+                            if col_g in df_historico.columns:
+                                df_historico = df_historico[df_historico[col_g] == filtro_grupo]
+                    
+                        st.dataframe(df_historico, use_container_width=True)
 
                 # Seção para alterar um registro do histórico pelo Produto
                 st.markdown("---")
