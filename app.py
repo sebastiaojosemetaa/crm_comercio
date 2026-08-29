@@ -1219,32 +1219,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.success("Entrada registrada com sucesso e estoque atualizado!")
                         st.rerun()
                         
-            with aba_historico_compras:
-                st.subheader("Histórico de Entradas / Compras")
-
-                # Carrega o histórico de compras do banco (pela tabela "compras")
-                df_historico = carregar_dados("SELECT * FROM compras")
-
-                if not df_historico.empty:
-                    # Cria duas colunas para os filtros ficarem lado a lado
-                    col_f1, col_f2 = st.columns(2)
-                    
-                    with col_f1:
-                        if 'fornecedor' in df_historico.columns:
-                            fornecedores_disponiveis = ["Todos"] + list(df_historico['fornecedor'].dropna().unique())
-                            filtro_forn = st.selectbox("Filtrar por Fornecedor", fornecedores_disponiveis, key="filtro_forn_hist")
-                            if filtro_forn != "Todos":
-                                df_historico = df_historico[df_historico['fornecedor'] == filtro_forn]
-
-                    with col_f2:
-                        if 'grupo' in df_historico.columns:
-                            grupos_disponiveis = ["Todos"] + list(df_historico['grupo'].dropna().unique())
-                            filtro_grupo = st.selectbox("Filtrar por Grupo", grupos_disponiveis, key="filtro_grupo_hist")
-                            if filtro_grupo != "Todos":
-                                df_historico = df_historico[df_historico['grupo'] == filtro_grupo]
-
-                # Exibe a tabela filtrada
-                st.dataframe(df_historico, use_container_width=True)
+            with aba_historico_compras
 
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
