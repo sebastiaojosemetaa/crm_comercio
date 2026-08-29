@@ -357,11 +357,18 @@ def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo):
     valor_total = float(quantidade) * float(valor_custo)
     data_atual = datetime.now().strftime("%Y-%m-%d %H:%M")
     
-    # Insere na tabela de compras
-    cursor.execute("""
-        INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data_atual))
+    try:
+        # Tenta inserir incluindo a coluna grupo
+        cursor.execute("""
+            INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data_atual))
+    except Exception:
+        # Se a tabela do banco não tiver a coluna grupo, insere sem ela para evitar erros
+        cursor.execute("""
+            INSERT INTO compras (produto, fornecedor, quantidade, valor_custo, valor_total, data)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (produto, fornecedor, quantidade, valor_custo, valor_total, data_atual))
     
     # Atualiza o estoque do produto na tabela produtos
     cursor.execute("""
