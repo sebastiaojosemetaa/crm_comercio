@@ -1295,7 +1295,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             if col_g in df_historico.columns:
                                 df_historico = df_historico[df_historico[col_g] == filtro_grupo]
                     
-                        st.dataframe(df_historico, use_container_width=True)
+                        # Remove colunas duplicadas pelo nome, mantendo apenas a primeira ocorrência
+                        df_historico = df_historico.loc[:, ~df_historico.columns.duplicated()]
 
                 # Seção para alterar um registro do histórico pelo Produto
                 st.markdown("---")
