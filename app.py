@@ -357,9 +357,9 @@ def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo):
     valor_total = float(quantidade) * float(valor_custo)
     data_atual = datetime.now().strftime("%Y-%m-%d %H:%M")
     
-    # Insere apenas nas colunas reais da tabela compras
+    # Usa valor_compra para bater exatamente com a coluna real da tabela do banco
     cursor.execute("""
-        INSERT INTO compras (produto, fornecedor, quantidade, valor_custo, valor_total, data)
+        INSERT INTO compras (produto, fornecedor, quantidade, valor_compra, valor_total, data)
         VALUES (?, ?, ?, ?, ?, ?)
     """, (produto, fornecedor, quantidade, valor_custo, valor_total, data_atual))
     
