@@ -357,21 +357,18 @@ def deletar_pedidos_cliente(cliente_nome, s_d1, s_d2):
 def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo):
     cursor = conn.cursor()
     
-    # Verifica quais colunas realmente existem na tabela 'compras' do banco
     cursor.execute("PRAGMA table_info(compras)")
     colunas_tabela = [col[1] for col in cursor.fetchall()]
     
     valor_total = quantidade * valor_custo
     data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    # Se a tabela usa o modelo antigo com valor_compra
     if "valor_compra" in colunas_tabela:
         cursor.execute("""
             INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_compra, valor_venda, valor_total, data)
-            VALUES (?, ?, ?, ?, ?, 0, ?, ?)
-        """, (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data_atual))
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (produto, fornecedor, grupo, quantidade, valor_custo, 0.0, valor_total, data_atual))
     else:
-        # Modelo padrão com valor_custo
         cursor.execute("""
             INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data)
             VALUES (?, ?, ?, ?, ?, ?, ?)
