@@ -357,18 +357,23 @@ def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo):
     valor_total = float(quantidade) * float(valor_custo)
     data_atual = datetime.now().strftime("%Y-%m-%d %H:%M")
     
-    # Usa valor_compra para bater exatamente com a coluna real da tabela do banco
+    # Busca o preço de venda cadastrado para esse produto
+    cursor.execute("SELECT valor_venda FROM produtos WHERE produto = ? OR nome = ?", (produto, produto))
+    res_venda = cursor.fetchone()
+    valor_venda = res_venda[0] if res_venda and res_venda[0] is not None else 0.0
+    
+    # Insere na tabela compras incluindo o valor_venda capturado
     cursor.execute("""
-        INSERT INTO compras (produto, fornecedor, quantidade, valor_compra, valor_total, data)
-        VALUES (?, ?, ?, ?, ?, ?)
-    """, (produto, fornecedor, quantidade, valor_custo, valor_total, data_atual))
+        INSERT INTO compras (produto, fornecedor, quantidade, valor_compra, valor_venda, valor_total, data)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (produto, fornecedor, quantidade, valor_custo, valor_venda, valor_total, data_atual))
     
     # Atualiza o estoque do produto na tabela produtos
     cursor.execute("""
         UPDATE produtos 
         SET quantidade = COALESCE(quantidade, 0) + ? 
-        WHERE produto = ?
-    """, (quantidade, produto))
+        WHERE produto = ? OR nome = ?
+    """, (quantidade, produto, produto))
     
     conn.commit()
 
