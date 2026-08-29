@@ -1219,7 +1219,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.success("Entrada registrada com sucesso e estoque atualizado!")
                         st.rerun()
                         
-            with aba_historico_compras
+            with aba_historico_compras:
 
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
