@@ -354,12 +354,22 @@ def deletar_pedidos_cliente(cliente_nome, s_d1, s_d2):
 
 def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo):
     cursor = conn.cursor()
-    valor_total = quantidade * valor_custo
-    data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    valor_total = float(quantidade) * float(valor_custo)
+    data_atual = datetime.now().strftime("%Y-%m-%d %H:%M")
+    
+    # Insere na tabela de compras
     cursor.execute("""
         INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data)
         VALUES (?, ?, ?, ?, ?, ?, ?)
     """, (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data_atual))
+    
+    # Atualiza o estoque do produto na tabela produtos
+    cursor.execute("""
+        UPDATE produtos 
+        SET quantidade = COALESCE(quantidade, 0) + ? 
+        WHERE produto = ?
+    """, (quantidade, produto))
+    
     conn.commit()
 
 # -----------------------------------------------------------------------------
