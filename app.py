@@ -299,32 +299,7 @@ def salvar_pedido_ou_venda(cliente, produto, fornecedor, grupo, quantidade, valo
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (cliente.strip(), produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, str(valor_recebido), tipo, cod_status, data_atual))
     conn.commit()
-def registrar_compra(produto, fornecedor, grupo, preco_custo, preco_venda, quantidade):
-    cursor = conn.cursor()
-    # Recria a tabela com a estrutura correta
-    cursor.execute("DROP TABLE IF EXISTS compras")
-    cursor.execute("""
-        CREATE TABLE compras (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            produto TEXT,
-            fornecedor TEXT,
-            grupo TEXT,
-            quantidade REAL,
-            valor_compra REAL,
-            valor_venda REAL,
-            valor_total REAL,
-            data TEXT
-        )
-    """)
-    from datetime import datetime
-    data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    valor_total = quantidade * preco_custo
-    
-    cursor.execute("""
-        INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_compra, valor_venda, valor_total, data)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """, (produto, fornecedor, grupo, quantidade, preco_custo, preco_venda, valor_total, data_atual))
-    conn.commit()
+
 def baixar_debito_cliente(cliente_nome, valor_haver, forma_pagamento="Dinheiro"):
     cursor = conn.cursor()
     cursor.execute("""
@@ -376,37 +351,16 @@ def deletar_pedidos_cliente(cliente_nome, s_d1, s_d2):
     """, (cliente_nome, s_d1, s_d2))
     conn.commit()
     return cursor.rowcount
-    lista_produtos = carregar_coluna("produtos", "nome") or carregar_coluna("produtos", "produto") or ["ABACATE", "AMEIXA IMPORTADA"]
-    lista_grupos = carregar_coluna("grupos", "grupo") or ["GERAL", "FRUTAS"]
-    lista_fornecedores = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
 
-    with st.container():
-        with st.form("form_entrada_estoque"):
-            col1, col2 = st.columns(2)
-            with col1:
-                produto_escolhido = st.selectbox("Produto", lista_produtos)
-            with col2:
-                grupo_escolhido = st.selectbox("Grupo", lista_grupos)
-            
-            col3, col4 = st.columns(2)
-            with col3:
-                fornecedor_escolhido = st.selectbox("Fornecedor", lista_fornecedores)
-            with col4:
-                preco_custo = st.number_input("Preço de Custo Unitário (R$)", min_value=0.0, format="%.2f")
-            
-            col5, col6 = st.columns(2)
-            with col5:
-                quantidade = st.number_input("Quantidade", min_value=0.0, format="%.2f")
-            with col6:
-                preco_venda = st.number_input("Preço de Venda Unitário (R$)", min_value=0.0, format="%.2f")
-
-            # O botão DEVE estar recuado aqui dentro do with st.form:
-            submitted = st.form_submit_button("Registrar Entrada no Estoque")
-            
-            if submitted:
-                registrar_compra(produto_escolhido, fornecedor_escolhido, grupo_escolhido, quantidade, preco_custo, preco_venda)
-                st.success("Entrada registrada com sucesso!")
-                st.rerun()
+def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo):
+    cursor = conn.cursor()
+    valor_total = quantidade * valor_custo
+    data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cursor.execute("""
+        INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data_atual))
+    conn.commit()
 
 # -----------------------------------------------------------------------------
 # GERADOR DE PDF
@@ -1231,117 +1185,34 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             st.title("📥 Entrada de Estoque (Compras)")
             aba_compra, aba_historico_compras = st.tabs(["📦 Dar Entrada in Estoque", "📋 Histórico de Entradas / Compras"])
                 
-            lista_produtos = carregar_coluna("produtos", "nome") or carregar_coluna("produtos", "produto") or ["ABACATE", "AMEIXA IMPORTADA"]
-            lista_produtos = carregar_coluna("produtos", "nome") or ["PRODUTO EXEMPLO"]
-            lista_grupos = carregar_coluna("produtos", "grupo") or ["GERAL"]
-            lista_fornecedores = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
-        
-            with st.container():
+            produtos_opt = carregar_coluna("produtos", "nome") or ["AMEIXA IMPORTADA", "ABACATE"]
+            fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
+            grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
+            
+            with aba_compra:
                 with st.form("form_entrada_estoque"):
                     col1, col2 = st.columns(2)
                     with col1:
-                        produto_escolhido = st.selectbox("Produto", lista_produtos)
+                        produto_escolhido = st.selectbox("Produto", produtos_opt)
+                        fornecedor_escolhido = st.selectbox("Fornecedor", fornecedores_opt)
+                        quantidade = st.number_input("Quantidade", min_value=0.0, format="%.2f")
                     with col2:
-                        grupo_escolhido = st.selectbox("Grupo", lista_grupos)
-                    
-                    col3, col4 = st.columns(2)
-                    with col3:
-                        fornecedor_escolhido = st.selectbox("Fornecedor", lista_fornecedores)
-                    with col4:
+                        grupo_escolhido = st.selectbox("Grupo", grupos_opt)
                         preco_custo = st.number_input("Preço de Custo Unitário (R$)", min_value=0.0, format="%.2f")
                     
-                    col5, col6 = st.columns(2)
-                    with col5:
-                        quantidade = st.number_input("Quantidade", min_value=0.0, format="%.2f")
-                    with col6:
-                        preco_venda = st.number_input("Preço de Venda Unitário (R$)", min_value=0.0, format="%.2f")
-        
-                    submitted = st.form_submit_button("Registrar Entrada no Estoque")
-                    
-                    if submitted:
-                        registrar_compra(produto_escolhido, fornecedor_escolhido, grupo_escolhido, quantidade, preco_custo, preco_venda)
-                        st.success("Entrada registrada com sucesso!")
+                    enviado = st.form_submit_button("Registrar Entrada no Estoque")
+                    if enviado:
+                        registrar_compra(produto_escolhido, fornecedor_escolhido, grupo_escolhido, quantidade, preco_custo)
+                        cursor = conn.cursor()
+                        cursor.execute("UPDATE produtos SET estoque_atual = COALESCE(estoque_atual, 0) + ? WHERE TRIM(nome) = TRIM(?)", (quantidade, produto_escolhido))
+                        conn.commit()
+                        st.success("Entrada registrada com sucesso e estoque atualizado!")
                         st.rerun()
                         
             with aba_historico_compras:
-                st.subheader("Histórico de Entradas / Compras")
+                st.dataframe(carregar_dados("SELECT * FROM compras"), use_container_width=True)
 
-                query_historico = """
-                    SELECT c.*, p.grupo 
-                    FROM compras c 
-                    LEFT JOIN produtos p ON c.produto = p.produto OR c.produto = p.nome
-                """
-                df_historico = carregar_dados(query_historico)
-
-                if not df_historico.empty:
-                    col_f1, col_f2 = st.columns(2)
-                    
-                    with col_f1:
-                        if 'fornecedor' in df_historico.columns:
-                            fornecedores_disponiveis = ["Todos"] + list(df_historico['fornecedor'].dropna().unique())
-                            filtro_forn = st.selectbox("Filtrar por Fornecedor", fornecedores_disponiveis, key="filtro_forn_hist")
-                            if filtro_forn != "Todos":
-                                df_historico = df_historico[df_historico['fornecedor'] == filtro_forn]
-
-                    with col_f2:
-                        grupos_disponiveis = ["Todos"]
-                        try:
-                            if not df_historico.empty:
-                                if 'grupo' in df_historico.columns:
-                                    grupos_disponiveis += list(df_historico['grupo'].dropna().unique())
-                                elif 'grupos' in df_historico.columns:
-                                    grupos_disponiveis += list(df_historico['grupos'].dropna().unique())
-                        except Exception:
-                            pass
-                        
-                        filtro_grupo = st.selectbox("Filtrar por Grupo", grupos_disponiveis, key="filtro_grupo_hist")
-                        if filtro_grupo != "Todos":
-                            col_g = 'grupo' if 'grupo' in df_historico.columns else 'grupos'
-                            if col_g in df_historico.columns:
-                                df_historico = df_historico[df_historico[col_g] == filtro_grupo]
-                    
-                        # Remove colunas duplicadas pelo nome, mantendo apenas a primeira ocorrência
-                        df_historico = df_historico.loc[:, ~df_historico.columns.duplicated()]
-
-                # Seção para alterar um registro do histórico pelo Produto
-                st.markdown("---")
-                st.subheader("Editar Registro do Histórico")
-                if not df_historico.empty and 'grupo' in df_historico.columns:
-                    grupos_disponiveis = ["Todos"] + list(df_historico['grupo'].dropna().unique())
-                else:
-                    grupos_disponiveis = ["Todos", "GERAL", "FRUTAS"]
-                    # Cria uma lista combinando Produto + Data + ID para ficar fácil de achar
-                    df_historico['rotulo_edicao'] = df_historico['produto'].astype(str) + " (Data: " + df_historico['data'].astype(str) + " - ID: " + df_historico['id'].astype(str) + ")"
-                    
-                    opcoes_edicao = df_historico['rotulo_edicao'].tolist()
-                    selecao_escolhida = st.selectbox("Selecione o produto para alterar", opcoes_edicao)
-                    
-                    # Pega o ID correspondente ao item selecionado
-                    id_selecionado = df_historico[df_historico['rotulo_edicao'] == selecao_escolhida]['id'].values[0]
-                    registro_atual = df_historico[df_historico['id'] == id_selecionado].iloc[0]
-                    
-                    col_e1, col_e2, col_e3 = st.columns(3)
-                    with col_e1:
-                        novo_qtd = st.number_input("Nova Quantidade", value=float(registro_atual['quantidade']), key="edit_qtd")
-                    with col_e2:
-                        novo_custo = st.number_input("Novo Valor Custo", value=float(registro_atual['valor_compra']), key="edit_custo")
-                    with col_e3:
-                        val_venda_atual = float(registro_atual['valor_venda']) if pd.notna(registro_atual['valor_venda']) else 0.0
-                        novo_venda = st.number_input("Novo Valor Venda", value=val_venda_atual, key="edit_venda")
-                    
-                    if st.button("Salvar Alterações"):
-                        cursor = conn.cursor()
-                        novo_total = novo_qtd * novo_custo
-                        cursor.execute("""
-                            UPDATE compras 
-                            SET quantidade = ?, valor_compra = ?, valor_venda = ?, valor_total = ?
-                            WHERE id = ?
-                        """, (novo_qtd, novo_custo, novo_venda, novo_total, id_selecionado))
-                        conn.commit()
-                        st.success("Registro alterado com sucesso!")
-                        st.rerun()
-
-        if menu_admin == "📦 Estoque de Produtos":
+        elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
             df_prods = carregar_dados("SELECT * FROM produtos")            
             if not df_prods.empty:
