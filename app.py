@@ -357,13 +357,11 @@ def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo):
     valor_total = float(quantidade) * float(valor_custo)
     data_atual = datetime.now().strftime("%Y-%m-%d %H:%M")
     
-    # Insere com os 7 campos exatos da tabela
     cursor.execute("""
         INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data)
         VALUES (?, ?, ?, ?, ?, ?, ?)
     """, (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data_atual))
     
-    # Atualiza o estoque do produto na tabela produtos
     cursor.execute("""
         UPDATE produtos 
         SET quantidade = COALESCE(quantidade, 0) + ? 
