@@ -1290,7 +1290,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 # Seção para alterar um registro do histórico pelo Produto
                 st.markdown("---")
                 st.subheader("Editar Registro do Histórico")
-                if not df_historico.empty and 'produto' in df_historico.columns:
+                if not df_historico.empty and 'grupo' in df_historico.columns:
+                    grupos_disponiveis = ["Todos"] + list(df_historico['grupo'].dropna().unique())
+                else:
+                    grupos_disponiveis = ["Todos", "GERAL", "FRUTAS"]
                     # Cria uma lista combinando Produto + Data + ID para ficar fácil de achar
                     df_historico['rotulo_edicao'] = df_historico['produto'].astype(str) + " (Data: " + df_historico['data'].astype(str) + " - ID: " + df_historico['id'].astype(str) + ")"
                     
