@@ -1512,8 +1512,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         if prod_id_sel and novo_prod.strip():
                             cursor = conn.cursor()
                             try:
-                                # Atualiza usando a variável correta do input do estoque (estoque_ini)
-                                sql = "UPDATE produtos SET produto = ?, grupo = ?, fornecedor = ?, valor_compra = ?, valor_venda = ?, estoque_atual = ? WHERE id = ?"
+                                # Atualiza incluindo explicitamente a quantidade/estoque correto
+                                sql = "UPDATE produtos SET produto = ?, grupo = ?, fornecedor = ?, valor_compra = ?, valor_venda = ?, quantidade = ? WHERE id = ?"
                                 cursor.execute(sql, (novo_prod.strip(), grupo_prod, fornec_prod, p_custo, p_venda, estoque_ini, prod_id_sel))
                                 conn.commit()
                                 st.success("Produto atualizado com sucesso!")
