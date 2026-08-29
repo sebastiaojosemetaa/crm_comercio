@@ -1249,14 +1249,18 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
                 st.dataframe(df_historico, use_container_width=True)
 
-                # Seção para alterar um registro do histórico pelo ID
+                # Seção para alterar um registro do histórico pelo Produto
                 st.markdown("---")
                 st.subheader("Editar Registro do Histórico")
-                if not df_historico.empty and 'id' in df_historico.columns:
-                    ids_disponiveis = df_historico['id'].tolist()
-                    id_selecionado = st.selectbox("Selecione o ID do registro para alterar", ids_disponiveis)
+                if not df_historico.empty and 'produto' in df_historico.columns:
+                    # Cria uma lista combinando Produto + Data + ID para ficar fácil de achar
+                    df_historico['rotulo_edicao'] = df_historico['produto'].astype(str) + " (Data: " + df_historico['data'].astype(str) + " - ID: " + df_historico['id'].astype(str) + ")"
                     
-                    # Pega os dados atuais do ID selecionado
+                    opcoes_edicao = df_historico['rotulo_edicao'].tolist()
+                    selecao_escolhida = st.selectbox("Selecione o produto para alterar", opcoes_edicao)
+                    
+                    # Pega o ID correspondente ao item selecionado
+                    id_selecionado = df_historico[df_historico['rotulo_edicao'] == selecao_escolhida]['id'].values[0]
                     registro_atual = df_historico[df_historico['id'] == id_selecionado].iloc[0]
                     
                     col_e1, col_e2, col_e3 = st.columns(3)
