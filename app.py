@@ -299,7 +299,7 @@ def salvar_pedido_ou_venda(cliente, produto, fornecedor, grupo, quantidade, valo
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (cliente.strip(), produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, str(valor_recebido), tipo, cod_status, data_atual))
     conn.commit()
-def registrar_compra(produto, fornecedor, grupo, quantidade, preco_custo, preco_venda):
+def registrar_compra(produto, fornecedor, grupo, preco_custo, preco_venda, quantidade):
     cursor = conn.cursor()
     # Recria a tabela com a estrutura correta
     cursor.execute("DROP TABLE IF EXISTS compras")
