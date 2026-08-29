@@ -1231,7 +1231,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             lista_produtos = carregar_coluna("produtos", "nome") or carregar_coluna("produtos", "produto") or ["ABACATE", "AMEIXA IMPORTADA"]
             lista_grupos = carregar_coluna("grupos", "grupo") or ["GERAL", "FRUTAS"]
             lista_fornecedores = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
-            
+            lista_produtos = carregar_coluna("produtos", "nome") or ["PRODUTO EXEMPLO"]    
         with st.container():
             with st.form("form_entrada_estoque"):
                 col1, col2 = st.columns(2)
