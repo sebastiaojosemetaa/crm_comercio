@@ -1239,17 +1239,43 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.markdown("#### Gerenciar Compra Selecionada")
                     id_compra_selecionada = st.selectbox("Selecione o ID da compra:", df_compras_recente["id"].tolist(), key="select_id_compra")
                     
-                    col_alt, col_exc = st.columns(2)
-                    with col_alt:
-                        if st.button("Alterar Compra"):
-                            st.info(f"Função de alterar para o ID {id_compra_selecionada} acionada.")
-                    with col_exc:
-                        if st.button("Excluir Compra"):
+                    # Busca os dados atuais da compra selecionada
+                    compra_atual = df_compras_recente[df_compras_recente["id"] == id_compra_selecionada].iloc[0]
+                    
+                    with st.expander("Editar Compra Selecionada"):
+                        novo_produto = st.text_input("Produto", value=str(compra_atual.get("produto", "")))
+                        novo_fornecedor = st.text_input("Fornecedor", value=str(compra_atual.get("fornecedor", "")))
+                        nova_qtd = st.number_input("Quantidade", value=float(compra_atual.get("quantidade", 1.0)), format="%.2f")
+                        
+                        # Identifica se a coluna salva é valor_custo ou valor_compra
+                        coluna_custo = "valor_custo" if "valor_custo" in compra_atual else "valor_compra"
+                        val_custo_atual = float(compra_atual.get(coluna_custo, 0.0))
+                        
+                        novo_custo = st.number_input("Preço de Custo", value=val_custo_atual, format="%.2f")
+                        
+                        if st.button("Salvar Alterações"):
+                            novo_total = nova_qtd * novo_custo
                             cursor = conn.cursor()
-                            cursor.execute("DELETE FROM compras WHERE id = ?", (id_compra_selecionada,))
+                            if coluna_custo == "valor_custo":
+                                cursor.execute("""
+                                    UPDATE compras SET produto = ?, fornecedor = ?, quantidade = ?, valor_custo = ?, valor_total = ? WHERE id = ?
+                                """, (novo_produto, novo_fornecedor, nova_qtd, novo_custo, novo_total, id_compra_selecionada))
+                            else:
+                                cursor.execute("""
+                                    UPDATE compras SET produto = ?, fornecedor = ?, quantidade = ?, valor_compra = ?, valor_total = ? WHERE id = ?
+                                """, (novo_produto, novo_fornecedor, nova_qtd, novo_custo, novo_total, id_compra_selecionada))
                             conn.commit()
-                            st.success(f"Compra ID {id_compra_selecionada} excluída com sucesso!")
+                            st.success(f"Compra ID {id_compra_selecionada} alterada com sucesso!")
                             st.rerun()
+
+            col_alt, col_exc = st.columns(2)
+            with col_exc:
+                if st.button("Excluir Compra Selecionada"):
+                    cursor = conn.cursor()
+                    cursor.execute("DELETE FROM compras WHERE id = ?", (id_compra_selecionada,))
+                    conn.commit()
+                    st.success(f"Compra ID {id_compra_selecionada} excluída com sucesso!")
+                    st.rerun()
         
             with aba_historico_compras:
                 df_compras = pd.read_sql("SELECT * FROM compras", conn)
