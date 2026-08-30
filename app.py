@@ -357,7 +357,13 @@ def deletar_pedidos_cliente(cliente_nome, s_d1, s_d2):
 def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo, valor_venda):
     cursor = conn.cursor()
     
-    # Recria a tabela limpa com a estrutura definitiva de colunas para evitar conflitos na nuvem
+    # Se a tabela tiver estrutura antiga incompatível, recria do zero com as 8 colunas oficiais
+    try:
+        cursor.execute("SELECT valor_venda FROM compras LIMIT 1")
+    except sqlite3.OperationalError:
+        cursor.execute("DROP TABLE IF EXISTS compras")
+        conn.commit()
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS compras (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -371,30 +377,10 @@ def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo, valor_
             data TEXT
         )
     """)
-    
-    # Se a tabela antiga não tiver a coluna valor_venda, fazemos o drop seguro para atualizar
-    try:
-        cursor.execute("SELECT valor_venda FROM compras LIMIT 1")
-    except sqlite3.OperationalError:
-        cursor.execute("DROP TABLE compras")
-        cursor.execute("""
-            CREATE TABLE compras (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                produto TEXT,
-                fornecedor TEXT,
-                grupo TEXT,
-                quantidade REAL,
-                valor_custo REAL,
-                valor_venda REAL,
-                valor_total REAL,
-                data TEXT
-            )
-        """)
 
     valor_total = quantidade * valor_custo
     data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    # Inserção exata com 8 colunas e 8 parâmetros correspondentes
     cursor.execute("""
         INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_custo, valor_venda, valor_total, data)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
