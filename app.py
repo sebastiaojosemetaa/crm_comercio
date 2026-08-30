@@ -1235,6 +1235,22 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 df_compras_recente = pd.read_sql("SELECT * FROM compras ORDER BY id DESC LIMIT 5", conn)
                 st.dataframe(df_compras_recente, use_container_width=True)
         
+                if not df_compras_recente.empty:
+                    st.markdown("#### Gerenciar Compra Selecionada")
+                    id_compra_selecionada = st.selectbox("Selecione o ID da compra:", df_compras_recente["id"].tolist(), key="select_id_compra")
+                    
+                    col_alt, col_exc = st.columns(2)
+                    with col_alt:
+                        if st.button("Alterar Compra"):
+                            st.info(f"Função de alterar para o ID {id_compra_selecionada} acionada.")
+                    with col_exc:
+                        if st.button("Excluir Compra"):
+                            cursor = conn.cursor()
+                            cursor.execute("DELETE FROM compras WHERE id = ?", (id_compra_selecionada,))
+                            conn.commit()
+                            st.success(f"Compra ID {id_compra_selecionada} excluída com sucesso!")
+                            st.rerun()
+        
             with aba_historico_compras:
                 df_compras = pd.read_sql("SELECT * FROM compras", conn)
                 st.dataframe(df_compras, use_container_width=True)
