@@ -1213,7 +1213,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 except Exception:
                     lista_prods = []
 
-                        with aba_dar_entrada:
+            with aba_dar_entrada:
                 try:
                     df_prod = pd.read_sql("SELECT nome FROM produtos", conn)
                     lista_prods = [str(x) for x in df_prod["nome"].dropna().tolist() if str(x).strip() != "" and str(x).lower() != "none"]
