@@ -1245,16 +1245,25 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.markdown("#### Gerenciar Compra Selecionada")
                     id_compra_selecionada = st.selectbox("Selecione o ID da compra:", df_compras_recente["id"].tolist(), key="select_id_compra_v2")
                     
-                    # Filtra corretamente usando o ID escolhido em vez de pegar a posição da linha
-                    compra_atual = df_compras_recente[df_compras_recente["id"] == id_compra_selecionada].iloc[0]
+                    # Filtra de forma segura pelo ID
+                    df_filtrado = df_compras_recente[df_compras_recente["id"] == id_compra_selecionada]
+                    compra_atual = df_filtrado.iloc[0] if not df_filtrado.empty else df_compras_recente.iloc[0]
                     
                     with st.expander("Editar Compra Selecionada"):
                         try:
-                            lista_produtos = pd.read_sql("SELECT nome FROM produtos", conn)["nome"].tolist()
+                            df_prod_db = pd.read_sql("SELECT nome FROM produtos", conn)
+                            lista_produtos = [str(x) for x in df_prod_db["nome"].dropna().tolist() if str(x).strip() != "" and str(x).lower() != "none"]
                         except Exception:
-                            lista_produtos = [str(compra_atual.get("produto", ""))]
+                            lista_produtos = []
                             
                         prod_atual = str(compra_atual.get("produto", ""))
+                        
+                        # Garante que o produto atual da compra esteja na lista de opções
+                        if prod_atual and prod_atual not in lista_produtos and prod_atual.lower() != "none":
+                            lista_produtos.insert(0, prod_atual)
+                        if not lista_produtos:
+                            lista_produtos = [prod_atual if prod_atual else "Geral"]
+                            
                         idx_prod = lista_produtos.index(prod_atual) if prod_atual in lista_produtos else 0
                         
                         novo_produto = st.selectbox("Produto", lista_produtos, index=idx_prod, key="edit_prod_v2")
@@ -1276,7 +1285,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             conn.commit()
                             st.success(f"Compra ID {id_compra_selecionada} alterada com sucesso!")
                             st.rerun()
-        
+            
                     col_alt, col_exc = st.columns(2)
                     with col_exc:
                         if st.button("Excluir Compra Selecionada", key="exc_compra_v2"):
