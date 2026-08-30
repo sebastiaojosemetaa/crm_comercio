@@ -1245,10 +1245,19 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.markdown("#### Gerenciar Compra Selecionada")
                     id_compra_selecionada = st.selectbox("Selecione o ID da compra:", df_compras_recente["id"].tolist(), key="select_id_compra_v2")
                     
+                    # Filtra corretamente usando o ID escolhido em vez de pegar a posição da linha
                     compra_atual = df_compras_recente[df_compras_recente["id"] == id_compra_selecionada].iloc[0]
                     
                     with st.expander("Editar Compra Selecionada"):
-                        novo_produto = st.text_input("Produto", value=str(compra_atual.get("produto", "")), key="edit_prod_v2")
+                        try:
+                            lista_produtos = pd.read_sql("SELECT nome FROM produtos", conn)["nome"].tolist()
+                        except Exception:
+                            lista_produtos = [str(compra_atual.get("produto", ""))]
+                            
+                        prod_atual = str(compra_atual.get("produto", ""))
+                        idx_prod = lista_produtos.index(prod_atual) if prod_atual in lista_produtos else 0
+                        
+                        novo_produto = st.selectbox("Produto", lista_produtos, index=idx_prod, key="edit_prod_v2")
                         novo_fornecedor = st.text_input("Fornecedor", value=str(compra_atual.get("fornecedor", "")), key="edit_forn_v2")
                         nova_qtd = st.number_input("Quantidade", value=float(compra_atual.get("quantidade", 1.0)), format="%.2f", key="edit_qtd_v2")
                         
