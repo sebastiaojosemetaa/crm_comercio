@@ -1203,104 +1203,123 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
         elif menu_admin == "📥 Entrada de Estoque (Compras)":
             st.title("📦 Entrada de Estoque (Compras)")
-            aba_compra, aba_historico_compras = st.tabs(["🛒 Dar Entrada em Estoque", "📋 Histórico de Entradas / Compras"])
+            
+            aba_dar_entrada, aba_historico_compras = st.tabs(["Dar Entrada em Estoque", "Histórico de Entradas / Compras"])
+            
+            with aba_dar_entrada:
+                try:
+                    df_prod = pd.read_sql("SELECT nome FROM produtos", conn)
+                    lista_prods = df_prod["nome"].dropna().tolist()
+                except Exception:
+                    lista_prods = []
+                    
+                if not lista_prods:
+                    st.warning("Cadastre produtos primeiro na aba 'Estoque de Produtos'.")
+                else:
+                    with st.form("form_entrada_v2"):
+                        prod_escolhido = st.selectbox("Produto", lista_prods)
+                        fornecedor = st.text_input("Fornecedor", value="BAHIA")
+                        grupo = st.text_input("Grupo", value="GERAL")
+                        quantidade = st.number_input("Quantidade", min_value=0.01, value=1.0, format="%.2f")
+                        valor_custo = st.number_input("Preço de Custo (R$)", min_value=0.0, value=0.0, format="%.2f")
+                        valor_venda = st.number_input("Preço de Venda (R$)", min_value=0.0, value=0.0, format="%.2f")
+                        
+                        submitted = st.form_submit_button("Registrar Entrada")
+                        if submitted:
+                            valor_total = quantidade * valor_custo
+                            from datetime import datetime
+                            data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            
+                            cursor = conn.cursor()
+                            cursor.execute("""
+                                CREATE TABLE IF NOT EXISTS compras_v2 (
+                                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                    produto TEXT,
+                                    fornecedor TEXT,
+                                    grupo TEXT,
+                                    quantidade REAL,
+                                    valor_custo REAL,
+                                    valor_venda REAL,
+                                    valor_total REAL,
+                                    data TEXT
+                                )
+                            """)
+                            cursor.execute("""
+                                INSERT INTO compras_v2 (produto, fornecedor, grupo, quantidade, valor_custo, valor_venda, valor_total, data)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                            """, (prod_escolhido, fornecedor, grupo, quantidade, valor_custo, valor_venda, valor_total, data_atual))
+                            conn.commit()
+                            st.success("Entrada registrada com sucesso!")
+                            st.rerun()
         
-            produtos_opt = carregar_coluna("produtos", "produto") or ["AMEIXA IMPORTADA", "ABACATE"]
-            fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
-            grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
-        
-            with aba_compra:
-                with st.form("form_entrada_estoque"):
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        produto_escolhido = st.selectbox("Produto", produtos_opt)
-                        fornecedor_escolhido = st.selectbox("Fornecedor", fornecedores_opt)
-                        quantidade = st.number_input("Quantidade", min_value=0.0, format="%.2f")
-                    with col2:
-                        grupo_escolhido = st.selectbox("Grupo", grupos_opt)
-                        preco_custo = st.number_input("Preço de Custo Unitário (R$)", min_value=0.0, format="%.2f")
-                        preco_venda = st.number_input("Preço de Venda Unitário (R$)", min_value=0.0, format="%.2f")
-        
-                    enviado = st.form_submit_button("Registrar Entrada no Estoque")
-                    if enviado:
-                        registrar_compra(produto_escolhido, fornecedor_escolhido, grupo_escolhido, quantidade, preco_custo, preco_venda)
-                        cursor = conn.cursor()
-                        cursor.execute("UPDATE produtos SET quantidade = COALESCE(quantidade, 0) + ? WHERE TRIM(produto) = TRIM(?)", (quantidade, produto_escolhido))
-                        conn.commit()
-                        st.success("Entrada registrada com sucesso e estoque atualizado!")
-                        st.rerun()
-        
-                st.markdown("---")
+            with aba_historico_compras:
                 st.markdown("### Últimas Compras Registradas")
                 try:
-                    df_compras_recente = pd.read_sql("SELECT * FROM compras_v2 ORDER BY id DESC LIMIT 5", conn)
+                    df_compras_recente = pd.read_sql("SELECT * FROM compras_v2 ORDER BY id DESC", conn)
                 except Exception:
                     df_compras_recente = pd.DataFrame()
-        
+                    
                 if df_compras_recente.empty:
-                    st.info("Nenhuma compra registrada na nova tabela ainda. Faça um registro acima para começar!")
+                    st.info("Nenhuma compra registrada até o momento.")
                 else:
                     st.dataframe(df_compras_recente, use_container_width=True)
                     
                     st.markdown("#### Gerenciar Compra Selecionada")
-        
-        # Lista os produtos disponíveis nas compras recentes para seleção pelo nome
-        lista_produtos_comprados = df_compras_recente["produto"].dropna().tolist()
-        
-        if not lista_produtos_comprados:
-            st.info("Nenhum produto disponível para gerenciar.")
-        else:
-            produto_selecionado = st.selectbox("Selecione o Produto:", lista_produtos_comprados, key="select_prod_compra_v2")
-            
-            # Filtra a compra correspondente ao produto selecionado e captura o ID interno de forma oculta
-            df_filtrado = df_compras_recente[df_compras_recente["produto"] == produto_selecionado]
-            compra_atual = df_filtrado.iloc[0] if not df_filtrado.empty else df_compras_recente.iloc[0]
-            id_compra_selecionada = compra_atual["id"]
-            
-            with st.expander("Editar Compra Selecionada"):
-                try:
-                    df_prod_db = pd.read_sql("SELECT nome FROM produtos", conn)
-                    lista_produtos = [str(x) for x in df_prod_db["nome"].dropna().tolist() if str(x).strip() != "" and str(x).lower() != "none"]
-                except Exception:
-                    lista_produtos = []
+                    lista_produtos_comprados = df_compras_recente["produto"].dropna().tolist()
                     
-                prod_atual = str(compra_atual.get("produto", ""))
-                
-                if prod_atual and prod_atual not in lista_produtos and prod_atual.lower() != "none":
-                    lista_produtos.insert(0, prod_atual)
-                if not lista_produtos:
-                    lista_produtos = [prod_atual if prod_atual else "Geral"]
-                    
-                idx_prod = lista_produtos.index(prod_atual) if prod_atual in lista_produtos else 0
-                
-                novo_produto = st.selectbox("Produto", lista_produtos, index=idx_prod, key="edit_prod_v2")
-                novo_fornecedor = st.text_input("Fornecedor", value=str(compra_atual.get("fornecedor", "")), key="edit_forn_v2")
-                nova_qtd = st.number_input("Quantidade", value=float(compra_atual.get("quantidade", 1.0)), format="%.2f", key="edit_qtd_v2")
-                
-                val_custo_atual = float(compra_atual.get("valor_custo", 0.0))
-                novo_custo = st.number_input("Preço de Custo", value=val_custo_atual, format="%.2f", key="edit_custo_v2")
-                
-                val_venda_atual = float(compra_atual.get("valor_venda", 0.0))
-                novo_venda = st.number_input("Preço de Venda", value=val_venda_atual, format="%.2f", key="edit_venda_v2")
-                
-                if st.button("Salvar Alterações", key="salvar_alt_v2"):
-                    novo_total = nova_qtd * novo_custo
-                    cursor = conn.cursor()
-                    cursor.execute("""
-                        UPDATE compras_v2 SET produto = ?, fornecedor = ?, quantidade = ?, valor_custo = ?, valor_venda = ?, valor_total = ? WHERE id = ?
-                    """, (novo_produto, novo_fornecedor, nova_qtd, novo_custo, novo_venda, novo_total, id_compra_selecionada))
-                    conn.commit()
-                    st.success(f"Compra do produto '{produto_selecionado}' alterada com sucesso!")
-                    st.rerun()
-
-                    col_alt, col_exc = st.columns(2)
-                    with col_exc:
-                        if st.button("Excluir Compra Selecionada", key="exc_compra_v2"):
-                            cursor = conn.cursor()
-                            cursor.execute("DELETE FROM compras_v2 WHERE id = ?", (id_compra_selecionada,))
-                            conn.commit()
-                            st.success(f"Compra do produto '{produto_selecionado}' excluída com sucesso!")
-                            st.rerun()
+                    if not lista_produtos_comprados:
+                        st.info("Nenhum produto disponível para gerenciar.")
+                    else:
+                        produto_selecionado = st.selectbox("Selecione o Produto:", lista_produtos_comprados, key="select_prod_compra_v2")
+                        
+                        df_filtrado = df_compras_recente[df_compras_recente["produto"] == produto_selecionado]
+                        compra_atual = df_filtrado.iloc[0] if not df_filtrado.empty else df_compras_recente.iloc[0]
+                        id_compra_selecionada = compra_atual["id"]
+                        
+                        with st.expander("Editar Compra Selecionada"):
+                            try:
+                                df_prod_db = pd.read_sql("SELECT nome FROM produtos", conn)
+                                lista_produtos = [str(x) for x in df_prod_db["nome"].dropna().tolist() if str(x).strip() != "" and str(x).lower() != "none"]
+                            except Exception:
+                                lista_produtos = []
+                                
+                            prod_atual = str(compra_atual.get("produto", ""))
+                            
+                            if prod_atual and prod_atual not in lista_produtos and prod_atual.lower() != "none":
+                                lista_produtos.insert(0, prod_atual)
+                            if not lista_produtos:
+                                lista_produtos = [prod_atual if prod_atual else "Geral"]
+                                
+                            idx_prod = lista_produtos.index(prod_atual) if prod_atual in lista_produtos else 0
+                            
+                            novo_produto = st.selectbox("Produto", lista_produtos, index=idx_prod, key="edit_prod_v2")
+                            novo_fornecedor = st.text_input("Fornecedor", value=str(compra_atual.get("fornecedor", "")), key="edit_forn_v2")
+                            nova_qtd = st.number_input("Quantidade", value=float(compra_atual.get("quantidade", 1.0)), format="%.2f", key="edit_qtd_v2")
+                            
+                            val_custo_atual = float(compra_atual.get("valor_custo", 0.0))
+                            novo_custo = st.number_input("Preço de Custo", value=val_custo_atual, format="%.2f", key="edit_custo_v2")
+                            
+                            val_venda_atual = float(compra_atual.get("valor_venda", 0.0))
+                            novo_venda = st.number_input("Preço de Venda", value=val_venda_atual, format="%.2f", key="edit_venda_v2")
+                            
+                            if st.button("Salvar Alterações", key="salvar_alt_v2"):
+                                novo_total = nova_qtd * novo_custo
+                                cursor = conn.cursor()
+                                cursor.execute("""
+                                    UPDATE compras_v2 SET produto = ?, fornecedor = ?, quantidade = ?, valor_custo = ?, valor_venda = ?, valor_total = ? WHERE id = ?
+                                """, (novo_produto, novo_fornecedor, nova_qtd, novo_custo, novo_venda, novo_total, id_compra_selecionada))
+                                conn.commit()
+                                st.success(f"Compra do produto '{produto_selecionado}' alterada com sucesso!")
+                                st.rerun()
+        
+                        col_alt, col_exc = st.columns(2)
+                        with col_exc:
+                            if st.button("Excluir Compra Selecionada", key="exc_compra_v2"):
+                                cursor = conn.cursor()
+                                cursor.execute("DELETE FROM compras_v2 WHERE id = ?", (id_compra_selecionada,))
+                                conn.commit()
+                                st.success(f"Compra do produto '{produto_selecionado}' excluída com sucesso!")
+                                st.rerun()
         
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
