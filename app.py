@@ -1212,13 +1212,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     lista_prods = [str(x) for x in df_prod["nome"].dropna().tolist() if str(x).strip() != "" and str(x).lower() != "none"]
                 except Exception:
                     lista_prods = []
-
-            with aba_dar_entrada:
-                try:
-                    df_prod = pd.read_sql("SELECT nome FROM produtos", conn)
-                    lista_prods = [str(x) for x in df_prod["nome"].dropna().tolist() if str(x).strip() != "" and str(x).lower() != "none"]
-                except Exception:
-                    lista_prods = []
                     
                 # Busca também produtos já cadastrados no histórico de compras para evitar bloqueios
                 try:
