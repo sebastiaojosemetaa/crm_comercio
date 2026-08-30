@@ -1242,7 +1242,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         
                     enviado = st.form_submit_button("Registrar Entrada no Estoque")
                     if enviado:
-                        registrar_compra(produto_escolhido, fornecedor_escolhido, grupo_escolhido, quantidade, preco_custo)
+                        registrar_compra(produto_escolhido, fornecedor_escolhido, grupo_escolhido, quantidade, preco_custo, preco_venda)
                         cursor = conn.cursor()
                         cursor.execute("UPDATE produtos SET quantidade = COALESCE(quantidade, 0) + ? WHERE TRIM(produto) = TRIM(?)", (quantidade, produto_escolhido))
                         conn.commit()
