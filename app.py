@@ -357,16 +357,16 @@ def deletar_pedidos_cliente(cliente_nome, s_d1, s_d2):
 def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo):
     cursor = conn.cursor()
     
-    # Recria a tabela limpa com a estrutura unificada correta
-    cursor.execute("DROP TABLE IF EXISTS compras")
+    # Apenas cria a tabela se ela não existir, sem apagar as anteriores!
     cursor.execute("""
-        CREATE TABLE compras (
+        CREATE TABLE IF NOT EXISTS compras (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             produto TEXT,
             fornecedor TEXT,
             grupo TEXT,
             quantidade REAL,
             valor_custo REAL,
+            valor_venda REAL,
             valor_total REAL,
             data TEXT
         )
@@ -375,10 +375,11 @@ def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo):
     valor_total = quantidade * valor_custo
     data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
+    # Insere o novo registro mantendo os anteriores no banco
     cursor.execute("""
-        INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data_atual))
+        INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_custo, valor_venda, valor_total, data)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (produto, fornecedor, grupo, quantidade, valor_custo, 0.0, valor_total, data_atual))
     
     conn.commit()
 
