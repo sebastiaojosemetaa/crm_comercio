@@ -357,25 +357,29 @@ def deletar_pedidos_cliente(cliente_nome, s_d1, s_d2):
 def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo):
     cursor = conn.cursor()
     
-    # Apenas cria a tabela se ela não existir, sem apagar as anteriores!
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS compras (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            produto TEXT,
-            fornecedor TEXT,
-            grupo TEXT,
-            quantidade REAL,
-            valor_custo REAL,
-            valor_venda REAL,
-            valor_total REAL,
-            data TEXT
-        )
-    """)
+    # Verifica se a tabela já existe e quais colunas ela tem
+    try:
+        cursor.execute("SELECT valor_venda FROM compras LIMIT 1")
+    except sqlite3.OperationalError:
+        # Se der erro, significa que a tabela não tem a estrutura nova. Recriamos com segurança.
+        cursor.execute("DROP TABLE IF EXISTS compras")
+        cursor.execute("""
+            CREATE TABLE compras (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                produto TEXT,
+                fornecedor TEXT,
+                grupo TEXT,
+                quantidade REAL,
+                valor_custo REAL,
+                valor_venda REAL,
+                valor_total REAL,
+                data TEXT
+            )
+        """)
     
     valor_total = quantidade * valor_custo
     data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    # Insere o novo registro mantendo os anteriores no banco
     cursor.execute("""
         INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_custo, valor_venda, valor_total, data)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
