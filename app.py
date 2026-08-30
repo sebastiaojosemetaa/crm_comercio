@@ -533,7 +533,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                     val_total = df_item_venda['valor_total'].sum() if 'valor_total' in df_item_venda.columns else 0.0
                     
                     with st.expander(f"🛒 Pedido ID: {cod} | Data: {data_venda} | Total: R$ {val_total:.2f}"):
-                        st.dataframe(df_item_venda[['id', 'produto', 'fornecedor', 'qtd', 'valor_total', 'grupo']], use_container_width=True)
+                        st.dataframe(df_item_venda[['id', 'produto', 'fornecedor', 'quantidade', 'valor_total', 'grupo']], use_container_width=True)
                 
                 if len(codigos) == 0:
                     df_edit_cli = df_cli_pedidos.copy()
