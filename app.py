@@ -950,22 +950,22 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     grupo_ped = st.selectbox("Grupo", grupos_opt, key="ped_grupo_ind")
                     qtd_ped = st.number_input("Quantidade", min_value=0.1, step=1.0, value=1.0, key="ped_qtd_ind")
                     v_venda_ped = st.number_input("Preço Unitário (R$)", min_value=0.0, step=1.0, value=10.0, key="ped_v_ind")
-                    
+        
                     tipo_reg = "PEDIDO" if is_modo_pedido else "VENDA"
-                if st.form_submit_button(f"Salvar {tipo_reg}"):
-                    import datetime
-                    codigo_pedido = f"PED-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}" if tipo_reg == "PEDIDO" else ""
-                    
-                    try:
-                        salvar_pedido_ou_venda(cliente_ped, prod_item, fornec_ped, grupo_ped, qtd_ped, v_venda_ped, tipo=tipo_reg, codigo=codigo_pedido)
-                    except TypeError:
+                    if st.form_submit_button(f"Salvar {tipo_reg}"):
+                        import datetime
+                        codigo_pedido = f"PED-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}" if tipo_reg == "PEDIDO" else ""
+                        
                         try:
-                            salvar_pedido_ou_venda(cliente_ped, prod_item, fornec_ped, grupo_ped, qtd_ped, v_venda_ped, tipo=tipo_reg)
+                            salvar_pedido_ou_venda(cliente_ped, prod_item, fornec_ped, grupo_ped, qtd_ped, v_venda_ped, tipo=tipo_reg, codigo=codigo_pedido)
                         except TypeError:
-                            salvar_pedido_ou_venda(cliente_ped, prod_item, fornec_ped, grupo_ped, qtd_ped, v_venda_ped)
-                    
-                    st.success(f"{tipo_reg} cadastrado com sucesso!")
-                    st.rerun()
+                            try:
+                                salvar_pedido_ou_venda(cliente_ped, prod_item, fornec_ped, grupo_ped, qtd_ped, v_venda_ped, tipo=tipo_reg)
+                            except TypeError:
+                                salvar_pedido_ou_venda(cliente_ped, prod_item, fornec_ped, grupo_ped, qtd_ped, v_venda_ped)
+                        
+                        st.success(f"{tipo_reg} cadastrado com sucesso!")
+                        st.rerun()
 
             if aba_baixa is not None:
                 with aba_baixa:
