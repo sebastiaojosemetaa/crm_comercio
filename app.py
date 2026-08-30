@@ -1293,22 +1293,15 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.success(f"Compra do produto '{produto_selecionado}' alterada com sucesso!")
                     st.rerun()
 
-            col_alt, col_exc = st.columns(2)
-            with col_exc:
-                if st.button("Excluir Compra Selecionada", key="exc_compra_v2"):
-                    cursor = conn.cursor()
-                    cursor.execute("DELETE FROM compras_v2 WHERE id = ?", (id_compra_selecionada,))
-                    conn.commit()
-                    st.success(f"Compra do produto '{produto_selecionado}' excluída com sucesso!")
-                    st.rerun()
+                    col_alt, col_exc = st.columns(2)
+                    with col_exc:
+                        if st.button("Excluir Compra Selecionada", key="exc_compra_v2"):
+                            cursor = conn.cursor()
+                            cursor.execute("DELETE FROM compras_v2 WHERE id = ?", (id_compra_selecionada,))
+                            conn.commit()
+                            st.success(f"Compra do produto '{produto_selecionado}' excluída com sucesso!")
+                            st.rerun()
         
-            with aba_historico_compras:
-                try:
-                    df_compras = pd.read_sql("SELECT * FROM compras_v2", conn)
-                except Exception:
-                    df_compras = pd.DataFrame()
-                st.dataframe(df_compras, use_container_width=True)
-
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
             df_prods = carregar_dados("SELECT * FROM produtos")            
