@@ -1205,9 +1205,15 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             st.title("📦 Entrada de Estoque (Compras)")
             
             aba_dar_entrada, aba_historico_compras = st.tabs(["Dar Entrada em Estoque", "Histórico de Entradas / Compras"])
-            aba_dar_entrada, aba_historico_compras = st.tabs(["Dar Entrada em Estoque", "Histórico de Entradas / Compras"])
             
             with aba_dar_entrada:
+                try:
+                    df_prod = pd.read_sql("SELECT nome FROM produtos", conn)
+                    lista_prods = [str(x) for x in df_prod["nome"].dropna().tolist() if str(x).strip() != "" and str(x).lower() != "none"]
+                except Exception:
+                    lista_prods = []
+
+                        with aba_dar_entrada:
                 try:
                     df_prod = pd.read_sql("SELECT nome FROM produtos", conn)
                     lista_prods = [str(x) for x in df_prod["nome"].dropna().tolist() if str(x).strip() != "" and str(x).lower() != "none"]
