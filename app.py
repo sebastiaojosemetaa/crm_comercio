@@ -357,15 +357,9 @@ def deletar_pedidos_cliente(cliente_nome, s_d1, s_d2):
 def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo, valor_venda):
     cursor = conn.cursor()
     
-    # Se a tabela tiver estrutura antiga incompatível, recria do zero com as 8 colunas oficiais
-    try:
-        cursor.execute("SELECT valor_venda FROM compras LIMIT 1")
-    except sqlite3.OperationalError:
-        cursor.execute("DROP TABLE IF EXISTS compras")
-        conn.commit()
-
+    # Cria a nova tabela limpa sem conflitos de cache
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS compras (
+        CREATE TABLE IF NOT EXISTS compras_v2 (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             produto TEXT,
             fornecedor TEXT,
@@ -377,12 +371,12 @@ def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo, valor_
             data TEXT
         )
     """)
-
+    
     valor_total = quantidade * valor_custo
     data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
     cursor.execute("""
-        INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_custo, valor_venda, valor_total, data)
+        INSERT INTO compras_v2 (produto, fornecedor, grupo, quantidade, valor_custo, valor_venda, valor_total, data)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     """, (produto, fornecedor, grupo, quantidade, valor_custo, valor_venda, valor_total, data_atual))
     
