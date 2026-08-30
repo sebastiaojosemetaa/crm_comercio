@@ -1232,10 +1232,16 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         
                 st.markdown("---")
                 st.markdown("### Últimas Compras Registradas")
-                df_compras_recente = pd.read_sql("SELECT * FROM compras_v2 ORDER BY id DESC LIMIT 5", conn)
-                st.dataframe(df_compras_recente, use_container_width=True)
+                try:
+                    df_compras_recente = pd.read_sql("SELECT * FROM compras_v2 ORDER BY id DESC LIMIT 5", conn)
+                except Exception:
+                    df_compras_recente = pd.DataFrame()
         
-                if not df_compras_recente.empty:
+                if df_compras_recente.empty:
+                    st.info("Nenhuma compra registrada na nova tabela ainda. Faça um registro acima para começar!")
+                else:
+                    st.dataframe(df_compras_recente, use_container_width=True)
+                    
                     st.markdown("#### Gerenciar Compra Selecionada")
                     id_compra_selecionada = st.selectbox("Selecione o ID da compra:", df_compras_recente["id"].tolist(), key="select_id_compra_v2")
                     
@@ -1267,15 +1273,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         if st.button("Excluir Compra Selecionada", key="exc_compra_v2"):
                             cursor = conn.cursor()
                             cursor.execute("DELETE FROM compras_v2 WHERE id = ?", (id_compra_selecionada,))
-                            conn.commit()
-                            st.success(f"Compra ID {id_compra_selecionada} excluída com sucesso!")
-                            st.rerun()
-        
-                    col_alt, col_exc = st.columns(2)
-                    with col_exc:
-                        if st.button("Excluir Compra Selecionada"):
-                            cursor = conn.cursor()
-                            cursor.execute("DELETE FROM compras WHERE id = ?", (id_compra_selecionada,))
                             conn.commit()
                             st.success(f"Compra ID {id_compra_selecionada} excluída com sucesso!")
                             st.rerun()
