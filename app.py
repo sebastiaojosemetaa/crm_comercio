@@ -1232,57 +1232,43 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         
                 st.markdown("---")
                 st.markdown("### Últimas Compras Registradas")
-                df_compras_recente = pd.read_sql("SELECT * FROM compras ORDER BY id DESC LIMIT 5", conn)
+                df_compras_recente = pd.read_sql("SELECT * FROM compras_v2 ORDER BY id DESC LIMIT 5", conn)
                 st.dataframe(df_compras_recente, use_container_width=True)
         
                 if not df_compras_recente.empty:
                     st.markdown("#### Gerenciar Compra Selecionada")
-                    id_compra_selecionada = st.selectbox("Selecione o ID da compra:", df_compras_recente["id"].tolist(), key="select_id_compra")
+                    id_compra_selecionada = st.selectbox("Selecione o ID da compra:", df_compras_recente["id"].tolist(), key="select_id_compra_v2")
                     
                     compra_atual = df_compras_recente[df_compras_recente["id"] == id_compra_selecionada].iloc[0]
                     
                     with st.expander("Editar Compra Selecionada"):
-                        novo_produto = st.text_input("Produto", value=str(compra_atual.get("produto", "")))
-                        novo_fornecedor = st.text_input("Fornecedor", value=str(compra_atual.get("fornecedor", "")))
-                        nova_qtd = st.number_input("Quantidade", value=float(compra_atual.get("quantidade", 1.0)), format="%.2f")
+                        novo_produto = st.text_input("Produto", value=str(compra_atual.get("produto", "")), key="edit_prod_v2")
+                        novo_fornecedor = st.text_input("Fornecedor", value=str(compra_atual.get("fornecedor", "")), key="edit_forn_v2")
+                        nova_qtd = st.number_input("Quantidade", value=float(compra_atual.get("quantidade", 1.0)), format="%.2f", key="edit_qtd_v2")
                         
-                        coluna_custo = "valor_custo" if "valor_custo" in compra_atual else "valor_compra"
-                        val_custo_atual = float(compra_atual.get(coluna_custo, 0.0))
-                        novo_custo = st.number_input("Preço de Custo", value=val_custo_atual, format="%.2f")
+                        val_custo_atual = float(compra_atual.get("valor_custo", 0.0))
+                        novo_custo = st.number_input("Preço de Custo", value=val_custo_atual, format="%.2f", key="edit_custo_v2")
                         
-                        # Campo para o Preço de Venda
-                        val_venda_atual = float(compra_atual.get("valor_venda", 0.0)) if "valor_venda" in compra_atual else 0.0
-                        novo_venda = st.number_input("Preço de Venda", value=val_venda_atual, format="%.2f")
+                        val_venda_atual = float(compra_atual.get("valor_venda", 0.0))
+                        novo_venda = st.number_input("Preço de Venda", value=val_venda_atual, format="%.2f", key="edit_venda_v2")
                         
-                        if st.button("Salvar Alterações"):
+                        if st.button("Salvar Alterações", key="salvar_alt_v2"):
                             novo_total = nova_qtd * novo_custo
                             cursor = conn.cursor()
-                            
-                            # Verifica se a tabela possui a coluna valor_venda para atualizar corretamente
-                            cursor.execute("PRAGMA table_info(compras)")
-                            colunas_tabela = [col[1] for col in cursor.fetchall()]
-                            
-                            if "valor_venda" in colunas_tabela:
-                                if coluna_custo == "valor_custo":
-                                    cursor.execute("""
-                                        UPDATE compras SET produto = ?, fornecedor = ?, quantidade = ?, valor_custo = ?, valor_venda = ?, valor_total = ? WHERE id = ?
-                                    """, (novo_produto, novo_fornecedor, nova_qtd, novo_custo, novo_venda, novo_total, id_compra_selecionada))
-                                else:
-                                    cursor.execute("""
-                                        UPDATE compras SET produto = ?, fornecedor = ?, quantidade = ?, valor_compra = ?, valor_venda = ?, valor_total = ? WHERE id = ?
-                                    """, (novo_produto, novo_fornecedor, nova_qtd, novo_custo, novo_venda, novo_total, id_compra_selecionada))
-                            else:
-                                if coluna_custo == "valor_custo":
-                                    cursor.execute("""
-                                        UPDATE compras SET produto = ?, fornecedor = ?, quantidade = ?, valor_custo = ?, valor_total = ? WHERE id = ?
-                                    """, (novo_produto, novo_fornecedor, nova_qtd, novo_custo, novo_total, id_compra_selecionada))
-                                else:
-                                    cursor.execute("""
-                                        UPDATE compras SET produto = ?, fornecedor = ?, quantidade = ?, valor_compra = ?, valor_total = ? WHERE id = ?
-                                    """, (novo_produto, novo_fornecedor, nova_qtd, novo_custo, novo_total, id_compra_selecionada))
-                                    
+                            cursor.execute("""
+                                UPDATE compras_v2 SET produto = ?, fornecedor = ?, quantidade = ?, valor_custo = ?, valor_venda = ?, valor_total = ? WHERE id = ?
+                            """, (novo_produto, novo_fornecedor, nova_qtd, novo_custo, novo_venda, novo_total, id_compra_selecionada))
                             conn.commit()
                             st.success(f"Compra ID {id_compra_selecionada} alterada com sucesso!")
+                            st.rerun()
+        
+                    col_alt, col_exc = st.columns(2)
+                    with col_exc:
+                        if st.button("Excluir Compra Selecionada", key="exc_compra_v2"):
+                            cursor = conn.cursor()
+                            cursor.execute("DELETE FROM compras_v2 WHERE id = ?", (id_compra_selecionada,))
+                            conn.commit()
+                            st.success(f"Compra ID {id_compra_selecionada} excluída com sucesso!")
                             st.rerun()
         
                     col_alt, col_exc = st.columns(2)
