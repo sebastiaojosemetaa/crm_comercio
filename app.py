@@ -1278,7 +1278,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             st.rerun()
         
             with aba_historico_compras:
-                df_compras = pd.read_sql("SELECT * FROM compras", conn)
+                try:
+                    df_compras = pd.read_sql("SELECT * FROM compras_v2", conn)
+                except Exception:
+                    df_compras = pd.DataFrame()
+                st.dataframe(df_compras, use_container_width=True)
                 st.dataframe(df_compras, use_container_width=True)
 
         elif menu_admin == "📦 Estoque de Produtos":
