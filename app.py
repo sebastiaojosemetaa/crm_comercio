@@ -1301,7 +1301,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 except Exception:
                     df_compras = pd.DataFrame()
                 st.dataframe(df_compras, use_container_width=True)
-                st.dataframe(df_compras, use_container_width=True)
 
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
