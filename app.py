@@ -1082,7 +1082,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     }
                     
                     # Cria a coluna de data formatada para agrupar
-                    df_registros["data_dia"] = pd.to_datetime(df_registros["data"]).dt.strftime("%d/%m/%Y")
+                    df_registros["data_str"] = df_registros["data"].astype(str).str.slice(0, 10)
+                    df_registros["data_dia"] = pd.to_datetime(df_registros["data_str"], errors="coerce").dt.strftime("%d/%m/%Y").fillna(df_registros["data_str"])
                     datas_unicas = sorted(df_registros["data_dia"].unique(), reverse=True)
                     
                     st.markdown(f"### 📂 Registros Separados por Data")
