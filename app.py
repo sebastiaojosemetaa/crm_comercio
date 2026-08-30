@@ -1081,24 +1081,33 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         "data": st.column_config.TextColumn("Data", disabled=True),
                     }
                     
-                    if is_modo_pedido:
-                        config_cols["valor_venda"] = st.column_config.NumberColumn("Preço Custo / Valor Compra", min_value=0.0, format="R$ %.2f")
-                        for col_ocultar in ["forma_pagamento", "valor_recebido", "troco", "restante"]:
-                            if col_ocultar in df_registros.columns:
-                                df_registros = df_registros.drop(columns=[col_ocultar])
-                    else:
-                        config_cols["valor_venda"] = st.column_config.NumberColumn("Valor Venda", min_value=0.0, format="R$ %.2f")
-                        config_cols["forma_pagamento"] = st.column_config.SelectboxColumn("Forma Pagamento", options=["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito", "Crediário / Fiado"])
-                        config_cols["valor_recebido"] = st.column_config.NumberColumn("Valor Recebido / Haver", min_value=0.0, format="R$ %.2f")
-
-                    df_editado = st.data_editor(
-                        df_registros,
-                        key=f"editor_registros_{menu_admin}",
-                        use_container_width=True,
-                        num_rows="fixed",
-                        column_config=config_cols,
-                        hide_index=True
-                    )
+                    # Cria a coluna de data formatada para agrupar
+                    df_registros["data_dia"] = pd.to_datetime(df_registros["data"]).dt.strftime("%d/%m/%Y")
+                    datas_unicas = sorted(df_registros["data_dia"].unique(), reverse=True)
+                    
+                    st.markdown(f"### 📂 Registros Separados por Data")
+                    
+                    dfs_editados = {}
+                    
+                    for data_dia in datas_unicas:
+                        with st.expander(f"📅 Data do Registro: {data_dia}", expanded=True):
+                            df_por_data = df_registros[df_registros["data_dia"] == data_dia].copy()
+                            
+                            df_editado_dia = st.data_editor(
+                                df_por_data.drop(columns=["data_dia"]),
+                                column_config=config_cols,
+                                use_container_width=True,
+                                num_rows="fixed",
+                                hide_index=True,
+                                key=f"editor_data_{data_dia.replace('/', '_')}"
+                            )
+                            dfs_editados[data_dia] = df_editado_dia
+                            
+                            total_dia = df_por_data["valor_total"].sum() if "valor_total" in df_por_data.columns else 0
+                            st.markdown(f"**Total deste dia ({data_dia}):** R$ {total_dia:.2f}")
+                
+                    # Atualiza a variável df_editado para o botão de salvar logo abaixo
+                    df_editado = pd.concat(dfs_editados.values()) if dfs_editados else df_registros
                     
                     label_btn_sync = "🔄 Atualizar Preço de Custo / Valor da Compra" if is_modo_pedido else "🔄 Atualizar Valores com Estoque Atual"
                     tipo_sync = "compra" if is_modo_pedido else "venda"
