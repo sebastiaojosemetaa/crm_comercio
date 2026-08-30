@@ -1209,48 +1209,58 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             with aba_dar_entrada:
                 try:
                     df_prod = pd.read_sql("SELECT nome FROM produtos", conn)
-                    lista_prods = df_prod["nome"].dropna().tolist()
+                    lista_prods = [str(x) for x in df_prod["nome"].dropna().tolist() if str(x).strip() != "" and str(x).lower() != "none"]
                 except Exception:
                     lista_prods = []
                     
+                # Busca também produtos já cadastrados no histórico de compras para evitar bloqueios
+                try:
+                    df_comp_prod = pd.read_sql("SELECT DISTINCT produto FROM compras_v2", conn)
+                    lista_compras_prod = [str(x) for x in df_comp_prod["produto"].dropna().tolist() if str(x).strip() != "" and str(x).lower() != "none"]
+                    for p in lista_compras_prod:
+                        if p not in lista_prods:
+                            lista_prods.append(p)
+                except Exception:
+                    pass
+                    
                 if not lista_prods:
-                    st.warning("Cadastre produtos primeiro na aba 'Estoque de Produtos'.")
-                else:
-                    with st.form("form_entrada_v2"):
-                        prod_escolhido = st.selectbox("Produto", lista_prods)
-                        fornecedor = st.text_input("Fornecedor", value="BAHIA")
-                        grupo = st.text_input("Grupo", value="GERAL")
-                        quantidade = st.number_input("Quantidade", min_value=0.01, value=1.0, format="%.2f")
-                        valor_custo = st.number_input("Preço de Custo (R$)", min_value=0.0, value=0.0, format="%.2f")
-                        valor_venda = st.number_input("Preço de Venda (R$)", min_value=0.0, value=0.0, format="%.2f")
+                    lista_prods = ["ABACATE", "ABACAXI PEQUENO", "GERAL"]
+        
+                with st.form("form_entrada_v2"):
+                    prod_escolhido = st.selectbox("Produto", lista_prods)
+                    fornecedor = st.text_input("Fornecedor", value="BAHIA")
+                    grupo = st.text_input("Grupo", value="GERAL")
+                    quantidade = st.number_input("Quantidade", min_value=0.01, value=1.0, format="%.2f")
+                    valor_custo = st.number_input("Preço de Custo (R$)", min_value=0.0, value=0.0, format="%.2f")
+                    valor_venda = st.number_input("Preço de Venda (R$)", min_value=0.0, value=0.0, format="%.2f")
+                    
+                    submitted = st.form_submit_button("Registrar Entrada")
+                    if submitted:
+                        valor_total = quantidade * valor_custo
+                        from datetime import datetime
+                        data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                         
-                        submitted = st.form_submit_button("Registrar Entrada")
-                        if submitted:
-                            valor_total = quantidade * valor_custo
-                            from datetime import datetime
-                            data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            
-                            cursor = conn.cursor()
-                            cursor.execute("""
-                                CREATE TABLE IF NOT EXISTS compras_v2 (
-                                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                    produto TEXT,
-                                    fornecedor TEXT,
-                                    grupo TEXT,
-                                    quantidade REAL,
-                                    valor_custo REAL,
-                                    valor_venda REAL,
-                                    valor_total REAL,
-                                    data TEXT
-                                )
-                            """)
-                            cursor.execute("""
-                                INSERT INTO compras_v2 (produto, fornecedor, grupo, quantidade, valor_custo, valor_venda, valor_total, data)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                            """, (prod_escolhido, fornecedor, grupo, quantidade, valor_custo, valor_venda, valor_total, data_atual))
-                            conn.commit()
-                            st.success("Entrada registrada com sucesso!")
-                            st.rerun()
+                        cursor = conn.cursor()
+                        cursor.execute("""
+                            CREATE TABLE IF NOT EXISTS compras_v2 (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                produto TEXT,
+                                fornecedor TEXT,
+                                grupo TEXT,
+                                quantidade REAL,
+                                valor_custo REAL,
+                                valor_venda REAL,
+                                valor_total REAL,
+                                data TEXT
+                            )
+                        """)
+                        cursor.execute("""
+                            INSERT INTO compras_v2 (produto, fornecedor, grupo, quantidade, valor_custo, valor_venda, valor_total, data)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (prod_escolhido, fornecedor, grupo, quantidade, valor_custo, valor_venda, valor_total, data_atual))
+                        conn.commit()
+                        st.success("Entrada registrada com sucesso!")
+                        st.rerun()
         
             with aba_historico_compras:
                 st.markdown("### Últimas Compras Registradas")
