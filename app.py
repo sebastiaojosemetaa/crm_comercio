@@ -1243,7 +1243,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.dataframe(df_compras_recente, use_container_width=True)
                     
                     st.markdown("#### Gerenciar Compra Selecionada")
-                    
+                    id_compra_selecionada = st.selectbox("Selecione o ID da compra:", df_compras_recente["id"].tolist(), key="select_id_compra_v2")
                     # Filtra de forma segura pelo ID
                     df_filtrado = df_compras_recente[df_compras_recente["id"] == id_compra_selecionada]
                     compra_atual = df_filtrado.iloc[0] if not df_filtrado.empty else df_compras_recente.iloc[0]
