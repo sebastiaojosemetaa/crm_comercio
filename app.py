@@ -1275,13 +1275,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     fornecedor = ?
                                 WHERE id = ?
                             """, (
-                                row['produto'], 
-                                row['quantidade'], 
-                                row['valor_custo'], 
-                                row['valor_venda'], 
-                                row['grupo'], 
-                                row['fornecedor'], 
-                                row['id']
+                                row.get('produto'), 
+                                row.get('quantidade', row.get('estoque_atual')), 
+                                row.get('valor_custo', row.get('valor_compra')), 
+                                row.get('valor_venda'), 
+                                row.get('grupo'), 
+                                row.get('fornecedor'), 
+                                row.get('id')
                             ))
                         conn.commit()
                         st.success("Estoque atualizado com sucesso!")
