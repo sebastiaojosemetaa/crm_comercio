@@ -1173,7 +1173,15 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             with aba_historico_compras:
                 df_compras = carregar_dados("SELECT * FROM compras")
                 if not df_compras.empty:
+                    # Remove colunas desnecessárias
                     df_compras = df_compras.drop(columns=['valor_compra', 'valor_venda'], errors='ignore')
+                    
+                    # Define a sequência exata das colunas (mantendo o 'id' no começo se existir)
+                    colunas_desejadas = ['id', 'produto', 'quantidade', 'fornecedor', 'grupo', 'valor_custo', 'valor_total', 'data']
+                    # Filtra apenas as colunas que realmente existem no DataFrame para evitar erros
+                    colunas_existentes = [c for c in colunas_desejadas if c in df_compras.columns]
+                    df_compras = df_compras[colunas_existentes]
+                    
                 st.dataframe(df_compras, use_container_width=True)
 
         elif menu_admin == "📦 Estoque de Produtos":
