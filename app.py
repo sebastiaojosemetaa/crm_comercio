@@ -1091,11 +1091,20 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         with st.expander(f"📅 Data do Registro: {data_dia}", expanded=True):
                             df_por_data = df_registros[df_registros["data_dia"] == data_dia].copy()
 
-                            # Garante que a coluna exiba os valores de custo na tela de pedidos
+                            # Garante que puxa o preço de custo do estoque se a coluna estiver vazia ou nula
                             if 'valor_compra' in df_por_data.columns:
-                                df_por_data['valor_venda'] = df_por_data['valor_compra']
-                        
-                            # Cria uma configuração personalizada alterando apenas o título da coluna para o usuário
+                                for idx, row in df_por_data.iterrows():
+                                    if pd.isna(row.get('valor_compra')) or row.get('valor_compra') == 0:
+                                        # Busca o preço de custo na tabela de produtos
+                                        cursor.execute("SELECT valor_compra FROM produtos WHERE TRIM(produto) = TRIM(?)", (str(row['produto']).strip(),))
+                                        res = cursor.fetchone()
+                                        if res and res[0] is not None:
+                                            df_por_data.loc[idx, 'valor_venda'] = res[0]
+                                        else:
+                                            df_por_data.loc[idx, 'valor_venda'] = 0.0
+                                    else:
+                                        df_por_data.loc[idx, 'valor_venda'] = row['valor_compra']
+                            
                             cfg_local = config_cols.copy() if config_cols else {}
                             if 'valor_venda' in cfg_local:
                                 cfg_local['valor_venda'] = st.column_config.NumberColumn("Valor Compra", format="R$ %.2f")
