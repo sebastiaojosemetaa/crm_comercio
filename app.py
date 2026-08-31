@@ -165,6 +165,22 @@ def adequar_banco_e_migrar():
             data TEXT
         )
     """)
+    
+    # Garante que todas as colunas necessárias existam na tabela compras antiga
+    colunas_compras = [
+        ("produto", "TEXT"),
+        ("fornecedor", "TEXT"),
+        ("grupo", "TEXT"),
+        ("quantidade", "REAL"),
+        ("valor_custo", "REAL"),
+        ("valor_total", "REAL"),
+        ("data", "TEXT")
+    ]
+    for col_nome, col_tipo in colunas_compras:
+        try:
+            cursor.execute(f"ALTER TABLE compras ADD COLUMN {col_nome} {col_tipo}")
+        except:
+            pass
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS caixa_sessoes (
