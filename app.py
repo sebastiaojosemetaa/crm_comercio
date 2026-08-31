@@ -410,18 +410,18 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral", d_inicio=None, d_fi
     if not df_dados.empty:
         df_resumo = df_dados.groupby('produto').agg({
             'quantidade': 'sum',
-            'valor_compra': 'mean',
+            'valor_venda': 'mean',
             'valor_total': 'sum'
         }).reset_index()
     else:
-        df_resumo = pd.DataFrame(columns=['produto', 'quantidade', 'valor_compra', 'valor_total'])
+        df_resumo = pd.DataFrame(columns=['produto', 'quantidade', 'valor_venda', 'valor_total'])
 
     table_data = [["Produto", "Qtd Total", "Preço Unitário (R$)", "Valor Total (R$)"]]
     valor_total_geral = 0.0
     for _, row in df_resumo.iterrows():
         prod = str(row['produto'])
         qtd = f"{row['quantidade']:.2f}"
-        v_unit = f"R$ {row['valor_compra']:,.2f}"
+        v_unit = f"R$ {row['valor_venda']:,.2f}"
         v_tot = row['valor_total']
         valor_total_geral += v_tot
         table_data.append([prod, qtd, v_unit, f"R$ {v_tot:,.2f}"])
@@ -940,23 +940,15 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     fornec_ped = st.selectbox("Fornecedor", fornecedores_opt, key="ped_forn_ind")
                     grupo_ped = st.selectbox("Grupo", grupos_opt, key="ped_grupo_ind")
                     qtd_ped = st.number_input("Quantidade", min_value=0.1, step=1.0, value=1.0, key="ped_qtd_ind")
-                    v_venda_ped = st.number_input("Preço Unitário (R$)", min_value=0.0, step=1.0, value=10.0, key="ped_v_ind")
-        
-                    tipo_reg = "PEDIDO" if is_modo_pedido else "VENDA"
-                    if st.form_submit_button(f"Salvar {tipo_reg}"):
-                        import datetime
-                        codigo_pedido = f"PED-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}" if tipo_reg == "PEDIDO" else ""
-                        
+                    v_compra_ped = st.number_input("Preço de Compra (R$)", min_value=0.0, step=0.1, value=10.0, key="ped_v_compra_ind")
+            
+                    if st.form_submit_button("Salvar Pedido/Orçamento"):
                         try:
-                            salvar_pedido_ou_venda(cliente_ped, prod_item, fornec_ped, grupo_ped, qtd_ped, v_venda_ped, tipo=tipo_reg, codigo=codigo_pedido)
-                        except TypeError:
-                            try:
-                                salvar_pedido_ou_venda(cliente_ped, prod_item, fornec_ped, grupo_ped, qtd_ped, v_venda_ped, tipo=tipo_reg)
-                            except TypeError:
-                                salvar_pedido_ou_venda(cliente_ped, prod_item, fornec_ped, grupo_ped, qtd_ped, v_venda_ped)
-                        
-                        st.success(f"{tipo_reg} cadastrado com sucesso!")
-                        st.rerun()
+                            salvar_pedido_ou_venda(cliente_ped, prod_item, fornec_ped, grupo_ped, qtd_ped, v_compra_ped)
+                            st.success(f"Pedido cadastrado com sucesso!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro: {e}")
 
             if aba_baixa is not None:
                 with aba_baixa:
