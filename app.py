@@ -1211,35 +1211,30 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     )
                     
                     # Botão para salvar as alterações feitas na tabela no banco de dados
-                    if st.button("💾 Salvar Alterações na Tabela"):
+                    if st.button("Salvar Alterações no Estoque"):
                         cursor = conn.cursor()
-                        for index, row in editado_df.iterrows():
-                            # Recalcula o valor total automaticamente
-                            novo_total = float(row['quantidade']) * float(row['valor_custo'])
-                            
+                        for index, row in df_editado.iterrows():
+                            p_prod = row.get('produto')
+                            p_qtd = row.get('quantidade', row.get('estoque_atual', 0))
+                            p_custo = row.get('valor_custo', row.get('valor_compra', 0))
+                            p_venda = row.get('valor_venda', 0)
+                            p_grupo = row.get('grupo')
+                            p_forn = row.get('fornecedor')
+                            p_id = row.get('id')
+            
                             cursor.execute("""
-                                UPDATE compras 
-                                SET produto = ?,
-                                    quantidade = ?, 
-                                    fornecedor = ?,
-                                    grupo = ?,
+                                UPDATE produtos 
+                                SET produto = ?, 
+                                    estoque_atual = ?, 
                                     valor_custo = ?, 
                                     valor_venda = ?, 
-                                    valor_total = ?
+                                    grupo = ?, 
+                                    fornecedor = ?
                                 WHERE id = ?
-                            """, (
-                                row['produto'], 
-                                row['quantidade'], 
-                                row['fornecedor'], 
-                                row['grupo'], 
-                                row['valor_custo'], 
-                                row['valor_venda'], 
-                                novo_total, 
-                                row['id']
-                            ))
-                        
+                            """, (p_prod, p_qtd, p_custo, p_venda, p_grupo, p_forn, p_id))
+            
                         conn.commit()
-                        st.success("Alterações, grupos e valores atualizados com sucesso!")
+                        st.success("Estoque atualizado e salvo com sucesso!")
                         st.rerun()
 
         elif menu_admin == "📦 Estoque de Produtos":
