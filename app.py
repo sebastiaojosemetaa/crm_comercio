@@ -1181,6 +1181,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.rerun()
                         
             with aba_historico_compras:
+                # Botão para atualizar a tela
+                if st.button("🔄 Atualizar Histórico", key="btn_atualizar_compras"):
+                    st.rerun()
+    
                 query_historico = """
                     SELECT 
                         MIN(id) as id,
