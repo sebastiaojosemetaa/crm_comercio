@@ -232,9 +232,8 @@ def sincronizar_valores_com_estoque(tabela_alvo, tipo_preco="venda"):
             p = float(preco_atual.iloc[0])
             total = p * row['qtd']
             cursor.execute(f"UPDATE {tabela_alvo} SET valor_venda = ?, valor_total = ? WHERE id = ?", (p, total, row['id']))
-    
-    conn.commit()
-
+            
+        conn.commit()
 def salvar_cliente_completo(nome, telefone, doc, endereco, cidade):
     cursor = conn.cursor()
     try:
