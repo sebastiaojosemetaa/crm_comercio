@@ -1261,15 +1261,30 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
                 col1, col2 = st.columns(2)
                 with col1:
-                    if st.button("💾 Salvar Alterações no Estoque", type="primary"):
+                    if st.button("Salvar Alterações no Estoque"):
                         cursor = conn.cursor()
-                        for index, row in df_editado.iterrows():
-                            qtd_val = float(row.get('quantidade', row.get('estoque_atual', 0)) or 0)
-                            query = "UPDATE produtos SET nome = ?, estoque_atual = ?, valor_compra = ?, valor_venda = ?, grupo = ?, fornecedor = ? WHERE id = ?"
-                            dados = (row['nome'], qtd_val, float(row['valor_compra'] or 0), float(row['valor_venda'] or 0), row['grupo'], row['fornecedor'], row['id'])
-                            cursor.execute(query, dados)
+                        for index, row in editado_df.iterrows():
+                            # Corrigido de 'valor_compra' para 'valor_custo'
+                            cursor.execute("""
+                                UPDATE produtos 
+                                SET produto = ?, 
+                                    estoque_atual = ?, 
+                                    valor_custo = ?, 
+                                    valor_venda = ?, 
+                                    grupo = ?, 
+                                    fornecedor = ?
+                                WHERE id = ?
+                            """, (
+                                row['produto'], 
+                                row['estoque_atual'], 
+                                row['valor_custo'], 
+                                row['valor_venda'], 
+                                row['grupo'], 
+                                row['fornecedor'], 
+                                row['id']
+                            ))
                         conn.commit()
-                        st.success("Estoque e preços atualizados com sucesso!")
+                        st.success("Estoque atualizado com sucesso!")
                         st.rerun()
 
                 with col2:
