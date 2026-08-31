@@ -290,16 +290,16 @@ def salvar_simples(tabela, coluna, valor):
         st.error(f"Erro ao salvar em {tabela}: {e}")
         return False
 
-def salvar_pedido_ou_venda(cliente, produto, fornecedor, grupo, quantidade, valor_venda, forma_pagamento="", valor_recebido=0.0, tipo="PEDIDO"):
+def salvar_pedido_ou_venda(cliente, produto, fornecedor, grupo, quantidade, valor_compra, forma_pagamento="", valor_recebido=0.0, tipo="PED"):
     cursor = conn.cursor()
-    valor_total = quantidade * valor_venda
+    valor_total = quantidade * valor_compra
     data_atual = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     cod_status = "VEN" if tipo.upper() in ["VENDA", "VENDAS", "VEN"] else "PED"
     
     cursor.execute("""
-        INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, tipo, codigo, data)
+        INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, tipo, data, codigo_venda)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (cliente.strip(), produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, str(valor_recebido), tipo, cod_status, data_atual))
+    """, (cliente.strip(), produto, fornecedor, grupo, quantidade, valor_compra, valor_total, forma_pagamento, str(valor_recebido), tipo, data_atual, f"{cod_status}-{int(datetime.datetime.now().timestamp())}"))
     conn.commit()
 
 def baixar_debito_cliente(cliente_nome, valor_haver, forma_pagamento="Dinheiro"):
