@@ -1214,20 +1214,32 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     if st.button("💾 Salvar Alterações na Tabela"):
                         cursor = conn.cursor()
                         for index, row in editado_df.iterrows():
-                            # Recalcula o valor total automaticamente com base na quantidade e custo alterados
+                            # Recalcula o valor total automaticamente
                             novo_total = float(row['quantidade']) * float(row['valor_custo'])
                             
                             cursor.execute("""
                                 UPDATE compras 
-                                SET quantidade = ?, 
+                                SET produto = ?,
+                                    quantidade = ?, 
+                                    fornecedor = ?,
+                                    grupo = ?,
                                     valor_custo = ?, 
                                     valor_venda = ?, 
                                     valor_total = ?
                                 WHERE id = ?
-                            """, (row['quantidade'], row['valor_custo'], row['valor_venda'], novo_total, row['id']))
+                            """, (
+                                row['produto'], 
+                                row['quantidade'], 
+                                row['fornecedor'], 
+                                row['grupo'], 
+                                row['valor_custo'], 
+                                row['valor_venda'], 
+                                novo_total, 
+                                row['id']
+                            ))
                         
                         conn.commit()
-                        st.success("Alterações e valores totais atualizados com sucesso!")
+                        st.success("Alterações, grupos e valores atualizados com sucesso!")
                         st.rerun()
 
         elif menu_admin == "📦 Estoque de Produtos":
