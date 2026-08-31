@@ -1103,7 +1103,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 
                     # Atualiza a variável df_editado para o botão de salvar logo abaixo
                     df_editado = pd.concat(dfs_editados.values()) if dfs_editados else df_registros
-                    
+                    if 'valor_venda' in df_editado.columns:
+                    df_editado = df_editado.rename(columns={'valor_venda': 'valor_compra'})
                     label_btn_sync = "🔄 Atualizar Preço de Custo / Valor da Compra" if is_modo_pedido else "🔄 Atualizar Valores com Estoque Atual"
                     tipo_sync = "compra" if is_modo_pedido else "venda"
                     
