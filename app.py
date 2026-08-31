@@ -1263,7 +1263,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 with col1:
                     if st.button("Salvar Alterações no Estoque"):
                         cursor = conn.cursor()
-                        for index, row in editado_df.iterrows():
+                        for index, row in df_editado.iterrows():
                             # Corrigido de 'valor_compra' para 'valor_custo'
                             cursor.execute("""
                                 UPDATE produtos 
