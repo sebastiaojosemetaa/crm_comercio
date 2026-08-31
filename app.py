@@ -542,26 +542,20 @@ if perfil_selecionado == "👤 Portal do Cliente":
                     df_item_venda = df_cli_pedidos[df_cli_pedidos['codigo_venda'] == cod]
                     data_venda = df_item_venda['data'].iloc[0] if 'data' in df_item_venda.columns else ""
                     val_total = df_item_venda['valor_total'].sum() if 'valor_total' in df_item_venda.columns else 0.0
-                    
+            
                     with st.expander(f"🛒 Pedido ID: {cod} | Data: {data_venda} | Total: R$ {val_total:.2f}"):
-                        st.dataframe(df_item_venda[['id', 'produto', 'fornecedor', 'quantidade', 'valor_total', 'grupo']], use_container_width=True)
-                
-                if len(codigos) == 0:
-                    df_edit_cli = df_cli_pedidos.copy()
-                    if 'Deletar' not in df_edit_cli.columns:
-                        df_edit_cli.insert(0, 'Deletar', False)
-
-                    df_atualizado_cliente = st.data_editor(
-                        df_edit_cli,
-                        num_rows="dynamic",
-                        use_container_width=True,
-                        key="editor_pedidos_cliente_direto"
-                    )
-                    
-                    col_salvar_cli, col_del_cli = st.columns(2)
-                    
-                    with col_salvar_cli:
-                        if st.button("💾 Salvar Alterações Feitas na Tabela", use_container_width=True, key="btn_salv_cli_dir"):
+                        df_edit_cli = df_item_venda.copy()
+                        if 'Deletar' not in df_edit_cli.columns:
+                            df_edit_cli.insert(0, 'Deletar', False)
+                        
+                        df_atualizado_cliente = st.data_editor(
+                            df_edit_cli,
+                            num_rows="dynamic",
+                            use_container_width=True,
+                            key=f"editor_cliente_{cod}"
+                        )
+                        
+                        if st.button("💾 Salvar Alterações Feitas na Tabela", key=f"btn_salv_cli_{cod}"):
                             try:
                                 cursor = conn.cursor()
                                 for index, row in df_atualizado_cliente.iterrows():
