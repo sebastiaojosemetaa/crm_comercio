@@ -1091,20 +1091,25 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         with st.expander(f"📅 Data do Registro: {data_dia}", expanded=True):
                             df_por_data = df_registros[df_registros["data_dia"] == data_dia].copy()
 
-                            # Garante que puxa o preço de custo do estoque se a coluna estiver vazia ou nula
-                            if 'valor_compra' in df_por_data.columns:
+                            # Carrega os preços de custo do estoque com segurança via Pandas
+                            try:
+                                df_produtos = pd.read_sql("SELECT produto, preco_custo FROM produtos", conn) if 'conn' in locals() else pd.DataFrame()
+                            except:
+                                df_produtos = pd.DataFrame()
+                        
+                            if 'valor_compra' in df_por_data.columns and not df_produtos.empty:
+                                dict_custos = dict(zip(df_produtos['produto'].str.strip().str.upper(), df_produtos['preco_custo']))
                                 for idx, row in df_por_data.iterrows():
-                                    if pd.isna(row.get('valor_compra')) or row.get('valor_compra') == 0:
-                                        # Busca o preço de custo na tabela de produtos
-                                        cursor.execute("SELECT valor_compra FROM produtos WHERE TRIM(produto) = TRIM(?)", (str(row['produto']).strip(),))
-                                        res = cursor.fetchone()
-                                        if res and res[0] is not None:
-                                            df_por_data.loc[idx, 'valor_venda'] = res[0]
-                                        else:
-                                            df_por_data.loc[idx, 'valor_venda'] = 0.0
+                                    val_atual = row.get('valor_compra')
+                                    if pd.isna(val_atual) or val_atual == 0 or val_atual == "None":
+                                        prod_nome = str(row['produto']).strip().upper()
+                                        df_por_data.loc[idx, 'valor_venda'] = dict_custos.get(prod_nome, 0.0)
                                     else:
-                                        df_por_data.loc[idx, 'valor_venda'] = row['valor_compra']
-                            
+                                        df_por_data.loc[idx, 'valor_venda'] = val_atual
+                            else:
+                                if 'valor_compra' in df_por_data.columns:
+                                    df_por_data['valor_venda'] = df_por_data['valor_compra'].fillna(0.0)
+                        
                             cfg_local = config_cols.copy() if config_cols else {}
                             if 'valor_venda' in cfg_local:
                                 cfg_local['valor_venda'] = st.column_config.NumberColumn("Valor Compra", format="R$ %.2f")
