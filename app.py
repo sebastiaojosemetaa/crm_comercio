@@ -1097,9 +1097,14 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             if 'valor_compra' not in df_por_data.columns:
                                 df_por_data['valor_compra'] = 0.0
                         
+                            # Adapta a configuração das colunas para aceitar 'valor_compra' nesta tela
+                            cfg_local = config_cols.copy() if config_cols else {}
+                            if 'valor_venda' in cfg_local and 'valor_compra' not in cfg_local:
+                                cfg_local['valor_compra'] = cfg_local.pop('valor_venda')
+                    
                             df_editado_dia = st.data_editor(
                                 df_por_data.drop(columns=["data_dia"]),
-                                column_config=config_cols,
+                                column_config=cfg_local,
                                 use_container_width=True,
                                 num_rows="fixed",
                                 hide_index=True,
