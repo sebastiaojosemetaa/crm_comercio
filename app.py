@@ -1100,16 +1100,16 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             col_custo_prod = next((c for c in ['preco_custo', 'valor_compra', 'custo', 'valor'] if c in df_produtos.columns), None)
                             col_nome_prod = next((c for c in ['produto', 'nome', 'nome_produto'] if c in df_produtos.columns), None)
                         
-                            # Na aba de Registrar Venda, puxa o preço de venda do estoque
+                            # Na tela de Pedidos / Orçamentos, puxa o preço de custo do estoque
                             if not df_produtos.empty and col_nome_prod:
-                                col_venda_prod = next((c for c in ['preco_venda', 'valor_venda', 'venda'] if c in df_produtos.columns), None)
-                                dict_vendas = dict(zip(df_produtos[col_nome_prod].astype(str).str.strip().str.upper(), df_produtos[col_venda_prod])) if col_venda_prod else {}
+                                col_custo_prod = next((c for c in ['preco_custo', 'valor_compra', 'custo', 'valor'] if c in df_produtos.columns), None)
+                                dict_custos = dict(zip(df_produtos[col_nome_prod].astype(str).str.strip().str.upper(), df_produtos[col_custo_prod])) if col_custo_prod else {}
                                 
                                 for idx, row in df_por_data.iterrows():
                                     prod_nome = str(row.get('produto', '')).strip().upper()
-                                    val_venda = dict_vendas.get(prod_nome, 0.0)
-                                    if val_venda > 0:
-                                        df_por_data.loc[idx, 'valor_venda'] = val_venda
+                                    val_custo = dict_custos.get(prod_nome, 0.0)
+                                    if val_custo > 0:
+                                        df_por_data.loc[idx, 'valor_venda'] = val_custo
                             else:
                                 if 'valor_compra' in df_por_data.columns:
                                     df_por_data['valor_venda'] = df_por_data['valor_compra'].fillna(0.0)
