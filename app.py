@@ -511,7 +511,14 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 v_unit = st.number_input("Preço de Custo (R$)", min_value=0.0, step=1.0, value=100.0)
                 
                 if st.form_submit_button("Confirmar Pedido"):
-                    salvar_pedido_ou_venda(st.session_state.cliente_autenticado, prod, fornec, grupo, qtd, v_unit, tipo="PEDIDO")
+                    import datetime
+                    codigo_pedido = f"PED-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
+                    
+                    try:
+                        salvar_pedido_ou_venda(st.session_state.cliente_autenticado, prod, fornec, grupo, qtd, v_unit, tipo="PEDIDO", codigo=codigo_pedido)
+                    except TypeError:
+                        salvar_pedido_ou_venda(st.session_state.cliente_autenticado, prod, fornec, grupo, qtd, v_unit, tipo="PEDIDO")
+                    
                     st.success("Pedido registrado com sucesso!")
                     st.rerun()
 
