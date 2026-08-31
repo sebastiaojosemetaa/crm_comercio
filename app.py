@@ -1162,12 +1162,23 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             format="%.2f",
                             key=f"custo_compra_{produto_escolhido}"
                         )
-                    
+                        preco_venda = st.number_input(
+                            "Preço de Venda Unitário (R$)",
+                            min_value=0.0,
+                            format="%.2f",
+                            key=f"venda_compra_{produto_escolhido}"
+                        )
+            
                     if st.form_submit_button("Registrar Entrada no Estoque"):
-                        registrar_compra(produto_escolhido, fornecedor_escolhido, grupo_escolhido, quantidade, preco_custo)
-                        cursor.execute("UPDATE produtos SET estoque_atual = COALESCE(estoque_atual, 0) + ? WHERE TRIM(nome) = TRIM(?)", (quantidade, produto_escolhido))
+                        registrar_compra(produto_escolhido, fornecedor_escolhido, grupo_escolhido, quantidade, preco_custo, preco_venda)
+                        cursor.execute("""
+                            UPDATE produtos 
+                            SET estoque_atual = COALESCE(estoque_atual, 0) + ?, 
+                                valor_venda = ? 
+                            WHERE TRIM(produto) = TRIM(?)
+                        """, (quantidade, preco_venda, produto_escolhido))
                         conn.commit()
-                        st.success("Entrada registrada com sucesso e estoque atualizado!")
+                        st.success("Entrada registrada, estoque e preço de venda atualizados!")
                         st.rerun()
                         
             with aba_historico_compras:
