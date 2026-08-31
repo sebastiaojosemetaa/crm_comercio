@@ -1264,25 +1264,39 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     if st.button("Salvar Alterações no Estoque"):
                         cursor = conn.cursor()
                         for index, row in df_editado.iterrows():
-                            # Corrigido de 'valor_compra' para 'valor_custo'
-                            cursor.execute("""
-                                UPDATE produtos 
-                                SET produto = ?, 
-                                    estoque_atual = ?, 
-                                    valor_custo = ?, 
-                                    valor_venda = ?, 
-                                    grupo = ?, 
-                                    fornecedor = ?
-                                WHERE id = ?
-                            """, (
-                                row.get('produto'), 
-                                row.get('quantidade', row.get('estoque_atual')), 
-                                row.get('valor_custo', row.get('valor_compra')), 
-                                row.get('valor_venda'), 
-                                row.get('grupo'), 
-                                row.get('fornecedor'), 
-                                row.get('id')
-                            ))
+                            # Captura os valores com segurança das colunas do editor
+                            p_prod = row.get('produto')
+                            p_qtd = row.get('quantidade', row.get('estoque_atual', 0))
+                            p_custo = row.get('valor_custo', row.get('valor_compra', 0))
+                            p_venda = row.get('valor_venda', 0)
+                            p_grupo = row.get('grupo')
+                            p_forn = row.get('fornecedor')
+                            p_id = row.get('id')
+            
+                            # Tenta atualizar usando 'valor_custo'; caso a tabela use 'valor_compra', o try/except trata para não quebrar
+                            try:
+                                cursor.execute("""
+                                    UPDATE produtos 
+                                    SET produto = ?, 
+                                        estoque_atual = ?, 
+                                        valor_custo = ?, 
+                                        valor_venda = ?, 
+                                        grupo = ?, 
+                                        fornecedor = ?
+                                    WHERE id = ?
+                                """, (p_prod, p_qtd, p_custo, p_venda, p_grupo, p_forn, p_id))
+                            except sqlite3.OperationalError:
+                                cursor.execute("""
+                                    UPDATE produtos 
+                                    SET produto = ?, 
+                                        estoque_atual = ?, 
+                                        valor_compra = ?, 
+                                        valor_venda = ?, 
+                                        grupo = ?, 
+                                        fornecedor = ?
+                                    WHERE id = ?
+                                """, (p_prod, p_qtd, p_custo, p_venda, p_grupo, p_forn, p_id))
+            
                         conn.commit()
                         st.success("Estoque atualizado com sucesso!")
                         st.rerun()
