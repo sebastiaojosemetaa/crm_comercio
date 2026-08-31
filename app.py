@@ -1106,7 +1106,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             # Se estiver na tela de Pedidos / Orçamentos, usa Custo e renomeia o cabeçalho
                             if "Pedidos" in str(pagina_ativa) or "Orçamento" in str(pagina_ativa) or "Pedido" in str(st.session_state.get('menu', '')):
                                 if not df_produtos.empty:
-                                if 'estoque_atual' not in df_produtos.columns and 'quantidade' in df_produtos.columns:
+                                    if 'estoque_atual' not in df_produtos.columns and 'quantidade' in df_produtos.columns:
                                 df_produtos = df_produtos.rename(columns={'quantidade': 'estoque_atual'})
                             elif 'quantidade' not in df_produtos.columns and 'estoque_atual' in df_produtos.columns:
                                 df_produtos = df_produtos.rename(columns={'estoque_atual': 'quantidade'})
