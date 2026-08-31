@@ -1100,27 +1100,34 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             col_custo_prod = next((c for c in ['preco_custo', 'valor_compra', 'custo', 'valor'] if c in df_produtos.columns), None)
                             col_nome_prod = next((c for c in ['produto', 'nome', 'nome_produto'] if c in df_produtos.columns), None)
                         
-                            # Bloco exclusivo para a tela de Pedidos / Orçamentos
-                            if not df_produtos.empty and col_nome_prod:
-                                col_custo_prod = next((c for c in ['preco_custo', 'valor_compra', 'custo', 'valor'] if c in df_produtos.columns), None)
-                                dict_custos = dict(zip(df_produtos[col_nome_prod].astype(str).str.strip().str.upper(), df_produtos[col_custo_prod])) if col_custo_prod else {}
-                                
-                                for idx, row in df_por_data.iterrows():
-                                    prod_nome = str(row.get('produto', '')).strip().upper()
-                                    val_custo = dict_custos.get(prod_nome, 0.0)
-                                    if val_custo > 0:
-                                        df_por_data.loc[idx, 'valor_venda'] = val_custo
+                            # Verifica qual tela está ativa para aplicar a regra correta
+                            pagina_ativa = st.session_state.get('pagina', '')
+                            
+                            # Se estiver na tela de Pedidos / Orçamentos, usa Custo e renomeia o cabeçalho
+                            if "Pedidos" in str(pagina_ativa) or "Orçamento" in str(pagina_ativa) or "Pedido" in str(st.session_state.get('menu', '')):
+                                if not df_produtos.empty and col_nome_prod:
+                                    col_custo_prod = next((c for c in ['preco_custo', 'valor_compra', 'custo', 'valor'] if c in df_produtos.columns), None)
+                                    dict_custos = dict(zip(df_produtos[col_nome_prod].astype(str).str.strip().str.upper(), df_produtos[col_custo_prod])) if col_custo_prod else {}
+                                    
+                                    for idx, row in df_por_data.iterrows():
+                                        prod_nome = str(row.get('produto', '')).strip().upper()
+                                        val_custo = dict_custos.get(prod_nome, 0.0)
+                                        if val_custo > 0:
+                                            df_por_data.loc[idx, 'valor_venda'] = val_custo
                         
-                            cfg_pedidos = config_cols.copy() if config_cols else {}
-                            cfg_pedidos['valor_venda'] = st.column_config.NumberColumn("Valor Compra", format="R$ %.2f")
+                                cfg_tabela = config_cols.copy() if config_cols else {}
+                                cfg_tabela['valor_venda'] = st.column_config.NumberColumn("Valor Compra", format="R$ %.2f")
+                            else:
+                                # Se for na tela de Registrar Venda, mantém o preço de venda normal
+                                cfg_tabela = config_cols.copy() if config_cols else {}
                         
                             df_editado_dia = st.data_editor(
                                 df_por_data.drop(columns=["data_dia"]),
-                                column_config=cfg_pedidos,
+                                column_config=cfg_tabela,
                                 use_container_width=True,
                                 num_rows="fixed",
                                 hide_index=True,
-                                key=f"editor_pedidos_{data_dia.replace('/', '_')}"
+                                key=f"editor_tabela_{data_dia.replace('/', '_')}"
                             )
                             dfs_editados[data_dia] = df_editado_dia
                             
