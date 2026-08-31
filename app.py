@@ -1091,9 +1091,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         with st.expander(f"📅 Data do Registro: {data_dia}", expanded=True):
                             df_por_data = df_registros[df_registros["data_dia"] == data_dia].copy()
 
-                            # Se a coluna 'valor_venda' existir, renomeia para 'valor_compra' para exibição correta
+                            # Garante que a coluna de valor venha como valor_compra nesta tela de pedidos
                             if 'valor_venda' in df_por_data.columns and 'valor_compra' not in df_por_data.columns:
                                 df_por_data = df_por_data.rename(columns={'valor_venda': 'valor_compra'})
+                            elif 'valor_compra' not in df_por_data.columns:
+                                df_por_data['valor_compra'] = 0.0
                         
                             df_editado_dia = st.data_editor(
                                 df_por_data.drop(columns=["data_dia"]),
