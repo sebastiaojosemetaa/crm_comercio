@@ -1171,7 +1171,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.rerun()
                         
             with aba_historico_compras:
-                st.dataframe(carregar_dados("SELECT * FROM compras"), use_container_width=True)
+                df_compras = carregar_dados("SELECT * FROM compras")
+                if not df_compras.empty:
+                    df_compras = df_compras.drop(columns=['valor_compra', 'valor_venda'], errors='ignore')
+                st.dataframe(df_compras, use_container_width=True)
 
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
