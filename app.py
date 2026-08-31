@@ -1111,10 +1111,14 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     if val_custo > 0:
                                         df_por_data.loc[idx, 'valor_venda'] = val_custo
                         
+                            # Renomeia fisicamente a coluna para exibição correta nesta tela
+                            if 'valor_venda' in df_por_data.columns:
+                                df_por_data = df_por_data.rename(columns={'valor_venda': 'Valor Compra'})
+                        
                             cfg_local = config_cols.copy() if config_cols else {}
                             if 'valor_venda' in cfg_local:
-                                cfg_local.pop('valor_venda', None)
-                            cfg_local['valor_compra'] = st.column_config.NumberColumn("Valor Compra", format="R$ %.2f")
+                                cfg_local['Valor Compra'] = cfg_local.pop('valor_venda')
+                            cfg_local['Valor Compra'] = st.column_config.NumberColumn("Valor Compra", format="R$ %.2f")
                         
                             df_editado_dia = st.data_editor(
                                 df_por_data.drop(columns=["data_dia"]),
