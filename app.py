@@ -1186,28 +1186,49 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
     
                 query_historico = """
                     SELECT 
-                        MIN(id) as id,
+                        id,
                         produto,
-                        SUM(quantidade) as quantidade,
-                        MAX(fornecedor) as fornecedor,
-                        MAX(grupo) as grupo,
-                        AVG(valor_custo) as valor_custo,
-                        AVG(valor_venda) as valor_venda,
-                        SUM(valor_total) as valor_total,
-                        MAX(data) as data
+                        quantidade,
+                        fornecedor,
+                        grupo,
+                        valor_custo,
+                        valor_venda,
+                        valor_total,
+                        data
                     FROM compras
-                    GROUP BY produto
                 """
                 df_compras = carregar_dados(query_historico)
                 
                 if not df_compras.empty:
                     df_compras = df_compras.drop(columns=['valor_compra'], errors='ignore')
-                    colunas_desejadas = ['id', 'produto', 'quantidade', 'fornecedor', 'grupo', 'valor_custo', 'valor_venda', 'valor_total', 'data']
-                    colunas_existentes = [c for c in colunas_desejadas if c in df_compras.columns]
-                    df_compras = df_compras[colunas_existentes]
                     
-                # Usando st.data_editor para permitir a edição direta na tela
-                st.data_editor(df_compras, use_container_width=True, key="editor_compras")
+                    # Exibe o editor de dados e captura as alterações feitas por você
+                    editado_df = st.data_editor(
+                        df_compras, 
+                        use_container_width=True, 
+                        key="editor_compras",
+                        num_rows="dynamic"
+                    )
+                    
+                    # Botão para salvar as alterações feitas na tabela no banco de dados
+                    if st.button("💾 Salvar Alterações na Tabela"):
+                        cursor = conn.cursor()
+                        for index, row in editado_df.iterrows():
+                            # Recalcula o valor total automaticamente com base na quantidade e custo alterados
+                            novo_total = float(row['quantidade']) * float(row['valor_custo'])
+                            
+                            cursor.execute("""
+                                UPDATE compras 
+                                SET quantidade = ?, 
+                                    valor_custo = ?, 
+                                    valor_venda = ?, 
+                                    valor_total = ?
+                                WHERE id = ?
+                            """, (row['quantidade'], row['valor_custo'], row['valor_venda'], novo_total, row['id']))
+                        
+                        conn.commit()
+                        st.success("Alterações e valores totais atualizados com sucesso!")
+                        st.rerun()
 
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
