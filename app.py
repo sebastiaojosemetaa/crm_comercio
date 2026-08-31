@@ -981,12 +981,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 if not df_registros.empty:
                     df_registros.insert(0, "Deletar", False)
                     
-                    # Renomeia dinamicamente a coluna para exibir valor_compra na tela de pedidos
+                    # Renomeia para 'valor_compra' apenas para exibição na tela de pedidos
                     if is_modo_pedido and 'valor_venda' in df_registros.columns:
                         df_registros = df_registros.rename(columns={'valor_venda': 'valor_compra'})
-                        
+                
                     df_editado = st.data_editor(df_registros, key=f"editor_reg_{menu_admin}", use_container_width=True, hide_index=True)
-                    
+                
                     # Se foi renomeada para exibição, volta para o nome interno para salvar no banco
                     if is_modo_pedido and 'valor_compra' in df_editado.columns:
                         df_editado = df_editado.rename(columns={'valor_compra': 'valor_venda'})
