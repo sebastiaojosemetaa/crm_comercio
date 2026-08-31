@@ -1091,7 +1091,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             if 'valor_venda' in df_por_data.columns:
                                 df_por_data = df_por_data.rename(columns={'valor_venda': 'valor_compra'})
                         
-                            df_edited_dia = st.data_editor(
+                            df_editado_dia = st.data_editor(
                                 df_por_data.drop(columns=["data_dia"]),
                                 column_config=config_cols,
                                 use_container_width=True,
@@ -1099,7 +1099,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 hide_index=True,
                                 key=f"editor_data_{data_dia.replace('/', '_')}"
                             )
-                            dfs_edited[data_dia] = df_edited_dia
+                            dfs_editados[data_dia] = df_editado_dia
                             
                             total_dia = df_por_data["valor_total"].sum() if "valor_total" in df_por_data.columns else 0
                             st.markdown(f"**Total deste dia ({data_dia}):** R$ {total_dia:.2f}")
