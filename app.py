@@ -1113,6 +1113,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         
                             cfg_local = config_cols.copy() if config_cols else {}
                             if 'valor_venda' in cfg_local:
+                                cfg_local['valor_compra'] = cfg_local.pop('valor_venda')
+                                cfg_local['valor_compra'] = st.column_config.NumberColumn("Valor Compra", format="R$ %.2f")
+                            elif 'valor_compra' in cfg_local:
+                                cfg_local['valor_compra'] = st.column_config.NumberColumn("Valor Compra", format="R$ %.2f")
+                            else:
                                 cfg_local['valor_venda'] = st.column_config.NumberColumn("Valor Compra", format="R$ %.2f")
                         
                             df_editado_dia = st.data_editor(
@@ -1122,6 +1127,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 num_rows="fixed",
                                 hide_index=True,
                                 key=f"editor_data_{data_dia.replace('/', '_')}"
+                            )
                             )
                             dfs_editados[data_dia] = df_editado_dia
                             
