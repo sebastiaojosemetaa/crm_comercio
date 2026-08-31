@@ -1181,7 +1181,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.rerun()
                         
             with aba_historico_compras:
-                # Botão para atualizar a tela
                 if st.button("🔄 Atualizar Histórico", key="btn_atualizar_compras"):
                     st.rerun()
     
@@ -1207,7 +1206,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     colunas_existentes = [c for c in colunas_desejadas if c in df_compras.columns]
                     df_compras = df_compras[colunas_existentes]
                     
-                st.dataframe(df_compras, use_container_width=True)
+                # Usando st.data_editor para permitir a edição direta na tela
+                st.data_editor(df_compras, use_container_width=True, key="editor_compras")
 
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
