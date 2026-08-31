@@ -294,7 +294,7 @@ def salvar_simples(tabela, coluna, valor):
 def salvar_pedido_ou_venda(cliente, produto, fornecedor, grupo, quantidade, valor_venda, forma_pagamento="", valor_recebido=0.0, tipo="PEDIDO"):
     cursor = conn.cursor()
     valor_total = quantidade * valor_venda
-    data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    data_atual = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     cod_status = "VEN" if tipo.upper() in ["VENDA", "VENDAS", "VEN"] else "PED"
     
     cursor.execute("""
