@@ -410,18 +410,18 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral", d_inicio=None, d_fi
     if not df_dados.empty:
         df_resumo = df_dados.groupby('produto').agg({
             'quantidade': 'sum',
-            'valor_venda': 'mean',
+            'valor_compra': 'mean',
             'valor_total': 'sum'
         }).reset_index()
     else:
-        df_resumo = pd.DataFrame(columns=['produto', 'quantidade', 'valor_venda', 'valor_total'])
+        df_resumo = pd.DataFrame(columns=['produto', 'quantidade', 'valor_compra', 'valor_total'])
 
     table_data = [["Produto", "Qtd Total", "Preço Unitário (R$)", "Valor Total (R$)"]]
     valor_total_geral = 0.0
     for _, row in df_resumo.iterrows():
         prod = str(row['produto'])
         qtd = f"{row['quantidade']:.2f}"
-        v_unit = f"R$ {row['valor_venda']:,.2f}"
+        v_unit = f"R$ {row['valor_compra']:,.2f}"
         v_tot = row['valor_total']
         valor_total_geral += v_tot
         table_data.append([prod, qtd, v_unit, f"R$ {v_tot:,.2f}"])
