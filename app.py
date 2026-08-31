@@ -1165,7 +1165,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 elif 'quantidade' not in df_produtos.columns and 'estoque_atual' in df_produtos.columns:
                     df_produtos = df_produtos.rename(columns={'estoque_atual': 'quantidade'})
                 
-                df_editado = st.data_editor(df_produtos, use_container_width=True, hide_index=True, key="editor_estoque_produtos")
+                df_editado = st.data_editor(
+                    df_produtos.drop(columns=['estoque_atual', 'nome'], errors='ignore'),
+                    use_container_width=True,
+                    hide_index=True,
+                    key="editor_estoque_produtos"
+                )
 
                 col1, col2 = st.columns(2)
                 with col1:
