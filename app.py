@@ -1276,7 +1276,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 WHERE id = ?
                             """, (
                                 row['produto'], 
-                                row['estoque_atual'], 
+                                row['quantidade'], 
                                 row['valor_custo'], 
                                 row['valor_venda'], 
                                 row['grupo'], 
