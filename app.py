@@ -525,7 +525,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
         with aba_historico:
             st.subheader(f"Meus Pedidos e Orçamentos ({st.session_state.cliente_autenticado})")
             
-            df_cli_pedidos = carregar_dados("SELECT * FROM vendas")
+            df_cli_pedidos = carregar_dados(f"SELECT * FROM vendas WHERE TRIM(LOWER(cliente)) = '{st.session_state.cliente_autenticado.strip().lower()}' ORDER BY data DESC")
             
             if not df_cli_pedidos.empty and 'cliente' in df_cli_pedidos.columns:
                 nome_pesq = str(st.session_state.cliente_autenticado).strip().lower()
