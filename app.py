@@ -1105,140 +1105,68 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             
                             # Se estiver na tela de Pedidos / Orçamentos, usa Custo e renomeia o cabeçalho
                             if "Pedidos" in str(pagina_ativa) or "Orçamento" in str(pagina_ativa) or "Pedido" in str(st.session_state.get('menu', '')):
-                                if not df_produtos.empty and col_nome_prod:
-                                    col_custo_prod = next((c for c in ['preco_custo', 'valor_compra', 'custo', 'valor'] if c in df_produtos.columns), None)
-                                    dict_custos = dict(zip(df_produtos[col_nome_prod].astype(str).str.strip().str.upper(), df_produtos[col_custo_prod])) if col_custo_prod else {}
-                                    
-                                    for idx, row in df_por_data.iterrows():
-                                        prod_nome = str(row.get('produto', '')).strip().upper()
-                                        val_custo = dict_custos.get(prod_nome, 0.0)
-                                        if val_custo > 0:
-                                            df_por_data.loc[idx, 'valor_venda'] = val_custo
-                        
-                                cfg_tabela = config_cols.copy() if config_cols else {}
-                                cfg_tabela['valor_venda'] = st.column_config.NumberColumn("Valor Compra", format="R$ %.2f")
-                            else:
-                                # Se for na tela de Registrar Venda, mantém o preço de venda normal
-                                cfg_tabela = config_cols.copy() if config_cols else {}
-                        
-                            df_editado_dia = st.data_editor(
-                                df_por_data.drop(columns=["data_dia"]),
-                                column_config=cfg_tabela,
-                                use_container_width=True,
-                                num_rows="fixed",
-                                hide_index=True,
-                                key=f"editor_tabela_{data_dia.replace('/', '_')}"
-                            )
-                            dfs_editados[data_dia] = df_editado_dia
+                                if not df_produtos.empty:
+                            if 'estoque_atual' not in df_produtos.columns and 'quantidade' in df_produtos.columns:
+                                df_produtos = df_produtos.rename(columns={'quantidade': 'estoque_atual'})
+                            elif 'quantidade' not in df_produtos.columns and 'estoque_atual' in df_produtos.columns:
+                                df_produtos = df_produtos.rename(columns={'estoque_atual': 'quantidade'})
                             
-                            total_dia = df_por_data["valor_total"].sum() if "valor_total" in df_por_data.columns else 0
-                            st.markdown(f"**Total deste dia ({data_dia}):** R$ {total_dia:.2f}")
-                
-                    # Atualiza a variável df_editado para o botão de salvar logo abaixo
-                    df_editado = pd.concat(dfs_editados.values()) if dfs_editados else df_registros
-                    
-                    if 'valor_venda' in df_editado.columns:
-                        df_editado = df_editado.rename(columns={'valor_venda': 'valor_compra'})
-                    label_btn_sync = "🔄 Atualizar Preço de Custo / Valor da Compra" if is_modo_pedido else "🔄 Atualizar Valores com Estoque Atual"
-                    tipo_sync = "compra" if is_modo_pedido else "venda"
-                    
-                    if st.button(label_btn_sync):
-                        sincronizar_valores_com_estoque("vendas", tipo_sync)
-                        st.success("Tabela atualizada com os valores de estoque com sucesso!")
-                        st.rerun()
-
-                    c_btn1, c_btn2 = st.columns([1, 1])
-
-                    with c_btn1:
-                        if st.button("💾 Salvar Alterações Feitas na Tabela", type="primary"):
-                            cursor = conn.cursor()
-                            for _, row in df_editado.iterrows():
-                                if not row["Deletar"]:
-                                    v_tot = float(row["quantidade"]) * float(row["valor_venda"])
-                                    
-                                    f_pag = str(row["forma_pagamento"]) if "forma_pagamento" in row else ""
-                                    v_rec = float(row["valor_recebido"]) if "valor_recebido" in row else 0.0
-                                    g_val = str(row["grupo"]) if "grupo" in row else ""
-                                    t_val = str(row["tipo"]) if "tipo" in row else ""
-                                    c_val = str(row["codigo"]) if "codigo" in row else ""
-    
-                                    cursor.execute("""
-                                        UPDATE vendas 
-                                        SET cliente = ?, produto = ?, fornecedor = ?, quantidade = ?, 
-                                            valor_venda = ?, valor_total = ?, forma_pagamento = ?, 
-                                            valor_recebido = ?, grupo = ?, tipo = ?, codigo = ?
-                                        WHERE id = ?
-                                    """, (
-                                        str(row["cliente"]).strip(),
-                                        str(row["produto"]),
-                                        str(row["fornecedor"]),
-                                        float(row["quantidade"]),
-                                        float(row["valor_venda"]),
-                                        v_tot,
-                                        f_pag,
-                                        str(v_rec),
-                                        g_val,
-                                        t_val,
-                                        c_val,
-                                        int(row["id"])
-                                    ))
-                            conn.commit()
-                            st.success("Todas as edições na tabela foram salvas com sucesso!")
-                            st.rerun()
-
-                    with c_btn2:
-                        itens_para_deletar = df_editado[df_editado["Deletar"] == True]
-                        if not itens_para_deletar.empty:
-                            if st.button(f"🗑️ Confirmar Exclusão de ({len(itens_para_deletar)}) Item(ns) Marcados"):
-                                ids_del = tuple(itens_para_deletar["id"].tolist())
-                                cursor = conn.cursor()
-                                if len(ids_del) == 1:
-                                    cursor.execute("DELETE FROM vendas WHERE id = ?", (ids_del[0],))
-                                else:
-                                    cursor.execute(f"DELETE FROM vendas WHERE id IN {ids_del}")
-                                conn.commit()
-                                st.warning(f"{len(ids_del)} registro(s) foram apagados com sucesso!")
-                                st.rerun()
-
-                    st.markdown("---")
-                    st.subheader(f"📄 Relatório e Exclusão Total ({nome_relatorio})")
-                    
-                    col_b1, col_b2 = st.columns(2)
-                    with col_b1:
-                        pdf_gerado = gerar_pdf_tabela_pedidos(df_registros, cliente_nome=nome_relatorio, d_inicio=d_inicio, d_fim=d_fim)
-                        st.download_button(
-                            label=f"📥 Baixar Relatório - {nome_relatorio} (PDF)",
-                            data=pdf_gerado,
-                            file_name=f"Relatorio_Pedidos_{nome_relatorio}.pdf",
-                            mime="application/pdf"
-                        )
-                    with col_b2:
-                        if cliente_sel != "TODOS":
-                            if st.button(f"🗑️ Apagar Pedido / Venda INTEIRA de {cliente_sel}"):
-                                qtd_del = deletar_pedidos_cliente(cliente_sel, s_d1, s_d2)
-                                st.success(f"Foram deletados {qtd_del} registro(s) de {cliente_sel} com sucesso!")
-                                st.rerun()
-
-                    st.markdown("---")
-                    tipo_str = df_registros['tipo'].fillna('').astype(str).str.strip().str.upper() if 'tipo' in df_registros.columns else pd.Series([''] * len(df_registros))
-                    codigo_str = df_registros['codigo'].fillna('').astype(str).str.strip().str.upper() if 'codigo' in df_registros.columns else pd.Series([''] * len(df_registros))
-
-                    mask_pedidos = (~tipo_str.isin(['VENDA', 'VENDAS', 'VEN'])) & (~codigo_str.isin(['VEN', 'VENDA']))
-                    pedidos_pendentes = df_registros[mask_pedidos]                
-                    
-                    if cliente_sel != "TODOS":
-                        if not pedidos_pendentes.empty:
-                            st.subheader("⚙️ Converter Pedido Completo em Venda")
-                            total_ped = pedidos_pendentes['valor_total'].sum()
-                            qtd_itens = len(pedidos_pendentes)
-                            st.write(f"O cliente **{cliente_sel}** possui **{qtd_itens} item(ns)** pendente(s) como pedido, somando **R$ {total_ped:,.2f}**.")
-                            
-                            if st.button(f"🔄 Converter Pedido Completo de {cliente_sel} para VENDA", key="btn_converter_venda"):
-                                linhas_afetadas = converter_pedido_completo_para_venda(cliente_sel)
-                                st.success(f"Sucesso! {linhas_afetadas} registro(s) do cliente {cliente_sel} foram convertidos para VENDA!")
-                                st.rerun()
-                else:
-                    st.info("Nenhum registro encontrado para o filtro selecionado.")
+                            df_editado = st.data_editor(df_produtos, use_container_width=True, hide_index=True, key="editor_estoque_produtos")
+            
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                if st.button("💾 Salvar Alterações no Estoque", type="primary"):
+                                    cursor = conn.cursor()
+                                    for index, row in df_editado.iterrows():
+                                        qtd_val = float(row.get('quantidade', row.get('estoque_atual', 0)) or 0)
+                                        query = "UPDATE produtos SET nome = ?, estoque_atual = ?, valor_compra = ?, valor_venda = ?, grupo = ?, fornecedor = ? WHERE id = ?"
+                                        dados = (row['nome'], qtd_val, float(row['valor_compra'] or 0), float(row['valor_venda'] or 0), row['grupo'], row['fornecedor'], row['id'])
+                                        cursor.execute(query, dados)
+                                    conn.commit()
+                                    st.success("Estoque e preços atualizados com sucesso!")
+                                    st.rerun()
+            
+                            with col2:
+                                if st.button("🔄 Atualizar Preços de Custo"):
+                                    import sqlite3
+                                    try:
+                                        conn_aux = sqlite3.connect("comercio.db")
+                                        cursor_aux = conn_aux.cursor()
+                                        
+                                        # Mapeia os custos atuais do estoque em letras maiúsculas para evitar erros de digitação
+                                        cursor_aux.execute("SELECT nome, valor_compra FROM produtos")
+                                        produtos_dict = {}
+                                        for row in cursor_aux.fetchall():
+                                            if row[0]:
+                                                nome_prod = str(row[0]).strip().upper()
+                                                try:
+                                                    produtos_dict[nome_prod] = float(row[1]) if row[1] is not None else 0.0
+                                                except:
+                                                    produtos_dict[nome_prod] = 0.0
+                                        
+                                        # Busca os pedidos salvos
+                                        cursor_aux.execute("SELECT id, produto FROM pedidos")
+                                        pedidos = cursor_aux.fetchall()
+                                        
+                                        atualizados = 0
+                                        for ped_id, prod_nome in pedidos:
+                                            if prod_nome:
+                                                nome_chave = str(prod_nome).strip().upper()
+                                                if nome_chave in produtos_dict:
+                                                    novo_custo = produtos_dict[nome_chave]
+                                                    cursor_aux.execute(
+                                                        "UPDATE pedidos SET valor_compra = ? WHERE id = ?", 
+                                                        (novo_custo, ped_id)
+                                                    )
+                                                    atualizados += 1
+                                                    
+                                        conn_aux.commit()
+                                        conn_aux.close()
+                                        
+                                        st.success(f"Sucesso! {atualizados} itens atualizados com os preços de custo do estoque.")
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"Erro ao atualizar custos: {e}")
 
         elif menu_admin == "📥 Entrada de Estoque (Compras)":
             st.title("📦 Entrada de Estoque (Compras)")
