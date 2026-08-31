@@ -1091,17 +1091,15 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         with st.expander(f"📅 Data do Registro: {data_dia}", expanded=True):
                             df_por_data = df_registros[df_registros["data_dia"] == data_dia].copy()
 
-                            # Renomeia explicitamente para valor_compra para bater com a exibição correta
-                            if 'valor_venda' in df_por_data.columns:
-                                df_por_data = df_por_data.rename(columns={'valor_venda': 'valor_compra'})
-                            if 'valor_compra' not in df_por_data.columns:
-                                df_por_data['valor_compra'] = 0.0
+                            # Garante que a coluna exiba os valores de custo na tela de pedidos
+                            if 'valor_compra' in df_por_data.columns:
+                                df_por_data['valor_venda'] = df_por_data['valor_compra']
                         
-                            # Adapta a configuração das colunas para aceitar 'valor_compra' nesta tela
+                            # Cria uma configuração personalizada alterando apenas o título da coluna para o usuário
                             cfg_local = config_cols.copy() if config_cols else {}
-                            if 'valor_venda' in cfg_local and 'valor_compra' not in cfg_local:
-                                cfg_local['valor_compra'] = cfg_local.pop('valor_venda')
-                    
+                            if 'valor_venda' in cfg_local:
+                                cfg_local['valor_venda'] = st.column_config.NumberColumn("Valor Compra", format="R$ %.2f")
+                        
                             df_editado_dia = st.data_editor(
                                 df_por_data.drop(columns=["data_dia"]),
                                 column_config=cfg_local,
