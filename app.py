@@ -1214,16 +1214,15 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     if st.button("Salvar Alterações no Estoque"):
                         cursor = conn.cursor()
                         for index, row in df_editado.iterrows():
+                            p_id = row.get('id')
                             p_prod = row.get('produto')
-                            # Pega o valor alterado na tela (pode vir como 'quantidade' ou 'estoque_atual')
                             p_qtd = row.get('quantidade', row.get('estoque_atual', 0))
                             p_custo = row.get('valor_custo', row.get('valor_compra', 0))
                             p_venda = row.get('valor_venda', 0)
                             p_grupo = row.get('grupo')
                             p_forn = row.get('fornecedor')
-                            p_id = row.get('id')
             
-                            # Atualiza a coluna correta 'estoque_atual' no banco de dados SQLite
+                            # Executa a atualização garantindo o ID correto
                             cursor.execute("""
                                 UPDATE produtos 
                                 SET produto = ?, 
@@ -1236,7 +1235,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             """, (p_prod, p_qtd, p_custo, p_venda, p_grupo, p_forn, p_id))
             
                         conn.commit()
-                        st.success("Estoque atualizado e salvo com sucesso!")
+                        st.success("Alterações salvas com sucesso no banco de dados!")
                         st.rerun()
 
         elif menu_admin == "📦 Estoque de Produtos":
