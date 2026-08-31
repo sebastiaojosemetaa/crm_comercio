@@ -308,16 +308,15 @@ def baixar_debito_cliente(cliente_nome, valor_haver, forma_pagamento="Dinheiro")
             
     conn.commit()
 
-def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo):
+def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo, valor_venda=0.0):
     cursor = conn.cursor()
     valor_total = quantidade * valor_custo
     data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    # Insere salvando tanto no valor_custo quanto mapeando para as colunas se existirem
     cursor.execute("""
-        INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data_atual))
+        INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_custo, valor_venda, valor_total, data)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (produto, fornecedor, grupo, quantidade, valor_custo, valor_venda, valor_total, data_atual))
     conn.commit()
 
 # -----------------------------------------------------------------------------
