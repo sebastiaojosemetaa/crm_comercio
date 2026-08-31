@@ -1181,12 +1181,24 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.rerun()
                         
             with aba_historico_compras:
-                df_compras = carregar_dados("SELECT * FROM compras")
+                query_historico = """
+                    SELECT 
+                        MIN(id) as id,
+                        produto,
+                        SUM(quantidade) as quantidade,
+                        MAX(fornecedor) as fornecedor,
+                        MAX(grupo) as grupo,
+                        AVG(valor_custo) as valor_custo,
+                        AVG(valor_venda) as valor_venda,
+                        SUM(valor_total) as valor_total,
+                        MAX(data) as data
+                    FROM compras
+                    GROUP BY produto
+                """
+                df_compras = carregar_dados(query_historico)
+                
                 if not df_compras.empty:
-                    # Remove colunas indesejadas se houverem
                     df_compras = df_compras.drop(columns=['valor_compra'], errors='ignore')
-                    
-                    # Sequência correta com o valor_venda incluido
                     colunas_desejadas = ['id', 'produto', 'quantidade', 'fornecedor', 'grupo', 'valor_custo', 'valor_venda', 'valor_total', 'data']
                     colunas_existentes = [c for c in colunas_desejadas if c in df_compras.columns]
                     df_compras = df_compras[colunas_existentes]
