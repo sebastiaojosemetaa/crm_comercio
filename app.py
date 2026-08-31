@@ -526,8 +526,8 @@ if perfil_selecionado == "👤 Portal do Cliente":
             
             if not df_cli_pedidos.empty:
                 if 'codigo_venda' in df_cli_pedidos.columns:
-                df_cli_pedidos['codigo_venda'] = df_cli_pedidos['codigo_venda'].fillna('')
-                df_cli_pedidos.loc[df_cli_pedidos['codigo_venda'] == '', 'codigo_venda'] = 'PED-' + df_cli_pedidos['id'].astype(str)
+                    df_cli_pedidos['codigo_venda'] = df_cli_pedidos['codigo_venda'].fillna('')
+                        df_cli_pedidos.loc[df_cli_pedidos['codigo_venda'] == '', 'codigo_venda'] = 'PED-' + df_cli_pedidos['id'].astype(str)
             
             codigos = df_cli_pedidos['codigo_venda'].dropna().unique() if 'codigo_venda' in df_cli_pedidos.columns else []
                 
