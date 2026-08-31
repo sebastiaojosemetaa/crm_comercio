@@ -1100,28 +1100,27 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             col_custo_prod = next((c for c in ['preco_custo', 'valor_compra', 'custo', 'valor'] if c in df_produtos.columns), None)
                             col_nome_prod = next((c for c in ['produto', 'nome', 'nome_produto'] if c in df_produtos.columns), None)
                         
-                            # Na tela de Registrar Venda: usa o preço de venda do estoque e mantém o rótulo de venda
+                            # Bloco exclusivo para a tela de Pedidos / Orçamentos (Usa Custo e exibe Valor Compra)
                             if not df_produtos.empty and col_nome_prod:
-                                col_venda_prod = next((c for c in ['preco_venda', 'valor_venda', 'venda'] if c in df_produtos.columns), None)
-                                dict_vendas = dict(zip(df_produtos[col_nome_prod].astype(str).str.strip().str.upper(), df_produtos[col_venda_prod])) if col_venda_prod else {}
+                                col_custo_prod = next((c for c in ['preco_custo', 'valor_compra', 'custo', 'valor'] if c in df_produtos.columns), None)
+                                dict_custos = dict(zip(df_produtos[col_nome_prod].astype(str).str.strip().str.upper(), df_produtos[col_custo_prod])) if col_custo_prod else {}
                                 
                                 for idx, row in df_por_data.iterrows():
                                     prod_nome = str(row.get('produto', '')).strip().upper()
-                                    val_venda = dict_vendas.get(prod_nome, 0.0)
-                                    if val_venda > 0:
-                                        df_por_data.loc[idx, 'valor_venda'] = val_venda
+                                    val_custo = dict_custos.get(prod_nome, 0.0)
+                                    if val_custo > 0:
+                                        df_por_data.loc[idx, 'valor_venda'] = val_custo
                         
-                            cfg_venda = config_cols.copy() if config_cols else {}
-                            if 'valor_venda' in cfg_venda:
-                                cfg_venda['valor_venda'] = st.column_config.NumberColumn("Valor Venda", format="R$ %.2f")
+                            cfg_pedidos = config_cols.copy() if config_cols else {}
+                            cfg_pedidos['valor_venda'] = st.column_config.NumberColumn("Valor Compra", format="R$ %.2f")
                         
                             df_editado_dia = st.data_editor(
                                 df_por_data.drop(columns=["data_dia"]),
-                                column_config=cfg_venda,
+                                column_config=cfg_pedidos,
                                 use_container_width=True,
                                 num_rows="fixed",
                                 hide_index=True,
-                                key=f"editor_venda_{data_dia.replace('/', '_')}"
+                                key=f"editor_pedidos_{data_dia.replace('/', '_')}"
                             )
                             dfs_editados[data_dia] = df_editado_dia
                             
