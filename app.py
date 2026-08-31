@@ -1,8 +1,7 @@
 import streamlit as st
 import sqlite3
 import pandas as pd
-import datetime
-from datetime import date
+from datetime import datetime, date
 import io
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
