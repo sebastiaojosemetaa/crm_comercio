@@ -312,6 +312,8 @@ def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo):
     cursor = conn.cursor()
     valor_total = quantidade * valor_custo
     data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    # Insere salvando tanto no valor_custo quanto mapeando para as colunas se existirem
     cursor.execute("""
         INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data)
         VALUES (?, ?, ?, ?, ?, ?, ?)
