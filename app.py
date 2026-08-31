@@ -1212,7 +1212,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     
                     # Botão para salvar as alterações feitas na tabela no banco de dados
                     if st.button("Salvar Alterações no Estoque"):
-                        cursor = conn.cursor()
+                        import sqlite3
+                        # Abre uma conexão direta e segura apenas para o salvamento
+                        conexao_salvar = sqlite3.connect("comercio.db") # Certifique-se de que o nome do seu arquivo .db é este, ou ajuste para o nome correto
+                        cursor = conexao_salvar.cursor()
+                        
                         for index, row in df_editado.iterrows():
                             p_id = row.get('id')
                             p_prod = row.get('produto')
@@ -1222,7 +1226,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             p_grupo = row.get('grupo')
                             p_forn = row.get('fornecedor')
             
-                            # Executa a atualização garantindo o ID correto
                             cursor.execute("""
                                 UPDATE produtos 
                                 SET produto = ?, 
@@ -1234,8 +1237,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 WHERE id = ?
                             """, (p_prod, p_qtd, p_custo, p_venda, p_grupo, p_forn, p_id))
             
-                        conn.commit()
-                        st.success("Alterações salvas com sucesso no banco de dados!")
+                        conexao_salvar.commit()
+                        conexao_salvar.close()
+                        
+                        st.success("Alterações salvas permanentemente no banco de dados!")
                         st.rerun()
 
         elif menu_admin == "📦 Estoque de Produtos":
