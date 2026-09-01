@@ -1305,13 +1305,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         if 'status' not in df_pedidos.columns:
                             df_pedidos['status'] = 'Pendente'
                         
-                        # Normaliza o status para texto
                         status_txt = df_pedidos['status'].fillna('pendente').astype(str).str.lower()
-                        
-                        # Consideramos como CONCLUÍDO apenas se tiver a palavra concluído ou convertido explicitamente
                         is_concluido = status_txt.str.contains("concluído|convertido|faturado", na=False)
                         
-                        # Tudo o que NÃO está concluído vai para os editáveis (Pendentes)
                         df_pendentes = df_pedidos[~is_concluido]
                         df_concluidos = df_pedidos[is_concluido]
         
@@ -1367,95 +1363,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.info(f"O cliente '{st.session_state.cliente_autenticado}' ainda não possui pedidos registrados.")
                 except Exception as e:
                     st.error(f"Erro ao carregar histórico: {e}")
-    
-                with col_atualizar:
-                    if st.button("🔄 Atualizar Preços de Custos"):
-                        try:
-                            cursor = conn.cursor()
-                            cursor.execute("""
-                                UPDATE produtos 
-                                SET valor_compra = (
-                                    SELECT valor_compra FROM compras 
-                                    WHERE compras.produto = produtos.produto 
-                                    ORDER BY id DESC LIMIT 1
-                                )
-                                WHERE EXISTS (
-                                    SELECT 1 FROM compras 
-                                    WHERE compras.produto = produtos.produto
-                                )
-                            """)
-                            conn.commit()
-                            st.success("Preços de custo atualizados com sucesso!")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Erro ao atualizar custos: {e}")
-            else:
-                st.info("Nenhum produto cadastrado no estoque.")
-            
-        elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
-            st.title("👥 Cadastros Gerais")
-            tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["👤 Clientes", "📦 Produtos", "🏢 Fornecedores", "🏷️ Grupos"])
-
-            with tab_cli:
-                st.subheader("Gerenciamento de Clientes")
-                with st.form("form_cad_cliente_completo"):
-                    novo_cli = st.text_input("Nome do Cliente / Razão Social")
-                    telefone = st.text_input("Telefone / WhatsApp")
-                    doc = st.text_input("CPF / CNPJ")
-                    endereco = st.text_input("Endereço")
-                    cidade = st.text_input("Cidade / Email")
-
-                    if st.form_submit_button("💾 Salvar Cliente"):
-                        if novo_cli.strip():
-                            salvar_cliente_completo(novo_cli, telefone, doc, endereco, cidade)
-                            st.success("Cliente cadastrado com sucesso!")
-                            st.rerun()
-                        else:
-                            st.warning("Preencha o nome do cliente.")
-                st.dataframe(carregar_dados("SELECT * FROM clientes"), use_container_width=True)
-
-            with tab_prod:
-                st.subheader("📝 Gerenciar Produtos (Cadastrar, Editar e Excluir)")
-                
-                with st.form("form_cad_produto_completo", clear_on_submit=True):
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        txt_nome_produto = st.text_input("Nome do Produto")
-                        val_custo = st.number_input("Preço de Custo (R$)", min_value=0.0, format="%.2f")
-                    with col2:
-                        grupo_produto = st.text_input("Grupo / Categoria", value="Geral")
-                        val_venda = st.number_input("Preço de Venda (R$)", min_value=0.0, format="%.2f")
-                        
-                    col3, col4 = st.columns(2)
-                    with col3:
-                        estoque_inicial = st.number_input("Estoque Inicial", min_value=0, value=0, step=1)
-                    with col4:
-                        fornecedor_produto = st.text_input("Fornecedor", value="")
-    
-                    if st.form_submit_button("Salvar Novo Produto"):
-                        if not txt_nome_produto.strip():
-                            st.warning("Por favor, informe o nome do produto.")
-                        else:
-                            try:
-                                cursor = conn.cursor()
-                                cursor.execute("""
-                                    INSERT INTO produtos (produto, nome, quantidade, estoque_atual, valor_compra, valor_venda, grupo, fornecedor)
-                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                                """, (
-                                    txt_nome_produto.upper(), 
-                                    txt_nome_produto.upper(), 
-                                    estoque_inicial, 
-                                    estoque_inicial, 
-                                    val_custo, 
-                                    val_venda, 
-                                    grupo_produto, 
-                                    fornecedor_produto
-                                ))
-                                conn.commit()
-                                st.success(f"Produto '{txt_nome_produto}' cadastrado com sucesso!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro ao cadastrar produto: {e}")
                 
                 st.markdown("---")
                 st.subheader("📋 Lista de Produtos (Edite direto na tabela ou exclua abaixo)")
