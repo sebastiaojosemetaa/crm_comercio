@@ -1251,11 +1251,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 df_produtos = carregar_dados(query_produtos)
             except Exception:
                 df_produtos = pd.read_sql(query_produtos, conn)
-    
+        
             if not df_produtos.empty:
+                df_produtos = df_produtos.drop(columns=['estoque_atual', 'nome'], errors='ignore')
+                
                 df_editado = st.data_editor(
-                    df_produtos, 
-                    use_container_width=True, 
+                    df_produtos,
+                    use_container_width=True,
                     key="editor_estoque_produtos",
                     hide_index=True
                 )
