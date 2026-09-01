@@ -600,7 +600,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                             if not df_dia.empty:
                                 st.markdown("### Pedidos do Dia (Editáveis)")
                                 
-                                # Configura a tabela editável
+                                # Configura a tabela editável com chave única
                                 df_editado = st.data_editor(
                                     df_dia,
                                     column_config={
@@ -616,14 +616,13 @@ if perfil_selecionado == "👤 Portal do Cliente":
                                         "status": st.column_config.TextColumn("Status", disabled=True),
                                     },
                                     hide_index=True,
-                                    key="tabela_pedidos_do_dia"
+                                    key="tabela_pedidos_do_dia_unica"
                                 )
                         
-                                if st.button("💾 Salvar Alterações da Tabela", type="primary"):
+                                if st.button("💾 Salvar Alterações da Tabela", type="primary", key="btn_salvar_tabela_unica"):
                                     try:
                                         cursor = conn.cursor()
                                         for index, row in df_editado.iterrows():
-                                            # Recalcula o valor total com base na nova quantidade alterada na tabela
                                             novo_total = float(row['quantidade']) * float(row['valor_unitario'])
                                             cursor.execute("""
                                                 UPDATE pedidos 
