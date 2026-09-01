@@ -456,6 +456,21 @@ if perfil_selecionado == "👤 Portal do Cliente":
         with aba_novo:
             st.subheader("Registrar Novo Pedido")
             
+            # Garante o carregamento das opções dos selects para o cliente
+            try:
+                df_p_cli = carregar_dados("SELECT * FROM produtos")
+                if not df_p_cli.empty:
+                    df_p_cli.columns = [c.lower() for c in df_p_cli.columns]
+                    col_nome_p = 'produto' if 'produto' in df_p_cli.columns else ('nome' if 'nome' in df_p_cli.columns else df_p_cli.columns[1])
+                    produtos_opt = df_p_cli[col_nome_p].dropna().astype(str).str.strip().unique().tolist()
+                else:
+                    produtos_opt = []
+            except Exception:
+                produtos_opt = []
+    
+            fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
+            grupos_opt = carregar_coluna("produtos", "grupo") or ["GERAL"]
+    
             col1, col2 = st.columns(2)
             with col1:
                 prod = st.selectbox("Selecione o Produto", produtos_opt, key="cliente_sel_produto_final")
