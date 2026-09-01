@@ -509,7 +509,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
             st.markdown("---")
             st.subheader("📋 Itens Atuais no Pedido")
     
-            if len(st.session_state.carrinho_cliente) > 0:
+            if len(st.session_state.get("carrinho_cliente", [])) > 0:
                 df_carrinho_cli = pd.DataFrame(st.session_state.carrinho_cliente)
                 st.dataframe(df_carrinho_cli, use_container_width=True, hide_index=True)
     
