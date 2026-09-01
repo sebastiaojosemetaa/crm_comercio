@@ -1353,14 +1353,14 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         txt_nome_produto = st.text_input("Nome do Produto")
                         val_custo = st.number_input("Preço de Custo (R$)", min_value=0.0, format="%.2f")
                     with col2:
-                        txt_grupo_produto = st.text_input("Grupo / Categoria", value="Geral")
+                        grupo_produto = st.text_input("Grupo / Categoria", value="Geral")
                         val_venda = st.number_input("Preço de Venda (R$)", min_value=0.0, format="%.2f")
                         
                     col3, col4 = st.columns(2)
                     with col3:
                         estoque_inicial = st.number_input("Estoque Inicial", min_value=0, value=0, step=1)
                     with col4:
-                        txt_fornecedor_produto = st.text_input("Fornecedor", value="BAHIA")
+                        fornecedor_produto = st.text_input("Fornecedor", value="BAHIA")
     
                     if st.form_submit_button("Salvar Produto"):
                         if not txt_nome_produto.strip():
@@ -1378,8 +1378,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     estoque_inicial, 
                                     val_custo, 
                                     val_venda, 
-                                    txt_fornecedor.upper(),
-                                    txt_grupo.upper(),
+                                    fornecedor_produto,
+                                    grupo_produto,
                                 ))
                                 conn.commit()
                                 st.success(f"Produto '{txt_nome_produto}' cadastrado com sucesso!")
