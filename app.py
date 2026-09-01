@@ -528,8 +528,8 @@ if perfil_selecionado == "👤 Portal do Cliente":
                             cursor = conn.cursor()
                             for item in st.session_state.carrinho_cliente:
                                 cursor.execute("""
-                                    INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, fornecedor, grupo)
-                                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                                    INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, fornecedor, grupo, data)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                                 """, (
                                     st.session_state.cliente_autenticado,
                                     item["produto"],
@@ -537,7 +537,8 @@ if perfil_selecionado == "👤 Portal do Cliente":
                                     item["preco_unitario"],
                                     item["valor_total"],
                                     item["fornecedor"],
-                                    item["grupo"]
+                                    item["grupo"],
+                                    datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                                 ))
                             conn.commit()
                             st.session_state.carrinho_cliente = []
