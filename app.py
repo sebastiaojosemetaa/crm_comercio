@@ -676,7 +676,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                             except Exception as e:
                                 st.error(f"Erro ao carregar histórico: {e}")
                         
-elif perfil_selecionado == "🔐 Administração / Vendedor":
+    elif perfil_selecionado == "🔐 Administração / Vendedor":
     if not st.session_state.admin_logged:
         st.title("🔑 Autenticação Administrativa")
         senha_admin = st.sidebar.text_input("Digite a Senha do Admin:", type="password")
