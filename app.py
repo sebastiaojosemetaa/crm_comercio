@@ -1309,19 +1309,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         
                         st.dataframe(df_pedidos, use_container_width=True, hide_index=True)
                     else:
-                        st.info("Nenhum pedido encontrado.")
-                except Exception as e:
-                    st.error(f"Erro: {e}")
-        
-                        st.markdown("---")
-                        st.markdown("### 📚 Pedidos Concluídos / Histórico Geral")
-                        if not df_concluidos.empty:
-                            st.dataframe(df_concluidos, use_container_width=True, hide_index=True)
-                        else:
-                            st.info("Nenhum pedido concluído.")
-                            
-                    else:
-                        st.info(f"O cliente '{st.session_state.cliente_autenticado}' ainda não possui pedidos registrados.")
+                        st.info("Nenhum pedido encontrado para este cliente.")
                 except Exception as e:
                     st.error(f"Erro ao carregar histórico: {e}")
         
