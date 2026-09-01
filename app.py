@@ -1223,8 +1223,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.info("Você ainda não possui pedidos registrados.")
                 except Exception as e:
                     st.error(f"Erro ao carregar histórico: {e}")
-                if st.button("🔄 Atualizar Histórico", key="btn_atualizar_compras"):
-                    st.rerun()
     
                 query_historico = """
                     SELECT 
