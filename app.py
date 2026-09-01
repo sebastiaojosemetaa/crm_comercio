@@ -1142,7 +1142,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 with st.form("form_entrada_estoque"):
                     col1, col2 = st.columns(2)
                     with col1:
-                        produto escolhido = st.select_box("Produto", produtos_opt, key="prod_entrada_estoque")
+                        produto_escolhido = st.selectbox("Produto", produtos_opt, key="prod_entrada_estoque")
         
                         cursor = conn.cursor()
                         cursor.execute("SELECT valor_compra FROM produtos WHERE produto = ?", (produto_escolhido,))
