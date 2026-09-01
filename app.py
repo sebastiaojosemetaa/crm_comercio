@@ -1246,7 +1246,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
             
-            # Utiliza a conexão global 'conn' oficial do aplicativo
             query_produtos = "SELECT * FROM produtos"
             try:
                 df_produtos = carregar_dados(query_produtos)
@@ -1274,7 +1273,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 p_id = row.get('id')
                                 p_prod = row.get('produto')
                                 p_qtd = row.get('quantidade', row.get('estoque_atual', 0))
-                                p_custo = row.get('valor_custo', row.get('valor_compra', 0))
+                                # Usa 'valor_compra' que é a coluna real existente na tabela
+                                p_custo = row.get('valor_compra', row.get('valor_custo', 0))
                                 p_venda = row.get('valor_venda', 0)
                                 p_grupo = row.get('grupo')
                                 p_forn = row.get('fornecedor')
@@ -1283,7 +1283,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     UPDATE produtos 
                                     SET produto = ?, 
                                         estoque_atual = ?, 
-                                        valor_custo = ?, 
+                                        valor_compra = ?, 
                                         valor_venda = ?, 
                                         grupo = ?, 
                                         fornecedor = ?
@@ -1302,8 +1302,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             cursor = conn.cursor()
                             cursor.execute("""
                                 UPDATE produtos 
-                                SET valor_custo = (
-                                    SELECT valor_custo FROM compras 
+                                SET valor_compra = (
+                                    SELECT valor_compra FROM compras 
                                     WHERE compras.produto = produtos.produto 
                                     ORDER BY id DESC LIMIT 1
                                 )
