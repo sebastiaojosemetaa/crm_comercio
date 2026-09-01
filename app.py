@@ -1142,14 +1142,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 with st.form("form_entrada_estoque", clear_on_submit=True):
                     col1, col2 = st.columns(2)
                     with col1:
-                        # Adiciona a opção de cadastrar novo produto na lista
-                        lista_produtos_com_opcao = produtos_opt + ["+ Cadastrar Novo Produto..."]
-                        produto_escolhido = st.selectbox("Produto", lista_produtos_com_opcao, key="prod_entrada_estoque")
+                        produto_escolhido = st.selectbox("Produto (Se já cadastrado)", produtos_opt, key="prod_entrada_estoque")
                         
-                        if produto_escolhido == "+ Cadastrar Novo Produto...":
-                            novo_produto_input = st.text_input("Nome do Novo Produto")
-                        else:
-                            novo_produto_input = ""
+                        # Campo visível para cadastrar novo produto direto na hora
+                        novo_produto_input = st.text_input("Ou Digite um NOVO Produto (se não estiver na lista acima)")
     
                         fornecedor_escolhido = st.selectbox("Fornecedor", fornecedores_opt)
                         quantidade_entrada = st.number_input("Quantidade", min_value=0.0, format="%.2f")
@@ -1157,9 +1153,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     with col2:
                         grupo_escolhido = st.selectbox("Grupo", grupos_opt)
                         
-                        # Pega o preço cadastrado se o produto já existir
+                        # Pega o preço cadastrado se o produto já existir na lista
                         preco_cadastrado = 0.0
-                        if produto_escolhido and produto_escolhido != "+ Cadastrar Novo Produto...":
+                        if produto_escolhido:
                             try:
                                 cursor = conn.cursor()
                                 cursor.execute("SELECT valor_compra FROM produtos WHERE produto = ?", (produto_escolhido,))
@@ -1172,35 +1168,36 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         preco_custo = st.number_input("Preço de Custo Unitário (R$)", min_value=0.0, value=preco_cadastrado, format="%.2f")
                         preco_venda = st.number_input("Preço de Venda Unitário (R$)", min_value=0.0, format="%.2f")
     
-                    if st.form_submit_button("Registrar Entrada no Estoque"):
-                        produto_final = novo_produto_input.strip().upper() if produto_escolhido == "+ Cadastrar Novo Produto..." else produto_escolhido
+                    if st.form_submit_button("Registrar Entrada no Estocagem"):
+                        # Define se vai usar o produto digitado (novo) ou o selecionado na lista
+                        produto_final = novo_produto_input.strip().upper() if novo_produto_input.strip() else produto_escolhido
                         
                         if not produto_final:
-                            st.warning("Informe o nome do produto.")
+                            st.warning("Selecione um produto ou digite o nome de um novo produto.")
                         else:
                             try:
                                 cursor = conn.cursor()
                                 
-                                # Verifica se o produto já existe na tabela de produtos
+                                # Verifica se o produto já existe
                                 cursor.execute("SELECT id FROM produtos WHERE produto = ?", (produto_final,))
                                 existe = cursor.fetchone()
                                 
                                 if existe:
-                                    # Se já existe, atualiza a quantidade somando a entrada e atualiza os preços/grupo/fornecedor se necessário
+                                    # Atualiza a quantidade e preços se já existir
                                     cursor.execute("""
                                         UPDATE produtos 
                                         SET quantidade = quantidade + ?, valor_compra = ?, valor_venda = ?, grupo = ?, fornecedor = ?
                                         WHERE produto = ?
                                     """, (quantidade_entrada, preco_custo, preco_venda, grupo_escolhido, fornecedor_escolhido, produto_final))
                                 else:
-                                    # Se não existe, cadastra o produto novo automaticamente na tabela de produtos
+                                    # Cadastra o produto novo automaticamente se não existir
                                     cursor.execute("""
                                         INSERT INTO produtos (produto, quantidade, valor_compra, valor_venda, grupo, fornecedor)
                                         VALUES (?, ?, ?, ?, ?, ?)
                                     """, (produto_final, quantidade_entrada, preco_custo, preco_venda, grupo_escolhido, fornecedor_escolhido))
                                 
                                 conn.commit()
-                                st.success(f"Entrada registrada e produto '{produto_final}' atualizado/cadastrado com sucesso!")
+                                st.success(f"Estoque do produto '{produto_final}' atualizado/cadastrado com sucesso!")
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Erro ao registrar entrada: {e}")
