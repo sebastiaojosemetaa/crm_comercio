@@ -545,56 +545,6 @@ if perfil_selecionado == "👤 Portal do Cliente":
             else:
                 st.info("Nenhum item adicionado ao pedido ainda.")
     
-        if st.button("➕ Incluir Produto no Pedido", type="primary", key="btn_add_carrinho_cli"):
-            st.session_state.carrinho_cliente.append({
-                "produto": prod,
-                "fornecedor": forn_cli,
-                "grupo": grupo_cli,
-                "quantidade": qtd_cli,
-                "preco_unitario": preco_cli,
-                "valor_total": valor_total_item
-            })
-            st.success(f"Item '{prod}' adicionado ao pedido!")
-            st.rerun()
-    
-        st.markdown("---")
-        st.subheader("📋 Itens Atuais no Pedido")
-    
-        if len(st.session_state.carrinho_cliente) > 0:
-            df_carrinho_cli = pd.DataFrame(st.session_state.carrinho_cliente)
-            st.dataframe(df_carrinho_cli, use_container_width=True, hide_index=True)
-    
-            col_b1, col_b2 = st.columns(2)
-            with col_b1:
-                if st.button("🗑️ Limpar Carrinho", key="limpar_carrinho_cli"):
-                    st.session_state.carrinho_cliente = []
-                    st.rerun()
-    
-            with col_b2:
-                if st.button("💾 Finalizar e Enviar Pedido", type="primary", key="finalizar_pedido_cli"):
-                    try:
-                        cursor = conn.cursor()
-                        for item in st.session_state.carrinho_cliente:
-                            cursor.execute("""
-                                INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, fornecedor, grupo)
-                                VALUES (?, ?, ?, ?, ?, ?, ?)
-                            """, (
-                                nome_usuario_logado if 'nome_usuario_logado' in globals() else "CLIENTE",
-                                item["produto"],
-                                item["quantidade"],
-                                item["preco_unitario"],
-                                item["valor_total"],
-                                item["fornecedor"],
-                                item["grupo"]
-                            ))
-                        conn.commit()
-                        st.session_state.carrinho_cliente = []
-                        st.success("Pedido realizado com sucesso!")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Erro ao finalizar pedido: {e}")
-        else:
-            st.info("Nenhum item adicionado ao pedido ainda.")
 # ==========================================
 # AMBIENTE 2: ADMINISTRADOR / VENDEDOR
 # ==========================================
