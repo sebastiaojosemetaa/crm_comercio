@@ -571,8 +571,8 @@ if perfil_selecionado == "👤 Portal do Cliente":
     
         col1, col2 = st.columns(2)
         with col1:
-            prod = st.selectbox("Selecione o Produto", produtos_opt, key="cliente_sel_produto")
-            forn_cli = st.selectbox("Selecione o Fornecedor", fornecedores_opt, key="cliente_sel_forn")
+            prod = st.selectbox("Selecione o Produto", produtos_opt, key="cliente_sel_produto_final")
+            forn_cli = st.selectbox("Selecione o Fornecedor", fornecedores_opt, key="cliente_sel_forn_final")
             
             preco_sugerido = 0.0
             if prod:
@@ -584,11 +584,11 @@ if perfil_selecionado == "👤 Portal do Cliente":
                         preco_sugerido = float(res[0])
                 except Exception:
                     pass
-    
+
         with col2:
-            grupo_cli = st.selectbox("Selecione o Grupo", grupos_opt, key="cliente_sel_grupo")
-            qtd_cli = st.number_input("Quantidade", min_value=0.01, value=1.0, format="%.2f", key="cliente_qtd")
-            preco_cli = st.number_input("Preço Unitário (R$)", min_value=0.0, value=preco_sugerido, format="%.2f", key="cliente_preco")
+            grupo_cli = st.selectbox("Selecione o Grupo", grupos_opt, key="cliente_sel_grupo_final")
+            qtd_cli = st.number_input("Quantidade", min_value=0.01, value=1.0, format="%.2f", key="cliente_qtd_final")
+            preco_cli = st.number_input("Preço Unitário (R$)", min_value=0.0, value=preco_sugerido, format="%.2f", key="cliente_preco_final")
     
         valor_total_item = qtd_cli * preco_cli
         st.info(f"Valor Total do Item: **R$ {valor_total_item:.2f}**")
