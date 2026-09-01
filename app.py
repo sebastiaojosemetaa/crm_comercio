@@ -1209,7 +1209,20 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         except Exception as e:
                             st.error(f"Erro ao registrar entrada: {e}")
                         
-            with aba_historico_compras:
+            with aba_historico:
+                st.subheader("Histórico de Meus Pedidos Registrados")
+                try:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT * FROM pedidos WHERE cliente = ?", (st.session_state.cliente_autenticado,))
+                    pedidos_cliente = cursor.fetchall()
+                    
+                    if pedidos_cliente:
+                        df_pedidos = pd.DataFrame(pedidos_cliente, columns=[description[0] for description in cursor.description])
+                        st.dataframe(df_pedidos, use_container_width=True, hide_index=True)
+                    else:
+                        st.info("Você ainda não possui pedidos registrados.")
+                except Exception as e:
+                    st.error(f"Erro ao carregar histórico: {e}")
                 if st.button("🔄 Atualizar Histórico", key="btn_atualizar_compras"):
                     st.rerun()
     
