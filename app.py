@@ -549,7 +549,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 st.info("Nenhum item adicionado ao pedido ainda.")
     
         with aba_historico:
-            st.subheader("Histórico de Meus Pedidos Registrados")
+            st.subheader("Histórico e Gestão de Meus Pedidos")
             try:
                 cursor = conn.cursor()
                 cursor.execute("SELECT * FROM pedidos WHERE cliente = ?", (st.session_state.cliente_autenticado,))
@@ -557,7 +557,72 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 
                 if pedidos_cliente:
                     df_pedidos = pd.DataFrame(pedidos_cliente, columns=[description[0] for description in cursor.description])
-                    st.dataframe(df_pedidos, use_container_width=True, hide_index=True)
+                    
+                    # Identifica a coluna de data (tentando padronizar o nome se existir)
+                    col_data_nome = None
+                    for c in df_pedidos.columns:
+                        if 'data' in c.lower():
+                            col_data_nome = c
+                            break
+                    
+                    from datetime import date
+                    hoje_str = date.today().strftime("%Y-%m-%d")
+                    
+                    if col_data_nome:
+                        # Filtra pedidos do dia (considerando o formato YYYY-MM-DD no início da string de data)
+                        df_pedidos['data_limpa'] = df_pedidos[col_data_nome].astype(str).str.slice(0, 10)
+                        df_hoje = df_pedidos[df_pedidos['data_limpa'] == hoje_str]
+                        df_antigos = df_pedidos[df_pedidos['data_limpa'] != hoje_str]
+                    else:
+                        # Se não achar coluna de data exata, joga tudo como recente para teste
+                        df_hoje = df_pedidos
+                        df_antigos = pd.DataFrame(columns=df_pedidos.columns)
+    
+                    st.markdown("### 🟢 Pedidos do Dia (Editáveis)")
+                    if not df_hoje.empty:
+                        for index, row in df_hoje.iterrows():
+                            pedido_id = row['id']
+                            prod_nome = row.get('produto', 'Item')
+                            qtd_val = row.get('quantidade', 1)
+                            tot_val = row.get('valor_total', 0)
+                            
+                            with st.expander(f"Pedido #{pedido_id} - {prod_nome} (Qtd: {qtd_val} | R$ {tot_val:.2f})"):
+                                col_e1, col_e2, col_e3 = st.columns(3)
+                                with col_e1:
+                                    nova_qtd = st.number_input("Nova Qtd", min_value=0.01, value=float(qtd_val), format="%.2f", key=f"edit_qtd_{pedido_id}")
+                                with col_e2:
+                                    st.write("")
+                                    st.write("")
+                                    if st.button("💾 Salvar Edição", key=f"btn_salvar_{pedido_id}"):
+                                        try:
+                                            novo_total = nova_qtd * float(row.get('valor_unitario', 0))
+                                            cursor.execute("UPDATE pedidos SET quantidade = ?, valor_total = ? WHERE id = ?", (nova_qtd, novo_total, pedido_id))
+                                            conn.commit()
+                                            st.success("Pedido atualizado com sucesso!")
+                                            st.rerun()
+                                        except Exception as ex:
+                                            st.error(f"Erro ao atualizar: {ex}")
+                                with col_e3:
+                                    st.write("")
+                                    st.write("")
+                                    if st.button("🗑️ Excluir Pedido", key=f"btn_excluir_{pedido_id}", type="primary"):
+                                        try:
+                                            cursor.execute("DELETE FROM pedidos WHERE id = ?", (pedido_id,))
+                                            conn.commit()
+                                            st.warning("Pedido excluído!")
+                                            st.rerun()
+                                        except Exception as ex:
+                                            st.error(f"Erro ao excluir: {ex}")
+                    else:
+                        st.info("Nenhum pedido registrado hoje para edição.")
+    
+                    st.markdown("---")
+                    st.markdown("### 📚 Pedidos Anteriores (Histórico)")
+                    if not df_antigos.empty:
+                        st.dataframe(df_antigos.drop(columns=['data_limpa'], errors='ignore'), use_container_width=True, hide_index=True)
+                    else:
+                        st.info("Não há pedidos anteriores registrados.")
+                        
                 else:
                     st.info(f"O cliente '{st.session_state.cliente_autenticado}' ainda não possui pedidos registrados.")
             except Exception as e:
