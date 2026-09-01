@@ -1306,6 +1306,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     df_pedidos['status'] = 'pendente'
                                 
                                 df_pedidos['status'] = df_pedidos['status'].fillna('pendente')
+                                
+                                # Tratamento para limpar os valores None que aparecem na tela
+                                for col in df_pedidos.columns:
+                                    df_pedidos[col] = df_pedidos[col].fillna('-')
+                                    
                                 st.dataframe(df_pedidos, use_container_width=True, hide_index=True)
                             else:
                                 st.info(f"O cliente '{st.session_state.cliente_autenticado}' ainda não possui pedidos registrados.")
