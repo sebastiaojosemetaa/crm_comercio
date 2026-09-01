@@ -432,28 +432,30 @@ if perfil_selecionado == "👤 Portal do Cliente":
             st.rerun()
             
         st.title(f"🛍️ Portal do Cliente — Meus Pedidos ({st.session_state.cliente_autenticado})")
-        aba_novo, aba_historico = st.tabs(["➕ Criar Novo Pedido", "📜 Pedidos Registrados & Relatórios"]) 
-        # Garante que a tabela de pedidos existe
-        try:
-            cursor = conn.cursor()
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS pedidos (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    cliente TEXT,
-                    produto TEXT,
-                    quantidade REAL,
-                    valor_unitario REAL,
-                    valor_total REAL,
-                    fornecedor TEXT,
-                    grupo TEXT
-                )
-            """)
-            conn.commit()
-        except Exception:
-            pass
-        aba_novo, aba_historico = st.tabs(["+ Criar Novo Pedido", "📋 Pedidos Registrados & Relatórios"])
-        with aba_novo:
-            st.subheader("Registrar Novo Pedido")
+        
+            # Garante que a tabela de pedidos existe
+            try:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS pedidos (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        cliente TEXT,
+                        produto TEXT,
+                        quantidade REAL,
+                        valor_unitario REAL,
+                        valor_total REAL,
+                        fornecedor TEXT,
+                        grupo TEXT
+                    )
+                """)
+                conn.commit()
+            except Exception:
+                pass
+        
+            aba_novo, aba_historico = st.tabs(["+ Criar Novo Pedido", "📋 Pedidos Registrados & Relatórios"])
+        
+            with aba_novo:
+                st.subheader("Registrar Novo Pedido")
     
             df_p_cli = carregar_dados("SELECT * FROM produtos")
             if not df_p_cli.empty:
