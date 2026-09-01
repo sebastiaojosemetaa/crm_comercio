@@ -1246,17 +1246,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
             
-            import sqlite3
-            db_path = "comercio.db"  # Ajuste o nome do banco se necessário
-            
-            # Puxa todas as colunas livremente para evitar erros
+            # Utiliza a conexão global 'conn' oficial do aplicativo
             query_produtos = "SELECT * FROM produtos"
             try:
                 df_produtos = carregar_dados(query_produtos)
             except Exception:
-                conn_temp = sqlite3.connect(db_path)
-                df_produtos = pd.read_sql(query_produtos, conn_temp)
-                conn_temp.close()
+                df_produtos = pd.read_sql(query_produtos, conn)
     
             if not df_produtos.empty:
                 if 'estoque_atual' in df_produtos.columns and 'quantidade' not in df_produtos.columns:
@@ -1274,9 +1269,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 with col_salvar:
                     if st.button("Salvar Alterações no Estoque"):
                         try:
-                            conexao_db = sqlite3.connect(db_path)
-                            cursor = conexao_db.cursor()
-                            
+                            cursor = conn.cursor()
                             for index, row in df_editado.iterrows():
                                 p_id = row.get('id')
                                 p_prod = row.get('produto')
@@ -1297,8 +1290,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     WHERE id = ?
                                 """, (p_prod, p_qtd, p_custo, p_venda, p_grupo, p_forn, p_id))
     
-                            conexao_db.commit()
-                            conexao_db.close()
+                            conn.commit()
                             st.success("Estoque e preços salvos permanentemente!")
                             st.rerun()
                         except Exception as e:
@@ -1307,8 +1299,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 with col_atualizar:
                     if st.button("🔄 Atualizar Preços de Custos"):
                         try:
-                            conexao_db = sqlite3.connect(db_path)
-                            cursor = conexao_db.cursor()
+                            cursor = conn.cursor()
                             cursor.execute("""
                                 UPDATE produtos 
                                 SET valor_custo = (
@@ -1321,8 +1312,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     WHERE compras.produto = produtos.produto
                                 )
                             """)
-                            conexao_db.commit()
-                            conexao_db.close()
+                            conn.commit()
                             st.success("Preços de custo atualizados com sucesso!")
                             st.rerun()
                         except Exception as e:
