@@ -1253,9 +1253,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 df_produtos = pd.read_sql(query_produtos, conn)
     
             if not df_produtos.empty:
-                if 'estoque_atual' in df_produtos.columns and 'quantidade' not in df_produtos.columns:
-                    df_produtos = df_produtos.rename(columns={'estoque_atual': 'quantidade'})
-    
                 df_editado = st.data_editor(
                     df_produtos, 
                     use_container_width=True, 
@@ -1272,23 +1269,29 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             for index, row in df_editado.iterrows():
                                 p_id = row.get('id')
                                 p_prod = row.get('produto')
-                                p_qtd = row.get('quantidade', row.get('estoque_atual', 0))
-                                # Usa 'valor_compra' que é a coluna real existente na tabela
+                                
+                                # Pega a quantidade de qualquer uma das colunas para evitar conflito
+                                p_qtd = row.get('quantidade')
+                                if p_qtd is None or pd.isna(p_qtd):
+                                    p_qtd = row.get('estoque_atual', 0)
+                                    
                                 p_custo = row.get('valor_compra', row.get('valor_custo', 0))
                                 p_venda = row.get('valor_venda', 0)
                                 p_grupo = row.get('grupo')
                                 p_forn = row.get('fornecedor')
     
+                                # Atualiza ambas as colunas de quantidade no banco para ficarem idênticas
                                 cursor.execute("""
                                     UPDATE produtos 
                                     SET produto = ?, 
+                                        quantidade = ?, 
                                         estoque_atual = ?, 
                                         valor_compra = ?, 
                                         valor_venda = ?, 
                                         grupo = ?, 
                                         fornecedor = ?
                                     WHERE id = ?
-                                """, (p_prod, p_qtd, p_custo, p_venda, p_grupo, p_forn, p_id))
+                                """, (p_prod, p_qtd, p_qtd, p_custo, p_venda, p_grupo, p_forn, p_id))
     
                             conn.commit()
                             st.success("Estoque e preços salvos permanentemente!")
