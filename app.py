@@ -433,6 +433,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
             
         st.title(f"🛍️ Portal do Cliente — Meus Pedidos ({st.session_state.cliente_autenticado})")
 
+        # Garante que a tabela de pedidos existe
         try:
             cursor = conn.cursor()
             cursor.execute("""
@@ -472,8 +473,8 @@ if perfil_selecionado == "👤 Portal do Cliente":
     
             col1, col2 = st.columns(2)
             with col1:
-                prod = st.selectbox("Selecione o Produto", produtos_opt, key="cli_prod_unique_v2")
-                forn_cli = st.selectbox("Selecione o Fornecedor", fornecedores_opt, key="cli_forn_unique_v2")
+                prod = st.selectbox("Selecione o Produto", produtos_opt, key="cli_prod_unique_v3")
+                forn_cli = st.selectbox("Selecione o Fornecedor", fornecedores_opt, key="cli_forn_unique_v3")
                 
                 preco_sugerido = 0.0
                 if prod:
@@ -487,14 +488,16 @@ if perfil_selecionado == "👤 Portal do Cliente":
                         pass
     
             with col2:
-                grupo_cli = st.selectbox("Selecione o Grupo", grupos_opt, key="cli_grupo_unique_v2")
-                qtd_cli = st.number_input("Quantidade", min_value=0.01, value=1.0, format="%.2f", key="cli_qtd_unique_v2")
-                preco_cli = st.number_input("Preço Unitário (R$)", min_value=0.0, value=preco_sugerido, format="%.2f", key="cli_preco_unique_v2")
+                grupo_cli = st.selectbox("Selecione o Grupo", grupos_opt, key="cli_grupo_unique_v3")
+                qtd_cli = st.number_input("Quantidade", min_value=0.01, value=1.0, format="%.2f", key="cli_qtd_unique_v3")
+                preco_cli = st.number_input("Preço Unitário (R$)", min_value=0.0, value=preco_sugerido, format="%.2f", key="cli_preco_unique_v3")
     
             valor_total_item = qtd_cli * preco_cli
             st.info(f"Valor Total do Item: R$ {valor_total_item:.2f}")
     
-            if st.button("➕ Incluir Produto no Pedido", type="primary", key="cli_btn_add_unique_v2"):
+            if st.button("➕ Incluir Produto no Pedido", type="primary", key="cli_btn_add_unique_v3"):
+                if "carrinho_cliente" not in st.session_state:
+                    st.session_state.carrinho_cliente = []
                 st.session_state.carrinho_cliente.append({
                     "produto": prod,
                     "fornecedor": forn_cli,
@@ -515,12 +518,12 @@ if perfil_selecionado == "👤 Portal do Cliente":
     
                 col_b1, col_b2 = st.columns(2)
                 with col_b1:
-                    if st.button("🗑️ Limpar Carrinho", key="cli_limpar_unique_v2"):
+                    if st.button("🗑️ Limpar Carrinho", key="cli_limpar_unique_v3"):
                         st.session_state.carrinho_cliente = []
                         st.rerun()
     
                 with col_b2:
-                    if st.button("💾 Finalizar e Enviar Pedido", type="primary", key="cli_finalizar_unique_v2"):
+                    if st.button("💾 Finalizar e Enviar Pedido", type="primary", key="cli_finalizar_unique_v3"):
                         try:
                             cursor = conn.cursor()
                             for item in st.session_state.carrinho_cliente:
@@ -544,6 +547,21 @@ if perfil_selecionado == "👤 Portal do Cliente":
                             st.error(f"Erro ao finalizar pedido: {e}")
             else:
                 st.info("Nenhum item adicionado ao pedido ainda.")
+    
+        with aba_historico:
+            st.subheader("Histórico de Meus Pedidos Registrados")
+            try:
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM pedidos WHERE cliente = ?", (st.session_state.cliente_autenticado,))
+                pedidos_cliente = cursor.fetchall()
+                
+                if pedidos_cliente:
+                    df_pedidos = pd.DataFrame(pedidos_cliente, columns=[description[0] for description in cursor.description])
+                    st.dataframe(df_pedidos, use_container_width=True, hide_index=True)
+                else:
+                    st.info(f"O cliente '{st.session_state.cliente_autenticado}' ainda não possui pedidos registrados.")
+            except Exception as e:
+                st.error(f"Erro ao carregar histórico: {e}")
     
 # ==========================================
 # AMBIENTE 2: ADMINISTRADOR / VENDEDOR
