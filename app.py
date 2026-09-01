@@ -1245,37 +1245,46 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
-            df_produtos = carregar_dados("SELECT * FROM produtos")
             
+            import sqlite3
+            db_path = "comercio.db"  # Ajuste o nome do banco se necessário
+            
+            query_produtos = "SELECT id, produto, estoque_atual, valor_custo, valor_venda, grupo, fornecedor FROM produtos"
+            try:
+                df_produtos = carregar_dados(query_produtos)
+            except Exception:
+                conn_temp = sqlite3.connect(db_path)
+                df_produtos = pd.read_sql(query_produtos, conn_temp)
+                conn_temp.close()
+    
             if not df_produtos.empty:
-                if 'estoque_atual' not in df_produtos.columns and 'quantidade' in df_produtos.columns:
-                    df_produtos = df_produtos.rename(columns={'quantidade': 'estoque_atual'})
-                elif 'quantidade' not in df_produtos.columns and 'estoque_atual' in df_produtos.columns:
+                if 'estoque_atual' in df_produtos.columns and 'quantidade' not in df_produtos.columns:
                     df_produtos = df_produtos.rename(columns={'estoque_atual': 'quantidade'})
-                
+    
                 df_editado = st.data_editor(
-                    df_produtos.drop(columns=['estoque_atual', 'nome'], errors='ignore'),
-                    use_container_width=True,
-                    hide_index=True,
-                    key="editor_estoque_produtos"
+                    df_produtos, 
+                    use_container_width=True, 
+                    key="editor_estoque_produtos",
+                    hide_index=True
                 )
-
-                col1, col2 = st.columns(2)
-                with col1:
+    
+                col_salvar, col_atualizar = st.columns(2)
+    
+                with col_salvar:
                     if st.button("Salvar Alterações no Estoque"):
-                        cursor = conn.cursor()
-                        for index, row in df_editado.iterrows():
-                            # Captura os valores com segurança das colunas do editor
-                            p_prod = row.get('produto')
-                            p_qtd = row.get('quantidade', row.get('estoque_atual', 0))
-                            p_custo = row.get('valor_custo', row.get('valor_compra', 0))
-                            p_venda = row.get('valor_venda', 0)
-                            p_grupo = row.get('grupo')
-                            p_forn = row.get('fornecedor')
-                            p_id = row.get('id')
-            
-                            # Tenta atualizar usando 'valor_custo'; caso a tabela use 'valor_compra', o try/except trata para não quebrar
-                            try:
+                        try:
+                            conexao_db = sqlite3.connect(db_path)
+                            cursor = conexao_db.cursor()
+                            
+                            for index, row in df_editado.iterrows():
+                                p_id = row.get('id')
+                                p_prod = row.get('produto')
+                                p_qtd = row.get('quantidade', row.get('estoque_atual', 0))
+                                p_custo = row.get('valor_custo', row.get('valor_compra', 0))
+                                p_venda = row.get('valor_venda', 0)
+                                p_grupo = row.get('grupo')
+                                p_forn = row.get('fornecedor')
+    
                                 cursor.execute("""
                                     UPDATE produtos 
                                     SET produto = ?, 
@@ -1286,63 +1295,39 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         fornecedor = ?
                                     WHERE id = ?
                                 """, (p_prod, p_qtd, p_custo, p_venda, p_grupo, p_forn, p_id))
-                            except sqlite3.OperationalError:
-                                cursor.execute("""
-                                    UPDATE produtos 
-                                    SET produto = ?, 
-                                        estoque_atual = ?, 
-                                        valor_compra = ?, 
-                                        valor_venda = ?, 
-                                        grupo = ?, 
-                                        fornecedor = ?
-                                    WHERE id = ?
-                                """, (p_prod, p_qtd, p_custo, p_venda, p_grupo, p_forn, p_id))
-            
-                        conn.commit()
-                        st.success("Estoque atualizado com sucesso!")
-                        st.rerun()
-
-                with col2:
-                    if st.button("🔄 Atualizar Preços de Custo"):
-                        import sqlite3
+    
+                            conexao_db.commit()
+                            conexao_db.close()
+                            st.success("Estoque e preços salvos permanentemente!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro ao salvar: {e}")
+    
+                with col_atualizar:
+                    if st.button("🔄 Atualizar Preços de Custos"):
                         try:
-                            conn_aux = sqlite3.connect("comercio.db")
-                            cursor_aux = conn_aux.cursor()
-                            
-                            # Mapeia os custos atuais do estoque em letras maiúsculas para evitar erros de digitação
-                            cursor_aux.execute("SELECT nome, valor_compra FROM produtos")
-                            produtos_dict = {}
-                            for row in cursor_aux.fetchall():
-                                if row[0]:
-                                    nome_prod = str(row[0]).strip().upper()
-                                    try:
-                                        produtos_dict[nome_prod] = float(row[1]) if row[1] is not None else 0.0
-                                    except:
-                                        produtos_dict[nome_prod] = 0.0
-                            
-                            # Busca os pedidos salvos
-                            cursor_aux.execute("SELECT id, produto FROM pedidos")
-                            pedidos = cursor_aux.fetchall()
-                            
-                            atualizados = 0
-                            for ped_id, prod_nome in pedidos:
-                                if prod_nome:
-                                    nome_chave = str(prod_nome).strip().upper()
-                                    if nome_chave in produtos_dict:
-                                        novo_custo = produtos_dict[nome_chave]
-                                        cursor_aux.execute(
-                                            "UPDATE pedidos SET valor_compra = ? WHERE id = ?", 
-                                            (novo_custo, ped_id)
-                                        )
-                                        atualizados += 1
-                                        
-                            conn_aux.commit()
-                            conn_aux.close()
-                            
-                            st.success(f"Sucesso! {atualizados} itens atualizados com os preços de custo do estoque.")
+                            conexao_db = sqlite3.connect(db_path)
+                            cursor = conexao_db.cursor()
+                            cursor.execute("""
+                                UPDATE produtos 
+                                SET valor_custo = (
+                                    SELECT valor_custo FROM compras 
+                                    WHERE compras.produto = produtos.produto 
+                                    ORDER BY id DESC LIMIT 1
+                                )
+                                WHERE EXISTS (
+                                    SELECT 1 FROM compras 
+                                    WHERE compras.produto = produtos.produto
+                                )
+                            """)
+                            conexao_db.commit()
+                            conexao_db.close()
+                            st.success("Preços de custo atualizados com sucesso!")
                             st.rerun()
                         except Exception as e:
                             st.error(f"Erro ao atualizar custos: {e}")
+            else:
+                st.info("Nenhum produto cadastrado no estoque.")
             
         elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
             st.title("👥 Cadastros Gerais")
