@@ -667,14 +667,14 @@ if perfil_selecionado == "👤 Portal do Cliente":
                                     FROM pedidos 
                                     WHERE DATE(data) != DATE('now') AND cliente = ?
                                 """
-                                df_antigos = pd.read_sql_query(query_antigos, conn, params=(st.session_state.cliente_autenticado,))
-                                
-                                if not df_antigos.empty:
-                                    st.dataframe(df_antigos, use_container_width=True, hide_index=True)
-                                else:
-                                    st.info("Não há pedidos anteriores registrados.")
-                            except Exception as e:
-                                st.error(f"Erro ao carregar histórico: {e}")
+                                try:
+                                    df_antigos = pd.read_sql_query(query_antigos, conn, params=(st.session_state.cliente_autenticado,))
+                                    if not df_antigos.empty:
+                                        st.dataframe(df_antigos, use_container_width=True, hide_index=True)
+                                    else:
+                                        st.info("Não há pedidos anteriores registrados.")
+                                except Exception as e:
+                                    st.error(f"Erro ao carregar histórico: {e}")
         
 # ==========================================
 # AMBIENTE 2: ADMINISTRADOR / VENDEDOR
