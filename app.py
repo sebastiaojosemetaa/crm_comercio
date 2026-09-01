@@ -1220,7 +1220,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         df_pedidos = pd.DataFrame(pedidos_cliente, columns=[description[0] for description in cursor.description])
                         st.dataframe(df_pedidos, use_container_width=True, hide_index=True)
                     else:
-                        st.info("Você ainda não possui pedidos registrados.")
+                        st.info(f"O cliente '{st.session_state.cliente_autenticado}' ainda não possui pedidos registrados.")
                 except Exception as e:
                     st.error(f"Erro ao carregar histórico: {e}")
     
