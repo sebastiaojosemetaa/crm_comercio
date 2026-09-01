@@ -436,7 +436,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
         
             with aba_novo:
                 st.subheader("+ Registrar Novo Pedido")
-
+            
                 df_p_cli = carregar_dados("SELECT * FROM produtos")
                 if not df_p_cli.empty:
                     df_p_cli.columns = [c.lower() for c in df_p_cli.columns]
@@ -445,13 +445,13 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 else:
                     produtos_opt = ["AMEIXA IMPORTADA", "ABACATE", "CEBOLA CAIXA 1"]
                     df_p_cli = pd.DataFrame()
-
+            
                 fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
                 grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
-
+            
                 if "carrinho_cliente" not in st.session_state:
                     st.session_state.carrinho_cliente = []
-
+            
                 col1, col2 = st.columns(2)
                 with col1:
                     prod = st.selectbox("Selecione o Produto", produtos_opt, key="cliente_sel_produto")
@@ -467,15 +467,15 @@ if perfil_selecionado == "👤 Portal do Cliente":
                                 preco_sugerido = float(res[0])
                         except Exception:
                             pass
-
+            
                 with col2:
                     grupo_cli = st.selectbox("Selecione o Grupo", grupos_opt, key="cliente_sel_grupo")
                     qtd_cli = st.number_input("Quantidade", min_value=0.01, value=1.0, format="%.2f", key="cliente_qtd")
                     preco_cli = st.number_input("Preço Unitário (R$)", min_value=0.0, value=preco_sugerido, format="%.2f", key="cliente_preco")
-
+            
                 valor_total_item = qtd_cli * preco_cli
                 st.info(f"Valor Total do Item: **R$ {valor_total_item:.2f}**")
-
+            
                 if st.button("➕ Incluir Produto no Pedido", type="primary", key="btn_add_carrinho_cli"):
                     st.session_state.carrinho_cliente.append({
                         "produto": prod,
@@ -487,20 +487,20 @@ if perfil_selecionado == "👤 Portal do Cliente":
                     })
                     st.success(f"Item '{prod}' adicionado ao pedido!")
                     st.rerun()
-
+            
                 st.markdown("---")
                 st.subheader("📋 Itens Atuais no Pedido")
-
+            
                 if len(st.session_state.carrinho_cliente) > 0:
                     df_carrinho_cli = pd.DataFrame(st.session_state.carrinho_cliente)
                     st.dataframe(df_carrinho_cli, use_container_width=True, hide_index=True)
-
+            
                     col_b1, col_b2 = st.columns(2)
                     with col_b1:
                         if st.button("🗑️ Limpar Carrinho", key="limpar_carrinho_cli"):
                             st.session_state.carrinho_cliente = []
                             st.rerun()
-
+            
                     with col_b2:
                         if st.button("💾 Finalizar e Enviar Pedido", type="primary", key="finalizar_pedido_cli"):
                             try:
@@ -526,7 +526,6 @@ if perfil_selecionado == "👤 Portal do Cliente":
                                 st.error(f"Erro ao finalizar pedido: {e}")
                 else:
                     st.info("Nenhum item adicionado ao pedido ainda.")
-
 # ==========================================
 # AMBIENTE 2: ADMINISTRADOR / VENDEDOR
 # ==========================================
