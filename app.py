@@ -587,22 +587,56 @@ if perfil_selecionado == "👤 Portal do Cliente":
                             qtd_val = row.get('quantidade', 1)
                             tot_val = row.get('valor_total', 0)
                             
-                            with st.expander(f"Pedido #{pedido_id} - {prod_nome} (Qtd: {qtd_val} | R$ {tot_val:.2f})"):
-                                col_e1, col_e2, col_e3 = st.columns(3)
-                                with col_e1:
-                                    nova_qtd = st.number_input("Nova Qtd", min_value=0.01, value=float(qtd_val), format="%.2f", key=f"edit_qtd_{pedido_id}")
-                                with col_e2:
-                                    st.write("")
-                                    st.write("")
-                                    if st.button("💾 Salvar Edição", key=f"btn_salvar_{pedido_id}"):
-                                        try:
-                                            novo_total = nova_qtd * float(row.get('valor_unitario', 0))
-                                            cursor.execute("UPDATE pedidos SET quantidade = ?, valor_total = ? WHERE id = ?", (nova_qtd, novo_total, pedido_id))
-                                            conn.commit()
-                                            st.success("Pedido atualizado com sucesso!")
-                                            st.rerun()
-                                        except Exception as ex:
-                                            st.error(f"Erro ao atualizar: {ex}")
+                            # Carrega os pedidos do dia em um DataFrame do Pandas para exibir na tabela editável
+                            import pandas as pd
+                            
+                            query_dia = """
+                                SELECT id, cliente, produto, quantidade, valor_unitario, valor_total, fornecedor, grupo, data, status 
+                                FROM pedidos 
+                                WHERE DATE(data) = DATE('now') AND cliente = ?
+                            """
+                            df_dia = pd.read_sql_query(query_dia, conn, params=(st.session_state.cliente_autenticado,))
+                        
+                            if not df_dia.empty:
+                                st.markdown("### Pedidos do Dia (Editáveis)")
+                                
+                                # Configura a tabela editável
+                                df_editado = st.data_editor(
+                                    df_dia,
+                                    column_config={
+                                        "id": st.column_config.NumberColumn("ID", disabled=True),
+                                        "cliente": st.column_config.TextColumn("Cliente", disabled=True),
+                                        "produto": st.column_config.TextColumn("Produto", disabled=True),
+                                        "quantidade": st.column_config.NumberColumn("Quantidade", min_value=0.01, step=0.01, format="%.2f"),
+                                        "valor_unitario": st.column_config.NumberColumn("Valor Unitário (R$)", disabled=True, format="R$ %.2f"),
+                                        "valor_total": st.column_config.NumberColumn("Total (R$)", disabled=True, format="R$ %.2f"),
+                                        "fornecedor": st.column_config.TextColumn("Fornecedor", disabled=True),
+                                        "grupo": st.column_config.TextColumn("Grupo", disabled=True),
+                                        "data": st.column_config.TextColumn("Data", disabled=True),
+                                        "status": st.column_config.TextColumn("Status", disabled=True),
+                                    },
+                                    hide_index=True,
+                                    key="tabela_pedidos_do_dia"
+                                )
+                        
+                                if st.button("💾 Salvar Alterações da Tabela", type="primary"):
+                                    try:
+                                        cursor = conn.cursor()
+                                        for index, row in df_editado.iterrows():
+                                            # Recalcula o valor total com base na nova quantidade alterada na tabela
+                                            novo_total = float(row['quantidade']) * float(row['valor_unitario'])
+                                            cursor.execute("""
+                                                UPDATE pedidos 
+                                                SET quantidade = ?, valor_total = ? 
+                                                WHERE id = ?
+                                            """, (row['quantidade'], novo_total, row['id']))
+                                        conn.commit()
+                                        st.success("Pedidos atualizados com sucesso!")
+                                        st.rerun()
+                                    except Exception as ex:
+                                        st.error(f"Erro ao atualizar os pedidos: {ex}")
+                            else:
+                                st.info("Nenhum pedido registrado hoje para edição.")
                                 with col_e3:
                                     st.write("")
                                     st.write("")
