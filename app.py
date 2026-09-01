@@ -666,12 +666,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                                 st.dataframe(df_antigos.drop(columns=['data_limpa'], errors='ignore'), use_container_width=True, hide_index=True)
                             else:
                                 st.info("Não há pedidos anteriores registrados.")
-                        
-                else:
-                    st.info(f"O cliente '{st.session_state.cliente_autenticado}' ainda não possui pedidos registrados.")
-            except Exception as e:
-                st.error(f"Erro ao carregar histórico: {e}")
-    
+        
 # ==========================================
 # AMBIENTE 2: ADMINISTRADOR / VENDEDOR
 # ==========================================
