@@ -451,7 +451,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
             conn.commit()
         except Exception:
             pass
-        
+        aba_novo, aba_historico = st.tabs(["+ Criar Novo Pedido", "📋 Pedidos Registrados & Relatórios"])
         with aba_novo:
             st.subheader("Registrar Novo Pedido")
     
