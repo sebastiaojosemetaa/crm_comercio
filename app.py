@@ -1306,53 +1306,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             df_pedidos['status'] = 'pendente'
                         
                         df_pedidos['status'] = df_pedidos['status'].fillna('pendente')
-                        status_txt = df_pedidos['status'].astype(str).str.lower()
                         
-                        is_concluido = status_txt.str.contains("concluído|convertido|faturado", na=False)
-                        
-                        df_pendentes = df_pedidos[~is_concluido]
-                        df_concluidos = df_pedidos[is_concluido]
-        
-                        st.markdown("### 🟢 Meus Pedidos Pendentes e Em Aberto (Editáveis)")
-                        if not df_pendentes.empty:
-                            for index, row in df_pendentes.iterrows():
-                                pedido_id = row['id']
-                                prod_nome = row.get('produto', 'Item')
-                                qtd_val = row.get('quantidade', 1)
-                                tot_val = row.get('valor_total', 0)
-                                status_atual = row.get('status', 'Pendente')
-                                if str(status_atual).lower() in ['none', '']:
-                                    status_atual = 'Pendente'
-                                
-                                with st.expander(f"Pedido #{pedido_id} — {prod_nome} | Qtd: {qtd_val} | R$ {tot_val:.2f} [Status: {status_atual}]"):
-                                    col_e1, col_e2, col_e3 = st.columns(3)
-                                    with col_e1:
-                                        nova_qtd = st.number_input("Nova Quantidade", min_value=0.01, value=float(qtd_val), format="%.2f", key=f"edit_qtd_novo_{pedido_id}")
-                                    with col_e2:
-                                        st.write("")
-                                        st.write("")
-                                        if st.button("💾 Salvar", key=f"btn_salvar_novo_{pedido_id}"):
-                                            try:
-                                                novo_total = nova_qtd * float(row.get('valor_unitario', 0))
-                                                cursor.execute("UPDATE pedidos SET quantidade = ?, valor_total = ? WHERE id = ?", (nova_qtd, novo_total, pedido_id))
-                                                conn.commit()
-                                                st.success("Atualizado com sucesso!")
-                                                st.rerun()
-                                            except Exception as ex:
-                                                st.error(f"Erro ao atualizar: {ex}")
-                                    with col_e3:
-                                        st.write("")
-                                        st.write("")
-                                        if st.button("🗑️ Excluir", key=f"btn_excluir_novo_{pedido_id}", type="primary"):
-                                            try:
-                                                cursor.execute("DELETE FROM pedidos WHERE id = ?", (pedido_id,))
-                                                conn.commit()
-                                                st.warning("Pedido excluído!")
-                                                st.rerun()
-                                            except Exception as ex:
-                                                st.error(f"Erro ao excluir: {ex}")
-                        else:
-                            st.info("Nenhum pedido pendente encontrado.")
+                        st.dataframe(df_pedidos, use_container_width=True, hide_index=True)
+                    else:
+                        st.info("Nenhum pedido encontrado.")
+                except Exception as e:
+                    st.error(f"Erro: {e}")
         
                         st.markdown("---")
                         st.markdown("### 📚 Pedidos Concluídos / Histórico Geral")
