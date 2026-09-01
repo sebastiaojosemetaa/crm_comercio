@@ -1305,44 +1305,47 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         if 'status' not in df_pedidos.columns:
                             df_pedidos['status'] = 'Pendente'
                         
-                        # Normaliza o status para texto minúsculo para garantir a separação correta
-                        status_str = df_pedidos['status'].fillna('pendente').astype(str).str.lower()
+                        # Normaliza o status para texto
+                        status_txt = df_pedidos['status'].fillna('pendente').astype(str).str.lower()
                         
-                        # Separa apenas o que tiver explicitamente status de concluído/convertido para o histórico fixo
-                        is_concluido = status_str.str.contains("concluído|convertido|faturado", na=False)
+                        # Consideramos como CONCLUÍDO apenas se tiver a palavra concluído ou convertido explicitamente
+                        is_concluido = status_txt.str.contains("concluído|convertido|faturado", na=False)
                         
-                        df_editavel = df_pedidos[~is_concluido]
-                        df_historico_fixo = df_pedidos[is_concluido]
+                        # Tudo o que NÃO está concluído vai para os editáveis (Pendentes)
+                        df_pendentes = df_pedidos[~is_concluido]
+                        df_concluidos = df_pedidos[is_concluido]
         
-                        st.markdown("### 🟢 Meus Pedidos em Aberto / Pendentes (Editáveis)")
-                        if not df_editavel.empty:
-                            for index, row in df_editavel.iterrows():
+                        st.markdown("### 🟢 Meus Pedidos em Aberto (Editáveis)")
+                        if not df_pendentes.empty:
+                            for index, row in df_pendentes.iterrows():
                                 pedido_id = row['id']
                                 prod_nome = row.get('produto', 'Item')
                                 qtd_val = row.get('quantidade', 1)
                                 tot_val = row.get('valor_total', 0)
                                 status_atual = row.get('status', 'Pendente')
+                                if status_atual is None or str(status_atual).lower() == 'none':
+                                    status_atual = 'Pendente'
                                 
-                                with st.expander(f"Pedido #{pedido_id} - {prod_nome} (Qtd: {qtd_val} | R$ {tot_val:.2f}) [Status: {status_atual}]"):
+                                with st.expander(f"Pedido #{pedido_id} — {prod_nome} | Qtd: {qtd_val} | R$ {tot_val:.2f} (Status: {status_atual})"):
                                     col_e1, col_e2, col_e3 = st.columns(3)
                                     with col_e1:
-                                        nova_qtd = st.number_input("Nova Qtd", min_value=0.01, value=float(qtd_val), format="%.2f", key=f"edit_qtd_v2_{pedido_id}")
+                                        nova_qtd = st.number_input("Nova Quantidade", min_value=0.01, value=float(qtd_val), format="%.2f", key=f"edit_qtd_final_{pedido_id}")
                                     with col_e2:
                                         st.write("")
                                         st.write("")
-                                        if st.button("💾 Salvar", key=f"btn_salvar_v2_{pedido_id}"):
+                                        if st.button("💾 Salvar Alteração", key=f"btn_salvar_final_{pedido_id}"):
                                             try:
                                                 novo_total = nova_qtd * float(row.get('valor_unitario', 0))
                                                 cursor.execute("UPDATE pedidos SET quantidade = ?, valor_total = ? WHERE id = ?", (nova_qtd, novo_total, pedido_id))
                                                 conn.commit()
-                                                st.success("Atualizado com sucesso!")
+                                                st.success("Pedido atualizado com sucesso!")
                                                 st.rerun()
                                             except Exception as ex:
                                                 st.error(f"Erro ao atualizar: {ex}")
                                     with col_e3:
                                         st.write("")
                                         st.write("")
-                                        if st.button("🗑️ Excluir", key=f"btn_excluir_v2_{pedido_id}", type="primary"):
+                                        if st.button("🗑️ Excluir Pedido", key=f"btn_excluir_final_{pedido_id}", type="primary"):
                                             try:
                                                 cursor.execute("DELETE FROM pedidos WHERE id = ?", (pedido_id,))
                                                 conn.commit()
@@ -1351,12 +1354,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                             except Exception as ex:
                                                 st.error(f"Erro ao excluir: {ex}")
                         else:
-                            st.info("Nenhum pedido pendente para edição.")
+                            st.info("Nenhum pedido em aberto no momento.")
         
                         st.markdown("---")
                         st.markdown("### 📚 Pedidos Concluídos / Histórico Geral")
-                        if not df_historico_fixo.empty:
-                            st.dataframe(df_historico_fixo, use_container_width=True, hide_index=True)
+                        if not df_concluidos.empty:
+                            st.dataframe(df_concluidos, use_container_width=True, hide_index=True)
                         else:
                             st.info("Nenhum pedido concluído no histórico.")
                             
@@ -1364,123 +1367,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.info(f"O cliente '{st.session_state.cliente_autenticado}' ainda não possui pedidos registrados.")
                 except Exception as e:
                     st.error(f"Erro ao carregar histórico: {e}")
-    
-                query_historico = """
-                    SELECT 
-                        id,
-                        produto,
-                        quantidade,
-                        fornecedor,
-                        grupo,
-                        valor_custo,
-                        valor_venda,
-                        valor_total,
-                        data
-                    FROM compras
-                """
-                df_compras = carregar_dados(query_historico)
-                
-                if not df_compras.empty:
-                    df_compras = df_compras.drop(columns=['valor_compra'], errors='ignore')
-                    
-                    # Exibe o editor de dados e captura as alterações feitas por você
-                    editado_df = st.data_editor(
-                        df_compras, 
-                        use_container_width=True, 
-                        key="editor_compras",
-                        num_rows="dynamic"
-                    )
-                    
-                    # Botão para salvar as alterações feitas na tabela no banco de dados
-                    if st.button("Salvar Alterações no Estoque"):
-                        import sqlite3
-                        # Abre uma conexão direta e segura apenas para o salvamento
-                        conexao_salvar = sqlite3.connect("comercio.db") # Certifique-se de que o nome do seu arquivo .db é este, ou ajuste para o nome correto
-                        cursor = conexao_salvar.cursor()
-                        
-                        for index, row in df_editado.iterrows():
-                            p_id = row.get('id')
-                            p_prod = row.get('produto')
-                            p_qtd = row.get('quantidade', row.get('estoque_atual', 0))
-                            p_custo = row.get('valor_custo', row.get('valor_compra', 0))
-                            p_venda = row.get('valor_venda', 0)
-                            p_grupo = row.get('grupo')
-                            p_forn = row.get('fornecedor')
-            
-                            cursor.execute("""
-                                UPDATE produtos 
-                                SET produto = ?, 
-                                    estoque_atual = ?, 
-                                    valor_custo = ?, 
-                                    valor_venda = ?, 
-                                    grupo = ?, 
-                                    fornecedor = ?
-                                WHERE id = ?
-                            """, (p_prod, p_qtd, p_custo, p_venda, p_grupo, p_forn, p_id))
-            
-                        conexao_salvar.commit()
-                        conexao_salvar.close()
-                        
-                        st.success("Alterações salvas permanentemente no banco de dados!")
-                        st.rerun()
-
-        elif menu_admin == "📦 Estoque de Produtos":
-            st.title("📦 Estoque de Produtos e Preços")
-            
-            query_produtos = "SELECT * FROM produtos"
-            try:
-                df_produtos = carregar_dados(query_produtos)
-            except Exception:
-                df_produtos = pd.read_sql(query_produtos, conn)
-        
-            if not df_produtos.empty:
-                df_produtos = df_produtos.drop(columns=['estoque_atual', 'nome'], errors='ignore')
-                
-                df_editado = st.data_editor(
-                    df_produtos,
-                    use_container_width=True,
-                    key="editor_estoque_produtos",
-                    hide_index=True
-                )
-    
-                col_salvar, col_atualizar = st.columns(2)
-    
-                with col_salvar:
-                    if st.button("Salvar Alterações no Estoque"):
-                        try:
-                            cursor = conn.cursor()
-                            for index, row in df_editado.iterrows():
-                                p_id = row.get('id')
-                                p_prod = row.get('produto')
-                                
-                                # Pega a quantidade de qualquer uma das colunas para evitar conflito
-                                p_qtd = row.get('quantidade')
-                                if p_qtd is None or pd.isna(p_qtd):
-                                    p_qtd = row.get('estoque_atual', 0)
-                                    
-                                p_custo = row.get('valor_compra', row.get('valor_custo', 0))
-                                p_venda = row.get('valor_venda', 0)
-                                p_grupo = row.get('grupo')
-                                p_forn = row.get('fornecedor')
-    
-                                # Atualiza ambas as colunas de quantidade no banco para ficarem idênticas
-                                cursor.execute("""
-                                    UPDATE produtos 
-                                    SET produto = ?, 
-                                        quantidade = ?, 
-                                        estoque_atual = ?, 
-                                        valor_compra = ?, 
-                                        valor_venda = ?, 
-                                        grupo = ?, 
-                                        fornecedor = ?
-                                    WHERE id = ?
-                                """, (p_prod, p_qtd, p_qtd, p_custo, p_venda, p_grupo, p_forn, p_id))
-    
-                            conn.commit()
-                            st.success("Estoque e preços salvos permanentemente!")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Erro ao salvar: {e}")
     
                 with col_atualizar:
                     if st.button("🔄 Atualizar Preços de Custos"):
