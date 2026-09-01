@@ -546,7 +546,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
             else:
                 st.info("Nenhum item adicionado ao pedido ainda.")
             with aba_historico:
-            st.subheader("Histórico de Meus Pedidos Registrados")
+                st.subheader("Histórico de Meus Pedidos Registrados")
             try:
                 cursor = conn.cursor()
                 cursor.execute("SELECT * FROM pedidos WHERE cliente = ?", (st.session_state.cliente_autenticado,))
