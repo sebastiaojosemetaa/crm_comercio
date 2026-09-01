@@ -1365,19 +1365,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.info(f"O cliente '{st.session_state.cliente_autenticado}' ainda não possui pedidos registrados.")
                 except Exception as e:
                     st.error(f"Erro ao carregar histórico: {e}")
-                                    with col_e3:
-                                        st.write("")
-                                        st.write("")
-                                        if st.button("🗑️ Excluir", key=f"btn_excluir_novo_{pedido_id}", type="primary"):
-                                            try:
-                                                cursor.execute("DELETE FROM pedidos WHERE id = ?", (pedido_id,))
-                                                conn.commit()
-                                                st.warning("Pedido excluído!")
-                                                st.rerun()
-                                            except Exception as ex:
-                                                st.error(f"Erro ao excluir: {ex}")
-                        else:
-                            st.info("Nenhum pedido pendente encontrado.")
         
                         st.markdown("---")
                         st.markdown("### 📚 Pedidos Concluídos / Histórico Geral")
