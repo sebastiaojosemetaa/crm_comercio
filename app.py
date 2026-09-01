@@ -1293,7 +1293,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             st.error(f"Erro ao registrar entrada: {e}")
                         
             with aba_historico:
-                st.subheader("Histórico de Meus Pedidos Registrados")
+                st.subheader("Histórico e Gestão de Meus Pedidos")
                 try:
                     cursor = conn.cursor()
                     cursor.execute("SELECT * FROM pedidos WHERE cliente = ?", (st.session_state.cliente_autenticado,))
@@ -1301,7 +1301,75 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     
                     if pedidos_cliente:
                         df_pedidos = pd.DataFrame(pedidos_cliente, columns=[description[0] for description in cursor.description])
-                        st.dataframe(df_pedidos, use_container_width=True, hide_index=True)
+                        
+                        # Garante que a coluna status existe no DataFrame
+                        if 'status' not in df_pedidos.columns:
+                            df_pedidos['status'] = 'Pendente'
+                        
+                        # Separa o que é editável (pendente / do dia e sem status de concluído)
+                        # Considera editável se o status NÃO for Concluído/Convertido ou se a data for de hoje
+                        from datetime import date
+                        hoje_str = date.today().strftime("%Y-%m-%d")
+                        
+                        # Normaliza a coluna de data se existir
+                        col_data_nome = next((c for c in df_pedidos.columns if 'data' in c.lower()), None)
+                        if col_data_nome:
+                            df_pedidos['data_limpa'] = df_pedidos[col_data_nome].astype(str).str.slice(0, 10)
+                        else:
+                            df_pedidos['data_limpa'] = hoje_str
+        
+                        # Condição para ser editável: Status diferente de Concluído/Convertido (e não nulo definitivo)
+                        condicao_pendente = df_pedidos['status'].fillna('').astype(str).str.lower().str.contains("concluído|convertido|faturado") == False
+                        
+                        df_editavel = df_pedidos[condicao_pendente]
+                        df_historico_fixo = df_pedidos[~condicao_pendente]
+        
+                        st.markdown("### 🟢 Meus Pedidos em Aberto / Pendentes (Editáveis)")
+                        if not df_editavel.empty:
+                            for index, row in df_editavel.iterrows():
+                                pedido_id = row['id']
+                                prod_nome = row.get('produto', 'Item')
+                                qtd_val = row.get('quantidade', 1)
+                                tot_val = row.get('valor_total', 0)
+                                status_atual = row.get('status', 'Pendente')
+                                
+                                with st.expander(f"Pedido #{pedido_id} - {prod_nome} (Qtd: {qtd_val} | R$ {tot_val:.2f}) [Status: {status_atual}]"):
+                                    col_e1, col_e2, col_e3 = st.columns(3)
+                                    with col_e1:
+                                        nova_qtd = st.number_input("Nova Qtd", min_value=0.01, value=float(qtd_val), format="%.2f", key=f"edit_qtd_{pedido_id}")
+                                    with col_e2:
+                                        st.write("")
+                                        st.write("")
+                                        if st.button("💾 Salvar", key=f"btn_salvar_{pedido_id}"):
+                                            try:
+                                                novo_total = nova_qtd * float(row.get('valor_unitario', 0))
+                                                cursor.execute("UPDATE pedidos SET quantidade = ?, valor_total = ? WHERE id = ?", (nova_qtd, novo_total, pedido_id))
+                                                conn.commit()
+                                                st.success("Atualizado!")
+                                                st.rerun()
+                                            except Exception as ex:
+                                                st.error(f"Erro: {ex}")
+                                    with col_e3:
+                                        st.write("")
+                                        st.write("")
+                                        if st.button("🗑️ Excluir", key=f"btn_excluir_{pedido_id}", type="primary"):
+                                            try:
+                                                cursor.execute("DELETE FROM pedidos WHERE id = ?", (pedido_id,))
+                                                conn.commit()
+                                                st.warning("Excluído!")
+                                                st.rerun()
+                                            except Exception as ex:
+                                                st.error(f"Erro: {ex}")
+                        else:
+                            st.info("Nenhum pedido pendente para edição.")
+        
+                        st.markdown("---")
+                        st.markdown("### 📚 Pedidos Concluídos / Histórico Geral")
+                        if not df_historico_fixo.empty:
+                            st.dataframe(df_historico_fixo.drop(columns=['data_limpa'], errors='ignore'), use_container_width=True, hide_index=True)
+                        else:
+                            st.info("Nenhum pedido concluído no histórico.")
+                            
                     else:
                         st.info(f"O cliente '{st.session_state.cliente_autenticado}' ainda não possui pedidos registrados.")
                 except Exception as e:
