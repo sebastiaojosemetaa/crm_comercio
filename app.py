@@ -598,7 +598,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                             df_dia = pd.read_sql_query(query_dia, conn, params=(st.session_state.cliente_autenticado,))
                         
                             if not df_dia.empty:
-                              st.markdown("### 🟢 Pedidos do Dia (Editáveis)")  
+                                st.markdown("### 🟢 Pedidos do Dia (Editáveis)")  
                                 df_editado = st.data_editor(
                                     df_dia,
                                     column_config={
