@@ -1139,46 +1139,71 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
         
             with aba_compra:
-                with st.form("form_entrada_estoque"):
+                with st.form("form_entrada_estoque", clear_on_submit=True):
                     col1, col2 = st.columns(2)
                     with col1:
-                        produto_escolhido = st.selectbox("Produto", produtos_opt, key="prod_entrada_estoque")
-        
-                        cursor = conn.cursor()
-                        cursor.execute("SELECT valor_compra FROM produtos WHERE produto = ?", (produto_escolhido,))
-                        resultado = cursor.fetchone()
-                        preco_cadastrado = float(resultado[0]) if resultado and resultado[0] is not None else 0.0
-
+                        # Adiciona a opção de cadastrar novo produto na lista
+                        lista_produtos_com_opcao = produtos_opt + ["+ Cadastrar Novo Produto..."]
+                        produto_escolhido = st.selectbox("Produto", lista_produtos_com_opcao, key="prod_entrada_estoque")
+                        
+                        if produto_escolhido == "+ Cadastrar Novo Produto...":
+                            novo_produto_input = st.text_input("Nome do Novo Produto")
+                        else:
+                            novo_produto_input = ""
+    
                         fornecedor_escolhido = st.selectbox("Fornecedor", fornecedores_opt)
-                        quantidade = st.number_input("Quantidade", min_value=0.0, format="%.2f")
-
+                        quantidade_entrada = st.number_input("Quantidade", min_value=0.0, format="%.2f")
+    
                     with col2:
                         grupo_escolhido = st.selectbox("Grupo", grupos_opt)
-                        preco_custo = st.number_input(
-                            "Preço de Custo Unitário (R$)",
-                            min_value=0.0,
-                            value=float(preco_cadastrado),
-                            format="%.2f",
-                            key=f"custo_compra_{produto_escolhido}"
-                        )
-                        preco_venda = st.number_input(
-                            "Preço de Venda Unitário (R$)",
-                            min_value=0.0,
-                            format="%.2f",
-                            key=f"venda_compra_{produto_escolhido}"
-                        )
-            
+                        
+                        # Pega o preço cadastrado se o produto já existir
+                        preco_cadastrado = 0.0
+                        if produto_escolhido and produto_escolhido != "+ Cadastrar Novo Produto...":
+                            try:
+                                cursor = conn.cursor()
+                                cursor.execute("SELECT valor_compra FROM produtos WHERE produto = ?", (produto_escolhido,))
+                                resultado = cursor.fetchone()
+                                if resultado and resultado[0] is not None:
+                                    preco_cadastrado = float(resultado[0])
+                            except Exception:
+                                pass
+    
+                        preco_custo = st.number_input("Preço de Custo Unitário (R$)", min_value=0.0, value=preco_cadastrado, format="%.2f")
+                        preco_venda = st.number_input("Preço de Venda Unitário (R$)", min_value=0.0, format="%.2f")
+    
                     if st.form_submit_button("Registrar Entrada no Estoque"):
-                        registrar_compra(produto_escolhido, fornecedor_escolhido, grupo_escolhido, quantidade, preco_custo, preco_venda)
-                        cursor.execute("""
-                            UPDATE produtos 
-                            SET estoque_atual = COALESCE(estoque_atual, 0) + ?, 
-                                valor_venda = ? 
-                            WHERE TRIM(produto) = TRIM(?)
-                        """, (quantidade, preco_venda, produto_escolhido))
-                        conn.commit()
-                        st.success("Entrada registrada, estoque e preço de venda atualizados!")
-                        st.rerun()
+                        produto_final = novo_produto_input.strip().upper() if produto_escolhido == "+ Cadastrar Novo Produto..." else produto_escolhido
+                        
+                        if not produto_final:
+                            st.warning("Informe o nome do produto.")
+                        else:
+                            try:
+                                cursor = conn.cursor()
+                                
+                                # Verifica se o produto já existe na tabela de produtos
+                                cursor.execute("SELECT id FROM produtos WHERE produto = ?", (produto_final,))
+                                existe = cursor.fetchone()
+                                
+                                if existe:
+                                    # Se já existe, atualiza a quantidade somando a entrada e atualiza os preços/grupo/fornecedor se necessário
+                                    cursor.execute("""
+                                        UPDATE produtos 
+                                        SET quantidade = quantidade + ?, valor_compra = ?, valor_venda = ?, grupo = ?, fornecedor = ?
+                                        WHERE produto = ?
+                                    """, (quantidade_entrada, preco_custo, preco_venda, grupo_escolhido, fornecedor_escolhido, produto_final))
+                                else:
+                                    # Se não existe, cadastra o produto novo automaticamente na tabela de produtos
+                                    cursor.execute("""
+                                        INSERT INTO produtos (produto, quantidade, valor_compra, valor_venda, grupo, fornecedor)
+                                        VALUES (?, ?, ?, ?, ?, ?)
+                                    """, (produto_final, quantidade_entrada, preco_custo, preco_venda, grupo_escolhido, fornecedor_escolhido))
+                                
+                                conn.commit()
+                                st.success(f"Entrada registrada e produto '{produto_final}' atualizado/cadastrado com sucesso!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao registrar entrada: {e}")
                         
             with aba_historico_compras:
                 if st.button("🔄 Atualizar Histórico", key="btn_atualizar_compras"):
