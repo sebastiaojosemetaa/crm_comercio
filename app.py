@@ -1393,3 +1393,37 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     df_produtos_view = df_produtos_view.drop(columns=['estoque_atual', 'nome'], errors='ignore')
                 
                 st.dataframe(df_produtos_view, use_container_width=True, hide_index=True)
+
+                with tab_forn:
+                    st.subheader("🏢 Cadastrar Novo Fornecedor")
+                    with st.form("form_cad_fornecedor", clear_on_submit=True):
+                        nome_forn = st.text_input("Nome do Fornecedor / Empresa")
+                        if st.form_submit_button("Salvar Fornecedor"):
+                            if nome_forn.strip():
+                                try:
+                                    salvar_simples("fornecedores", "fornecedor", nome_forn.upper())
+                                    st.success(f"Fornecedor '{nome_forn}' cadastrado com sucesso!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Erro ao cadastrar fornecedor: {e}")
+                            else:
+                                st.warning("Informe o nome do fornecedor.")
+                    
+                    st.dataframe(carregar_dados("SELECT * FROM fornecedores"), use_container_width=True, hide_index=True)
+        
+                with tab_grup:
+                    st.subheader("🏷️ Cadastrar Novo Grupo / Categoria")
+                    with st.form("form_cad_grupo", clear_on_submit=True):
+                        nome_grupo = st.text_input("Nome do Grupo / Categoria")
+                        if st.form_submit_button("Salvar Grupo"):
+                            if nome_grupo.strip():
+                                try:
+                                    salvar_simples("grupos", "grupo", nome_grupo.upper())
+                                    st.success(f"Grupo '{nome_grupo}' cadastrado com sucesso!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Erro ao cadastrar grupo: {e}")
+                            else:
+                                st.warning("Informe o nome do grupo.")
+                    
+                    st.dataframe(carregar_dados("SELECT * FROM grupos"), use_container_width=True, hide_index=True)
