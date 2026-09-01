@@ -1249,7 +1249,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             import sqlite3
             db_path = "comercio.db"  # Ajuste o nome do banco se necessário
             
-            query_produtos = "SELECT id, produto, estoque_atual, valor_custo, valor_venda, grupo, fornecedor FROM produtos"
+            # Puxa todas as colunas livremente para evitar erros
+            query_produtos = "SELECT * FROM produtos"
             try:
                 df_produtos = carregar_dados(query_produtos)
             except Exception:
