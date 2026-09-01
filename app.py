@@ -1305,11 +1305,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         if 'status' not in df_pedidos.columns:
                             df_pedidos['status'] = 'pendente'
                         
-                        # Trata valores nulos / None para não falhar
                         df_pedidos['status'] = df_pedidos['status'].fillna('pendente')
                         status_txt = df_pedidos['status'].astype(str).str.lower()
                         
-                        # Separa: tudo o que NÃO for concluído vai para cima para poder editar/excluir
+                        # Considera pendente tudo o que NÃO é explicitamente concluído/convertido/faturado
                         is_concluido = status_txt.str.contains("concluído|convertido|faturado", na=False)
                         
                         df_pendentes = df_pedidos[~is_concluido]
@@ -1338,10 +1337,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                                 novo_total = nova_qtd * float(row.get('valor_unitario', 0))
                                                 cursor.execute("UPDATE pedidos SET quantidade = ?, valor_total = ? WHERE id = ?", (nova_qtd, novo_total, pedido_id))
                                                 conn.commit()
-                                                st.success("Atualizado!")
+                                                st.success("Atualizado com sucesso!")
                                                 st.rerun()
                                             except Exception as ex:
-                                                st.error(f"Erro: {ex}")
+                                                st.error(f"Erro ao atualizar: {ex}")
                                     with col_e3:
                                         st.write("")
                                         st.write("")
@@ -1349,10 +1348,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                             try:
                                                 cursor.execute("DELETE FROM pedidos WHERE id = ?", (pedido_id,))
                                                 conn.commit()
-                                                st.warning("Excluído!")
+                                                st.warning("Pedido excluído!")
                                                 st.rerun()
                                             except Exception as ex:
-                                                st.error(f"Erro: {ex}")
+                                                st.error(f"Erro ao excluir: {ex}")
                         else:
                             st.info("Nenhum pedido pendente encontrado.")
         
@@ -1362,6 +1361,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             st.dataframe(df_concluidos, use_container_width=True, hide_index=True)
                         else:
                             st.info("Nenhum pedido concluído.")
+                            
+                    else:
+                        st.info(f"O cliente '{st.session_state.cliente_autenticado}' ainda não possui pedidos registrados.")
+                except Exception as e:
+                    st.error(f"Erro ao carregar histórico: {e}")
                             
                     else:
                         st.info(f"O cliente '{st.session_state.cliente_autenticado}' ainda não possui pedidos registrados.")
