@@ -432,7 +432,6 @@ if perfil_selecionado == "👤 Portal do Cliente":
             st.rerun()
             
         st.title(f"🛍️ Portal do Cliente — Meus Pedidos ({st.session_state.cliente_autenticado})")
-        aba_novo, aba_historico = st.tabs(["➕ Criar Novo Pedido", "📜 Pedidos Registrados & Relatórios"])       
    
         # Garante que a tabela de pedidos existe
         try:
