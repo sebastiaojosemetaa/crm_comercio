@@ -586,7 +586,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                             qtd_val = row.get('quantidade', 1)
                             tot_val = row.get('valor_total', 0)
                             
-                            # Seção única de Pedidos do Dia (Editáveis)
+                            # Seção única de Pedidos do Dia (Editáveis e Excluíveis)
                             import pandas as pd
                             
                             query_dia = """
@@ -597,10 +597,15 @@ if perfil_selecionado == "👤 Portal do Cliente":
                             df_dia = pd.read_sql_query(query_dia, conn, params=(st.session_state.cliente_autenticado,))
                         
                             if not df_dia.empty:
-                                st.markdown("### 🟢 Pedidos do Dia (Editáveis)")  
+                                st.markdown("### 🟢 Pedidos do Dia (Editáveis)")
+                                
+                                # Adiciona uma coluna de seleção (checkbox) para escolher quais itens excluir
+                                df_dia.insert(0, "Excluir", False)
+                                
                                 df_editado = st.data_editor(
                                     df_dia,
                                     column_config={
+                                        "Excluir": st.column_config.CheckboxColumn("❌ Excluir?", default=False),
                                         "id": st.column_config.NumberColumn("ID", disabled=True),
                                         "cliente": st.column_config.TextColumn("Cliente", disabled=True),
                                         "produto": st.column_config.TextColumn("Produto", disabled=True),
@@ -616,7 +621,6 @@ if perfil_selecionado == "👤 Portal do Cliente":
                                     key="tabela_pedidos_do_dia_unica"
                                 )
                         
-                                # Cria duas colunas para alinhar os botões lado a lado
                                 col_btn1, col_btn2 = st.columns(2)
                         
                                 with col_btn1:
@@ -637,23 +641,22 @@ if perfil_selecionado == "👤 Portal do Cliente":
                                             st.error(f"Erro ao atualizar os pedidos: {ex}")
                         
                                 with col_btn2:
-                                    if st.button("🗑️ Excluir Pedidos Selecionados", type="secondary", key="btn_excluir_tabela_unica"):
+                                    if st.button("🗑️ Excluir Marcados", type="secondary", key="btn_excluir_selecionados"):
                                         try:
                                             cursor = conn.cursor()
-                                            # Exclui todos os IDs que estão atualmente visíveis na tabela do dia
-                                            ids_para_excluir = tuple(df_editado['id'].tolist())
+                                            # Filtra apenas as linhas onde a coluna 'Excluir' foi marcada como True
+                                            ids_para_excluir = df_editado[df_editado['Excluir'] == True]['id'].tolist()
+                                            
                                             if ids_para_excluir:
-                                                if len(ids_para_excluir) == 1:
-                                                    cursor.execute("DELETE FROM pedidos WHERE id = ?", (ids_para_excluir[0],))
-                                                else:
-                                                    cursor.execute(f"DELETE FROM pedidos WHERE id IN {ids_para_excluir}")
+                                                for id_pedido in ids_para_excluir:
+                                                    cursor.execute("DELETE FROM pedidos WHERE id = ?", (id_pedido,))
                                                 conn.commit()
-                                                st.warning("Pedidos do dia excluídos com sucesso!")
+                                                st.warning("Itens selecionados excluídos com sucesso!")
                                                 st.rerun()
                                             else:
-                                                st.info("Nenhum pedido para excluir.")
+                                                st.info("Nenhum item foi marcado para exclusão.")
                                         except Exception as ex:
-                                            st.error(f"Erro ao excluir os pedidos: {ex}")
+                                            st.error(f"Erro ao excluir os itens: {ex}")
                             else:
                                 st.info("Nenhum pedido registrado hoje para edição.")
                         
