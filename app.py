@@ -636,25 +636,13 @@ if perfil_selecionado == "👤 Portal do Cliente":
                                         st.error(f"Erro ao atualizar os pedidos: {ex}")
                             else:
                                 st.info("Nenhum pedido registrado hoje para edição.")
-                                with col_e3:
-                                    st.write("")
-                                    st.write("")
-                                    if st.button("🗑️ Excluir Pedido", key=f"btn_excluir_{pedido_id}", type="primary"):
-                                        try:
-                                            cursor.execute("DELETE FROM pedidos WHERE id = ?", (pedido_id,))
-                                            conn.commit()
-                                            st.warning("Pedido excluído!")
-                                            st.rerun()
-                                        except Exception as ex:
-                                            st.error(f"Erro ao excluir: {ex}")
-                    else:
-                        st.info("Nenhum pedido registrado hoje para edição.")
-    
-                    st.markdown("---")
-                    st.markdown("### 📚 Pedidos Anteriores (Histórico)")
-                    if not df_antigos.empty:
-                        st.dataframe(df_antigos.drop(columns=['data_limpa'], errors='ignore'), use_container_width=True, hide_index=True)
-                    else:
+                        
+                            st.markdown("---")
+                            st.markdown("### 📚 Pedidos Anteriores (Histórico)")
+                            if not df_antigos.empty:
+                                st.dataframe(df_antigos.drop(columns=['data_limpa'], errors='ignore'), use_container_width=True, hide_index=True)
+                            else:
+                                # (seu código do else se houver, ou fecha a função)
                         st.info("Não há pedidos anteriores registrados.")
                         
                 else:
