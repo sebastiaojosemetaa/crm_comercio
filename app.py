@@ -1346,45 +1346,45 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.dataframe(carregar_dados("SELECT * FROM clientes"), use_container_width=True)
 
             with tab_prod:
-                st.subheader("Gerenciamento de Produtos")
-                grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
-                fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
-                
-                with st.form("form_cad_produto_completo"):
-                    novo_prod = st.text_input("Nome do Produto")
-                    fornec_prod = st.selectbox("Fornecedor", fornecedores_opt)
-                    grupo_prod = st.selectbox("Grupo / Categoria", grupos_opt)
-                    p_custo = st.number_input("Preço de Custo (R$)", min_value=0.0, value=10.0)
-                    p_venda = st.number_input("Preço de Venda (R$)", min_value=0.0, value=20.0)
-                    estoque_ini = st.number_input("Estoque Inicial", min_value=0.0, value=0.0)
-
-                    if st.form_submit_button("💾 Salvar Produto"):
-                        if novo_prod.strip():
-                            salvar_produto_completo(novo_prod.strip(), fornec_prod, grupo_prod, p_custo, p_venda, estoque_ini)
-                            st.success("Produto cadastrado com sucesso!")
-                            st.rerun()
+                st.subheader("📝 Cadastrar Novo Produto")
+                with st.form("form_cad_produto_completo", clear_on_submit=True):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        txt_nome_produto = st.text_input("Nome do Produto")
+                        val_custo = st.number_input("Preço de Custo (R$)", min_value=0.0, format="%.2f")
+                    with col2:
+                        grupo_produto = st.text_input("Grupo / Categoria", value="Geral")
+                        val_venda = st.number_input("Preço de Venda (R$)", min_value=0.0, format="%.2f")
+                        
+                    col3, col4 = st.columns(2)
+                    with col3:
+                        estoque_inicial = st.number_input("Estoque Inicial", min_value=0, value=0, step=1)
+                    with col4:
+                        fornecedor_produto = st.text_input("Fornecedor", value="")
+    
+                    if st.form_submit_button("Salvar Produto"):
+                        if not txt_nome_produto.strip():
+                            st.warning("Por favor, informe o nome do produto.")
                         else:
-                            st.warning("Preencha o nome do produto.")
+                            try:
+                                cursor = conn.cursor()
+                                cursor.execute("""
+                                    INSERT INTO produtos (produto, nome, quantidade, estoque_atual, valor_compra, valor_venda, grupo, fornecedor)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                                """, (
+                                    txt_nome_produto.upper(), 
+                                    txt_nome_produto.upper(), 
+                                    estoque_inicial, 
+                                    estoque_inicial, 
+                                    val_custo, 
+                                    val_venda, 
+                                    grupo_produto, 
+                                    fornecedor_produto
+                                ))
+                                conn.commit()
+                                st.success(f"Produto '{txt_nome_produto}' cadastrado com sucesso!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao cadastrar produto: {e}")
+                
                 st.dataframe(carregar_dados("SELECT * FROM produtos"), use_container_width=True)
-
-            with tab_forn:
-                st.subheader("Gerenciamento de Fornecedores")
-                with st.form("form_cad_fornecedor_completo"):
-                    nome_forn = st.text_input("Nome do Fornecedor / Empresa")
-                    if st.form_submit_button("💾 Salvar Fornecedor"):
-                        if nome_forn.strip():
-                            salvar_simples("fornecedores", "fornecedor", nome_forn)
-                            st.success("Fornecedor cadastrado com sucesso!")
-                            st.rerun()
-                st.dataframe(carregar_dados("SELECT * FROM fornecedores"), use_container_width=True)
-
-            with tab_grup:
-                st.subheader("Gerenciamento de Grupos / Categorias")
-                with st.form("form_cad_grupo_completo"):
-                    nome_grupo = st.text_input("Nome do Grupo / Categoria")
-                    if st.form_submit_button("💾 Salvar Grupo"):
-                        if nome_grupo.strip():
-                            salvar_simples("grupos", "grupo", nome_grupo)
-                            st.success("Grupo cadastrado com sucesso!")
-                            st.rerun()
-                st.dataframe(carregar_dados("SELECT * FROM grupos"), use_container_width=True)
