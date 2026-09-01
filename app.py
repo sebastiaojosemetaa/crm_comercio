@@ -1387,4 +1387,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             except Exception as e:
                                 st.error(f"Erro ao cadastrar produto: {e}")
                 
-                st.dataframe(carregar_dados("SELECT * FROM produtos"), use_container_width=True)
+                # Carrega os dados e oculta as colunas duplicadas da exibição
+                df_produtos_view = carregar_dados("SELECT * FROM produtos")
+                if not df_produtos_view.empty:
+                    df_produtos_view = df_produtos_view.drop(columns=['estoque_atual', 'nome'], errors='ignore')
+                
+                st.dataframe(df_produtos_view, use_container_width=True, hide_index=True)
