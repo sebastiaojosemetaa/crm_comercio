@@ -663,15 +663,21 @@ if perfil_selecionado == "👤 Portal do Cliente":
                         
                             st.markdown("---")
                             st.markdown("### 📚 Pedidos Anteriores (Histórico)")
-                            if not df_antigos.empty:
-                                st.dataframe(df_antigos.drop(columns=['data_limpa'], errors='ignore'), use_container_width=True, hide_index=True)
-                            else:
-                                st.info("Não há pedidos anteriores registrados.")
+                            
+                            try:
+                                query_antigos = """
+                                    SELECT id, cliente, produto, quantidade, valor_unitario, valor_total, status, observacoes, data, fornecedor, grupo, codigo_pedido 
+                                    FROM pedidos 
+                                    WHERE DATE(data) != DATE('now') AND cliente = ?
+                                """
+                                df_antigos = pd.read_sql_query(query_antigos, conn, params=(st.session_state.cliente_autenticado,))
                                 
-                            else:
-                                st.info(f"O cliente '{st.session_state.cliente_autenticado}' ainda não possui pedidos registrados.")
-                        except Exception as e:
-                            st.error(f"Erro ao carregar histórico: {e}")
+                                if not df_antigos.empty:
+                                    st.dataframe(df_antigos, use_container_width=True, hide_index=True)
+                                else:
+                                    st.info("Não há pedidos anteriores registrados.")
+                            except Exception as e:
+                                st.error(f"Erro ao carregar histórico: {e}")
                         
 # ==========================================
 # AMBIENTE 2: ADMINISTRADOR / VENDEDOR
