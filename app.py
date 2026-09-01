@@ -1346,7 +1346,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.dataframe(carregar_dados("SELECT * FROM clientes"), use_container_width=True)
 
             with tab_prod:
-                st.subheader("📝 Cadastrar Novo Produto")
+                st.subheader("📝 Gerenciar Produtos (Cadastrar, Editar e Excluir)")
+                
                 with st.form("form_cad_produto_completo", clear_on_submit=True):
                     col1, col2 = st.columns(2)
                     with col1:
@@ -1360,9 +1361,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     with col3:
                         estoque_inicial = st.number_input("Estoque Inicial", min_value=0, value=0, step=1)
                     with col4:
-                        fornecedor_produto = st.text_input("Fornecedor", value="BAHIA")
+                        fornecedor_produto = st.text_input("Fornecedor", value="")
     
-                    if st.form_submit_button("Salvar Produto"):
+                    if st.form_submit_button("Salvar Novo Produto"):
                         if not txt_nome_produto.strip():
                             st.warning("Por favor, informe o nome do produto.")
                         else:
@@ -1378,8 +1379,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     estoque_inicial, 
                                     val_custo, 
                                     val_venda, 
-                                    fornecedor_produto,
-                                    grupo_produto,
+                                    grupo_produto, 
+                                    fornecedor_produto
                                 ))
                                 conn.commit()
                                 st.success(f"Produto '{txt_nome_produto}' cadastrado com sucesso!")
@@ -1387,12 +1388,59 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             except Exception as e:
                                 st.error(f"Erro ao cadastrar produto: {e}")
                 
-                # Carrega os dados e oculta as colunas duplicadas da exibição
+                st.markdown("---")
+                st.subheader("📋 Lista de Produtos (Edite direto na tabela ou exclua abaixo)")
+                
                 df_produtos_view = carregar_dados("SELECT * FROM produtos")
                 if not df_produtos_view.empty:
                     df_produtos_view = df_produtos_view.drop(columns=['estoque_atual', 'nome'], errors='ignore')
-                
-                st.dataframe(df_produtos_view, use_container_width=True, hide_index=True)
+                    
+                    df_editado_prod = st.data_editor(
+                        df_produtos_view, 
+                        use_container_width=True, 
+                        hide_index=True,
+                        key="editor_produtos_geral"
+                    )
+                    
+                    col_btn1, col_btn2 = st.columns(2)
+                    with col_btn1:
+                        if st.button("💾 Salvar Alterações da Tabela"):
+                            try:
+                                cursor = conn.cursor()
+                                for index, row in df_editado_prod.iterrows():
+                                    p_id = row.get('id')
+                                    p_prod = row.get('produto')
+                                    p_qtd = row.get('quantidade', 0)
+                                    p_compra = row.get('valor_compra', 0)
+                                    p_venda = row.get('valor_venda', 0)
+                                    p_grupo = row.get('grupo')
+                                    p_forn = row.get('fornecedor')
+    
+                                    cursor.execute("""
+                                        UPDATE produtos 
+                                        SET produto = ?, quantidade = ?, estoque_atual = ?, valor_compra = ?, valor_venda = ?, grupo = ?, fornecedor = ?
+                                        WHERE id = ?
+                                    """, (p_prod, p_qtd, p_qtd, p_compra, p_venda, p_grupo, p_forn, p_id))
+                                conn.commit()
+                                st.success("Alterações salvas com sucesso!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao salvar alterações: {e}")
+                    
+                    with col_btn2:
+                        produtos_para_excluir = df_produtos_view['produto'].tolist()
+                        prod_selecionado_excluir = st.selectbox("Selecione um produto para excluir", produtos_para_excluir, key="select_del_prod")
+                        if st.button("🗑️ Excluir Produto Selecionado"):
+                            try:
+                                cursor = conn.cursor()
+                                cursor.execute("DELETE FROM produtos WHERE produto = ?", (prod_selecionado_excluir,))
+                                conn.commit()
+                                st.success(f"Produto '{prod_selecionado_excluir}' excluído com sucesso!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao excluir: {e}")
+                else:
+                    st.info("Nenhum produto cadastrado.")
 
                 with tab_forn:
                     st.subheader("🏢 Cadastrar Novo Fornecedor")
