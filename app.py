@@ -432,100 +432,100 @@ if perfil_selecionado == "👤 Portal do Cliente":
             st.rerun()
             
         st.title(f"🛍️ Portal do Cliente — Meus Pedidos ({st.session_state.cliente_autenticado})")
-            aba_novo, aba_historico = st.tabs(["➕ Criar Novo Pedido", "📜 Pedidos Registrados & Relatórios"])
+        aba_novo, aba_historico = st.tabs(["➕ Criar Novo Pedido", "📜 Pedidos Registrados & Relatórios"])
         
-            with aba_novo:
-                st.subheader("+ Registrar Novo Pedido")
+    with aba_novo:
+        st.subheader("+ Registrar Novo Pedido")
+    
+        df_p_cli = carregar_dados("SELECT * FROM produtos")
+        if not df_p_cli.empty:
+            df_p_cli.columns = [c.lower() for c in df_p_cli.columns]
+            col_nome_p = 'produto' if 'produto' in df_p_cli.columns else ('nome' if 'nome' in df_p_cli.columns else df_p_cli.columns[1])
+            produtos_opt = df_p_cli[col_nome_p].dropna().astype(str).str.strip().unique().tolist()
+        else:
+            produtos_opt = ["AMEIXA IMPORTADA", "ABACATE", "CEBOLA CAIXA 1"]
+            df_p_cli = pd.DataFrame()
+    
+        fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
+        grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
+    
+        if "carrinho_cliente" not in st.session_state:
+            st.session_state.carrinho_cliente = []
+    
+        col1, col2 = st.columns(2)
+        with col1:
+            prod = st.selectbox("Selecione o Produto", produtos_opt, key="cliente_sel_produto")
+            forn_cli = st.selectbox("Selecione o Fornecedor", fornecedores_opt, key="cliente_sel_forn")
             
-                df_p_cli = carregar_dados("SELECT * FROM produtos")
-                if not df_p_cli.empty:
-                    df_p_cli.columns = [c.lower() for c in df_p_cli.columns]
-                    col_nome_p = 'produto' if 'produto' in df_p_cli.columns else ('nome' if 'nome' in df_p_cli.columns else df_p_cli.columns[1])
-                    produtos_opt = df_p_cli[col_nome_p].dropna().astype(str).str.strip().unique().tolist()
-                else:
-                    produtos_opt = ["AMEIXA IMPORTADA", "ABACATE", "CEBOLA CAIXA 1"]
-                    df_p_cli = pd.DataFrame()
-            
-                fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
-                grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
-            
-                if "carrinho_cliente" not in st.session_state:
+            preco_sugerido = 0.0
+            if prod:
+                try:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT valor_compra FROM produtos WHERE produto = ?", (prod,))
+                    res = cursor.fetchone()
+                    if res and res[0] is not None:
+                        preco_sugerido = float(res[0])
+                except Exception:
+                    pass
+    
+        with col2:
+            grupo_cli = st.selectbox("Selecione o Grupo", grupos_opt, key="cliente_sel_grupo")
+            qtd_cli = st.number_input("Quantidade", min_value=0.01, value=1.0, format="%.2f", key="cliente_qtd")
+            preco_cli = st.number_input("Preço Unitário (R$)", min_value=0.0, value=preco_sugerido, format="%.2f", key="cliente_preco")
+    
+        valor_total_item = qtd_cli * preco_cli
+        st.info(f"Valor Total do Item: **R$ {valor_total_item:.2f}**")
+    
+        if st.button("➕ Incluir Produto no Pedido", type="primary", key="btn_add_carrinho_cli"):
+            st.session_state.carrinho_cliente.append({
+                "produto": prod,
+                "fornecedor": forn_cli,
+                "grupo": grupo_cli,
+                "quantidade": qtd_cli,
+                "preco_unitario": preco_cli,
+                "valor_total": valor_total_item
+            })
+            st.success(f"Item '{prod}' adicionado ao pedido!")
+            st.rerun()
+    
+        st.markdown("---")
+        st.subheader("📋 Itens Atuais no Pedido")
+    
+        if len(st.session_state.carrinho_cliente) > 0:
+            df_carrinho_cli = pd.DataFrame(st.session_state.carrinho_cliente)
+            st.dataframe(df_carrinho_cli, use_container_width=True, hide_index=True)
+    
+            col_b1, col_b2 = st.columns(2)
+            with col_b1:
+                if st.button("🗑️ Limpar Carrinho", key="limpar_carrinho_cli"):
                     st.session_state.carrinho_cliente = []
-            
-                col1, col2 = st.columns(2)
-                with col1:
-                    prod = st.selectbox("Selecione o Produto", produtos_opt, key="cliente_sel_produto")
-                    forn_cli = st.selectbox("Selecione o Fornecedor", fornecedores_opt, key="cliente_sel_forn")
-                    
-                    preco_sugerido = 0.0
-                    if prod:
-                        try:
-                            cursor = conn.cursor()
-                            cursor.execute("SELECT valor_compra FROM produtos WHERE produto = ?", (prod,))
-                            res = cursor.fetchone()
-                            if res and res[0] is not None:
-                                preco_sugerido = float(res[0])
-                        except Exception:
-                            pass
-            
-                with col2:
-                    grupo_cli = st.selectbox("Selecione o Grupo", grupos_opt, key="cliente_sel_grupo")
-                    qtd_cli = st.number_input("Quantidade", min_value=0.01, value=1.0, format="%.2f", key="cliente_qtd")
-                    preco_cli = st.number_input("Preço Unitário (R$)", min_value=0.0, value=preco_sugerido, format="%.2f", key="cliente_preco")
-            
-                valor_total_item = qtd_cli * preco_cli
-                st.info(f"Valor Total do Item: **R$ {valor_total_item:.2f}**")
-            
-                if st.button("➕ Incluir Produto no Pedido", type="primary", key="btn_add_carrinho_cli"):
-                    st.session_state.carrinho_cliente.append({
-                        "produto": prod,
-                        "fornecedor": forn_cli,
-                        "grupo": grupo_cli,
-                        "quantidade": qtd_cli,
-                        "preco_unitario": preco_cli,
-                        "valor_total": valor_total_item
-                    })
-                    st.success(f"Item '{prod}' adicionado ao pedido!")
                     st.rerun()
-            
-                st.markdown("---")
-                st.subheader("📋 Itens Atuais no Pedido")
-            
-                if len(st.session_state.carrinho_cliente) > 0:
-                    df_carrinho_cli = pd.DataFrame(st.session_state.carrinho_cliente)
-                    st.dataframe(df_carrinho_cli, use_container_width=True, hide_index=True)
-            
-                    col_b1, col_b2 = st.columns(2)
-                    with col_b1:
-                        if st.button("🗑️ Limpar Carrinho", key="limpar_carrinho_cli"):
-                            st.session_state.carrinho_cliente = []
-                            st.rerun()
-            
-                    with col_b2:
-                        if st.button("💾 Finalizar e Enviar Pedido", type="primary", key="finalizar_pedido_cli"):
-                            try:
-                                cursor = conn.cursor()
-                                for item in st.session_state.carrinho_cliente:
-                                    cursor.execute("""
-                                        INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, fornecedor, grupo)
-                                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                                    """, (
-                                        nome_usuario_logado if 'nome_usuario_logado' in globals() else "CLIENTE",
-                                        item["produto"],
-                                        item["quantidade"],
-                                        item["preco_unitario"],
-                                        item["valor_total"],
-                                        item["fornecedor"],
-                                        item["grupo"]
-                                    ))
-                                conn.commit()
-                                st.session_state.carrinho_cliente = []
-                                st.success("Pedido realizado com sucesso!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro ao finalizar pedido: {e}")
-                else:
-                    st.info("Nenhum item adicionado ao pedido ainda.")
+    
+            with col_b2:
+                if st.button("💾 Finalizar e Enviar Pedido", type="primary", key="finalizar_pedido_cli"):
+                    try:
+                        cursor = conn.cursor()
+                        for item in st.session_state.carrinho_cliente:
+                            cursor.execute("""
+                                INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, fornecedor, grupo)
+                                VALUES (?, ?, ?, ?, ?, ?, ?)
+                            """, (
+                                nome_usuario_logado if 'nome_usuario_logado' in globals() else "CLIENTE",
+                                item["produto"],
+                                item["quantidade"],
+                                item["preco_unitario"],
+                                item["valor_total"],
+                                item["fornecedor"],
+                                item["grupo"]
+                            ))
+                        conn.commit()
+                        st.session_state.carrinho_cliente = []
+                        st.success("Pedido realizado com sucesso!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao finalizar pedido: {e}")
+        else:
+            st.info("Nenhum item adicionado ao pedido ainda.")
 # ==========================================
 # AMBIENTE 2: ADMINISTRADOR / VENDEDOR
 # ==========================================
