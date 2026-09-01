@@ -1443,10 +1443,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.info("Nenhum produto cadastrado.")
 
                 with tab_forn:
-                    st.subheader("🏢 Cadastrar Novo Fornecedor")
+                    st.subheader("🏢 Gerenciar Fornecedores")
+                    
                     with st.form("form_cad_fornecedor", clear_on_submit=True):
                         nome_forn = st.text_input("Nome do Fornecedor / Empresa")
-                        if st.form_submit_button("Salvar Fornecedor"):
+                        if st.form_submit_button("Salvar Novo Fornecedor"):
                             if nome_forn.strip():
                                 try:
                                     salvar_simples("fornecedores", "fornecedor", nome_forn.upper())
@@ -1457,13 +1458,54 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             else:
                                 st.warning("Informe o nome do fornecedor.")
                     
-                    st.dataframe(carregar_dados("SELECT * FROM fornecedores"), use_container_width=True, hide_index=True)
+                    st.markdown("---")
+                    st.subheader("📋 Lista de Fornecedores (Edite ou Exclua)")
+                    
+                    df_forn_view = carregar_dados("SELECT * FROM fornecedores")
+                    if not df_forn_view.empty:
+                        df_editado_forn = st.data_editor(
+                            df_forn_view, 
+                            use_container_width=True, 
+                            hide_index=True,
+                            key="editor_fornecedores"
+                        )
+                        
+                        col_f1, col_f2 = st.columns(2)
+                        with col_f1:
+                            if st.button("💾 Salvar Alterações de Fornecedores"):
+                                try:
+                                    cursor = conn.cursor()
+                                    for index, row in df_editado_forn.iterrows():
+                                        f_id = row.get('id')
+                                        f_nome = row.get('fornecedor')
+                                        cursor.execute("UPDATE fornecedores SET fornecedor = ? WHERE id = ?", (str(f_nome).upper(), f_id))
+                                    conn.commit()
+                                    st.success("Fornecedores atualizados com sucesso!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Erro ao salvar: {e}")
+                        
+                        with col_f2:
+                            forn_para_excluir = df_forn_view['fornecedor'].tolist()
+                            forn_selecionado = st.selectbox("Selecione um fornecedor para excluir", forn_para_excluir, key="select_del_forn")
+                            if st.button("🗑️ Excluir Fornecedor Selecionado"):
+                                try:
+                                    cursor = conn.cursor()
+                                    cursor.execute("DELETE FROM fornecedores WHERE fornecedor = ?", (forn_selecionado,))
+                                    conn.commit()
+                                    st.success(f"Fornecedor '{forn_selecionado}' excluído com sucesso!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Erro ao excluir: {e}")
+                    else:
+                        st.info("Nenhum fornecedor cadastrado.")
         
                 with tab_grup:
-                    st.subheader("🏷️ Cadastrar Novo Grupo / Categoria")
+                    st.subheader("🏷️ Gerenciar Grupos / Categorias")
+                    
                     with st.form("form_cad_grupo", clear_on_submit=True):
                         nome_grupo = st.text_input("Nome do Grupo / Categoria")
-                        if st.form_submit_button("Salvar Grupo"):
+                        if st.form_submit_button("Salvar Novo Grupo"):
                             if nome_grupo.strip():
                                 try:
                                     salvar_simples("grupos", "grupo", nome_grupo.upper())
@@ -1473,5 +1515,47 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     st.error(f"Erro ao cadastrar grupo: {e}")
                             else:
                                 st.warning("Informe o nome do grupo.")
+                    
+                    st.markdown("---")
+                    st.subheader("📋 Lista de Grupos (Edite ou Exclua)")
+                    
+                    df_grup_view = carregar_dados("SELECT * FROM grupos")
+                    if not df_grup_view.empty:
+                        df_editado_grup = st.data_editor(
+                            df_grup_view, 
+                            use_container_width=True, 
+                            hide_index=True,
+                            key="editor_grupos"
+                        )
+                        
+                        col_g1, col_g2 = st.columns(2)
+                        with col_g1:
+                            if st.button("💾 Salvar Alterações de Grupos"):
+                                try:
+                                    cursor = conn.cursor()
+                                    for index, row in df_editado_grup.iterrows():
+                                        g_id = row.get('id')
+                                        g_nome = row.get('grupo')
+                                        cursor.execute("UPDATE grupos SET grupo = ? WHERE id = ?", (str(g_nome).upper(), g_id))
+                                    conn.commit()
+                                    st.success("Grupos atualizados com sucesso!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Erro ao salvar: {e}")
+                        
+                        with col_g2:
+                            grup_para_excluir = df_grup_view['grupo'].tolist()
+                            grup_selecionado = st.selectbox("Selecione um grupo para excluir", grup_para_excluir, key="select_del_grup")
+                            if st.button("🗑️ Excluir Grupo Selecionado"):
+                                try:
+                                    cursor = conn.cursor()
+                                    cursor.execute("DELETE FROM grupos WHERE grupo = ?", (grup_selecionado,))
+                                    conn.commit()
+                                    st.success(f"Grupo '{grup_selecionado}' excluído com sucesso!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Erro ao excluir: {e}")
+                    else:
+                        st.info("Nenhum grupo cadastrado.")
                     
                     st.dataframe(carregar_dados("SELECT * FROM grupos"), use_container_width=True, hide_index=True)
