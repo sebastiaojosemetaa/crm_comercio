@@ -641,8 +641,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                             if not df_antigos.empty:
                                 st.dataframe(df_antigos.drop(columns=['data_limpa'], errors='ignore'), use_container_width=True, hide_index=True)
                             else:
-                                # (seu código do else se houver, ou fecha a função)
-                        st.info("Não há pedidos anteriores registrados.")
+                                st.info("Não há pedidos anteriores registrados.")
                         
                 else:
                     st.info(f"O cliente '{st.session_state.cliente_autenticado}' ainda não possui pedidos registrados.")
