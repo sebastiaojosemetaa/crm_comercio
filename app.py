@@ -1309,13 +1309,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         df_pedidos['status'] = df_pedidos['status'].fillna('pendente')
                         status_txt = df_pedidos['status'].astype(str).str.lower()
                         
-                        # Separa o que é concluído do que está em aberto
+                        # Separa o que é concluído do que está em aberto (None, vazio ou pendente)
                         is_concluido = status_txt.str.contains("concluído|convertido|faturado", na=False)
                         
                         df_pendentes = df_pedidos[~is_concluido]
                         df_concluidos = df_pedidos[is_concluido]
         
-                        st.markdown("### 🟢 Meus Pedidos Pendentes e Recentes (Editáveis)")
+                        st.markdown("### 🟢 Meus Pedidos Pendentes (Editáveis)")
                         if not df_pendentes.empty:
                             for index, row in df_pendentes.iterrows():
                                 pedido_id = row['id']
