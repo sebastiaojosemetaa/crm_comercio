@@ -1308,7 +1308,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         df_pedidos['status'] = df_pedidos['status'].fillna('pendente')
                         status_txt = df_pedidos['status'].astype(str).str.lower()
                         
-                        # Considera pendente tudo o que NÃO é explicitamente concluído/convertido/faturado
                         is_concluido = status_txt.str.contains("concluído|convertido|faturado", na=False)
                         
                         df_pendentes = df_pedidos[~is_concluido]
@@ -1341,6 +1340,31 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                                 st.rerun()
                                             except Exception as ex:
                                                 st.error(f"Erro ao atualizar: {ex}")
+                                    with col_e3:
+                                        st.write("")
+                                        st.write("")
+                                        if st.button("🗑️ Excluir", key=f"btn_excluir_novo_{pedido_id}", type="primary"):
+                                            try:
+                                                cursor.execute("DELETE FROM pedidos WHERE id = ?", (pedido_id,))
+                                                conn.commit()
+                                                st.warning("Pedido excluído!")
+                                                st.rerun()
+                                            except Exception as ex:
+                                                st.error(f"Erro ao excluir: {ex}")
+                        else:
+                            st.info("Nenhum pedido pendente encontrado.")
+        
+                        st.markdown("---")
+                        st.markdown("### 📚 Pedidos Concluídos / Histórico Geral")
+                        if not df_concluidos.empty:
+                            st.dataframe(df_concluidos, use_container_width=True, hide_index=True)
+                        else:
+                            st.info("Nenhum pedido concluído.")
+                            
+                    else:
+                        st.info(f"O cliente '{st.session_state.cliente_autenticado}' ainda não possui pedidos registrados.")
+                except Exception as e:
+                    st.error(f"Erro ao carregar histórico: {e}")
                                     with col_e3:
                                         st.write("")
                                         st.write("")
