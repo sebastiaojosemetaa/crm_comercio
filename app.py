@@ -586,7 +586,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                             qtd_val = row.get('quantidade', 1)
                             tot_val = row.get('valor_total', 0)
                             
-                            # Seção única de Pedidos do Dia (Editáveis e Excluíveis)
+                            # Seção do Portal do Cliente - Pedidos do Dia e Histórico
                             import pandas as pd
                             
                             query_dia = """
@@ -599,7 +599,6 @@ if perfil_selecionado == "👤 Portal do Cliente":
                             if not df_dia.empty:
                                 st.markdown("### 🟢 Pedidos do Dia (Editáveis)")
                                 
-                                # Adiciona uma coluna de seleção (checkbox) para escolher quais itens excluir
                                 df_dia.insert(0, "Excluir", False)
                                 
                                 df_editado = st.data_editor(
@@ -644,7 +643,6 @@ if perfil_selecionado == "👤 Portal do Cliente":
                                     if st.button("🗑️ Excluir Marcados", type="secondary", key="btn_excluir_selecionados"):
                                         try:
                                             cursor = conn.cursor()
-                                            # Filtra apenas as linhas onde a coluna 'Excluir' foi marcada como True
                                             ids_para_excluir = df_editado[df_editado['Excluir'] == True]['id'].tolist()
                                             
                                             if ids_para_excluir:
@@ -662,10 +660,21 @@ if perfil_selecionado == "👤 Portal do Cliente":
                         
                             st.markdown("---")
                             st.markdown("### 📚 Pedidos Anteriores (Histórico)")
-                            if not df_antigos.empty:
-                                st.dataframe(df_antigos.drop(columns=['data_limpa'], errors='ignore'), use_container_width=True, hide_index=True)
-                            else:
-                                st.info("Não há pedidos anteriores registrados.")
+                            
+                            try:
+                                query_antigos = """
+                                    SELECT id, cliente, produto, quantidade, valor_unitario, valor_total, status, observacoes, data, fornecedor, grupo, codigo_pedido 
+                                    FROM pedidos 
+                                    WHERE DATE(data) != DATE('now') AND cliente = ?
+                                """
+                                df_antigos = pd.read_sql_query(query_antigos, conn, params=(st.session_state.cliente_autenticado,))
+                                
+                                if not df_antigos.empty:
+                                    st.dataframe(df_antigos, use_container_width=True, hide_index=True)
+                                else:
+                                    st.info("Não há pedidos anteriores registrados.")
+                            except Exception as e:
+                                st.error(f"Erro ao carregar histórico: {e}")
         
 # ==========================================
 # AMBIENTE 2: ADMINISTRADOR / VENDEDOR
