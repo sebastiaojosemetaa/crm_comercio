@@ -551,133 +551,98 @@ if perfil_selecionado == "👤 Portal do Cliente":
     
         with aba_historico:
             st.subheader("Histórico e Gestão de Meus Pedidos")
+            
             try:
-                cursor = conn.cursor()
-                cursor.execute("SELECT * FROM pedidos WHERE cliente = ?", (st.session_state.cliente_autenticado,))
-                pedidos_cliente = cursor.fetchall()
-                
-                if pedidos_cliente:
-                    df_pedidos = pd.DataFrame(pedidos_cliente, columns=[description[0] for description in cursor.description])
+                # Seção de Pedidos do Dia (Editáveis)
+                query_dia = """
+                    SELECT id, cliente, produto, quantidade, valor_unitario, valor_total, fornecedor, grupo, data, status 
+                    FROM pedidos 
+                    WHERE DATE(data) = DATE('now') AND cliente = ?
+                """
+                df_dia = pd.read_sql_query(query_dia, conn, params=(st.session_state.cliente_autenticado,))
+        
+                if not df_dia.empty:
+                    st.markdown("### 🟢 Pedidos do Dia (Editáveis)")
                     
-                    # Identifica a coluna de data (tentando padronizar o nome se existir)
-                    col_data_nome = None
-                    for c in df_pedidos.columns:
-                        if 'data' in c.lower():
-                            col_data_nome = c
-                            break
+                    df_dia.insert(0, "Excluir", False)
                     
-                    from datetime import date
-                    hoje_str = date.today().strftime("%Y-%m-%d")
-                    
-                    if col_data_nome:
-                        # Filtra pedidos do dia (considerando o formato YYYY-MM-DD no início da string de data)
-                        df_pedidos['data_limpa'] = df_pedidos[col_data_nome].astype(str).str.slice(0, 10)
-                        df_hoje = df_pedidos[df_pedidos['data_limpa'] == hoje_str]
-                        df_antigos = df_pedidos[df_pedidos['data_limpa'] != hoje_str]
-                    else:
-                        # Se não achar coluna de data exata, joga tudo como recente para teste
-                        df_hoje = df_pedidos
-                        df_antigos = pd.DataFrame(columns=df_pedidos.columns)
-                    
-                    if not df_hoje.empty:
-                        for index, row in df_hoje.iterrows():
-                            pedido_id = row['id']
-                            prod_nome = row.get('produto', 'Item')
-                            qtd_val = row.get('quantidade', 1)
-                            tot_val = row.get('valor_total', 0)
-                            
-                            # Seção do Portal do Cliente - Pedidos do Dia e Histórico
-                            import pandas as pd
-                            
+                    df_editado = st.data_editor(
+                        df_dia,
+                        column_config={
+                            "Excluir": st.column_config.CheckboxColumn("❌ Excluir?", default=False),
+                            "id": st.column_config.NumberColumn("ID", disabled=True),
+                            "cliente": st.column_config.TextColumn("Cliente", disabled=True),
+                            "produto": st.column_config.TextColumn("Produto", disabled=True),
+                            "quantidade": st.column_config.NumberColumn("Quantidade", min_value=0.01, step=0.01, format="%.2f"),
+                            "valor_unitario": st.column_config.NumberColumn("Valor Unitário (R$)", disabled=True, format="R$ %.2f"),
+                            "valor_total": st.column_config.NumberColumn("Total (R$)", disabled=True, format="R$ %.2f"),
+                            "fornecedor": st.column_config.TextColumn("Fornecedor", disabled=True),
+                            "grupo": st.column_config.TextColumn("Grupo", disabled=True),
+                            "data": st.column_config.TextColumn("Data", disabled=True),
+                            "status": st.column_config.TextColumn("Status", disabled=True),
+                        },
+                        hide_index=True,
+                        key="tabela_pedidos_do_dia_unica"
+                    )
+        
+                    col_btn1, col_btn2 = st.columns(2)
+        
+                    with col_btn1:
+                        if st.button("💾 Salvar Alterações", type="primary", key="btn_salvar_tabela_unica"):
                             try:
-                                query_dia = """
-                                    SELECT id, cliente, produto, quantidade, valor_unitario, valor_total, fornecedor, grupo, data, status 
-                                    FROM pedidos 
-                                    WHERE DATE(data) = DATE('now') AND cliente = ?
-                                """
-                                df_dia = pd.read_sql_query(query_dia, conn, params=(st.session_state.cliente_autenticado,))
-                        
-                                if not df_dia.empty:
-                                    st.markdown("### 🟢 Pedidos do Dia (Editáveis)")
-                                    
-                                    df_dia.insert(0, "Excluir", False)
-                                    
-                                    df_editado = st.data_editor(
-                                        df_dia,
-                                        column_config={
-                                            "Excluir": st.column_config.CheckboxColumn("❌ Excluir?", default=False),
-                                            "id": st.column_config.NumberColumn("ID", disabled=True),
-                                            "cliente": st.column_config.TextColumn("Cliente", disabled=True),
-                                            "produto": st.column_config.TextColumn("Produto", disabled=True),
-                                            "quantidade": st.column_config.NumberColumn("Quantidade", min_value=0.01, step=0.01, format="%.2f"),
-                                            "valor_unitario": st.column_config.NumberColumn("Valor Unitário (R$)", disabled=True, format="R$ %.2f"),
-                                            "valor_total": st.column_config.NumberColumn("Total (R$)", disabled=True, format="R$ %.2f"),
-                                            "fornecedor": st.column_config.TextColumn("Fornecedor", disabled=True),
-                                            "grupo": st.column_config.TextColumn("Grupo", disabled=True),
-                                            "data": st.column_config.TextColumn("Data", disabled=True),
-                                            "status": st.column_config.TextColumn("Status", disabled=True),
-                                        },
-                                        hide_index=True,
-                                        key="tabela_pedidos_do_dia_unica"
-                                    )
-                        
-                                    col_btn1, col_btn2 = st.columns(2)
-                        
-                                    with col_btn1:
-                                        if st.button("💾 Salvar Alterações", type="primary", key="btn_salvar_tabela_unica"):
-                                            try:
-                                                cursor = conn.cursor()
-                                                for index, row in df_editado.iterrows():
-                                                    novo_total = float(row['quantidade']) * float(row['valor_unitario'])
-                                                    cursor.execute("""
-                                                        UPDATE pedidos 
-                                                        SET quantidade = ?, valor_total = ? 
-                                                        WHERE id = ?
-                                                    """, (row['quantidade'], novo_total, row['id']))
-                                                conn.commit()
-                                                st.success("Pedidos atualizados com sucesso!")
-                                                st.rerun()
-                                            except Exception as ex:
-                                                st.error(f"Erro ao atualizar os pedidos: {ex}")
-                        
-                                    with col_btn2:
-                                        if st.button("🗑️ Excluir Marcados", type="secondary", key="btn_excluir_selecionados"):
-                                            try:
-                                                cursor = conn.cursor()
-                                                ids_para_excluir = df_editado[df_editado['Excluir'] == True]['id'].tolist()
-                                                
-                                                if ids_para_excluir:
-                                                    for id_pedido in ids_para_excluir:
-                                                        cursor.execute("DELETE FROM pedidos WHERE id = ?", (id_pedido,))
-                                                    conn.commit()
-                                                    st.warning("Itens selecionados excluídos com sucesso!")
-                                                    st.rerun()
-                                                else:
-                                                    st.info("Nenhum item foi marcado para exclusão.")
-                                            except Exception as ex:
-                                                st.error(f"Erro ao excluir os itens: {ex}")
-                                else:
-                                    st.info("Nenhum pedido registrado hoje para edição.")
-                            except Exception as e:
-                                st.error(f"Erro ao carregar pedidos do dia: {e}")
-                        
-                            st.markdown("---")
-                            st.markdown("### 📚 Pedidos Anteriores (Histórico)")
-                            
+                                cursor = conn.cursor()
+                                for index, row in df_editado.iterrows():
+                                    novo_total = float(row['quantidade']) * float(row['valor_unitario'])
+                                    cursor.execute("""
+                                        UPDATE pedidos 
+                                        SET quantidade = ?, valor_total = ? 
+                                        WHERE id = ?
+                                    """, (row['quantidade'], novo_total, row['id']))
+                                conn.commit()
+                                st.success("Pedidos atualizados com sucesso!")
+                                st.rerun()
+                            except Exception as ex:
+                                st.error(f"Erro ao atualizar os pedidos: {ex}")
+        
+                    with col_btn2:
+                        if st.button("🗑️ Excluir Marcados", type="secondary", key="btn_excluir_selecionados"):
                             try:
-                                query_antigos = """
-                                    SELECT id, cliente, produto, quantidade, valor_unitario, valor_total, status, observacoes, data, fornecedor, grupo, codigo_pedido 
-                                    FROM pedidos 
-                                    WHERE DATE(data) != DATE('now') AND cliente = ?
-                                """
-                                df_antigos = pd.read_sql_query(query_antigos, conn, params=(st.session_state.cliente_autenticado,))
+                                cursor = conn.cursor()
+                                ids_para_excluir = df_editado[df_editado['Excluir'] == True]['id'].tolist()
                                 
-                                if not df_antigos.empty:
-                                    st.dataframe(df_antigos, use_container_width=True, hide_index=True)
+                                if ids_para_excluir:
+                                    for id_pedido in ids_para_excluir:
+                                        cursor.execute("DELETE FROM pedidos WHERE id = ?", (id_pedido,))
+                                    conn.commit()
+                                    st.warning("Itens selecionados excluídos com sucesso!")
+                                    st.rerun()
                                 else:
-                                    st.info("Não há pedidos anteriores registrados.")
-                            except Exception as e:
-                                st.error(f"Erro ao carregar histórico: {e}")
+                                    st.info("Nenhum item foi marcado para exclusão.")
+                            except Exception as ex:
+                                st.error(f"Erro ao excluir os itens: {ex}")
+                else:
+                    st.info("Nenhum pedido registrado hoje para edição.")
+                    
+            except Exception as e:
+                st.error(f"Erro ao carregar pedidos do dia: {e}")
+        
+            st.markdown("---")
+            st.markdown("### 📚 Pedidos Anteriores (Histórico)")
+            
+            try:
+                query_antigos = """
+                    SELECT id, cliente, produto, quantidade, valor_unitario, valor_total, status, observacoes, data, fornecedor, grupo, codigo_pedido 
+                    FROM pedidos 
+                    WHERE DATE(data) != DATE('now') AND cliente = ?
+                """
+                df_antigos = pd.read_sql_query(query_antigos, conn, params=(st.session_state.cliente_autenticado,))
+                
+                if not df_antigos.empty:
+                    st.dataframe(df_antigos, use_container_width=True, hide_index=True)
+                else:
+                    st.info("Não há pedidos anteriores registrados.")
+            except Exception as e:
+                st.error(f"Erro ao carregar histórico: {e}")
                         
 # ==========================================
 # AMBIENTE 2: ADMINISTRADOR / VENDEDOR
