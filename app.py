@@ -495,7 +495,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
             valor_total_item = qtd_cli * preco_cli
             st.info(f"Valor Total do Item: **R$ {valor_total_item:.2f}**")
     
-            if st.button("➕ Incluir Produto no Pedido", type="primary", key="btn_add_carrinho_cli"):
+            if st.button("➕ Incluir Produto no Pedido", type="primary", key="btn_add_carrinho_cli_portal"):
                 st.session_state.carrinho_cliente.append({
                     "produto": prod,
                     "fornecedor": forn_cli,
@@ -516,12 +516,12 @@ if perfil_selecionado == "👤 Portal do Cliente":
     
                 col_b1, col_b2 = st.columns(2)
                 with col_b1:
-                    if st.button("🗑️ Limpar Carrinho", key="limpar_carrinho_cli"):
+                    if st.button("🗑️ Limpar Carrinho", key="limpar_carrinho_cli_portal"):
                         st.session_state.carrinho_cliente = []
                         st.rerun()
     
                 with col_b2:
-                    if st.button("💾 Finalizar e Enviar Pedido", type="primary", key="finalizar_pedido_cli"):
+                    if st.button("💾 Finalizar e Enviar Pedido", type="primary", key="finalizar_pedido_cli_portal"):
                         try:
                             cursor = conn.cursor()
                             for item in st.session_state.carrinho_cliente:
@@ -545,7 +545,6 @@ if perfil_selecionado == "👤 Portal do Cliente":
                             st.error(f"Erro ao finalizar pedido: {e}")
             else:
                 st.info("Nenhum item adicionado ao pedido ainda.")
-
     with aba_historico:
         st.subheader("📋 Histórico de Pedidos Registrados")
         df_pedidos = carregar_dados("SELECT * FROM pedidos")
