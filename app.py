@@ -578,8 +578,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                         # Se não achar coluna de data exata, joga tudo como recente para teste
                         df_hoje = df_pedidos
                         df_antigos = pd.DataFrame(columns=df_pedidos.columns)
-    
-                    st.markdown("### 🟢 Pedidos do Dia (Editáveis)")
+                    
                     if not df_hoje.empty:
                         for index, row in df_hoje.iterrows():
                             pedido_id = row['id']
