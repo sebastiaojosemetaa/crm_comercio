@@ -587,7 +587,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                             qtd_val = row.get('quantidade', 1)
                             tot_val = row.get('valor_total', 0)
                             
-                            # Carrega os pedidos do dia em um DataFrame do Pandas para exibir na tabela editável
+                            # Seção única de Pedidos do Dia (Editáveis)
                             import pandas as pd
                             
                             query_dia = """
@@ -598,9 +598,8 @@ if perfil_selecionado == "👤 Portal do Cliente":
                             df_dia = pd.read_sql_query(query_dia, conn, params=(st.session_state.cliente_autenticado,))
                         
                             if not df_dia.empty:
-                                st.markdown("### Pedidos do Dia (Editáveis)")
+                                st.markdown("### 🟢 Pedidos do Dia (Editáveis)")
                                 
-                                # Configura a tabela editável com chave única
                                 df_editado = st.data_editor(
                                     df_dia,
                                     column_config={
