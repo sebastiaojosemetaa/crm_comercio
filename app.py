@@ -1312,8 +1312,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.info("Nenhum pedido encontrado.")
                 except Exception as e:
                     st.error(f"Erro: {e}")
-                except Exception as e:
-                    st.error(f"Erro: {e}")
         
                         st.markdown("---")
                         st.markdown("### 📚 Pedidos Concluídos / Histórico Geral")
