@@ -48,7 +48,7 @@ def adequar_banco_e_migrar():
             pass
 
     if 'valor_recebido' not in colunas_vendas:
-
+        try:
             cursor.execute("ALTER TABLE vendas ADD COLUMN valor_recebido TEXT")
         except:
             pass
