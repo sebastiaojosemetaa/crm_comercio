@@ -544,59 +544,6 @@ if perfil_selecionado == "👤 Portal do Cliente":
                             st.error(f"Erro ao finalizar pedido: {e}")
             else:
                 st.info("Nenhum item adicionado ao pedido ainda.")
-            with aba_historico:
-                st.subheader("Histórico de Meus Pedidos Registrados")
-                try:
-                    cursor = conn.cursor()
-                    cursor.execute("SELECT * FROM pedidos WHERE cliente = ?", (st.session_state.cliente_autenticado,))
-                    pedidos_cliente = cursor.fetchall()
-                    
-                    if pedidos_cliente:
-                        df_pedidos = pd.DataFrame(pedidos_cliente, columns=[description[0] for description in cursor.description])
-                        st.dataframe(df_pedidos, use_container_width=True, hide_index=True)
-                    else:
-                        st.info("Você ainda não possui pedidos registrados.")
-                except Exception as e:
-                    st.error(f"Erro ao carregar histórico: {e}")
-    
-        df_p_cli = carregar_dados("SELECT * FROM produtos")
-        if not df_p_cli.empty:
-            df_p_cli.columns = [c.lower() for c in df_p_cli.columns]
-            col_nome_p = 'produto' if 'produto' in df_p_cli.columns else ('nome' if 'nome' in df_p_cli.columns else df_p_cli.columns[1])
-            produtos_opt = df_p_cli[col_nome_p].dropna().astype(str).str.strip().unique().tolist()
-        else:
-            produtos_opt = ["AMEIXA IMPORTADA", "ABACATE", "CEBOLA CAIXA 1"]
-            df_p_cli = pd.DataFrame()
-    
-        fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
-        grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
-    
-        if "carrinho_cliente" not in st.session_state:
-            st.session_state.carrinho_cliente = []
-    
-        col1, col2 = st.columns(2)
-        with col1:
-            prod = st.selectbox("Selecione o Produto", produtos_opt, key="cliente_sel_produto_final")
-            forn_cli = st.selectbox("Selecione o Fornecedor", fornecedores_opt, key="cliente_sel_forn_final")
-            
-            preco_sugerido = 0.0
-            if prod:
-                try:
-                    cursor = conn.cursor()
-                    cursor.execute("SELECT valor_compra FROM produtos WHERE produto = ?", (prod,))
-                    res = cursor.fetchone()
-                    if res and res[0] is not None:
-                        preco_sugerido = float(res[0])
-                except Exception:
-                    pass
-
-        with col2:
-            grupo_cli = st.selectbox("Selecione o Grupo", grupos_opt, key="cliente_sel_grupo_final")
-            qtd_cli = st.number_input("Quantidade", min_value=0.01, value=1.0, format="%.2f", key="cliente_qtd_final")
-            preco_cli = st.number_input("Preço Unitário (R$)", min_value=0.0, value=preco_sugerido, format="%.2f", key="cliente_preco_final")
-    
-        valor_total_item = qtd_cli * preco_cli
-        st.info(f"Valor Total do Item: **R$ {valor_total_item:.2f}**")
     
         if st.button("➕ Incluir Produto no Pedido", type="primary", key="btn_add_carrinho_cli"):
             st.session_state.carrinho_cliente.append({
