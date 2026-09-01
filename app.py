@@ -616,21 +616,44 @@ if perfil_selecionado == "👤 Portal do Cliente":
                                     key="tabela_pedidos_do_dia_unica"
                                 )
                         
-                                if st.button("💾 Salvar Alterações da Tabela", type="primary", key="btn_salvar_tabela_unica"):
-                                    try:
-                                        cursor = conn.cursor()
-                                        for index, row in df_editado.iterrows():
-                                            novo_total = float(row['quantidade']) * float(row['valor_unitario'])
-                                            cursor.execute("""
-                                                UPDATE pedidos 
-                                                SET quantidade = ?, valor_total = ? 
-                                                WHERE id = ?
-                                            """, (row['quantidade'], novo_total, row['id']))
-                                        conn.commit()
-                                        st.success("Pedidos atualizados com sucesso!")
-                                        st.rerun()
-                                    except Exception as ex:
-                                        st.error(f"Erro ao atualizar os pedidos: {ex}")
+                                # Cria duas colunas para alinhar os botões lado a lado
+                                col_btn1, col_btn2 = st.columns(2)
+                        
+                                with col_btn1:
+                                    if st.button("💾 Salvar Alterações", type="primary", key="btn_salvar_tabela_unica"):
+                                        try:
+                                            cursor = conn.cursor()
+                                            for index, row in df_editado.iterrows():
+                                                novo_total = float(row['quantidade']) * float(row['valor_unitario'])
+                                                cursor.execute("""
+                                                    UPDATE pedidos 
+                                                    SET quantidade = ?, valor_total = ? 
+                                                    WHERE id = ?
+                                                """, (row['quantidade'], novo_total, row['id']))
+                                            conn.commit()
+                                            st.success("Pedidos atualizados com sucesso!")
+                                            st.rerun()
+                                        except Exception as ex:
+                                            st.error(f"Erro ao atualizar os pedidos: {ex}")
+                        
+                                with col_btn2:
+                                    if st.button("🗑️ Excluir Pedidos Selecionados", type="secondary", key="btn_excluir_tabela_unica"):
+                                        try:
+                                            cursor = conn.cursor()
+                                            # Exclui todos os IDs que estão atualmente visíveis na tabela do dia
+                                            ids_para_excluir = tuple(df_editado['id'].tolist())
+                                            if ids_para_excluir:
+                                                if len(ids_para_excluir) == 1:
+                                                    cursor.execute("DELETE FROM pedidos WHERE id = ?", (ids_para_excluir[0],))
+                                                else:
+                                                    cursor.execute(f"DELETE FROM pedidos WHERE id IN {ids_para_excluir}")
+                                                conn.commit()
+                                                st.warning("Pedidos do dia excluídos com sucesso!")
+                                                st.rerun()
+                                            else:
+                                                st.info("Nenhum pedido para excluir.")
+                                        except Exception as ex:
+                                            st.error(f"Erro ao excluir os pedidos: {ex}")
                             else:
                                 st.info("Nenhum pedido registrado hoje para edição.")
                         
