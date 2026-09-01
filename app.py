@@ -1353,7 +1353,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         txt_nome_produto = st.text_input("Nome do Produto")
                         val_custo = st.number_input("Preço de Custo (R$)", min_value=0.0, format="%.2f")
                     with col2:
-                        txt_grupo_produto = st.text_input("Grupo / Categoria", value="Geral")
+                        txt_grupo_produto = st.text_input("Grupo / Categoria")
                         val_venda = st.number_input("Preço de Venda (R$)", min_value=0.0, format="%.2f")
                         
                     col3, col4 = st.columns(2)
