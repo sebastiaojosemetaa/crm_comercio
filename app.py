@@ -1503,8 +1503,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     estoque_inicial, 
                                     val_custo, 
                                     val_venda, 
-                                    fornecedor_produto
-                                    grupo_produto,
+                                    fornecedor_produto,
+                                    grupo_produto
                                 ))
                                 conn.commit()
                                 st.success(f"Produto '{txt_nome_produto}' cadastrado com sucesso!")
