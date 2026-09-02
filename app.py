@@ -1108,20 +1108,64 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 
                 st.markdown("---")
                 
-                s_d1, s_d2 = d_inicio.strftime("%Y-%m-%d"), d_fim.strftime("%Y-%m-%d")
+                s_d1, s_d2 = d_inicio.strftime("%Y-%m-%d"), d_fin.strftime("%Y-%m-%d")
                 query_filt = f"SELECT * FROM pedidos WHERE substr(data, 1, 10) >= '{s_d1}' AND substr(data, 1, 10) <= '{s_d2}'"
                 if cliente_sel != "TODOS":
                     query_filt += f" AND TRIM(cliente) = TRIM('{cliente_sel}')"
-
-                df_registros = carregar_dados(query_filt)
-                if not df_registros.empty:
-                    df_registros.insert(0, "Deletar", False)
                     
-                    # Renomeia para 'valor_compra' apenas para exibição na tela de pedidos
-                    if is_modo_pedido and 'valor_venda' in df_registros.columns:
-                        df_registros = df_registros.rename(columns={'valor_venda': 'valor_compra'})
+                df_registros = carregar_dados(query_filt)
                 
-                    df_editado = st.data_editor(df_registros, key=f"editor_reg_{menu_admin}", use_container_width=True, hide_index=True)
+                if not df_registros.empty:
+                    data_hoje_str = datetime.now().strftime("%Y-%m-%d")
+                    
+                    if 'data' in df_registros.columns:
+                        df_registros['data_str'] = df_registros['data'].astype(str).str.slice(0, 10)
+                        df_dia = df_registros[df_registros['data_str'] == data_hoje_str]
+                        df_historico = df_registros[df_registros['data_str'] != data_hoje_str]
+                    else:
+                        df_dia = pd.DataFrame()
+                        df_historico = df_registros
+            
+                    # Seção 1: Pedidos do Dia (Editáveis)
+                    if not df_dia.empty:
+                        st.markdown("### 🟢 Pedidos do Dia (Editáveis)")
+                        if 'Excluir' not in df_dia.columns:
+                            df_dia.insert(0, 'Excluir', False)
+                            
+                        df_editado = st.data_editor(df_dia.drop(columns=['data_str'], errors='ignore'), key=f"editor_dia_admin_{menu_admin}", use_container_width=True, hide_index=True)
+                        
+                        col_b1, col_b2 = st.columns([1, 3])
+                        with col_b1:
+                            if st.button("💾 Salvar Alterações do Dia", type="primary", key="btn_salvar_dia_admin"):
+                                try:
+                                    cursor = conn.cursor()
+                                    for index, row in df_editado.iterrows():
+                                        if row.get('Excluir', False):
+                                            cursor.execute("DELETE FROM pedidos WHERE id = ?", (row['id'],))
+                                        else:
+                                            cursor.execute("""
+                                                UPDATE pedidos 
+                                                SET produto = ?, quantidade = ?, valor_unitario = ?, valor_total = ?, status = ?
+                                                WHERE id = ?
+                                            """, (
+                                                row['produto'], row['quantidade'], row['valor_unitario'], 
+                                                row['valor_total'], row.get('status', 'Pendente'), row['id']
+                                            ))
+                                    conn.commit()
+                                    st.success("Alterações salvas com sucesso!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Erro ao atualizar: {e}")
+                        st.markdown("---")
+            
+                    # Seção 2: Pedidos Anteriores (Histórico)
+                    st.markdown("### 📚 Pedidos Anteriores (Histórico)")
+                    if not df_historico.empty:
+                        st.dataframe(df_historico.drop(columns=['data_str'], errors='ignore'), use_container_width=True, hide_index=True)
+                    else:
+                        st.info("Nenhum pedido anterior encontrado para o período selecionado.")
+                else:
+                    st.info("Nenhum registro encontrado para os filtros selecionados.")
                 
                     # Se foi renomeada para exibição, volta para o nome interno para salvar no banco
                     if is_modo_pedido and 'valor_compra' in df_editado.columns:
