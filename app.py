@@ -1093,7 +1093,20 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     else:
                         df_dia = pd.DataFrame()
                         df_historico = df_registros
-            
+                    # Se o filtro for TODOS, agrupa e soma os produtos
+                    if cliente_sel == "TODOS" and not df_dia.empty and 'produto' in df_dia.columns:
+                        df_dia = df_dia.groupby('produto', as_index=False).agg({
+                            'quantidade': 'sum',
+                            'valor_total': 'sum',
+                            'valor_unitario': 'mean',
+                            'fornecedor': 'first',
+                            'grupo': 'first',
+                            'status': lambda x: 'Consolidado',
+                            'observacoes': lambda x: 'Múltiplos clientes',
+                            'cliente': lambda x: 'TODOS',
+                            'id': 'first',
+                            'codigo_pedido': lambda x: 'GERAL'
+                        })
                     # Seção 1: Pedidos do Dia (Editáveis)
                     if not df_dia.empty:
                         st.markdown("### 🟢 Pedidos do Dia (Editáveis)")
