@@ -1519,8 +1519,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         else:
                             st.info("Nenhum produto cadastrado.")
                     
-                    with tab_forn:
-                        st.subheader("🏢 Gerenciar Fornecedores")
+                        with tab_forn:
+                            st.subheader("🏢 Gerenciar Fornecedores")
                         
                         with st.form("form_cad_fornecedor", clear_on_submit=True):
                             nome_forn = st.text_input("Nome do Fornecedor / Empresa")
@@ -1577,8 +1577,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         else:
                             st.info("Nenhum fornecedor cadastrado.")
                     
-                    with tab_grup:
-                        st.subheader("🏷️ Gerenciar Grupos / Categorias")
+                        with tab_grup:
+                            st.subheader("🏷️ Gerenciar Grupos / Categorias")
                         
                         with st.form("form_cad_grupo", clear_on_submit=True):
                             nome_grupo = st.text_input("Nome do Grupo / Categoria")
