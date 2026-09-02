@@ -1365,6 +1365,18 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             except Exception as e:
                                 st.error(f"Erro ao gerar PDF: {e}")
                 
+        elif menu_admin == "📦 Estoque de Produtos":
+            st.title("📦 Estoque de Produtos")
+            try:
+                import pandas as pd
+                df_estoque = pd.read_sql("SELECT * FROM produtos", conn)
+                if not df_estoque.empty:
+                    st.dataframe(df_estoque, use_container_width=True)
+                else:
+                    st.info("Nenhum produto cadastrado no estoque.")
+            except Exception as e:
+                st.error(f"Erro ao carregar estoque: {e}")
+
         elif menu_admin == "📥 Entrada de Estoque (Compras)":
             st.title("📥 Entrada de Estoque (Compras)")
             aba_compra, aba_historico_compras = st.tabs(["📦 Dar Entrada em Estoque", "📋 Histórico de Entradas"])
