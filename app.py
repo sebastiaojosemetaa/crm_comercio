@@ -643,14 +643,10 @@ if perfil_selecionado == "👤 Portal do Cliente":
                     FROM pedidos
                     WHERE DATE(data) != DATE('now')
                 """
-                # Se o filtro de cliente estiver ativo e for diferente de TODOS, filtra na query
                 params = ()
                 if 'cliente_sel' in locals() and cliente_sel != "TODOS":
                     query_antigos += " AND cliente = ?"
                     params = (cliente_sel,)
-                elif 'st.session_state.cliente_autenticado' in locals() and st.session_state.get('cliente_autenticado'):
-                    query_antigos += " AND cliente = ?"
-                    params = (st.session_state.cliente_autenticado,)
     
                 df_antigos = pd.read_sql_query(query_antigos, conn, params=params)
     
