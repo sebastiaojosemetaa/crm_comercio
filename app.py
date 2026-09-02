@@ -1104,7 +1104,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         
                         col_b1, col_b2 = st.columns([1, 3])
                         with col_b1:
-                            if st.button("💾 Salvar Alterações do Dia", type="primary", key="btn_salvar_dia_admin"):
+                            if st.button("💾 Salvar Alterações", type="primary", key="btn_salvar_dia_admin"):
                                 try:
                                     cursor = conn.cursor()
                                     for index, row in df_editado.iterrows():
@@ -1124,6 +1124,23 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     st.rerun()
                                 except Exception as e:
                                     st.error(f"Erro ao atualizar: {e}")
+                        with col_b2:
+                            if st.button("🗑️ Excluir Marcados", key="btn_excluir_marcados_admin"):
+                                try:
+                                    cursor = conn.cursor()
+                                    removidos = 0
+                                    for index, row in df_editado.iterrows():
+                                        if row.get('Excluir', False):
+                                            cursor.execute("DELETE FROM pedidos WHERE id = ?", (row['id'],))
+                                            removidos += 1
+                                    conn.commit()
+                                    if removidos > 0:
+                                        st.success(f"{removidos} item(ns) excluído(s) com sucesso!")
+                                        st.rerun()
+                                    else:
+                                        st.warning("Nenhum item foi marcado para exclusão.")
+                                except Exception as e:
+                                    st.error(f"Erro ao excluir: {e}")
                         st.markdown("---")
             
                     # Seção 2: Pedidos Anteriores (Histórico)
