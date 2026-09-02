@@ -1160,9 +1160,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 pdf.set_font("Arial", "B", 11)
                                 pdf.cell(190, 6, txt="Relatório de Pedidos / Orçamentos", ln=True, align="C")
                                 
-                                # Identifica se está em TODOS ou em um cliente específico pelo filtro da tela
+                                # Pega o valor exato do selectbox de filtro da tela principal
                                 nome_cliente_filtro = "GERAL"
-                                if 'cliente_selecionado' in locals() and cliente_selecionado != "TODOS":
+                                if 'filtro_cliente' in locals() and filtro_cliente != "TODOS":
+                                    nome_cliente_filtro = filtro_cliente
+                                elif 'cliente_selecionado' in locals() and cliente_selecionado != "TODOS":
                                     nome_cliente_filtro = cliente_selecionado
                                 elif not df_editado.empty and 'cliente' in df_editado.columns:
                                     clientes_unicos = df_editado['cliente'].unique()
