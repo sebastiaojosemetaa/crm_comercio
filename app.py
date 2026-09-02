@@ -1368,7 +1368,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         elif menu_admin == "📥 Entrada de Estoque (Compras)":
             st.title("📥 Entrada de Estoque (Compras)")
             aba_compra, aba_historico_compras = st.tabs(["📦 Dar Entrada em Estoque", "📋 Histórico de Entradas"])
-                
+            
             produtos_opt = carregar_coluna("produtos", "produto") or ["AMEIXA IMPORTADA", "ABACATE"]
             fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
             grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
@@ -1393,7 +1393,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     grupo_escolhido = st.selectbox("Grupo / Categoria", grupos_opt, key="grupo_entrada")
                     
                     preco_cadastrado = 0.0
-                    if tipo_cadastro == "Produto Existente" and produto_escolhido:
+                    if tipo_cadastro == "Produto Existente" and 'produto_escolhido' in locals() and produto_escolhido:
                         try:
                             cursor = conn.cursor()
                             cursor.execute("SELECT valor_compra FROM produtos WHERE produto = ?", (produto_escolhido,))
