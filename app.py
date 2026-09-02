@@ -1143,22 +1143,79 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     st.error(f"Erro ao excluir: {e}")
                         with col_b3:
                             try:
-                                texto_relatorio = "=== RELATORIO - PEDIDOS DO DIA ===\n\n"
+                                from fpdf import FPDF
+                                
+                                pdf = FPDF()
+                                pdf.add_page()
+                                
+                                # Cabeçalho da Empresa (igual ao modelo)
+                                pdf.set_font("Arial", "B", 14)
+                                pdf.cell(190, 8, txt="REY DA CEBOLA", ln=True, align="C")
+                                
+                                pdf.set_font("Arial", size=9)
+                                pdf.cell(190, 5, txt="CNPJ: 194.174.39/000-42 INSC.EST.: 12.426725-4", ln=True, align="C")
+                                pdf.cell(190, 5, txt="CONTATO: (99) 98814-9722 OU (99) 98414-3943", ln=True, align="C")
+                                pdf.ln(4)
+                                
+                                pdf.set_font("Arial", "B", 11)
+                                pdf.cell(190, 6, txt="Relatório de Pedidos / Orçamentos", ln=True, align="C")
+                                
+                                pdf.set_font("Arial", size=9)
+                                import datetime
+                                data_atual = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                pdf.cell(190, 5, txt=f"Gerado em: {data_atual}", ln=True, align="C")
+                                pdf.ln(8)
+                                
+                                # Cabeçalho da Tabela (Fundo Azul, Texto Branco)
+                                pdf.set_font("Arial", "B", 10)
+                                pdf.set_fill_color(31, 78, 121)  # Azul escuro
+                                pdf.set_text_color(255, 255, 255) # Texto branco
+                                
+                                pdf.cell(70, 8, txt="Produto", border=1, fill=True, align="C")
+                                pdf.cell(30, 8, txt="Qtd Total", border=1, fill=True, align="C")
+                                pdf.cell(45, 8, txt="Preço Unitário (R$)", border=1, fill=True, align="C")
+                                pdf.cell(45, 8, txt="Valor Total (R$)", border=1, fill=True, align="C")
+                                pdf.ln()
+                                
+                                # Itens da Tabela
+                                pdf.set_font("Arial", size=9)
+                                pdf.set_text_color(0, 0, 0) # Texto preto
+                                
+                                valor_geral = 0.0
                                 for index, row in df_editado.iterrows():
-                                    texto_relatorio += f"Cliente: {row.get('cliente', '')}\n"
-                                    texto_relatorio += f"Produto: {row.get('produto', '')} | Qtd: {row.get('quantidade', '')}\n"
-                                    texto_relatorio += f"Valor Total: R$ {row.get('valor_total', '')} | Status: {row.get('status', '')}\n"
-                                    texto_relatorio += "-" * 40 + "\n"
+                                    produto = str(row.get('produto', ''))
+                                    qtd = float(row.get('quantidade', 0) or 0)
+                                    val_unit = float(row.get('valor_unitario', 0) or 0)
+                                    val_tot = float(row.get('valor_total', 0) or 0)
+                                    valor_geral += val_tot
+                                    
+                                    pdf.cell(70, 7, txt=produto, border=1, align="L")
+                                    pdf.cell(30, 7, txt=f"{qtd:.2f}", border=1, align="C")
+                                    pdf.cell(45, 7, txt=f"R$ {val_unit:.2f}", border=1, align="R")
+                                    pdf.cell(45, 7, txt=f"R$ {val_tot:.2f}", border=1, align="R")
+                                    pdf.ln()
+                                    
+                                # Linha de Valor Total Geral (Fundo Preto, Texto Branco)
+                                pdf.set_font("Arial", "B", 10)
+                                pdf.set_fill_color(0, 0, 0)       # Fundo preto
+                                pdf.set_text_color(255, 255, 255) # Texto branco
+                                
+                                pdf.cell(100, 8, txt="VALOR TOTAL GERAL", border=1, fill=True, align="L")
+                                pdf.cell(45, 8, txt="", border=1, fill=True, align="C")
+                                pdf.cell(45, 8, txt=f"R$ {valor_geral:.2f}", border=1, fill=True, align="R")
+                                pdf.ln()
+                                
+                                pdf_bytes = pdf.output(dest='S').encode('latin1')
                                 
                                 st.download_button(
-                                    label="📄 Baixar Relatório do Dia",
-                                    data=texto_relatorio,
-                                    file_name="pedidos_do_dia.txt",
-                                    mime="text/plain",
-                                    key="btn_txt_dia_admin"
+                                    label="📄 Baixar PDF do Dia",
+                                    data=pdf_bytes,
+                                    file_name="relatorio_pedidos_dia.pdf",
+                                    mime="application/pdf",
+                                    key="btn_pdf_dia_admin"
                                 )
                             except Exception as e:
-                                st.error(f"Erro ao gerar relatório: {e}")
+                                st.error(f"Erro ao gerar PDF (verifique se a biblioteca fpdf está instalada): {e}")
                         st.markdown("---")
             
                     # Seção 2: Pedidos Anteriores (Histórico)
