@@ -1074,40 +1074,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 with col_f2:
                     d_inicio = st.date_input("Data Inicial do Filtro", value=date(2025, 1, 1), key=f"filtro_d_ini_{menu_admin}")
                 with col_f3:
-                    d_fim = st.date_input("Data Final do Filtro", value=date.today(), key=f"filtro_d_fim_{menu_admin}")
-
-                # BOTÃO DE ATUALIZAR PREÇOS NAS VENDAS/PEDIDOS
-                texto_botao_atualizar = "🔄 Atualizar Preços de Venda" if not is_modo_pedido else "🔄 Atualizar Preços de Custo"
-                if st.button(texto_botao_atualizar, key=f"btn_atualizar_precos_{menu_admin}"):
-                    cursor = conn.cursor()
-                    coluna_alvo_estoque = 'valor_venda' if not is_modo_pedido else 'valor_compra'
-                    
-                    cursor.execute(f"""
-                        UPDATE vendas 
-                        SET valor_venda = (
-                            SELECT {coluna_alvo_estoque} 
-                            FROM produtos 
-                            WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
-                        ),
-                        valor_total = quantidade * (
-                            SELECT {coluna_alvo_estoque} 
-                            FROM produtos 
-                            WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
-                        )
-                        WHERE TRIM(UPPER(produto)) IN (SELECT TRIM(UPPER(nome)) FROM produtos)
-                    """)
-                    linhas_afetadas = cursor.rowcount
-                    conn.commit()
-                    
-                    if linhas_afetadas > 0:
-                        st.success(f"Preços atualizados com sucesso! ({linhas_afetadas} itens modificados)")
-                    else:
-                        st.warning("Nenhum produto correspondente foi encontrado na tabela de estoque para atualizar.")
-                    
-                    st.rerun()
-                
-                st.markdown("---")
-                
+                    d_fin = st.date_input("Data Final do Filtro", value=date.today(), key=f"filtro_d_fim_{menu_admin}")
+            
                 s_d1, s_d2 = d_inicio.strftime("%Y-%m-%d"), d_fin.strftime("%Y-%m-%d")
                 query_filt = f"SELECT * FROM pedidos WHERE substr(data, 1, 10) >= '{s_d1}' AND substr(data, 1, 10) <= '{s_d2}'"
                 if cliente_sel != "TODOS":
