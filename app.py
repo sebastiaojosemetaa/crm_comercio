@@ -1102,7 +1102,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             
                         df_editado = st.data_editor(df_dia.drop(columns=['data_str'], errors='ignore'), key=f"editor_dia_admin_{menu_admin}", use_container_width=True, hide_index=True)
                         
-                        col_b1, col_b2 = st.columns([1, 3])
+                        col_b1, col_b2, col_b3 = st.columns([1, 1, 2])
                         with col_b1:
                             if st.button("💾 Salvar Alterações", type="primary", key="btn_salvar_dia_admin"):
                                 try:
@@ -1141,6 +1141,28 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         st.warning("Nenhum item foi marcado para exclusão.")
                                 except Exception as e:
                                     st.error(f"Erro ao excluir: {e}")
+                        with col_b3:
+                            try:
+                                from fpdf import FPDF
+                                pdf = FPDF()
+                                pdf.add_page()
+                                pdf.set_font("Arial", size=12)
+                                pdf.cell(200, 10, txt="Relatorio - Pedidos do Dia", ln=True, align="C")
+                                pdf.ln(10)
+                                for index, row in df_editado.iterrows():
+                                    linha_txt = f"Cliente: {row.get('cliente', '')} | Produto: {row.get('produto', '')} | Qtd: {row.get('quantidade', '')} | Total: R$ {row.get('valor_total', '')}"
+                                    pdf.cell(200, 8, txt=linha_txt, ln=True)
+                                pdf_bytes = pdf.output(dest='S').encode('latin1')
+                                
+                                st.download_button(
+                                    label="📄 Baixar PDF do Dia",
+                                    data=pdf_bytes,
+                                    file_name="pedidos_do_dia.pdf",
+                                    mime="application/pdf",
+                                    key="btn_pdf_dia_admin"
+                                )
+                            except Exception as e:
+                                st.error(f"Erro ao gerar PDF: {e}")
                         st.markdown("---")
             
                     # Seção 2: Pedidos Anteriores (Histórico)
