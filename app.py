@@ -1433,8 +1433,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             except Exception as e:
                                 st.error(f"Erro ao registrar entrada: {e}")
                     
-                    with aba_historico:
-                        st.subheader("Histórico e Gestão de Meus Pedidos")
+                        with aba_historico:
+                            st.subheader("Histórico e Gestão de Meus Pedidos")
                         try:
                             cursor = conn.cursor()
                             cursor.execute("SELECT * FROM pedidos WHERE cliente = ?", (st.session_state.cliente_autenticado,))
