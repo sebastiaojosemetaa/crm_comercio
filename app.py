@@ -526,7 +526,6 @@ if perfil_selecionado == "👤 Portal do Cliente":
                     if st.button("💾 Finalizar e Enviar Pedido", type="primary", key="cli_finalizar_unique_v3"):
                         try:
                             cursor = conn.cursor()
-                            # Gera um código único para o pedido agrupando os itens da compra
                             data_hora_atual = datetime.now()
                             codigo_pedido_gerado = f"PED-{data_hora_atual.strftime('%Y%m%d%H%M%S')}"
                             data_str = data_hora_atual.strftime("%Y-%m-%d %H:%M:%S")
@@ -535,9 +534,9 @@ if perfil_selecionado == "👤 Portal do Cliente":
                                 cursor.execute("""
                                     INSERT INTO pedidos (
                                         cliente, produto, quantidade, valor_unitario, valor_total, 
-                                        fornecedor, grupo, data, status, codigo_pedido, tipo, codigo
+                                        fornecedor, grupo, data, status, codigo_pedido
                                     )
-                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                                 """, (
                                     st.session_state.cliente_autenticado,
                                     item["produto"],
@@ -547,13 +546,11 @@ if perfil_selecionado == "👤 Portal do Cliente":
                                     item.get("fornecedor", "BAHIA"),
                                     item.get("grupo", "GERAL"),
                                     data_str,
-                                    "Pendente",             # Status inicial visível para o Admin
-                                    codigo_pedido_gerado,   # Código que agrupa o pedido
-                                    "PEDIDO",
-                                    "PED"
+                                    "Pendente",
+                                    codigo_pedido_gerado
                                 ))
                             conn.commit()
-                            st.session_state.carrinho_cliente = [] # Limpa o carrinho após finalizar
+                            st.session_state.carrinho_cliente = []
                             st.success("Pedido finalizado e enviado com sucesso!")
                             st.rerun()
                         except Exception as ex:
