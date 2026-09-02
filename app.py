@@ -1290,9 +1290,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 )
                             except Exception as e:
                                 st.error(f"Erro ao gerar PDF: {e}")
-                else:
-                    st.info("Nenhum registro encontrado.")
-
+                
         elif menu_admin == "📥 Entrada de Estoque (Compras)":
             st.title("📥 Entrada de Estoque (Compras)")
             aba_compra, aba_historico_compras = st.tabs(["📦 Dar Entrada em Estoque", "📋 Histórico de Entradas"])
