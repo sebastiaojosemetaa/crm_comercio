@@ -1148,7 +1148,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 pdf = FPDF()
                                 pdf.add_page()
                                 
-                                # Cabeçalho da Empresa (igual ao modelo)
+                                # Cabeçalho da Empresa
                                 pdf.set_font("Arial", "B", 14)
                                 pdf.cell(190, 8, txt="REY DA CEBOLA", ln=True, align="C")
                                 
@@ -1160,13 +1160,18 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 pdf.set_font("Arial", "B", 11)
                                 pdf.cell(190, 6, txt="Relatório de Pedidos / Orçamentos", ln=True, align="C")
                                 
+                                # Identificação do Cliente ou GERAL
+                                nome_cliente_filtro = cliente_selecionado if cliente_selecionado != "TODOS" else "GERAL"
+                                pdf.set_font("Arial", "B", 10)
+                                pdf.cell(190, 6, txt=f"Cliente: {nome_cliente_filtro}", ln=True, align="C")
+                                
                                 pdf.set_font("Arial", size=9)
                                 import datetime
                                 data_atual = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                                 pdf.cell(190, 5, txt=f"Gerado em: {data_atual}", ln=True, align="C")
-                                pdf.ln(8)
+                                pdf.ln(6)
                                 
-                                # Cabeçalho da Tabela (Fundo Azul, Texto Branco)
+                                # Cabeçalho da Tabela
                                 pdf.set_font("Arial", "B", 10)
                                 pdf.set_fill_color(31, 78, 121)  # Azul escuro
                                 pdf.set_text_color(255, 255, 255) # Texto branco
@@ -1195,7 +1200,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     pdf.cell(45, 7, txt=f"R$ {val_tot:.2f}", border=1, align="R")
                                     pdf.ln()
                                     
-                                # Linha de Valor Total Geral (Fundo Preto, Texto Branco)
+                                # Linha de Valor Total Geral
                                 pdf.set_font("Arial", "B", 10)
                                 pdf.set_fill_color(0, 0, 0)       # Fundo preto
                                 pdf.set_text_color(255, 255, 255) # Texto branco
@@ -1215,7 +1220,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     key="btn_pdf_dia_admin"
                                 )
                             except Exception as e:
-                                st.error(f"Erro ao gerar PDF (verifique se a biblioteca fpdf está instalada): {e}")
+                                st.error(f"Erro ao gerar PDF: {e}")
                         st.markdown("---")
             
                     # Seção 2: Pedidos Anteriores (Histórico)
