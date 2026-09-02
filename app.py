@@ -1160,8 +1160,16 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 pdf.set_font("Arial", "B", 11)
                                 pdf.cell(190, 6, txt="Relatório de Pedidos / Orçamentos", ln=True, align="C")
                                 
-                                # Identificação do Cliente ou GERAL
-                                nome_cliente_filtro = cliente_selecionado if cliente_selecionado != "TODOS" else "GERAL"
+                                # Identificação segura do Cliente ou GERAL baseada no primeiro registro ou filtro
+                                nome_cliente_filtro = "GERAL"
+                                try:
+                                    if not df_editado.empty and 'cliente' in df_editado.columns:
+                                        clientes_unicos = df_editado['cliente'].unique()
+                                        if len(clientes_unicos) == 1:
+                                            nome_cliente_filtro = str(clientes_unicos[0])
+                                except:
+                                    pass
+            
                                 pdf.set_font("Arial", "B", 10)
                                 pdf.cell(190, 6, txt=f"Cliente: {nome_cliente_filtro}", ln=True, align="C")
                                 
