@@ -1275,7 +1275,33 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     # Seção 2: Pedidos Anteriores (Histórico)
                     st.markdown("### 📚 Pedidos Anteriores (Histórico)")
                     if not df_historico.empty:
-                        st.dataframe(df_historico.drop(columns=['data_str'], errors='ignore'), use_container_width=True, hide_index=True)
+                        df_hist_edit = df_historico.copy()
+                        if 'Excluir' not in df_hist_edit.columns:
+                            df_hist_edit.insert(0, 'Excluir', False)
+                        
+                        df_hist_editado = st.data_editor(
+                            df_hist_edit.drop(columns=['data_str'], errors='ignore'), 
+                            key=f"editor_historico_admin_{menu_admin}", 
+                            use_container_width=True, 
+                            hide_index=True
+                        )
+                        
+                        if st.button("🗑️ Excluir Histórico Marcados", type="secondary", key=f"btn_excluir_hist_{menu_admin}"):
+                            try:
+                                cursor = conn.cursor()
+                                removidos = 0
+                                for index, row in df_hist_editado.iterrows():
+                                    if row.get('Excluir', False):
+                                        cursor.execute("DELETE FROM pedidos WHERE id = ?", (row['id'],))
+                                        removidos += 1
+                                conn.commit()
+                                if removidos > 0:
+                                    st.success(f"{removidos} registro(s) do histórico excluído(s) com sucesso!")
+                                    st.rerun()
+                                else:
+                                    st.warning("Nenhum item foi marcado para exclusão.")
+                            except Exception as e:
+                                st.error(f"Erro ao excluir do histórico: {e}")
                     else:
                         st.info("Nenhum pedido anterior encontrado para o período selecionado.")
                 else:
