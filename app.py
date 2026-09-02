@@ -1109,7 +1109,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.markdown("---")
                 
                 s_d1, s_d2 = d_inicio.strftime("%Y-%m-%d"), d_fim.strftime("%Y-%m-%d")
-                query_filt = f"SELECT * FROM vendas WHERE substr(data, 1, 10) >= '{s_d1}' AND substr(data, 1, 10) <= '{s_d2}'"
+                query_filt = f"SELECT * FROM pedidos WHERE substr(data, 1, 10) >= '{s_d1}' AND substr(data, 1, 10) <= '{s_d2}'"
                 if cliente_sel != "TODOS":
                     query_filt += f" AND TRIM(cliente) = TRIM('{cliente_sel}')"
 
