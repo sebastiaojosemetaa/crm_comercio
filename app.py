@@ -637,17 +637,48 @@ if perfil_selecionado == "👤 Portal do Cliente":
         
             st.markdown("---")
             st.markdown("### 📚 Pedidos Anteriores (Histórico)")
-            
             try:
                 query_antigos = """
-                    SELECT id, cliente, produto, quantidade, valor_unitario, valor_total, status, observacoes, data, fornecedor, grupo, codigo_pedido 
-                    FROM pedidos 
-                    WHERE DATE(data) != DATE('now') AND cliente = ?
+                    SELECT id, cliente, produto, quantidade, valor_unitario, valor_total, status, observacoes, data, fornecedor, grupo, codigo_pedido
+                    FROM pedidos
+                    WHERE DATE(data) != DATE('now')
                 """
-                df_antigos = pd.read_sql_query(query_antigos, conn, params=(st.session_state.cliente_autenticado,))
-                
+                # Se o filtro de cliente estiver ativo e for diferente de TODOS, filtra na query
+                params = ()
+                if 'cliente_sel' in locals() and cliente_sel != "TODOS":
+                    query_antigos += " AND cliente = ?"
+                    params = (cliente_sel,)
+                elif 'st.session_state.cliente_autenticado' in locals() and st.session_state.get('cliente_autenticado'):
+                    query_antigos += " AND cliente = ?"
+                    params = (st.session_state.cliente_autenticado,)
+    
+                df_antigos = pd.read_sql_query(query_antigos, conn, params=params)
+    
                 if not df_antigos.empty:
-                    st.dataframe(df_antigos, use_container_width=True, hide_index=True)
+                    df_hist_edit = df_antigos.copy()
+                    if 'Excluir' not in df_hist_edit.columns:
+                        df_hist_edit.insert(0, 'Excluir', False)
+    
+                    df_hist_editado = st.data_editor(
+                        df_hist_edit,
+                        key=f"editor_historico_admin_{menu_admin}",
+                        use_container_width=True,
+                        hide_index=True
+                    )
+    
+                    if st.button("🗑️ Excluir Histórico Marcados", type="secondary", key=f"btn_excluir_hist_{menu_admin}"):
+                        cursor = conn.cursor()
+                        removidos = 0
+                        for index, row in df_hist_editado.iterrows():
+                            if row.get('Excluir', False):
+                                cursor.execute("DELETE FROM pedidos WHERE id = ?", (row['id'],))
+                                removidos += 1
+                        conn.commit()
+                        if removidos > 0:
+                            st.success(f"{removidos} registro(s) do histórico excluído(s) com sucesso!")
+                            st.rerun()
+                        else:
+                            st.warning("Nenhum item foi marcado para exclusão.")
                 else:
                     st.info("Não há pedidos anteriores registrados.")
             except Exception as e:
