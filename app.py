@@ -630,7 +630,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                             except Exception as ex:
                                 st.error(f"Erro ao excluir os itens: {ex}")
 
-                    # Geração do PDF dos Pedidos do Dia (Padronizado)
+                    # Geração do PDF dos Pedidos do Dia (Sem margens no topo e linhas coladas)
                     try:
                         from reportlab.lib.pagesizes import letter
                         from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -639,15 +639,16 @@ if perfil_selecionado == "👤 Portal do Cliente":
                         import io
 
                         buffer = io.BytesIO()
-                        doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+                        # Reduzindo a margem superior para colar mais no topo
+                        doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=15, bottomMargin=30)
                         elements = []
                         styles = getSampleStyleSheet()
 
-                        # Estilos personalizados para o padrão exato da segunda imagem
-                        estilo_empresa = ParagraphStyle('Empresa', parent=styles['Heading1'], fontSize=14, textColor=colors.HexColor('#002060'), alignment=1, fontName='Helvetica-Bold')
-                        estilo_sub_empresa = ParagraphStyle('SubEmpresa', parent=styles['Normal'], fontSize=8, textColor=colors.black, alignment=1, leading=10)
-                        estilo_titulo_rel = ParagraphStyle('TituloRel', parent=styles['Heading2'], fontSize=11, textColor=colors.black, alignment=1, fontName='Helvetica-Bold', spaceBefore=8)
-                        estilo_info_cli = ParagraphStyle('InfoCli', parent=styles['Normal'], fontSize=9, textColor=colors.black, alignment=1, leading=12)
+                        # Estilos compactos sem espaçamentos exagerados
+                        estilo_empresa = ParagraphStyle('Empresa', parent=styles['Heading1'], fontSize=14, textColor=colors.HexColor('#002060'), alignment=1, fontName='Helvetica-Bold', spaceAfter=0)
+                        estilo_sub_empresa = ParagraphStyle('SubEmpresa', parent=styles['Normal'], fontSize=8, textColor=colors.black, alignment=1, leading=9, spaceAfter=0)
+                        estilo_titulo_rel = ParagraphStyle('TituloRel', parent=styles['Heading2'], fontSize=10, textColor=colors.black, alignment=1, fontName='Helvetica-Bold', spaceBefore=4, spaceAfter=0)
+                        estilo_info_cli = ParagraphStyle('InfoCli', parent=styles['Normal'], fontSize=8, textColor=colors.black, alignment=1, leading=10, spaceAfter=0)
                         
                         estilo_th = ParagraphStyle('TH', parent=styles['Normal'], fontSize=9, textColor=colors.white, alignment=1, fontName='Helvetica-Bold')
                         estilo_td_left = ParagraphStyle('TDLeft', parent=styles['Normal'], fontSize=9, textColor=colors.black, alignment=0)
@@ -657,15 +658,15 @@ if perfil_selecionado == "👤 Portal do Cliente":
                         estilo_total_label = ParagraphStyle('TotLabel', parent=styles['Normal'], fontSize=9, textColor=colors.white, alignment=0, fontName='Helvetica-Bold')
                         estilo_total_val = ParagraphStyle('TotVal', parent=styles['Normal'], fontSize=9, textColor=colors.white, alignment=2, fontName='Helvetica-Bold')
 
-                        # Cabeçalho da Empresa
+                        # Cabeçalho colado no topo
                         elements.append(Paragraph("REY DA CEBOLA", estilo_empresa))
                         elements.append(Paragraph("CNPJ: 194.174.39/000-42 INSC.EST.: 12.426725-4<br/>CONTATO: (99) 98814-9722 OU (99) 98414-3943", estilo_sub_empresa))
-                        elements.append(Spacer(1, 10))
+                        elements.append(Spacer(1, 4))
 
-                        # Título e Informações do Cliente
+                        # Título e Informações do Cliente bem próximos
                         elements.append(Paragraph("Relatório de Pedidos / Orçamentos", estilo_titulo_rel))
-                        elements.append(Paragraph(f"<b>Cliente:</b> {st.session_state.cliente_autenticado}<br/>Gerado em: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", estilo_info_cli))
-                        elements.append(Spacer(1, 15))
+                        elements.append(Paragraph(f"<b>Cliente:</b> {st.session_state.cliente_autenticado} | <b>Gerado em:</b> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", estilo_info_cli))
+                        elements.append(Spacer(1, 8))
 
                         # Montagem da Tabela
                         data_tabela = [[
@@ -685,7 +686,6 @@ if perfil_selecionado == "👤 Portal do Cliente":
 
                         total_geral_dia = df_dia['valor_total'].sum()
 
-                        # Linha de Valor Total Geral preta igual à referência
                         data_tabela.append([
                             Paragraph("VALOR TOTAL GERAL", estilo_total_label),
                             Paragraph("", estilo_total_val),
@@ -693,17 +693,16 @@ if perfil_selecionado == "👤 Portal do Cliente":
                             Paragraph(f"R$ {total_geral_dia:.2f}", estilo_total_val)
                         ])
 
-                        # Larguras das colunas otimizadas para a página
                         t = Table(data_tabela, colWidths=[220, 80, 110, 130])
                         t.setStyle(TableStyle([
-                            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1F4E79')), # Azul escuro do cabeçalho
+                            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1F4E79')),
                             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
                             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-                            ('TOPPADDING', (0, 0), (-1, -1), 5),
+                            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                            ('TOPPADDING', (0, 0), (-1, -1), 4),
                             ('GRID', (0, 0), (-1, -2), 0.5, colors.HexColor('#CCCCCC')),
-                            ('SPAN', (0, -1), (2, -1)), # Mescla as colunas para o texto "VALOR TOTAL GERAL"
-                            ('BACKGROUND', (0, -1), (-1, -1), colors.black), # Fundo preto para o total geral
+                            ('SPAN', (0, -1), (2, -1)),
+                            ('BACKGROUND', (0, -1), (-1, -1), colors.black),
                         ]))
                         
                         elements.append(t)
