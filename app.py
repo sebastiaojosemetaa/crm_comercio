@@ -635,17 +635,46 @@ if perfil_selecionado == "👤 Portal do Cliente":
             except Exception as e:
                 st.error(f"Erro ao carregar pedidos do dia: {e}")
         
-                    st.markdown("---")
-                    st.markdown("### 📚 Pedidos Anteriores (Histórico)")
-                    if not df_antigos.empty:
-                        st.dataframe(df_antigos.drop(columns=['data_limpa'], errors='ignore'), use_container_width=True, hide_index=True)
-                    else:
-                        st.info("Não há pedidos anteriores registrados.")
-                                
+    # Pedidos Anteriores (Histórico) no Portal do Cliente
+    st.markdown("### 📚 Pedidos Anteriores (Histórico)")
+    try:
+        # Garante que temos os dados do histórico carregados para o cliente logado
+        query_hist_cliente = """
+            SELECT id, cliente, produto, quantidade, valor_unitario, valor_total, status, observacoes, data, fornecedor, grupo, codigo_pedido
+            FROM pedidos
+            WHERE DATE(data) != DATE('now') AND cliente = ?
+        """
+        df_hist_cli = pd.read_sql_query(query_hist_cliente, conn, params=(st.session_state.get('cliente_autenticado', ''),))
+
+        if not df_hist_cli.empty:
+            df_cli_edit = df_hist_cli.copy()
+            if 'Excluir' not in df_cli_edit.columns:
+                df_cli_edit.insert(0, 'Excluir', False)
+            
+            df_cli_editado = st.data_editor(
+                df_cli_edit.drop(columns=['data_str'], errors='ignore'), 
+                key="editor_historico_portal_cliente", 
+                use_container_width=True, 
+                hide_index=True
+            )
+            
+            if st.button("🗑️ Excluir Histórico Marcados", type="secondary", key="btn_excluir_hist_portal"):
+                cursor = conn.cursor()
+                removidos = 0
+                for index, row in df_cli_editado.iterrows():
+                    if row.get('Excluir', False):
+                        cursor.execute("DELETE FROM pedidos WHERE id = ?", (row['id'],))
+                        removidos += 1
+                conn.commit()
+                if removidos > 0:
+                    st.success(f"{removidos} registro(s) excluído(s) com sucesso!")
+                    st.rerun()
                 else:
-                    st.info(f"O cliente '{st.session_state.cliente_autenticado}' ainda não possui pedidos registrados.")
-            except Exception as e:
-                st.error(f"Erro ao carregar histórico: {e}")
+                    st.warning("Nenhum item foi marcado para exclusão.")
+        else:
+            st.info("Nenhum pedido anterior encontrado.")
+    except Exception as e_hist:
+        st.error(f"Erro ao carregar histórico: {e_hist}")
                         
 # ==========================================
 # AMBIENTE 2: ADMINISTRADOR / VENDEDOR
