@@ -712,9 +712,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                                     mime="application/pdf",
                                     key="btn_pdf_portal_dia"
                                 )
-                            except Exception as ex:
-                                st.error(f"Erro ao gerar PDF: {ex}")
-      
+                                  
     # Pedidos Anteriores (Histórico) no Portal do Cliente
     st.markdown("### 📚 Pedidos Anteriores (Histórico)")
 
