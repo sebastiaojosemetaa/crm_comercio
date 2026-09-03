@@ -742,10 +742,10 @@ def portal_cliente():
                     st.rerun()
                 else:
                     st.warning("Nenhum item foi marcado para exclusão.")
-        else:
-            st.info("Nenhum pedido anterior encontrado.")
-    except Exception as e:
-        st.error(f"Erro ao carregar histórico: {e}")
+                else:
+                    st.info("Nenhum pedido anterior encontrado.")
+            except Exception as e:
+                st.error(f"Erro ao carregar histórico: {e}")
                         
 # ==========================================
 # AMBIENTE 2: ADMINISTRADOR / VENDEDOR
