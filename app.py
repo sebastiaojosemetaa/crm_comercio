@@ -729,6 +729,24 @@ if perfil_selecionado == "👤 Portal do Cliente":
             except Exception as e:
                 st.error(f"Erro ao carregar pedidos do dia: {e}")
                         
+            # ==========================================
+            # Seção de Histórico de Pedidos do Cliente
+            # ==========================================
+            st.markdown("---")
+            st.subheader("📚 Pedidos Anteriores (Histórico)")
+            try:
+                query_hist_cliente = """
+                    SELECT id, produto, quantidade, valor_unitario, valor_total, status, data, fornecedor, grupo, codigo_pedido
+                    FROM pedidos
+                    WHERE DATE(data) != DATE('now') AND cliente = ?
+                """
+                df_hist_cli = pd.read_sql_query(query_hist_cliente, conn, params=(st.session_state.cliente_autenticado,))
+                if not df_hist_cli.empty:
+                    st.dataframe(df_hist_cli, use_container_width=True, hide_index=True)
+                else:
+                    st.info("Nenhum pedido anterior encontrado.")
+            except Exception as e_hist:
+                st.error(f"Erro ao carregar histórico: {e_hist}")
 # ==========================================
 # AMBIENTE 2: ADMINISTRADOR / VENDEDOR
 # ==========================================
