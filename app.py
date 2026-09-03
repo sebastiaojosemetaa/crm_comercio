@@ -644,8 +644,8 @@ if perfil_selecionado == "👤 Portal do Cliente":
                             
             else:
                 st.info(f"O cliente '{st.session_state.cliente_autenticado}' ainda não possui pedidos registrados.")
-        except Exception as e:
-            st.error(f"Erro ao carregar histórico: {e}")
+            except Exception as e:
+                st.error(f"Erro ao carregar histórico: {e}")
                         
 # ==========================================
 # AMBIENTE 2: ADMINISTRADOR / VENDEDOR
