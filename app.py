@@ -700,20 +700,18 @@ if perfil_selecionado == "👤 Portal do Cliente":
                                 </html>
                                 """
                                 
-                                with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-                                    HTML(string=html_conteudo).write_pdf(tmp.name)
-                                    with open(tmp.name, "rb") as f:
-                                        pdf_bytes = f.read()
-                                        
-                                        st.download_button(
-                                            label="📄 Baixar PDF do Dia",
-                                            data=pdf_bytes,
-                                            file_name=f"pedidos_dia_{cliente_atual}.pdf",
-                                            mime="application/pdf",
-                                            key="btn_pdf_portal_dia"
-                                        )
-        except:
-            pass
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+                HTML(string=html_conteudo).write_pdf(tmp.name)
+                with open(tmp.name, "rb") as f:
+                    pdf_bytes = f.read()
+        
+            st.download_button(
+                label="📄 Baixar PDF do Dia",
+                data=pdf_bytes,
+                file_name=f"pedidos_dia_{cliente_atual}.pdf",
+                mime="application/pdf",
+                key="btn_pdf_portal_dia"
+            )
         
         # Pedidos Anteriores (Histórico) no Portal do Cliente
         st.markdown("### 📚 Pedidos Anteriores (Histórico)")
