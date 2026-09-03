@@ -712,8 +712,8 @@ if perfil_selecionado == "👤 Portal do Cliente":
                                 key="btn_pdf_portal_dia"
                             )
       
-    # Pedidos Anteriores (Histórico) no Portal do Cliente
-    st.markdown("### 📚 Pedidos Anteriores (Histórico)")
+        # Pedidos Anteriores (Histórico) no Portal do Cliente
+        st.markdown("### 📚 Pedidos Anteriores (Histórico)")
     try:
         # Garante que temos os dados do histórico carregados para o cliente logado
         query_hist_cliente = """
