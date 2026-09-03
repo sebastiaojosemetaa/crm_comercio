@@ -727,12 +727,12 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 if 'Excluir' not in df_cli_edit.columns:
                     df_cli_edit.insert(0, 'Excluir', False)
                 
-                df_cli_editado = st.data_editor(
+                st.data_editor(
                     df_cli_edit.drop(columns=['data_str'], errors='ignore'), 
                     key="editor_historico_portal_cliente", 
                     use_container_width=True, 
                     hide_index=True
-                )            
+                )
             if st.button("🗑️ Excluir Histórico Marcados", type="secondary", key="btn_excluir_hist_portal"):
                 cursor = conn.cursor()
                 removidos = 0
