@@ -594,8 +594,8 @@ if perfil_selecionado == "👤 Portal do Cliente":
                         key="tabela_pedidos_do_dia_unica"
                     )
         
-                    col_btn1, col_btn2 = st.columns(2)
-        
+                    col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
+
                     with col_btn1:
                         if st.button("💾 Salvar Alterações", type="primary", key="btn_salvar_tabela_unica"):
                             try:
@@ -612,29 +612,106 @@ if perfil_selecionado == "👤 Portal do Cliente":
                                 st.rerun()
                             except Exception as ex:
                                 st.error(f"Erro ao atualizar os pedidos: {ex}")
-        
+                    
                     with col_btn2:
                         if st.button("🗑️ Excluir Marcados", type="secondary", key="btn_excluir_selecionados"):
                             try:
                                 cursor = conn.cursor()
                                 ids_para_excluir = df_editado[df_editado['Excluir'] == True]['id'].tolist()
-                                
                                 if ids_para_excluir:
                                     for id_pedido in ids_para_excluir:
                                         cursor.execute("DELETE FROM pedidos WHERE id = ?", (id_pedido,))
                                     conn.commit()
-                                    st.warning("Itens selecionados excluídos com sucesso!")
+                                    st.success("Itens excluídos com sucesso!")
                                     st.rerun()
                                 else:
-                                    st.info("Nenhum item foi marcado para exclusão.")
+                                    st.warning("Nenhum item marcado para exclusão.")
                             except Exception as ex:
                                 st.error(f"Erro ao excluir os itens: {ex}")
-                else:
-                    st.info("Nenhum pedido registrado hoje para edição.")
                     
-            except Exception as e:
-                st.error(f"Erro ao carregar pedidos do dia: {e}")
-
+                    with col_btn3:
+                        if not df_editado.empty:
+                            from weasyprint import HTML
+                            import tempfile
+                            
+                            cliente_atual = st.session_state.get('cliente_autenticado', 'Cliente')
+                            
+                            html_conteudo = f"""
+                            <!DOCTYPE html>
+                            <html>
+                            <head>
+                                <meta charset="utf-8">
+                                <style>
+                                    @page {{ size: A4; margin: 20mm; background-color: #ffffff; }}
+                                    body {{ font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #333; margin: 0; padding: 0; }}
+                                    .header {{ text-align: center; border-bottom: 2px solid #2e7d32; padding-bottom: 15px; margin-bottom: 25px; }}
+                                    .header h1 {{ color: #2e7d32; margin: 0; font-size: 22px; }}
+                                    .header p {{ color: #666; font-size: 13px; margin: 5px 0 0 0; }}
+                                    table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
+                                    th {{ background-color: #2e7d32; color: #ffffff; text-align: left; padding: 10px; font-size: 12px; }}
+                                    td {{ padding: 10px; border-bottom: 1px solid #ddd; font-size: 12px; }}
+                                    tr:nth-child(even) {{ background-color: #f9f9f9; }}
+                                    .total-section {{ margin-top: 20px; text-align: right; font-size: 15px; font-weight: bold; color: #2e7d32; }}
+                                </style>
+                            </head>
+                            <body>
+                                <div class="header">
+                                    <h1>Meus Pedidos do Dia</h1>
+                                    <p>Cliente: {cliente_atual}</p>
+                                </div>
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Produto</th>
+                                            <th>Quantidade</th>
+                                            <th>Valor Unitário</th>
+                                            <th>Total</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                            """
+                            
+                            total_geral = 0
+                            for _, row in df_editado.iterrows():
+                                qtd = row.get('quantidade', 0)
+                                val_uni = row.get('valor_unitario', 0)
+                                val_tot = row.get('valor_total', qtd * val_uni)
+                                total_geral += val_tot
+                                
+                                html_conteudo += f"""
+                                        <tr>
+                                            <td>{row.get('produto', '')}</td>
+                                            <td>{qtd}</td>
+                                            <td>R$ {val_uni:,.2f}</td>
+                                            <td>R$ {val_tot:,.2f}</td>
+                                            <td>{row.get('status', 'Pendente')}</td>
+                                        </tr>
+                                """
+                            
+                            html_conteudo += f"""
+                                    </tbody>
+                                </table>
+                                <div class="total-section">
+                                    Total Geral: R$ {total_geral:,.2f}
+                                </div>
+                            </body>
+                            </html>
+                            """
+                            
+                            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+                                HTML(string=html_conteudo).write_pdf(tmp.name)
+                                with open(tmp.name, "rb") as f:
+                                    pdf_bytes = f.read()
+                                    
+                            st.download_button(
+                                label="📄 Baixar PDF do Dia",
+                                data=pdf_bytes,
+                                file_name=f"pedidos_dia_{cliente_atual}.pdf",
+                                mime="application/pdf",
+                                key="btn_pdf_portal_dia"
+                            )
+      
     # Pedidos Anteriores (Histórico) no Portal do Cliente
     st.markdown("### 📚 Pedidos Anteriores (Histórico)")
     try:
