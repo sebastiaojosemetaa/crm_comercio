@@ -705,17 +705,18 @@ if perfil_selecionado == "👤 Portal do Cliente":
                                     with open(tmp.name, "rb") as f:
                                         pdf_bytes = f.read()
                                         
-                                st.download_button(
-                                    label="📄 Baixar PDF do Dia",
-                                    data=pdf_bytes,
-                                    file_name=f"pedidos_dia_{cliente_atual}.pdf",
-                                    mime="application/pdf",
-                                    key="btn_pdf_portal_dia"
-                                )
-                                  
-    # Pedidos Anteriores (Histórico) no Portal do Cliente
-    st.markdown("### 📚 Pedidos Anteriores (Histórico)")
-
+                                        st.download_button(
+                                            label="📄 Baixar PDF do Dia",
+                                            data=pdf_bytes,
+                                            file_name=f"pedidos_dia_{cliente_atual}.pdf",
+                                            mime="application/pdf",
+                                            key="btn_pdf_portal_dia"
+                                        )
+                                    except Exception as ex:
+                                        st.error(f"Erro ao gerar PDF: {ex}")
+        
+        # Pedidos Anteriores (Histórico) no Portal do Cliente
+        st.markdown("### 📚 Pedidos Anteriores (Histórico)")
         query_hist_cliente = """
             SELECT id, cliente, produto, quantidade, valor_unitario, valor_total, status, observacoes, data, fornecedor, grupo, codigo_pedido
             FROM pedidos
