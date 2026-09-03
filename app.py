@@ -750,8 +750,8 @@ if perfil_selecionado == "👤 Portal do Cliente":
                     st.warning("Nenhum item foi marcado para exclusão.")
         else:
             st.info("Nenhum pedido anterior encontrado.")
-    except Exception as e_hist:
-        st.error(f"Erro ao carregar histórico: {e_hist}")
+    except Exception as e:
+        st.error(f"Erro ao carregar histórico: {e}")
                         
 # ==========================================
 # AMBIENTE 2: ADMINISTRADOR / VENDEDOR
