@@ -722,30 +722,51 @@ def portal_cliente():
             """
             df_hist_cli = pd.read_sql_query(query_hist_cliente, conn, params=(st.session_state.get('cliente_autenticado', ''),))
 
+            st.markdown("### 📚 Pedidos Anteriores (Histórico)")
+            query_hist_cliente = """except Exception as ex:
+            st.error(f"Erro ao carregar pedidos do dia: {ex}")
+
+        st.markdown("### 📚 Pedidos Anteriores (Histórico)")
+        try:
+            query_hist_cliente = """
+                SELECT id, cliente, produto, quantidade, valor_unitario, valor_total, status, observacoes, data, fornecedor, grupo, codigo_pedido
+                FROM pedidos
+                WHERE DATE(data) != DATE('now') AND cliente = ?
+            """
+            df_hist_cli = pd.read_sql_query(query_hist_cliente, conn, params=(st.session_state.get('cliente_autenticado', ''),))
+
             if not df_hist_cli.empty:
-                st.data_editor(
-                    df_hist_cli, 
+                df_cli_edit = df_hist_cli.copy()
+                if 'Excluir' not in df_cli_edit.columns:
+                    df_cli_edit.insert(0, 'Excluir', False)
+                
+                df_cli_editado = st.data_editor(
+                    df_cli_edit, 
                     key="editor_historico_portal_cliente", 
                     use_container_width=True, 
                     hide_index=True
                 )
-            if st.button("🗑️ Excluir Histórico Marcados", type="secondary", key="btn_excluir_hist_portal"):
-                cursor = conn.cursor()
-                removidos = 0
-                for index, row in df_cli_editado.iterrows():
-                    if row.get('Excluir', False):
-                        cursor.execute("DELETE FROM pedidos WHERE id = ?", (row['id'],))
-                        removidos += 1
-                conn.commit()
-                if removidos > 0:
-                    st.success(f"{removidos} registro(s) excluído(s) com sucesso!")
-                    st.rerun()
-                else:
-                    st.warning("Nenhum item foi marcado para exclusão.")
-                else:
-                    st.info("Nenhum pedido anterior encontrado.")
-            except Exception as e:
-                st.error(f"Erro ao carregar histórico: {e}")
+                
+                if st.button("🗑️ Excluir Histórico Marcados", type="secondary", key="btn_excluir_hist_portal"):
+                    try:
+                        cursor = conn.cursor()
+                        removidos = 0
+                        for index, row in df_cli_editado.iterrows():
+                            if row.get('Excluir', False):
+                                cursor.execute("DELETE FROM pedidos WHERE id = ?", (row['id'],))
+                                removidos += 1
+                        conn.commit()
+                        if removidos > 0:
+                            st.success(f"{removidos} registro(s) excluído(s) com sucesso!")
+                            st.rerun()
+                        else:
+                            st.warning("Nenhum item foi marcado para exclusão.")
+                    except Exception as e:
+                        st.error(f"Erro ao excluir histórico: {e}")
+            else:
+                st.info("Nenhum pedido anterior encontrado.")
+        except Exception as e:
+            st.error(f"Erro ao carregar histórico: {e}")
                         
 # ==========================================
 # AMBIENTE 2: ADMINISTRADOR / VENDEDOR
