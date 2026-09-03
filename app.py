@@ -637,7 +637,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
         
             st.markdown("---")
             st.markdown("### 📚 Pedidos Anteriores (Histórico)")
-            if not df_historico.empty:
+                if not df_historico.empty:
                 df_hist_edit = df_historico.copy()
                 if 'Excluir' not in df_hist_edit.columns:
                     df_hist_edit.insert(0, 'Excluir', False)
