@@ -385,7 +385,7 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral", d_inicio=None, d_fi
         ('ALIGN', (-1, -1), (-1, -1), 'CENTER'),
     ]))
     
-    elements.append(t)
+elements.append(t)
     doc.build(elements)
     buffer.seek(0)
     return buffer
@@ -410,16 +410,16 @@ st.sidebar.markdown("---")
 # ==========================================
 # AMBIENTE 1: PORTAL DO CLIENTE
 # ==========================================
-if perfil_selecionado == "👤 Portal do Cliente":
+def portal_cliente():
     if not st.session_state.cliente_autenticado:
         st.title("🔒 Portal do Cliente")
         st.info("Por favor, selecione seu nome no menu à esquerda e insira sua senha para acessar seus pedidos.")
         
         lista_clientes = carregar_coluna("clientes", "nome") or carregar_coluna("vendas", "cliente") or ["Carlos Alberto"]
-        cliente_nome = st.sidebar.selectbox("Identifique seu Nome/Empresa:", lista_clientes)
-        senha_cliente = st.sidebar.text_input("Digite sua Senha de Cliente:", type="password")
+        cliente_nome = st.sidebar.selectbox("Identifique seu Nome/Empresa:", lista_clientes, key="sel_cli_login_portal")
+        senha_cliente = st.sidebar.text_input("Digite sua Senha de Cliente:", type="password", key="txt_senha_portal")
         
-        if st.sidebar.button("Acessar Meus Pedidos"):
+        if st.sidebar.button("Acessar Meus Pedidos", key="btn_login_portal"):
             if senha_cliente == "123":
                 st.session_state.cliente_autenticado = cliente_nome
                 st.rerun()
@@ -427,13 +427,12 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 st.sidebar.error("Senha incorreta!")
     else:
         st.sidebar.success(f"Logado como:\n**{st.session_state.cliente_autenticado}**")
-        if st.sidebar.button("Sair / Trocar Cliente"):
+        if st.sidebar.button("Sair / Trocar Cliente", key="btn_logout_portal"):
             st.session_state.cliente_autenticado = None
             st.rerun()
             
         st.title(f"🛍️ Portal do Cliente — Meus Pedidos ({st.session_state.cliente_autenticado})")
 
-        # Garante que a tabela de pedidos existe
         try:
             cursor = conn.cursor()
             cursor.execute("""
@@ -445,7 +444,10 @@ if perfil_selecionado == "👤 Portal do Cliente":
                     valor_unitario REAL,
                     valor_total REAL,
                     fornecedor TEXT,
-                    grupo TEXT
+                    grupo TEXT,
+                    data TEXT,
+                    status TEXT,
+                    codigo_pedido TEXT
                 )
             """)
             conn.commit()
@@ -473,8 +475,8 @@ if perfil_selecionado == "👤 Portal do Cliente":
     
             col1, col2 = st.columns(2)
             with col1:
-                prod = st.selectbox("Selecione o Produto", produtos_opt, key="cli_prod_unique_v3")
-                forn_cli = st.selectbox("Selecione o Fornecedor", fornecedores_opt, key="cli_forn_unique_v3")
+                prod = st.selectbox("Selecione o Produto", produtos_opt, key="cli_prod_unique_v4")
+                forn_cli = st.selectbox("Selecione o Fornecedor", fornecedores_opt, key="cli_forn_unique_v4")
                 
                 preco_sugerido = 0.0
                 if prod:
@@ -488,14 +490,14 @@ if perfil_selecionado == "👤 Portal do Cliente":
                         pass
     
             with col2:
-                grupo_cli = st.selectbox("Selecione o Grupo", grupos_opt, key="cli_grupo_unique_v3")
-                qtd_cli = st.number_input("Quantidade", min_value=0.01, value=1.0, format="%.2f", key="cli_qtd_unique_v3")
-                preco_cli = st.number_input("Preço Unitário (R$)", min_value=0.0, value=preco_sugerido, format="%.2f", key="cli_preco_unique_v3")
+                grupo_cli = st.selectbox("Selecione o Grupo", grupos_opt, key="cli_grupo_unique_v4")
+                qtd_cli = st.number_input("Quantidade", min_value=0.01, value=1.0, format="%.2f", key="cli_qtd_unique_v4")
+                preco_cli = st.number_input("Preço Unitário (R$)", min_value=0.0, value=preco_sugerido, format="%.2f", key="cli_preco_unique_v4")
     
             valor_total_item = qtd_cli * preco_cli
             st.info(f"Valor Total do Item: R$ {valor_total_item:.2f}")
     
-            if st.button("➕ Incluir Produto no Pedido", type="primary", key="cli_btn_add_unique_v3"):
+            if st.button("➕ Incluir Produto no Pedido", type="primary", key="cli_btn_add_unique_v4"):
                 if "carrinho_cliente" not in st.session_state:
                     st.session_state.carrinho_cliente = []
                 st.session_state.carrinho_cliente.append({
@@ -518,12 +520,12 @@ if perfil_selecionado == "👤 Portal do Cliente":
     
                 col_b1, col_b2 = st.columns(2)
                 with col_b1:
-                    if st.button("🗑️ Limpar Carrinho", key="cli_limpar_unique_v3"):
+                    if st.button("🗑️ Limpar Carrinho", key="cli_limpar_unique_v4"):
                         st.session_state.carrinho_cliente = []
                         st.rerun()
     
                 with col_b2:
-                    if st.button("💾 Finalizar e Enviar Pedido", type="primary", key="cli_finalizar_unique_v3"):
+                    if st.button("💾 Finalizar e Enviar Pedido", type="primary", key="cli_finalizar_unique_v4"):
                         try:
                             cursor = conn.cursor()
                             data_hora_atual = datetime.now()
@@ -562,7 +564,6 @@ if perfil_selecionado == "👤 Portal do Cliente":
             st.subheader("Histórico e Gestão de Meus Pedidos")
             
             try:
-                # Seção de Pedidos do Dia (Editáveis)
                 query_dia = """
                     SELECT id, cliente, produto, quantidade, valor_unitario, valor_total, fornecedor, grupo, data, status 
                     FROM pedidos 
@@ -572,7 +573,6 @@ if perfil_selecionado == "👤 Portal do Cliente":
         
                 if not df_dia.empty:
                     st.markdown("### 🟢 Pedidos do Dia (Editáveis)")
-                    
                     df_dia.insert(0, "Excluir", False)
                     
                     df_editado = st.data_editor(
@@ -723,12 +723,8 @@ if perfil_selecionado == "👤 Portal do Cliente":
             df_hist_cli = pd.read_sql_query(query_hist_cliente, conn, params=(st.session_state.get('cliente_autenticado', ''),))
 
             if not df_hist_cli.empty:
-                df_cli_edit = df_hist_cli.copy()
-                if 'Excluir' not in df_cli_edit.columns:
-                    df_cli_edit.insert(0, 'Excluir', False)
-                
                 st.data_editor(
-                    df_cli_edit.drop(columns=['data_str'], errors='ignore'), 
+                    df_hist_cli, 
                     key="editor_historico_portal_cliente", 
                     use_container_width=True, 
                     hide_index=True
