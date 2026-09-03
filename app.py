@@ -717,8 +717,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
       
     # Pedidos Anteriores (Histórico) no Portal do Cliente
     st.markdown("### 📚 Pedidos Anteriores (Histórico)")
-    try:
-        # Garante que temos os dados do histórico carregados para o cliente logado
+
         query_hist_cliente = """
             SELECT id, cliente, produto, quantidade, valor_unitario, valor_total, status, observacoes, data, fornecedor, grupo, codigo_pedido
             FROM pedidos
