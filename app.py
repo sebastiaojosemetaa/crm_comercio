@@ -629,52 +629,106 @@ if perfil_selecionado == "👤 Portal do Cliente":
                                     st.info("Nenhum item foi marcado para exclusão.")
                             except Exception as ex:
                                 st.error(f"Erro ao excluir os itens: {ex}")
+
+                    # Geração do PDF dos Pedidos do Dia
+                    try:
+                        from weasyprint import HTML
+                        html_content_dia = f"""
+                        <html>
+                        <head>
+                            <style>
+                                body {{ font-family: Arial, sans-serif; margin: 20px; color: #333; }}
+                                h2 {{ color: #2c3e50; text-align: center; }}
+                                table {{ width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }}
+                                th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
+                                th {{ background-color: #f2f2f2; color: #333; }}
+                                .total {{ font-weight: bold; text-align: right; margin-top: 15px; font-size: 14px; }}
+                            </style>
+                        </head>
+                        <body>
+                            <h2>Pedidos do Dia - {st.session_state.cliente_autenticado}</h2>
+                            <p><b>Data:</b> {datetime.now().strftime('%d/%m/%Y %H:%M')}</p>
+                            <table>
+                                <tr>
+                                    <th>Produto</th>
+                                    <th>Quantidade</th>
+                                    <th>Valor Unitário</th>
+                                    <th>Total</th>
+                                    <th>Fornecedor</th>
+                                </tr>
+                        """
+                        for _, row in df_dia.iterrows():
+                            html_content_dia += f"""
+                                <tr>
+                                    <td>{row['produto']}</td>
+                                    <td>{row['quantidade']}</td>
+                                    <td>R$ {row['valor_unitario']:.2f}</td>
+                                    <td>R$ {row['valor_total']:.2f}</td>
+                                    <td>{row.get('fornecedor', '')}</td>
+                                </tr>
+                            """
+                        total_geral_dia = df_dia['valor_total'].sum()
+                        html_content_dia += f"""
+                            </table>
+                            <div class="total">Valor Total do Dia: R$ {total_geral_dia:.2f}</div>
+                        </body>
+                        </html>
+                        """
+                        pdf_bytes = HTML(string=html_content_dia).write_pdf()
+                        st.download_button(
+                            label="📥 Baixar PDF do Dia",
+                            data=pdf_bytes,
+                            file_name=f"pedidos_dia_{st.session_state.cliente_autenticado}.pdf",
+                            mime="application/pdf",
+                            key="btn_pdf_portal_dia"
+                        )
+                    except Exception as ex:
+                        st.error(f"Erro ao gerar PDF dos pedidos do dia: {ex}")
                 else:
                     st.info("Nenhum pedido registrado hoje para edição.")
                     
             except Exception as e:
                 st.error(f"Erro ao carregar pedidos do dia: {e}")
 
-    # Pedidos Anteriores (Histórico) no Portal do Cliente
-    st.markdown("### 📚 Pedidos Anteriores (Histórico)")
-    try:
-        # Garante que temos os dados do histórico carregados para o cliente logado
-        query_hist_cliente = """
-            SELECT id, cliente, produto, quantidade, valor_unitario, valor_total, status, observacoes, data, fornecedor, grupo, codigo_pedido
-            FROM pedidos
-            WHERE DATE(data) != DATE('now') AND cliente = ?
-        """
-        df_hist_cli = pd.read_sql_query(query_hist_cliente, conn, params=(st.session_state.get('cliente_autenticado', ''),))
+        # Pedidos Anteriores (Histórico) no Portal do Cliente
+        st.markdown("### 📚 Pedidos Anteriores (Histórico)")
+        try:
+            query_hist_cliente = """
+                SELECT id, cliente, produto, quantidade, valor_unitario, valor_total, status, observacoes, data, fornecedor, grupo, codigo_pedido
+                FROM pedidos
+                WHERE DATE(data) != DATE('now') AND cliente = ?
+            """
+            df_hist_cli = pd.read_sql_query(query_hist_cliente, conn, params=(st.session_state.get('cliente_autenticado', ''),))
 
-        if not df_hist_cli.empty:
-            df_cli_edit = df_hist_cli.copy()
-            if 'Excluir' not in df_cli_edit.columns:
-                df_cli_edit.insert(0, 'Excluir', False)
-            
-            df_cli_editado = st.data_editor(
-                df_cli_edit.drop(columns=['data_str'], errors='ignore'), 
-                key="editor_historico_portal_cliente", 
-                use_container_width=True, 
-                hide_index=True
-            )
-            
-            if st.button("🗑️ Excluir Histórico Marcados", type="secondary", key="btn_excluir_hist_portal"):
-                cursor = conn.cursor()
-                removidos = 0
-                for index, row in df_cli_editado.iterrows():
-                    if row.get('Excluir', False):
-                        cursor.execute("DELETE FROM pedidos WHERE id = ?", (row['id'],))
-                        removidos += 1
-                conn.commit()
-                if removidos > 0:
-                    st.success(f"{removidos} registro(s) excluído(s) com sucesso!")
-                    st.rerun()
-                else:
-                    st.warning("Nenhum item foi marcado para exclusão.")
-        else:
-            st.info("Nenhum pedido anterior encontrado.")
-    except Exception as e_hist:
-        st.error(f"Erro ao carregar histórico: {e_hist}")
+            if not df_hist_cli.empty:
+                df_cli_edit = df_hist_cli.copy()
+                if 'Excluir' not in df_cli_edit.columns:
+                    df_cli_edit.insert(0, 'Excluir', False)
+                
+                df_cli_editado = st.data_editor(
+                    df_cli_edit.drop(columns=['data_str'], errors='ignore'), 
+                    key="editor_historico_portal_cliente", 
+                    use_container_width=True, 
+                    hide_index=True
+                )
+                
+                if st.button("🗑️ Excluir Histórico Marcados", type="secondary", key="btn_excluir_hist_portal"):
+                    cursor = conn.cursor()
+                    removidos = 0
+                    for index, row in df_cli_editado.iterrows():
+                        if row.get('Excluir', False):
+                            cursor.execute("DELETE FROM pedidos WHERE id = ?", (row['id'],))
+                            removidos += 1
+                    conn.commit()
+                    if removidos > 0:
+                        st.success(f"{removidos} registro(s) excluído(s) com sucesso!")
+                        st.rerun()
+                    else:
+                        st.warning("Nenhum item foi marcado para exclusão.")
+            else:
+                st.info("Nenhum pedido anterior encontrado.")
+        except Exception as e_hist:
+            st.error(f"Erro ao carregar histórico: {e_hist}")
                         
 # ==========================================
 # AMBIENTE 2: ADMINISTRADOR / VENDEDOR
