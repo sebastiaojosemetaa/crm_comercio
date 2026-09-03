@@ -630,21 +630,25 @@ if perfil_selecionado == "👤 Portal do Cliente":
                             except Exception as ex:
                                 st.error(f"Erro ao excluir os itens: {ex}")
 
-                    # Geração do PDF dos Pedidos do Dia (Sem margens no topo e linhas coladas)
+                    # Geração do PDF dos Pedidos do Dia (Com fuso horário ajustado para o Brasil)
                     try:
                         from reportlab.lib.pagesizes import letter
                         from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
                         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
                         from reportlab.lib import colors
+                        from datetime import datetime, timedelta
                         import io
 
                         buffer = io.BytesIO()
-                        # Reduzindo a margem superior para colar mais no topo
                         doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=15, bottomMargin=30)
                         elements = []
                         styles = getSampleStyleSheet()
 
-                        # Estilos compactos sem espaçamentos exagerados
+                        # Ajustando o horário para o Brasil (UTC-3)
+                        fuso_brasil = timedelta(hours=3)
+                        hora_local = datetime.now() - fuso_brasil
+                        data_hora_str = hora_local.strftime('%Y-%m-%d %H:%M:%S')
+
                         estilo_empresa = ParagraphStyle('Empresa', parent=styles['Heading1'], fontSize=14, textColor=colors.HexColor('#002060'), alignment=1, fontName='Helvetica-Bold', spaceAfter=0)
                         estilo_sub_empresa = ParagraphStyle('SubEmpresa', parent=styles['Normal'], fontSize=8, textColor=colors.black, alignment=1, leading=9, spaceAfter=0)
                         estilo_titulo_rel = ParagraphStyle('TituloRel', parent=styles['Heading2'], fontSize=10, textColor=colors.black, alignment=1, fontName='Helvetica-Bold', spaceBefore=4, spaceAfter=0)
@@ -658,14 +662,14 @@ if perfil_selecionado == "👤 Portal do Cliente":
                         estilo_total_label = ParagraphStyle('TotLabel', parent=styles['Normal'], fontSize=9, textColor=colors.white, alignment=0, fontName='Helvetica-Bold')
                         estilo_total_val = ParagraphStyle('TotVal', parent=styles['Normal'], fontSize=9, textColor=colors.white, alignment=2, fontName='Helvetica-Bold')
 
-                        # Cabeçalho colado no topo
+                        # Cabeçalho
                         elements.append(Paragraph("REY DA CEBOLA", estilo_empresa))
                         elements.append(Paragraph("CNPJ: 194.174.39/000-42 INSC.EST.: 12.426725-4<br/>CONTATO: (99) 98814-9722 OU (99) 98414-3943", estilo_sub_empresa))
                         elements.append(Spacer(1, 4))
 
-                        # Título e Informações do Cliente bem próximos
+                        # Título e Informações com o horário correto do Brasil
                         elements.append(Paragraph("Relatório de Pedidos / Orçamentos", estilo_titulo_rel))
-                        elements.append(Paragraph(f"<b>Cliente:</b> {st.session_state.cliente_autenticado} | <b>Gerado em:</b> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", estilo_info_cli))
+                        elements.append(Paragraph(f"<b>Cliente:</b> {st.session_state.cliente_autenticado} | <b>Gerado em:</b> {data_hora_str}", estilo_info_cli))
                         elements.append(Spacer(1, 8))
 
                         # Montagem da Tabela
