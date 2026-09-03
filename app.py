@@ -388,7 +388,7 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral", d_inicio=None, d_fi
 elements.append(t)
 doc.build(elements)
 buffer.seek(0)
-    return buffer
+return buffer
 
 # -----------------------------------------------------------------------------
 # 2. INICIALIZAÇÃO DE SESSÃO E PERFIL
