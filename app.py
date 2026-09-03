@@ -385,10 +385,10 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral", d_inicio=None, d_fi
         ('ALIGN', (-1, -1), (-1, -1), 'CENTER'),
     ]))
     
-elements.append(t)
-doc.build(elements)
-buffer.seek(0)
-return buffer
+    elements.append(t)
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
 
 # -----------------------------------------------------------------------------
 # 2. INICIALIZAÇÃO DE SESSÃO E PERFIL
@@ -410,16 +410,16 @@ st.sidebar.markdown("---")
 # ==========================================
 # AMBIENTE 1: PORTAL DO CLIENTE
 # ==========================================
-def portal_cliente():
+if perfil_selecionado == "👤 Portal do Cliente":
     if not st.session_state.cliente_autenticado:
         st.title("🔒 Portal do Cliente")
         st.info("Por favor, selecione seu nome no menu à esquerda e insira sua senha para acessar seus pedidos.")
         
         lista_clientes = carregar_coluna("clientes", "nome") or carregar_coluna("vendas", "cliente") or ["Carlos Alberto"]
-        cliente_nome = st.sidebar.selectbox("Identifique seu Nome/Empresa:", lista_clientes, key="sel_cli_login_portal")
-        senha_cliente = st.sidebar.text_input("Digite sua Senha de Cliente:", type="password", key="txt_senha_portal")
+        cliente_nome = st.sidebar.selectbox("Identifique seu Nome/Empresa:", lista_clientes)
+        senha_cliente = st.sidebar.text_input("Digite sua Senha de Cliente:", type="password")
         
-        if st.sidebar.button("Acessar Meus Pedidos", key="btn_login_portal"):
+        if st.sidebar.button("Acessar Meus Pedidos"):
             if senha_cliente == "123":
                 st.session_state.cliente_autenticado = cliente_nome
                 st.rerun()
@@ -427,12 +427,13 @@ def portal_cliente():
                 st.sidebar.error("Senha incorreta!")
     else:
         st.sidebar.success(f"Logado como:\n**{st.session_state.cliente_autenticado}**")
-        if st.sidebar.button("Sair / Trocar Cliente", key="btn_logout_portal"):
+        if st.sidebar.button("Sair / Trocar Cliente"):
             st.session_state.cliente_autenticado = None
             st.rerun()
             
         st.title(f"🛍️ Portal do Cliente — Meus Pedidos ({st.session_state.cliente_autenticado})")
 
+        # Garante que a tabela de pedidos existe
         try:
             cursor = conn.cursor()
             cursor.execute("""
@@ -444,10 +445,7 @@ def portal_cliente():
                     valor_unitario REAL,
                     valor_total REAL,
                     fornecedor TEXT,
-                    grupo TEXT,
-                    data TEXT,
-                    status TEXT,
-                    codigo_pedido TEXT
+                    grupo TEXT
                 )
             """)
             conn.commit()
@@ -475,8 +473,8 @@ def portal_cliente():
     
             col1, col2 = st.columns(2)
             with col1:
-                prod = st.selectbox("Selecione o Produto", produtos_opt, key="cli_prod_unique_v4")
-                forn_cli = st.selectbox("Selecione o Fornecedor", fornecedores_opt, key="cli_forn_unique_v4")
+                prod = st.selectbox("Selecione o Produto", produtos_opt, key="cli_prod_unique_v3")
+                forn_cli = st.selectbox("Selecione o Fornecedor", fornecedores_opt, key="cli_forn_unique_v3")
                 
                 preco_sugerido = 0.0
                 if prod:
@@ -490,14 +488,14 @@ def portal_cliente():
                         pass
     
             with col2:
-                grupo_cli = st.selectbox("Selecione o Grupo", grupos_opt, key="cli_grupo_unique_v4")
-                qtd_cli = st.number_input("Quantidade", min_value=0.01, value=1.0, format="%.2f", key="cli_qtd_unique_v4")
-                preco_cli = st.number_input("Preço Unitário (R$)", min_value=0.0, value=preco_sugerido, format="%.2f", key="cli_preco_unique_v4")
+                grupo_cli = st.selectbox("Selecione o Grupo", grupos_opt, key="cli_grupo_unique_v3")
+                qtd_cli = st.number_input("Quantidade", min_value=0.01, value=1.0, format="%.2f", key="cli_qtd_unique_v3")
+                preco_cli = st.number_input("Preço Unitário (R$)", min_value=0.0, value=preco_sugerido, format="%.2f", key="cli_preco_unique_v3")
     
             valor_total_item = qtd_cli * preco_cli
             st.info(f"Valor Total do Item: R$ {valor_total_item:.2f}")
     
-            if st.button("➕ Incluir Produto no Pedido", type="primary", key="cli_btn_add_unique_v4"):
+            if st.button("➕ Incluir Produto no Pedido", type="primary", key="cli_btn_add_unique_v3"):
                 if "carrinho_cliente" not in st.session_state:
                     st.session_state.carrinho_cliente = []
                 st.session_state.carrinho_cliente.append({
@@ -520,12 +518,12 @@ def portal_cliente():
     
                 col_b1, col_b2 = st.columns(2)
                 with col_b1:
-                    if st.button("🗑️ Limpar Carrinho", key="cli_limpar_unique_v4"):
+                    if st.button("🗑️ Limpar Carrinho", key="cli_limpar_unique_v3"):
                         st.session_state.carrinho_cliente = []
                         st.rerun()
     
                 with col_b2:
-                    if st.button("💾 Finalizar e Enviar Pedido", type="primary", key="cli_finalizar_unique_v4"):
+                    if st.button("💾 Finalizar e Enviar Pedido", type="primary", key="cli_finalizar_unique_v3"):
                         try:
                             cursor = conn.cursor()
                             data_hora_atual = datetime.now()
@@ -564,6 +562,7 @@ def portal_cliente():
             st.subheader("Histórico e Gestão de Meus Pedidos")
             
             try:
+                # Seção de Pedidos do Dia (Editáveis)
                 query_dia = """
                     SELECT id, cliente, produto, quantidade, valor_unitario, valor_total, fornecedor, grupo, data, status 
                     FROM pedidos 
@@ -573,6 +572,7 @@ def portal_cliente():
         
                 if not df_dia.empty:
                     st.markdown("### 🟢 Pedidos do Dia (Editáveis)")
+                    
                     df_dia.insert(0, "Excluir", False)
                     
                     df_editado = st.data_editor(
@@ -594,8 +594,8 @@ def portal_cliente():
                         key="tabela_pedidos_do_dia_unica"
                     )
         
-                    col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
-
+                    col_btn1, col_btn2 = st.columns(2)
+        
                     with col_btn1:
                         if st.button("💾 Salvar Alterações", type="primary", key="btn_salvar_tabela_unica"):
                             try:
@@ -612,161 +612,69 @@ def portal_cliente():
                                 st.rerun()
                             except Exception as ex:
                                 st.error(f"Erro ao atualizar os pedidos: {ex}")
-                    
+        
                     with col_btn2:
                         if st.button("🗑️ Excluir Marcados", type="secondary", key="btn_excluir_selecionados"):
                             try:
                                 cursor = conn.cursor()
                                 ids_para_excluir = df_editado[df_editado['Excluir'] == True]['id'].tolist()
+                                
                                 if ids_para_excluir:
                                     for id_pedido in ids_para_excluir:
                                         cursor.execute("DELETE FROM pedidos WHERE id = ?", (id_pedido,))
                                     conn.commit()
-                                    st.success("Itens excluídos com sucesso!")
+                                    st.warning("Itens selecionados excluídos com sucesso!")
                                     st.rerun()
                                 else:
-                                    st.warning("Nenhum item marcado para exclusão.")
+                                    st.info("Nenhum item foi marcado para exclusão.")
                             except Exception as ex:
                                 st.error(f"Erro ao excluir os itens: {ex}")
+                else:
+                    st.info("Nenhum pedido registrado hoje para edição.")
                     
-                    with col_btn3:
-                        if not df_editado.empty:
-                            from weasyprint import HTML
-                            import tempfile
-                            
-                            cliente_atual = st.session_state.get('cliente_autenticado', 'Cliente')
-                            
-                            html_conteudo = f"""
-                            <!DOCTYPE html>
-                            <html>
-                            <head>
-                                <meta charset="utf-8">
-                                <style>
-                                    @page {{ size: A4; margin: 20mm; background-color: #ffffff; }}
-                                    body {{ font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #333; margin: 0; padding: 0; }}
-                                    .header {{ text-align: center; border-bottom: 2px solid #2e7d32; padding-bottom: 15px; margin-bottom: 25px; }}
-                                    .header h1 {{ color: #2e7d32; margin: 0; font-size: 22px; }}
-                                    .header p {{ color: #666; font-size: 13px; margin: 5px 0 0 0; }}
-                                    table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
-                                    th {{ background-color: #2e7d32; color: #ffffff; text-align: left; padding: 10px; font-size: 12px; }}
-                                    td {{ padding: 10px; border-bottom: 1px solid #ddd; font-size: 12px; }}
-                                    tr:nth-child(even) {{ background-color: #f9f9f9; }}
-                                    .total-section {{ margin-top: 20px; text-align: right; font-size: 15px; font-weight: bold; color: #2e7d32; }}
-                                </style>
-                            </head>
-                            <body>
-                                <div class="header">
-                                    <h1>Meus Pedidos do Dia</h1>
-                                    <p>Cliente: {cliente_atual}</p>
-                                </div>
-                                <table>
-                                    <thead>
-                                        <tr>
-                                            <th>Produto</th>
-                                            <th>Quantidade</th>
-                                            <th>Valor Unitário</th>
-                                            <th>Total</th>
-                                            <th>Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                            """
-                            
-                            total_geral = 0
-                            for _, row in df_editado.iterrows():
-                                qtd = row.get('quantidade', 0)
-                                val_uni = row.get('valor_unitario', 0)
-                                val_tot = row.get('valor_total', qtd * val_uni)
-                                total_geral += val_tot
-                                
-                                html_conteudo += f"""
-                                        <tr>
-                                            <td>{row.get('produto', '')}</td>
-                                            <td>{qtd}</td>
-                                            <td>R$ {val_uni:,.2f}</td>
-                                            <td>R$ {val_tot:,.2f}</td>
-                                            <td>{row.get('status', 'Pendente')}</td>
-                                        </tr>
-                                """
-                            
-                            html_conteudo += f"""
-                                    </tbody>
-                                </table>
-                                <div class="total-section">
-                                    Total Geral: R$ {total_geral:,.2f}
-                                </div>
-                            </body>
-                            </html>
-                            """
-                            
-                            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-                                HTML(string=html_conteudo).write_pdf(tmp.name)
-                                with open(tmp.name, "rb") as f:
-                                    pdf_bytes = f.read()
-                    
-                            st.download_button(
-                                label="📄 Baixar PDF do Dia",
-                                data=pdf_bytes,
-                                file_name=f"pedidos_dia_{cliente_atual}.pdf",
-                                mime="application/pdf",
-                                key="btn_pdf_portal_dia"
-                            )
-            except Exception as ex:
-                st.error(f"Erro ao carregar pedidos do dia: {ex}")
+            except Exception as e:
+                st.error(f"Erro ao carregar pedidos do dia: {e}")
 
-            st.markdown("### 📚 Pedidos Anteriores (Histórico)")
-            query_hist_cliente = """
-                SELECT id, cliente, produto, quantidade, valor_unitario, valor_total, status, observacoes, data, fornecedor, grupo, codigo_pedido
-                FROM pedidos
-                WHERE DATE(data) != DATE('now') AND cliente = ?
-            """
-            df_hist_cli = pd.read_sql_query(query_hist_cliente, conn, params=(st.session_state.get('cliente_autenticado', ''),))
+    # Pedidos Anteriores (Histórico) no Portal do Cliente
+    st.markdown("### 📚 Pedidos Anteriores (Histórico)")
+    try:
+        # Garante que temos os dados do histórico carregados para o cliente logado
+        query_hist_cliente = """
+            SELECT id, cliente, produto, quantidade, valor_unitario, valor_total, status, observacoes, data, fornecedor, grupo, codigo_pedido
+            FROM pedidos
+            WHERE DATE(data) != DATE('now') AND cliente = ?
+        """
+        df_hist_cli = pd.read_sql_query(query_hist_cliente, conn, params=(st.session_state.get('cliente_autenticado', ''),))
 
-            st.markdown("### 📚 Pedidos Anteriores (Histórico)")
-            query_hist_cliente = """except Exception as ex:
-            st.error(f"Erro ao carregar pedidos do dia: {ex}")
-
-        st.markdown("### 📚 Pedidos Anteriores (Histórico)")
-        try:
-            query_hist_cliente = """
-                SELECT id, cliente, produto, quantidade, valor_unitario, valor_total, status, observacoes, data, fornecedor, grupo, codigo_pedido
-                FROM pedidos
-                WHERE DATE(data) != DATE('now') AND cliente = ?
-            """
-            df_hist_cli = pd.read_sql_query(query_hist_cliente, conn, params=(st.session_state.get('cliente_autenticado', ''),))
-
-            if not df_hist_cli.empty:
-                df_cli_edit = df_hist_cli.copy()
-                if 'Excluir' not in df_cli_edit.columns:
-                    df_cli_edit.insert(0, 'Excluir', False)
-                
-                df_cli_editado = st.data_editor(
-                    df_cli_edit, 
-                    key="editor_historico_portal_cliente", 
-                    use_container_width=True, 
-                    hide_index=True
-                )
-                
-                if st.button("🗑️ Excluir Histórico Marcados", type="secondary", key="btn_excluir_hist_portal"):
-                    try:
-                        cursor = conn.cursor()
-                        removidos = 0
-                        for index, row in df_cli_editado.iterrows():
-                            if row.get('Excluir', False):
-                                cursor.execute("DELETE FROM pedidos WHERE id = ?", (row['id'],))
-                                removidos += 1
-                        conn.commit()
-                        if removidos > 0:
-                            st.success(f"{removidos} registro(s) excluído(s) com sucesso!")
-                            st.rerun()
-                        else:
-                            st.warning("Nenhum item foi marcado para exclusão.")
-                    except Exception as e:
-                        st.error(f"Erro ao excluir histórico: {e}")
-            else:
-                st.info("Nenhum pedido anterior encontrado.")
-        except Exception as e:
-            st.error(f"Erro ao carregar histórico: {e}")
+        if not df_hist_cli.empty:
+            df_cli_edit = df_hist_cli.copy()
+            if 'Excluir' not in df_cli_edit.columns:
+                df_cli_edit.insert(0, 'Excluir', False)
+            
+            df_cli_editado = st.data_editor(
+                df_cli_edit.drop(columns=['data_str'], errors='ignore'), 
+                key="editor_historico_portal_cliente", 
+                use_container_width=True, 
+                hide_index=True
+            )
+            
+            if st.button("🗑️ Excluir Histórico Marcados", type="secondary", key="btn_excluir_hist_portal"):
+                cursor = conn.cursor()
+                removidos = 0
+                for index, row in df_cli_editado.iterrows():
+                    if row.get('Excluir', False):
+                        cursor.execute("DELETE FROM pedidos WHERE id = ?", (row['id'],))
+                        removidos += 1
+                conn.commit()
+                if removidos > 0:
+                    st.success(f"{removidos} registro(s) excluído(s) com sucesso!")
+                    st.rerun()
+                else:
+                    st.warning("Nenhum item foi marcado para exclusão.")
+        else:
+            st.info("Nenhum pedido anterior encontrado.")
+    except Exception as e_hist:
+        st.error(f"Erro ao carregar histórico: {e_hist}")
                         
 # ==========================================
 # AMBIENTE 2: ADMINISTRADOR / VENDEDOR
