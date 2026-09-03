@@ -630,7 +630,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                             except Exception as ex:
                                 st.error(f"Erro ao excluir os itens: {ex}")
 
-                    # Geração do PDF dos Pedidos do Dia com ReportLab
+                    # Geração do PDF dos Pedidos do Dia (Padronizado)
                     try:
                         from reportlab.lib.pagesizes import letter
                         from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -639,46 +639,74 @@ if perfil_selecionado == "👤 Portal do Cliente":
                         import io
 
                         buffer = io.BytesIO()
-                        doc = SimpleDocTemplate(buffer, pagesize=letter)
+                        doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
                         elements = []
                         styles = getSampleStyleSheet()
 
-                        title_style = ParagraphStyle(
-                            'TitleStyle',
-                            parent=styles['Heading1'],
-                            fontSize=16,
-                            textColor=colors.HexColor('#2c3e50'),
-                            alignment=1
-                        )
+                        # Estilos personalizados para o padrão exato da segunda imagem
+                        estilo_empresa = ParagraphStyle('Empresa', parent=styles['Heading1'], fontSize=14, textColor=colors.HexColor('#002060'), alignment=1, fontName='Helvetica-Bold')
+                        estilo_sub_empresa = ParagraphStyle('SubEmpresa', parent=styles['Normal'], fontSize=8, textColor=colors.black, alignment=1, leading=10)
+                        estilo_titulo_rel = ParagraphStyle('TituloRel', parent=styles['Heading2'], fontSize=11, textColor=colors.black, alignment=1, fontName='Helvetica-Bold', spaceBefore=8)
+                        estilo_info_cli = ParagraphStyle('InfoCli', parent=styles['Normal'], fontSize=9, textColor=colors.black, alignment=1, leading=12)
                         
-                        elements.append(Paragraph(f"Pedidos do Dia - {st.session_state.cliente_autenticado}", title_style))
-                        elements.append(Paragraph(f"<b>Data:</b> {datetime.now().strftime('%d/%m/%Y %H:%M')}", styles['Normal']))
+                        estilo_th = ParagraphStyle('TH', parent=styles['Normal'], fontSize=9, textColor=colors.white, alignment=1, fontName='Helvetica-Bold')
+                        estilo_td_left = ParagraphStyle('TDLeft', parent=styles['Normal'], fontSize=9, textColor=colors.black, alignment=0)
+                        estilo_td_center = ParagraphStyle('TDCenter', parent=styles['Normal'], fontSize=9, textColor=colors.black, alignment=1)
+                        estilo_td_right = ParagraphStyle('TDRight', parent=styles['Normal'], fontSize=9, textColor=colors.black, alignment=2)
+                        
+                        estilo_total_label = ParagraphStyle('TotLabel', parent=styles['Normal'], fontSize=9, textColor=colors.white, alignment=0, fontName='Helvetica-Bold')
+                        estilo_total_val = ParagraphStyle('TotVal', parent=styles['Normal'], fontSize=9, textColor=colors.white, alignment=2, fontName='Helvetica-Bold')
+
+                        # Cabeçalho da Empresa
+                        elements.append(Paragraph("REY DA CEBOLA", estilo_empresa))
+                        elements.append(Paragraph("CNPJ: 194.174.39/000-42 INSC.EST.: 12.426725-4<br/>CONTATO: (99) 98814-9722 OU (99) 98414-3943", estilo_sub_empresa))
+                        elements.append(Spacer(1, 10))
+
+                        # Título e Informações do Cliente
+                        elements.append(Paragraph("Relatório de Pedidos / Orçamentos", estilo_titulo_rel))
+                        elements.append(Paragraph(f"<b>Cliente:</b> {st.session_state.cliente_autenticado}<br/>Gerado em: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", estilo_info_cli))
                         elements.append(Spacer(1, 15))
 
-                        data_tabela = [["Produto", "Qtd", "Vlr. Unit.", "Total", "Fornecedor"]]
+                        # Montagem da Tabela
+                        data_tabela = [[
+                            Paragraph("Produto", estilo_th),
+                            Paragraph("Qtd Total", estilo_th),
+                            Paragraph("Preço Unitário (R$)", estilo_th),
+                            Paragraph("Valor Total (R$)", estilo_th)
+                        ]]
+
                         for _, row in df_dia.iterrows():
                             data_tabela.append([
-                                str(row['produto']),
-                                f"{row['quantidade']:.2f}",
-                                f"R$ {row['valor_unitario']:.2f}",
-                                f"R$ {row['valor_total']:.2f}",
-                                str(row.get('fornecedor', ''))
+                                Paragraph(str(row['produto']), estilo_td_left),
+                                Paragraph(f"{row['quantidade']:.2f}", estilo_td_center),
+                                Paragraph(f"R$ {row['valor_unitario']:.2f}", estilo_td_right),
+                                Paragraph(f"R$ {row['valor_total']:.2f}", estilo_td_right)
                             ])
 
-                        t = Table(data_tabela, colWidths=[150, 60, 80, 80, 120])
-                        t.setStyle(TableStyle([
-                            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f2f2f2')),
-                            ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#333333')),
-                            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                            ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
-                            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#ddd')),
-                        ]))
-                        elements.append(t)
-
                         total_geral_dia = df_dia['valor_total'].sum()
-                        elements.append(Spacer(1, 15))
-                        elements.append(Paragraph(f"<b>Valor Total do Dia: R$ {total_geral_dia:.2f}</b>", styles['Normal']))
+
+                        # Linha de Valor Total Geral preta igual à referência
+                        data_tabela.append([
+                            Paragraph("VALOR TOTAL GERAL", estilo_total_label),
+                            Paragraph("", estilo_total_val),
+                            Paragraph("", estilo_total_val),
+                            Paragraph(f"R$ {total_geral_dia:.2f}", estilo_total_val)
+                        ])
+
+                        # Larguras das colunas otimizadas para a página
+                        t = Table(data_tabela, colWidths=[220, 80, 110, 130])
+                        t.setStyle(TableStyle([
+                            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1F4E79')), # Azul escuro do cabeçalho
+                            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+                            ('TOPPADDING', (0, 0), (-1, -1), 5),
+                            ('GRID', (0, 0), (-1, -2), 0.5, colors.HexColor('#CCCCCC')),
+                            ('SPAN', (0, -1), (2, -1)), # Mescla as colunas para o texto "VALOR TOTAL GERAL"
+                            ('BACKGROUND', (0, -1), (-1, -1), colors.black), # Fundo preto para o total geral
+                        ]))
+                        
+                        elements.append(t)
 
                         doc.build(elements)
                         pdf_bytes = buffer.getvalue()
@@ -686,7 +714,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                         st.download_button(
                             label="📥 Baixar PDF do Dia",
                             data=pdf_bytes,
-                            file_name=f"pedidos_dia_{st.session_state.cliente_autenticado}.pdf",
+                            file_name=f"relatorio_pedidos_dia_{st.session_state.cliente_autenticado}.pdf",
                             mime="application/pdf",
                             key="btn_pdf_portal_dia"
                         )
