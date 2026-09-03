@@ -712,7 +712,9 @@ if perfil_selecionado == "👤 Portal do Cliente":
                                             mime="application/pdf",
                                             key="btn_pdf_portal_dia"
                                         )
-                                            
+        except:
+            pass
+        
         # Pedidos Anteriores (Histórico) no Portal do Cliente
         st.markdown("### 📚 Pedidos Anteriores (Histórico)")
         query_hist_cliente = """
