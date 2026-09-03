@@ -712,8 +712,8 @@ if perfil_selecionado == "👤 Portal do Cliente":
                                 key="btn_pdf_portal_dia"
                             )
 
-# Pedidos Anteriores (Histórico) no Portal do Cliente
-st.markdown("### 📚 Pedidos Anteriores (Histórico)")
+    # Pedidos Anteriores (Histórico) no Portal do Cliente
+    st.markdown("### 📚 Pedidos Anteriores (Histórico)")
         query_hist_cliente = """
             SELECT id, cliente, produto, quantidade, valor_unitario, valor_total, status, observacoes, data, fornecedor, grupo, codigo_pedido
             FROM pedidos
