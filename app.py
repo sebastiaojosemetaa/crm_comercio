@@ -711,28 +711,28 @@ if perfil_selecionado == "👤 Portal do Cliente":
                                 mime="application/pdf",
                                 key="btn_pdf_portal_dia"
                             )
+            except Exception as ex:
+                st.error(f"Erro ao carregar pedidos do dia: {ex}")
 
-# Pedidos Anteriores (Histórico) no Portal do Cliente
-st.markdown("### 📚 Pedidos Anteriores (Histórico)")
-        query_hist_cliente = """
-            SELECT id, cliente, produto, quantidade, valor_unitario, valor_total, status, observacoes, data, fornecedor, grupo, codigo_pedido
-            FROM pedidos
-            WHERE DATE(data) != DATE('now') AND cliente = ?
-        """
-        df_hist_cli = pd.read_sql_query(query_hist_cliente, conn, params=(st.session_state.get('cliente_autenticado', ''),))
+            st.markdown("### 📚 Pedidos Anteriores (Histórico)")
+            query_hist_cliente = """
+                SELECT id, cliente, produto, quantidade, valor_unitario, valor_total, status, observacoes, data, fornecedor, grupo, codigo_pedido
+                FROM pedidos
+                WHERE DATE(data) != DATE('now') AND cliente = ?
+            """
+            df_hist_cli = pd.read_sql_query(query_hist_cliente, conn, params=(st.session_state.get('cliente_autenticado', ''),))
 
-        if not df_hist_cli.empty:
-            df_cli_edit = df_hist_cli.copy()
-            if 'Excluir' not in df_cli_edit.columns:
-                df_cli_edit.insert(0, 'Excluir', False)
-            
-            df_cli_editado = st.data_editor(
-                df_cli_edit.drop(columns=['data_str'], errors='ignore'), 
-                key="editor_historico_portal_cliente", 
-                use_container_width=True, 
-                hide_index=True
-            )
-            
+            if not df_hist_cli.empty:
+                df_cli_edit = df_hist_cli.copy()
+                if 'Excluir' not in df_cli_edit.columns:
+                    df_cli_edit.insert(0, 'Excluir', False)
+                
+                df_cli_editado = st.data_editor(
+                    df_cli_edit.drop(columns=['data_str'], errors='ignore'), 
+                    key="editor_historico_portal_cliente", 
+                    use_container_width=True, 
+                    hide_index=True
+                )            
             if st.button("🗑️ Excluir Histórico Marcados", type="secondary", key="btn_excluir_hist_portal"):
                 cursor = conn.cursor()
                 removidos = 0
