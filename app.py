@@ -630,51 +630,59 @@ if perfil_selecionado == "👤 Portal do Cliente":
                             except Exception as ex:
                                 st.error(f"Erro ao excluir os itens: {ex}")
 
-                    # Geração do PDF dos Pedidos do Dia
+                    # Geração do PDF dos Pedidos do Dia com ReportLab
                     try:
-                        from weasyprint import HTML
-                        html_content_dia = f"""
-                        <html>
-                        <head>
-                            <style>
-                                body {{ font-family: Arial, sans-serif; margin: 20px; color: #333; }}
-                                h2 {{ color: #2c3e50; text-align: center; }}
-                                table {{ width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }}
-                                th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
-                                th {{ background-color: #f2f2f2; color: #333; }}
-                                .total {{ font-weight: bold; text-align: right; margin-top: 15px; font-size: 14px; }}
-                            </style>
-                        </head>
-                        <body>
-                            <h2>Pedidos do Dia - {st.session_state.cliente_autenticado}</h2>
-                            <p><b>Data:</b> {datetime.now().strftime('%d/%m/%Y %H:%M')}</p>
-                            <table>
-                                <tr>
-                                    <th>Produto</th>
-                                    <th>Quantidade</th>
-                                    <th>Valor Unitário</th>
-                                    <th>Total</th>
-                                    <th>Fornecedor</th>
-                                </tr>
-                        """
+                        from reportlab.lib.pagesizes import letter
+                        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+                        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+                        from reportlab.lib import colors
+                        import io
+
+                        buffer = io.BytesIO()
+                        doc = SimpleDocTemplate(buffer, pagesize=letter)
+                        elements = []
+                        styles = getSampleStyleSheet()
+
+                        title_style = ParagraphStyle(
+                            'TitleStyle',
+                            parent=styles['Heading1'],
+                            fontSize=16,
+                            textColor=colors.HexColor('#2c3e50'),
+                            alignment=1
+                        )
+                        
+                        elements.append(Paragraph(f"Pedidos do Dia - {st.session_state.cliente_autenticado}", title_style))
+                        elements.append(Paragraph(f"<b>Data:</b> {datetime.now().strftime('%d/%m/%Y %H:%M')}", styles['Normal']))
+                        elements.append(Spacer(1, 15))
+
+                        data_tabela = [["Produto", "Qtd", "Vlr. Unit.", "Total", "Fornecedor"]]
                         for _, row in df_dia.iterrows():
-                            html_content_dia += f"""
-                                <tr>
-                                    <td>{row['produto']}</td>
-                                    <td>{row['quantidade']}</td>
-                                    <td>R$ {row['valor_unitario']:.2f}</td>
-                                    <td>R$ {row['valor_total']:.2f}</td>
-                                    <td>{row.get('fornecedor', '')}</td>
-                                </tr>
-                            """
+                            data_tabela.append([
+                                str(row['produto']),
+                                f"{row['quantidade']:.2f}",
+                                f"R$ {row['valor_unitario']:.2f}",
+                                f"R$ {row['valor_total']:.2f}",
+                                str(row.get('fornecedor', ''))
+                            ])
+
+                        t = Table(data_tabela, colWidths=[150, 60, 80, 80, 120])
+                        t.setStyle(TableStyle([
+                            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f2f2f2')),
+                            ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#333333')),
+                            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                            ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+                            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#ddd')),
+                        ]))
+                        elements.append(t)
+
                         total_geral_dia = df_dia['valor_total'].sum()
-                        html_content_dia += f"""
-                            </table>
-                            <div class="total">Valor Total do Dia: R$ {total_geral_dia:.2f}</div>
-                        </body>
-                        </html>
-                        """
-                        pdf_bytes = HTML(string=html_content_dia).write_pdf()
+                        elements.append(Spacer(1, 15))
+                        elements.append(Paragraph(f"<b>Valor Total do Dia: R$ {total_geral_dia:.2f}</b>", styles['Normal']))
+
+                        doc.build(elements)
+                        pdf_bytes = buffer.getvalue()
+
                         st.download_button(
                             label="📥 Baixar PDF do Dia",
                             data=pdf_bytes,
@@ -689,46 +697,6 @@ if perfil_selecionado == "👤 Portal do Cliente":
                     
             except Exception as e:
                 st.error(f"Erro ao carregar pedidos do dia: {e}")
-
-        # Pedidos Anteriores (Histórico) no Portal do Cliente
-        st.markdown("### 📚 Pedidos Anteriores (Histórico)")
-        try:
-            query_hist_cliente = """
-                SELECT id, cliente, produto, quantidade, valor_unitario, valor_total, status, observacoes, data, fornecedor, grupo, codigo_pedido
-                FROM pedidos
-                WHERE DATE(data) != DATE('now') AND cliente = ?
-            """
-            df_hist_cli = pd.read_sql_query(query_hist_cliente, conn, params=(st.session_state.get('cliente_autenticado', ''),))
-
-            if not df_hist_cli.empty:
-                df_cli_edit = df_hist_cli.copy()
-                if 'Excluir' not in df_cli_edit.columns:
-                    df_cli_edit.insert(0, 'Excluir', False)
-                
-                df_cli_editado = st.data_editor(
-                    df_cli_edit.drop(columns=['data_str'], errors='ignore'), 
-                    key="editor_historico_portal_cliente", 
-                    use_container_width=True, 
-                    hide_index=True
-                )
-                
-                if st.button("🗑️ Excluir Histórico Marcados", type="secondary", key="btn_excluir_hist_portal"):
-                    cursor = conn.cursor()
-                    removidos = 0
-                    for index, row in df_cli_editado.iterrows():
-                        if row.get('Excluir', False):
-                            cursor.execute("DELETE FROM pedidos WHERE id = ?", (row['id'],))
-                            removidos += 1
-                    conn.commit()
-                    if removidos > 0:
-                        st.success(f"{removidos} registro(s) excluído(s) com sucesso!")
-                        st.rerun()
-                    else:
-                        st.warning("Nenhum item foi marcado para exclusão.")
-            else:
-                st.info("Nenhum pedido anterior encontrado.")
-        except Exception as e_hist:
-            st.error(f"Erro ao carregar histórico: {e_hist}")
                         
 # ==========================================
 # AMBIENTE 2: ADMINISTRADOR / VENDEDOR
