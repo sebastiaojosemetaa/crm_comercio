@@ -1163,40 +1163,56 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         if st.button("Finalizar Pedido / Venda", type="primary"):
                             try:
                                 import sqlite3
-                                con_local = sqlite3.connect("vendas.db")
-                                cur = con_local.cursor()
-                                cur.execute("ALTER TABLE vendas ADD COLUMN status TEXT")
-                                con_local.commit()
-                            except:
-                                pass
+                                try:
+                                    conn_direto = sqlite3.connect("vendas.db")
+                                    df_parcial = pd.read_sql("SELECT id, cliente, produto, quantidade, valor_venda as valor_compra, valor_total, status FROM vendas", conn_direto)
+                                    conn_direto.close()
+                                except Exception as e:
+                                    df_parcial = pd.DataFrame()
+                                    st.error(f"Erro ao conectar no banco: {e}")
                             
-                            try:
-                                con_local = sqlite3.connect("vendas.db")
-                                cur = con_local.cursor()
-                                for id_item in df_parcial['id'].tolist():
-                                    cur.execute("UPDATE vendas SET status = 'Concluído' WHERE id = ?", (int(id_item),))
-                                con_local.commit()
-                                con_local.close()
-                                st.success("Pedido finalizado com sucesso!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro ao finalizar: {e}")
-            
-                    with col_del:
-                        ids_disponiveis = df_parcial['id'].tolist()
-                        id_para_excluir = st.selectbox("ID para excluir", options=ids_disponiveis, key="select_excluir_item")
-                        if st.button("Excluir Item Selecionado"):
-                            try:
-                                import sqlite3
-                                con_local = sqlite3.connect("vendas.db")
-                                cur = con_local.cursor()
-                                cur.execute("DELETE FROM vendas WHERE id = ?", (int(id_para_excluir),))
-                                con_local.commit()
-                                con_local.close()
-                                st.success(f"Item ID {id_para_excluir} excluído com sucesso!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro ao excluir: {e}")
+                                st.write(f"🔍 **DEBUG DIRETO:** Total de linhas na tabela vendas: {len(df_parcial)}")
+                            
+                                if not df_parcial.empty:
+                                    st.dataframe(df_parcial, use_container_width=True, hide_index=True)
+                                    total_parcial = df_parcial['valor_total'].sum()
+                                    st.markdown(f"### **Valor Total Acumulado: R$ {total_parcial:.2f}**")
+                            
+                                    col_fin, col_del = st.columns([2, 1])
+                                    
+                                    with col_fin:
+                                        if st.button("Finalizar Pedido / Venda", type="primary"):
+                                            try:
+                                                con_local = sqlite3.connect("vendas.db")
+                                                cur = con_local.cursor()
+                                                cur.execute("ALTER TABLE vendas ADD COLUMN status TEXT")
+                                                con_local.commit()
+                                                
+                                                for id_item in df_parcial['id'].tolist():
+                                                    cur.execute("UPDATE vendas SET status = 'Concluído' WHERE id = ?", (int(id_item),))
+                                                con_local.commit()
+                                                con_local.close()
+                                                st.success("Pedido finalizado com sucesso!")
+                                                st.rerun()
+                                            except Exception as e:
+                                                st.error(f"Erro ao finalizar: {e}")
+                            
+                                    with col_del:
+                                        ids_disponiveis = df_parcial['id'].tolist()
+                                        id_para_excluir = st.selectbox("ID para excluir", options=ids_disponiveis, key="select_excluir_item")
+                                        if st.button("Excluir Item Selecionado"):
+                                            try:
+                                                con_local = sqlite3.connect("vendas.db")
+                                                cur = con_local.cursor()
+                                                cur.execute("DELETE FROM vendas WHERE id = ?", (int(id_para_excluir),))
+                                                con_local.commit()
+                                                con_local.close()
+                                                st.success(f"Item ID {id_para_excluir} excluído com sucesso!")
+                                                st.rerun()
+                                            except Exception as e:
+                                                st.error(f"Erro ao excluir: {e}")
+                                else:
+                                    st.info("A tabela 'vendas' está vazia ou o arquivo do banco não possui registros.")
 
             if aba_baixa is not None:
                 with aba_baixa:
