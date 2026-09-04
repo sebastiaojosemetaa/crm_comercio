@@ -1150,14 +1150,23 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             try:
                                 con_local = sqlite3.connect("vendas.db")
                                 cur = con_local.cursor()
+                                
+                                # Atualiza todos os itens pendentes deste lote para 'Finalizado' ou 'Concluído'
                                 for id_item in df_parcial['id'].tolist():
-                                    cur.execute("UPDATE vendas SET status = 'Concluído' WHERE id = ?", (int(id_item),))
+                                    cur.execute("""
+                                        UPDATE vendas 
+                                        SET status = 'Finalizado', tipo = 'VENDA' 
+                                        WHERE id = ?
+                                    """, (int(id_item),))
+                                    
                                 con_local.commit()
                                 con_local.close()
-                                st.success("Pedido finalizado com sucesso!")
+                                
+                                st.success("Pedido finalizado com sucesso! Venda registrada.")
+                                st.balloons()
                                 st.rerun()
                             except Exception as e:
-                                st.error(f"Erro ao finalizar: {e}")
+                                st.error(f"Erro ao finalizar pedido: {e}")
             
                     with col_del:
                         ids_disponiveis = df_parcial['id'].tolist()
