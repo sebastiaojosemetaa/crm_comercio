@@ -1146,7 +1146,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.subheader("🛒 Itens já lançados neste Pedido (Hoje)")
                 tipo_banco_atual = 'ORÇAMENTO' if 'is_modo_pedido' in locals() and is_modo_pedido else 'VENDA'
     
-                df_parcial = carregar_dados(f"SELECT id, produto, quantidade, valor_venda as valor_compra, valor_total FROM vendas WHERE TRIM(cliente) = TRIM('{cliente_ped}') AND tipo = '{tipo_banco_atual}' AND (status IS NULL OR status = '' OR status != 'Concluído')")
+                # Traz todos os lançamentos do dia para este cliente
+                df_parcial = carregar_dados(f"SELECT id, produto, quantidade, valor_venda as valor_compra, valor_total FROM vendas WHERE TRIM(cliente) = TRIM('{cliente_ped}') AND tipo = '{tipo_banco_atual}'")
             
                 if not df_parcial.empty:
                     st.dataframe(df_parcial, use_container_width=True, hide_index=True)
