@@ -909,7 +909,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 item['fornecedor'],
                                 item['grupo'],
                                 item['quantidade'],
-                                item['preco_venda'],
+                                item['preco'],
                                 item['valor_total'],
                                 forma_pagamento,
                                 valor_recebido,
