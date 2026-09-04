@@ -1146,7 +1146,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             # Pega o nome do cliente selecionado atualmente na tela
                             # (ajuste 'cliente_pedido' para o nome exato da variável do cliente se necessário, 
                             # ou pegamos direto da primeira linha do dataframe parcial se houver)
-                            cliente_atual = df_parcial['cliente'].iloc[0] if 'cliente' in df_parcial.columns else cliente_pedido
+                                cliente_atual = df_parcial['cliente'].iloc[0] if 'cliente' in df_parcial.columns else cliente_pedido
                             
                             # Atualiza na tabela vendas e pedidos para o cliente de hoje
                             cursor.execute("""
