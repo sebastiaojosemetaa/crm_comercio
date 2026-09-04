@@ -1132,7 +1132,15 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.markdown(f"### **Valor Total Acumulado: R$ {total_parcial:.2f}**")
         
                     if st.button("Finalizar Pedido / Venda", type="primary"):
-                        st.success("Pedido finalizado com sucesso!")
+                        cursor = conn.cursor()
+                        # Atualiza o status dos itens pendentes deste cliente para Concluído/Convertido
+                        cursor.execute("""
+                            UPDATE pedidos 
+                            SET status = 'Concluído' 
+                            WHERE TRIM(cliente) = TRIM(?) AND (status = 'Pendente' OR status IS NULL OR status = '')
+                        """, (cliente_pedido,))
+                        conn.commit()
+                        st.success("Pedido finalizado e convertido com sucesso!")
                         st.rerun()
                         
                 else:
