@@ -1146,7 +1146,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.subheader("🛒 Itens já lançados neste Pedido (Hoje)")
                 tipo_banco_atual = 'ORÇAMENTO' if 'is_modo_pedido' in locals() and is_modo_pedido else 'VENDA'
     
-                if st.button("Salvar PEDIDO", type="primary"):
+                if st.button("Salvar PEDIDO", type="primary", key="btn_salvar_pedido_unico"):
                     try:
                         import sqlite3
                         con_ins = sqlite3.connect("vendas.db")
