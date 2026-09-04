@@ -1151,8 +1151,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.dataframe(df_parcial, use_container_width=True, hide_index=True)
                     total_parcial = df_parcial['valor_total'].sum()
                     st.markdown(f"### **Valor Total Acumulado: R$ {total_parcial:.2f}**")
-        
-                     if st.button("Finalizar Pedido / Venda", type="primary"):
+            
+                    if st.button("Finalizar Pedido / Venda", type="primary"):
                         cursor = conn.cursor()
                         try:
                             cursor.execute("ALTER TABLE vendas ADD COLUMN status TEXT")
@@ -1169,9 +1169,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         
                         st.success(f"Pedido finalizado para o cliente {cliente_ped} com sucesso!")
                         st.rerun()
-                        
-                else:
-                    st.info("Nenhum item lançado para este cliente hoje.")
 
             if aba_baixa is not None:
                 with aba_baixa:
