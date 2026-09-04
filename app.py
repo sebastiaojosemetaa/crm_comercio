@@ -1152,8 +1152,22 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     total_parcial = df_parcial['valor_total'].sum()
                     st.markdown(f"### **Valor Total Acumulado: R$ {total_parcial:.2f}**")
         
-                    if st.button("Finalizar Pedido / Venda", type="primary"):
-                        st.success("Pedido finalizado com sucesso!")
+                     if st.button("Finalizar Pedido / Venda", type="primary"):
+                        cursor = conn.cursor()
+                        try:
+                            cursor.execute("ALTER TABLE vendas ADD COLUMN status TEXT")
+                            conn.commit()
+                        except:
+                            pass
+                        
+                        cursor.execute("""
+                            UPDATE vendas 
+                            SET status = 'Concluído' 
+                            WHERE TRIM(cliente) = TRIM(?) AND (status IS NULL OR status = '' OR status = 'Pendente')
+                        """, (cliente_ped,))
+                        conn.commit()
+                        
+                        st.success(f"Pedido finalizado para o cliente {cliente_ped} com sucesso!")
                         st.rerun()
                         
                 else:
