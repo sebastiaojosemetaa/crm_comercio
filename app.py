@@ -1088,49 +1088,17 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     if grupo_sugerido_admin in grupos_opt:
                         st.session_state["ped_grupo_ind"] = grupo_sugerido_admin
 
-                cliente_ped = st.selectbox("Cliente", clientes_opt, key="ped_cli_ind")
-                fornec_ped = st.selectbox("Fornecedor", fornecedores_opt, key="ped_forn_ind")
-                grupo_ped = st.selectbox("Grupo", grupos_opt, key="ped_grupo_ind")
+                # Formulário de Lançamento
+                produto = st.selectbox("Selecione o Produto", options=["ABACATE", "BANANA", "LARANJA", "MAÇÃ"], key="sel_prod_unico")
+                cliente = st.selectbox("Cliente", options=["Carlos Alberto", "João Silva", "Maria Santos"], key="sel_cli_unico")
+                fornecedor = st.selectbox("Fornecedor", options=["BAHIA", "OUTROS"], key="sel_forn_unico")
+                grupo = st.selectbox("Grupo", options=["FRUTAS", "VERDURAS"], key="sel_grp_unico")
                 
-                qtd_ped = st.number_input("Quantidade", min_value=0.1, step=1.0, value=1.0, key="ped_qtd_ind")
-                
-                label_preco_input = "Preço de Custo Unitário (R$)" if is_modo_pedido else "Preço de Venda Unitário (R$)"
-                v_venda_ped = st.number_input(label_preco_input, min_value=0.0, step=1.0, key="ped_v_ind")
-                
-                tipo_reg = "PEDIDO" if is_modo_pedido else "VENDA"
-                if st.button(f"Salvar {tipo_reg}", type="primary"):
-                    cursor = conn.cursor()
-                    tipo_banco = 'ORÇAMENTO' if is_modo_pedido else 'VENDA'
-                    
-                    cursor.execute("""
-                        SELECT id, quantidade FROM vendas 
-                        WHERE TRIM(cliente) = TRIM(?) AND TRIM(produto) = TRIM(?) AND tipo = ? 
-                        AND substr(data, 1, 10) = date('now')
-                    """, (cliente_ped, prod_item, tipo_banco))
-                    item_existente = cursor.fetchone()
-                    
-                    if item_existente:
-                        novo_qtd = float(item_existente[1]) + float(qtd_ped)
-                        novo_total = novo_qtd * float(v_venda_ped)
-                        cursor.execute("""
-                            UPDATE vendas SET quantidade = ?, valor_total = ? WHERE id = ?
-                        """, (novo_qtd, novo_total, item_existente[0]))
-                    else:
-                        cursor.execute("""
-                            INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, tipo, data)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))
-                        """, (cliente_ped, prod_item, fornec_ped, grupo_ped, float(qtd_ped), float(v_venda_ped), float(qtd_ped) * float(v_venda_ped), tipo_banco))
-                    
-                    conn.commit()
-                    st.success(f"{tipo_reg} atualizado com sucesso!")
-                    st.rerun()
-
-                
+                quantidade = st.number_input("Quantidade", min_value=0.01, value=1.0, step=1.0, key="num_qtd_unico")
+                preco_unitario = st.number_input("Preço de Custo Unitário (R$)", min_value=0.0, value=80.0, step=1.0, key="num_preco_unico")
             
-                st.divider()
-                st.subheader("🛒 Itens já lançados neste Pedido (Hoje)")
-                
-                if st.button("Salvar PEDIDO", type="primary", key="btn_salvar_pedido_unico_correto"):
+                # Botão Único para Salvar
+                if st.button("Salvar PEDIDO", type="primary", key="btn_salvar_pedido_unico_definitivo"):
                     try:
                         import sqlite3
                         con_ins = sqlite3.connect("vendas.db")
@@ -1149,18 +1117,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             )
                         """)
                         
-                        # Captura segura das variáveis da tela
-                        c_cliente = cliente if 'cliente' in locals() else (cliente_ped if 'cliente_ped' in locals() else "Carlos Alberto")
-                        c_produto = produto if 'produto' in locals() else (produto_selecionado if 'produto_selecionado' in locals() else (prod_item if 'prod_item' in locals() else "ABACATE"))
-                        c_qtd = float(quantidade) if 'quantidade' in locals() else (float(qtd_ped) if 'qtd_ped' in locals() else 1.0)
-                        c_preco = float(preco_unitario) if 'preco_unitario' in locals() else (float(v_venda_ped) if 'v_venda_ped' in locals() else 80.0)
-                        c_total = c_qtd * c_preco
-                        c_tipo = 'ORÇAMENTO' if 'is_modo_pedido' in locals() and is_modo_pedido else 'VENDA'
+                        c_total = float(quantidade) * float(preco_unitario)
+                        c_tipo = 'ORÇAMENTO'
                         
                         cur_ins.execute("""
                             INSERT INTO vendas (cliente, produto, quantidade, valor_venda, valor_total, tipo)
                             VALUES (?, ?, ?, ?, ?, ?)
-                        """, (str(c_cliente), str(c_produto), c_qtd, c_preco, c_total, c_tipo))
+                        """, (str(cliente), str(produto), float(quantidade), float(preco_unitario), c_total, c_tipo))
                         
                         con_ins.commit()
                         con_ins.close()
@@ -1168,7 +1131,40 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.success("Item salvo com sucesso!")
                         st.rerun()
                     except Exception as e:
-                        st.error(f"Erro detalhado ao salvar: {e}")
+                        st.error(f"Erro ao salvar: {e}")
+            
+                st.divider()
+                st.subheader("🛒 Itens já lançados neste Pedido (Hoje)")
+                
+                import sqlite3
+                try:
+                    conn_direto = sqlite3.connect("vendas.db")
+                    df_parcial = pd.read_sql("SELECT id, cliente, produto, quantidade, valor_venda as valor_compra, valor_total, tipo, status FROM vendas ORDER BY id DESC LIMIT 20", conn_direto)
+                    conn_direto.close()
+                except Exception as e:
+                    df_parcial = pd.DataFrame()
+            
+                if not df_parcial.empty:
+                    st.dataframe(df_parcial, use_container_width=True, hide_index=True)
+                    total_parcial = df_parcial['valor_total'].sum()
+                    st.markdown(f"### **Valor Total Acumulado: R$ {total_parcial:.2f}**")
+            
+                    col_fin, col_del = st.columns([2, 1])
+                    
+                    with col_fin:
+                        if st.button("Finalizar Pedido / Venda", type="primary", key="btn_finalizar_pedido_unico"):
+                            try:
+                                con_local = sqlite3.connect("vendas.db")
+                                cur = con_local.cursor()
+                                for id_item in df_parcial['id'].tolist():
+                                    cur.execute("UPDATE vendas SET status = 'Finalizado', tipo = 'VENDA' WHERE id = ?", (int(id_item),))
+                                con_local.commit()
+                                con_local.close()
+                                st.success("Pedido finalizado com sucesso!")
+                                st.balloons()
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao finalizar: {e}")
             
                     with col_del:
                         ids_disponiveis = df_parcial['id'].tolist()
