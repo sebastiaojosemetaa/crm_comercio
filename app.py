@@ -1166,9 +1166,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         """)
                         
                         c_cliente = cliente_ped if 'cliente_ped' in locals() else "Geral"
-                        c_produto = produto_selecionado if 'produto_selecionado' in locals() else (produto if 'produto' in locals() else "Item")
-                        c_qtd = float(quantidade) if 'quantidade' in locals() else 1.0
-                        c_preco = float(preco_unitario) if 'preco_unitario' in locals() else 0.0
+                        c_produto = prod_item if 'prod_item' in locals() else "Item"
+                        c_qtd = float(qtd_ped) if 'qtd_ped' in locals() else 1.0
+                        c_preco = float(v_venda_ped) if 'v_venda_ped' in locals() else 0.0
                         c_total = c_qtd * c_preco
                         c_tipo = 'ORÇAMENTO' if 'is_modo_pedido' in locals() and is_modo_pedido else 'VENDA'
                         
@@ -1208,8 +1208,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             try:
                                 con_local = sqlite3.connect("vendas.db")
                                 cur = con_local.cursor()
-                                cur.execute("ALTER TABLE vendas ADD COLUMN status TEXT")
-                                con_local.commit()
                                 
                                 for id_item in df_parcial['id'].tolist():
                                     cur.execute("UPDATE vendas SET status = 'Concluído' WHERE id = ?", (int(id_item),))
