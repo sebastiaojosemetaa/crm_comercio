@@ -1149,7 +1149,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 import sqlite3
                 try:
                     conn_direto = sqlite3.connect("vendas.db")
-                    df_parcial = pd.read_sql(f"SELECT id, cliente, produto, quantidade, valor_venda as valor_compra, valor_total, status FROM vendas WHERE TRIM(cliente) = TRIM('{cliente_ped}') AND tipo = '{tipo_banco_atual}' AND (status IS NULL OR status = '' OR status != 'Concluído')", conn_direto)
+                    # Busca sem filtros restritos para garantir que exiba o que foi gravado
+                    df_parcial = pd.read_sql("SELECT id, cliente, produto, quantidade, valor_venda as valor_compra, valor_total, tipo, status FROM vendas ORDER BY id DESC LIMIT 20", conn_direto)
                     conn_direto.close()
                 except Exception as e:
                     df_parcial = pd.DataFrame()
@@ -1192,6 +1193,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Erro ao excluir: {e}")
+                else:
+                    st.info("Nenhum registro encontrado na tabela 'vendas'. Faça um lançamento acima para testar.")
 
             if aba_baixa is not None:
                 with aba_baixa:
