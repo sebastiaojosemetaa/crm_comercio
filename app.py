@@ -1153,6 +1153,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.markdown(f"### **Valor Total Acumulado: R$ {total_parcial:.2f}**")
             
                     with st.form(key="form_finalizar_pedido"):
+                        st.write(f"Cliente selecionado: **{cliente_ped}**")
                         submit_finalizar = st.form_submit_button("Finalizar Pedido / Venda", type="primary")
                         
                         if submit_finalizar:
@@ -1163,17 +1164,15 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             except:
                                 pass
                             
-                            # Atualiza todos os registros deste cliente no banco
-                            cursor.execute("""
-                                UPDATE vendas 
-                                SET status = 'Concluído' 
-                                WHERE TRIM(cliente) = TRIM(?)
-                            """, (cliente_ped,))
+                            # Pega todos os IDs listados na tabela parcial atual
+                            ids_para_atualizar = df_parcial['id'].tolist()
                             
-                            linhas_afetadas = cursor.rowcount
+                            # Atualiza diretamente pelo ID da linha
+                            for id_item in ids_para_atualizar:
+                                cursor.execute("UPDATE vendas SET status = 'Concluído' WHERE id = ?", (int(id_item),))
+                            
                             conn.commit()
-                            
-                            st.success(f"Sucesso! {linhas_afetadas} item(ns) finalizados para {cliente_ped}.")
+                            st.success(f"Pedido finalizado com sucesso! {len(ids_para_atualizar)} item(ns) atualizado(s).")
                             st.rerun()
 
             if aba_baixa is not None:
