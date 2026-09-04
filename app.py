@@ -1125,50 +1125,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.success(f"{tipo_reg} atualizado com sucesso!")
                     st.rerun()
 
-                st.divider()
-                st.subheader("🛒 Itens já lançados neste Pedido (Hoje)")
-                tipo_banco_atual = 'ORÇAMENTO' if 'is_modo_pedido' in locals() and is_modo_pedido else 'VENDA'
-    
-                # Bloco único para salvar o pedido/orçamento e listar os itens
-                if st.button("Salvar PEDIDO", type="primary", key="btn_salvar_pedido_unico_correto"):
-                    try:
-                        import sqlite3
-                        con_ins = sqlite3.connect("vendas.db")
-                        cur_ins = con_ins.cursor()
-                        
-                        cur_ins.execute("""
-                            CREATE TABLE IF NOT EXISTS vendas (
-                                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                cliente TEXT,
-                                produto TEXT,
-                                quantidade REAL,
-                                valor_venda REAL,
-                                valor_total REAL,
-                                tipo TEXT,
-                                status TEXT
-                            )
-                        """)
-                        
-                        # Pega dinamicamente os valores das variáveis da tela
-                        c_cliente = cliente_ped if 'cliente_ped' in locals() else ("Carlos Alberto" if 'Carlos Alberto' in locals() else "Geral")
-                        c_produto = produto if 'produto' in locals() else (produto_selecionado if 'produto_selecionado' in locals() else (prod_item if 'prod_item' in locals() else "Item"))
-                        c_qtd = float(quantidade) if 'quantidade' in locals() else (float(qtd_ped) if 'qtd_ped' in locals() else 1.0)
-                        c_preco = float(preco_unitario) if 'preco_unitario' in locals() else (float(v_venda_ped) if 'v_venda_ped' in locals() else 0.0)
-                        c_total = c_qtd * c_preco
-                        c_tipo = 'ORÇAMENTO' if 'is_modo_pedido' in locals() and is_modo_pedido else 'VENDA'
-                        
-                        cur_ins.execute("""
-                            INSERT INTO vendas (cliente, produto, quantidade, valor_venda, valor_total, tipo)
-                            VALUES (?, ?, ?, ?, ?, ?)
-                        """, (str(c_cliente), str(c_produto), c_qtd, c_preco, c_total, c_tipo))
-                        
-                        con_ins.commit()
-                        con_ins.close()
-                        
-                        st.success("Item salvo com sucesso!")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Erro ao salvar no banco: {e}")
+                
             
                 st.divider()
                 st.subheader("🛒 Itens já lançados neste Pedido (Hoje)")
