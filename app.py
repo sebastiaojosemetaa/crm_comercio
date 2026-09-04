@@ -1146,28 +1146,53 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.subheader("🛒 Itens já lançados neste Pedido (Hoje)")
                 tipo_banco_atual = 'ORÇAMENTO' if 'is_modo_pedido' in locals() and is_modo_pedido else 'VENDA'
     
-                # Traz todos os lançamentos do dia para este cliente
-                df_parcial = carregar_dados(f"SELECT id, produto, quantidade, valor_venda as valor_compra, valor_total FROM vendas WHERE TRIM(cliente) = TRIM('{cliente_ped}') AND tipo = '{tipo_banco_atual}'")
+                df_parcial = carregar_dados(f"SELECT id, produto, quantidade, valor_venda as valor_compra, valor_total FROM vendas WHERE TRIM(cliente) = TRIM('{cliente_ped}') AND tipo = '{tipo_banco_atual}' AND (status IS NULL OR status = '' OR status != 'Concluído')")
             
                 if not df_parcial.empty:
                     st.dataframe(df_parcial, use_container_width=True, hide_index=True)
                     total_parcial = df_parcial['valor_total'].sum()
                     st.markdown(f"### **Valor Total Acumulado: R$ {total_parcial:.2f}**")
             
-                    if st.button("Finalizar Pedido / Venda", type="primary"):
-                        cursor = conn.cursor()
-                        try:
-                            cursor.execute("ALTER TABLE vendas ADD COLUMN status TEXT")
-                            conn.commit()
-                        except:
-                            pass
-                        
-                        for id_item in df_parcial['id'].tolist():
-                            cursor.execute("UPDATE vendas SET status = 'Concluído' WHERE id = ?", (int(id_item),))
-                        
-                        conn.commit()
-                        st.success("Pedido finalizado com sucesso!")
-                        st.rerun()
+                    col_fin, col_del = st.columns([2, 1])
+                    
+                    with col_fin:
+                        if st.button("Finalizar Pedido / Venda", type="primary"):
+                            try:
+                                import sqlite3
+                                con_local = sqlite3.connect("vendas.db") # Ajuste se o nome do seu banco for outro, ex: crm.db
+                                cur = con_local.cursor()
+                                cur.execute("ALTER TABLE vendas ADD COLUMN status TEXT")
+                                con_local.commit()
+                            except:
+                                pass
+                            
+                            try:
+                                con_local = sqlite3.connect("vendas.db")
+                                cur = con_local.cursor()
+                                for id_item in df_parcial['id'].tolist():
+                                    cur.execute("UPDATE vendas SET status = 'Concluído' WHERE id = ?", (int(id_item),))
+                                con_local.commit()
+                                con_local.close()
+                                st.success("Pedido finalizado com sucesso!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao finalizar: {e}")
+            
+                    with col_del:
+                        ids_disponiveis = df_parcial['id'].tolist()
+                        id_para_excluir = st.selectbox("ID para excluir", options=ids_disponiveis, key="select_excluir_item")
+                        if st.button("Excluir Item Selecionado"):
+                            try:
+                                import sqlite3
+                                con_local = sqlite3.connect("vendas.db")
+                                cur = con_local.cursor()
+                                cur.execute("DELETE FROM vendas WHERE id = ?", (int(id_para_excluir),))
+                                con_local.commit()
+                                con_local.close()
+                                st.success(f"Item ID {id_para_excluir} excluído com sucesso!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao excluir: {e}")
 
             if aba_baixa is not None:
                 with aba_baixa:
