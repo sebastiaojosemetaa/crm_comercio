@@ -1144,33 +1144,29 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
                 st.divider()
                 st.subheader("🛒 Itens já lançados neste Pedido (Hoje)")
-                tipo_banco_atual = 'ORÇAMENTO' if is_modo_pedido else 'VENDA'
-                df_parcial = carregar_dados(f"SELECT id, produto, quantidade, valor_venda as valor_compra, valor_total FROM vendas WHERE TRIM(cliente) = TRIM('{cliente_ped}') AND tipo = '{tipo_banco_atual}' AND substr(data, 1, 10) = date('now')")
-
+                tipo_banco_atual = 'ORÇAMENTO' if 'is_modo_pedido' in locals() and is_modo_pedido else 'VENDA'
+    
+                df_parcial = carregar_dados(f"SELECT id, produto, quantidade, valor_venda as valor_compra, valor_total FROM vendas WHERE TRIM(cliente) = TRIM('{cliente_ped}') AND tipo = '{tipo_banco_atual}' AND (status IS NULL OR status = '' OR status != 'Concluído')")
+            
                 if not df_parcial.empty:
                     st.dataframe(df_parcial, use_container_width=True, hide_index=True)
                     total_parcial = df_parcial['valor_total'].sum()
                     st.markdown(f"### **Valor Total Acumulado: R$ {total_parcial:.2f}**")
             
-                    with st.form(key="form_finalizar_pedido"):
-                        st.write(f"Cliente: **{cliente_ped}** | IDs na tabela: {df_parcial['id'].tolist()}")
-                        submit_finalizar = st.form_submit_button("Finalizar Pedido / Venda", type="primary")
-                        
-                        if submit_finalizar:
-                            conn_exec = sqlite3.connect("vendas.db") # Ajuste caso o nome do seu banco seja diferente, ou mantenha conn
-                            cursor = conn.cursor()
-                            try:
-                                cursor.execute("ALTER TABLE vendas ADD COLUMN status TEXT")
-                                conn.commit()
-                            except:
-                                pass
-                            
-                            for id_item in df_parcial['id'].tolist():
-                                cursor.execute("UPDATE vendas SET status = 'Concluído' WHERE id = ?", (int(id_item),))
-                            
+                    if st.button("Finalizar Pedido / Venda", type="primary"):
+                        cursor = conn.cursor()
+                        try:
+                            cursor.execute("ALTER TABLE vendas ADD COLUMN status TEXT")
                             conn.commit()
-                            st.success("Itens finalizados com sucesso!")
-                            st.rerun()
+                        except:
+                            pass
+                        
+                        for id_item in df_parcial['id'].tolist():
+                            cursor.execute("UPDATE vendas SET status = 'Concluído' WHERE id = ?", (int(id_item),))
+                        
+                        conn.commit()
+                        st.success("Pedido finalizado com sucesso!")
+                        st.rerun()
 
             if aba_baixa is not None:
                 with aba_baixa:
