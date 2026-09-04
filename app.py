@@ -1146,7 +1146,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.subheader("🛒 Itens já lançados neste Pedido (Hoje)")
                 tipo_banco_atual = 'ORÇAMENTO' if 'is_modo_pedido' in locals() and is_modo_pedido else 'VENDA'
     
-                df_parcial = carregar_dados(f"SELECT id, produto, quantidade, valor_venda as valor_compra, valor_total FROM vendas WHERE TRIM(cliente) = TRIM('{cliente_ped}') AND tipo = '{tipo_banco_atual}' AND (status IS NULL OR status = '' OR status != 'Concluído')")
+                # Consulta ampla para testar o que existe no banco para este cliente
+                query = f"SELECT id, produto, quantidade, valor_venda as valor_compra, valor_total, status FROM vendas WHERE TRIM(cliente) = TRIM('{cliente_ped}')"
+                df_parcial = carregar_dados(query)
+            
+                st.write(f"🔍 **DEBUG:** Cliente buscado: '{cliente_ped}' | Total de linhas encontradas: {len(df_parcial)}")
             
                 if not df_parcial.empty:
                     st.dataframe(df_parcial, use_container_width=True, hide_index=True)
@@ -1159,7 +1163,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         if st.button("Finalizar Pedido / Venda", type="primary"):
                             try:
                                 import sqlite3
-                                con_local = sqlite3.connect("vendas.db") # Ajuste se o nome do seu banco for outro, ex: crm.db
+                                con_local = sqlite3.connect("vendas.db")
                                 cur = con_local.cursor()
                                 cur.execute("ALTER TABLE vendas ADD COLUMN status TEXT")
                                 con_local.commit()
