@@ -1132,27 +1132,37 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.markdown(f"### **Valor Total Acumulado: R$ {total_parcial:.2f}**")
         
                     if st.button("Finalizar Pedido / Venda", type="primary"):
-                        if not df_parcial.empty and 'id' in df_parcial.columns:
+                        if not df_parcial.empty:
                             cursor = conn.cursor()
-                            ids_itens = df_parcial['id'].tolist()
-                            placeholders = ','.join(['?'] * len(ids_itens))
                             
-                            # Tenta atualizar na tabela vendas e também na tabela pedidos para garantir
+                            # Garante que a coluna status existe
                             for tabela in ['vendas', 'pedidos']:
                                 try:
                                     cursor.execute(f"ALTER TABLE {tabela} ADD COLUMN status TEXT")
                                     conn.commit()
                                 except:
                                     pass
-                                    
-                                cursor.execute(f"""
-                                    UPDATE {tabela} 
-                                    SET status = 'Concluído' 
-                                    WHERE id IN ({placeholders})
-                                """, ids_itens)
+                            
+                            # Pega o nome do cliente selecionado atualmente na tela
+                            # (ajuste 'cliente_pedido' para o nome exato da variável do cliente se necessário, 
+                            # ou pegamos direto da primeira linha do dataframe parcial se houver)
+                            cliente_atual = df_parcial['cliente'].iloc[0] if 'cliente' in df_parcial.columns else cliente_pedido
+                            
+                            # Atualiza na tabela vendas e pedidos para o cliente de hoje
+                            cursor.execute("""
+                                UPDATE vendas 
+                                SET status = 'Concluído' 
+                                WHERE TRIM(cliente) = TRIM(?) AND (status IS NULL OR status = '' OR status = 'Pendente')
+                            """, (cliente_atual,))
+                            
+                            cursor.execute("""
+                                UPDATE pedidos 
+                                SET status = 'Concluído' 
+                                WHERE TRIM(cliente) = TRIM(?) AND (status IS NULL OR status = '' OR status = 'Pendente')
+                            """, (cliente_atual,))
                             
                             conn.commit()
-                            st.success("Pedido finalizado com sucesso!")
+                            st.success("Pedido finalizado e convertido com sucesso!")
                             st.rerun()
                         
                 else:
