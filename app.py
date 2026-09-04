@@ -1160,14 +1160,17 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         except:
                             pass
                         
+                        # Descobre se o banco usa ORCAMENTO ou VENDA neste contexto
+                        tipo_alvo = 'ORÇAMENTO' if 'is_modo_pedido' in locals() and is_modo_pedido else 'VENDA'
+                        
                         cursor.execute("""
                             UPDATE vendas 
                             SET status = 'Concluído' 
-                            WHERE TRIM(cliente) = TRIM(?) AND (status IS NULL OR status = '' OR status = 'Pendente')
-                        """, (cliente_ped,))
+                            WHERE TRIM(cliente) = TRIM(?) AND tipo = ?
+                        """, (cliente_ped, tipo_alvo))
                         conn.commit()
                         
-                        st.success(f"Pedido finalizado para o cliente {cliente_ped} com sucesso!")
+                        st.success(f"Pedido finalizado com sucesso para {cliente_ped}!")
                         st.rerun()
 
             if aba_baixa is not None:
