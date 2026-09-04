@@ -1147,7 +1147,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 tipo_banco_atual = 'ORÇAMENTO' if 'is_modo_pedido' in locals() and is_modo_pedido else 'VENDA'
     
                 # Consulta ampla para testar o que existe no banco para este cliente
-                query = f"SELECT id, produto, quantidade, valor_venda as valor_compra, valor_total, status FROM vendas WHERE TRIM(cliente) = TRIM('{cliente_ped}')"
+                query = f"SELECT id, cliente, produto, quantidade, valor_venda as valor_compra, valor_total, status FROM vendas WHERE TRIM(LOWER(cliente)) LIKE TRIM(LOWER('%{cliente_ped}%'))"
                 df_parcial = carregar_dados(query)
             
                 st.write(f"🔍 **DEBUG:** Cliente buscado: '{cliente_ped}' | Total de linhas encontradas: {len(df_parcial)}")
