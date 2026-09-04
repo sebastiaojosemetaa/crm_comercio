@@ -1134,6 +1134,14 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     if st.button("Finalizar Pedido / Venda", type="primary"):
                         if not df_parcial.empty and 'id' in df_parcial.columns:
                             cursor = conn.cursor()
+                            
+                            # Garante que a coluna status existe na tabela vendas
+                            try:
+                                cursor.execute("ALTER TABLE vendas ADD COLUMN status TEXT")
+                                conn.commit()
+                            except sqlite3.OperationalError:
+                                pass # A coluna já existe
+                            
                             ids_itens = df_parcial['id'].tolist()
                             placeholders = ','.join(['?'] * len(ids_itens))
                             
