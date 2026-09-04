@@ -852,6 +852,91 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             st.title("🔓 Abertura e Fechamento de Caixa")
             df_caixa_atual = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
 
+        if st.button("➕ Incluir Produto no Carrinho", type="primary"):
+                st.session_state.carrinho_pdv.append({
+                    "produto": prod_item,
+                    "fornecedor": forn_item,
+                    "grupo": grupo_item,
+                    "quantidade": qtd_item,
+                    "valor_venda": v_unit_item,
+                    "valor_total": valor_total_item
+                })
+                st.success(f"Item '{prod_item}' adicionado ao carrinho!")
+                st.rerun()
+
+        with col_pdv_dir:
+            st.markdown("#### 🛒 Itens Atuais no Carrinho")
+            if len(st.session_state.carrinho_pdv) > 0:
+                df_carrinho = pd.DataFrame(st.session_state.carrinho_pdv)
+                st.dataframe(df_carrinho, use_container_width=True, hide_index=True)
+                total_geral_carrinho = df_carrinho['valor_total'].sum()
+            else:
+                st.info("O carrinho está vazio.")
+                total_geral_carrinho = 0.0
+
+            if st.button("🗑️ Limpar Carrinho"):
+                st.session_state.carrinho_pdv = []
+                st.rerun()
+
+            st.markdown("---")
+            st.markdown("#### 💳 Forma de Pagamento e Finalização")
+            
+            f_pag = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito", "Cartão de Débito", "Fiado / Prazo"], key="pdv_forma_pagto")
+            v_rec = st.number_input("Valor Recebido (R$)", min_value=0.0, step=1.0, value=float(total_geral_carrinho), key="pdv_val_rec")
+            troco = v_rec - total_geral_carrinho if v_rec > total_geral_carrinho else 0.0
+
+            col_t1, col_t2 = st.columns(2)
+            with col_t1:
+                st.metric("Valor Total da Venda", f"R$ {total_geral_carrinho:.2f}")
+            with col_t2:
+                st.metric("Troco", f"R$ {troco:.2f}")
+
+            if st.button("Finalizar Venda no PDV", type="primary"):
+                if len(st.session_state.carrinho_pdv) > 0:
+                    cursor = conn.cursor()
+                    data_venda = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    
+                    try:
+                        cursor.execute("ALTER TABLE vendas ADD COLUMN status TEXT")
+                        conn.commit()
+                    except:
+                        pass
+    
+                    f_pgto = locals().get('forma_pagamento', locals().get('forma_pgto', 'Dinheiro'))
+                    v_rec = locals().get('valor_recebido', locals().get('valor_rec', 0.0))
+                    v_troco = locals().get('troco', 0.0)
+                    v_restante = locals().get('restante', 0.0)
+                    cli_pdv = locals().get('cliente_pdv', locals().get('cliente', 'CLIENTE'))
+    
+                    for item in st.session_state.carrinho_pdv:
+                        preco_item = item.get('preco_venda', item.get('preco', item.get('valor_venda', 0.0)))
+                        total_item = item.get('valor_total', item.get('quantidade', 1) * preco_item)
+                        
+                        cursor.execute("""
+                            INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, troco, restante, data, tipo, status)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'VENDA', 'Concluído')
+                        """, (
+                            cli_pdv,
+                            item.get('produto', ''),
+                            item.get('fornecedor', ''),
+                            item.get('grupo', ''),
+                            item.get('quantidade', 1.0),
+                            preco_item,
+                            total_item,
+                            f_pgto,
+                            v_rec,
+                            v_troco,
+                            v_restante,
+                            data_venda
+                        ))
+                    
+                    conn.commit()
+                    st.session_state.carrinho_pdv = []
+                    st.success("Venda realizada com sucesso!")
+                    st.rerun()
+                else:
+                    st.warning("O carrinho do PDV está vazio.")
+            
             if df_caixa_atual.empty:
                 st.info("O caixa encontra-se **FECHADO**. Insira o valor inicial para abri-lo.")
                 with st.form("form_abrir_caixa"):
