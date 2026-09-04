@@ -1146,47 +1146,47 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.subheader("🛒 Itens já lançados neste Pedido (Hoje)")
                 tipo_banco_atual = 'ORÇAMENTO' if 'is_modo_pedido' in locals() and is_modo_pedido else 'VENDA'
     
-            if st.button("Salvar PEDIDO", type="primary"):
-                try:
-                    import sqlite3
-                    con_ins = sqlite3.connect("vendas.db")
-                    cur_ins = con_ins.cursor()
-                    
-                    # Garante que a tabela vendas existe com a estrutura completa
-                    cur_ins.execute("""
-                        CREATE TABLE IF NOT EXISTS vendas (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            cliente TEXT,
-                            produto TEXT,
-                            quantidade REAL,
-                            valor_venda REAL,
-                            valor_total REAL,
-                            tipo TEXT,
-                            status TEXT
-                        )
-                    """)
-                    
-                    # Captura os valores atuais dos campos do formulário
-                    c_cliente = cliente_ped if 'cliente_ped' in locals() else "Geral"
-                    c_produto = produto_selecionado if 'produto_selecionado' in locals() else (produto if 'produto' in locals() else "Item")
-                    c_qtd = float(quantidade) if 'quantidade' in locals() else 1.0
-                    c_preco = float(preco_unitario) if 'preco_unitario' in locals() else 0.0
-                    c_total = c_qtd * c_preco
-                    c_tipo = 'ORÇAMENTO' if 'is_modo_pedido' in locals() and is_modo_pedido else 'VENDA'
-                    
-                    # Insere no banco SQLite
-                    cur_ins.execute("""
-                        INSERT INTO vendas (cliente, produto, quantidade, valor_venda, valor_total, tipo)
-                        VALUES (?, ?, ?, ?, ?, ?)
-                    """, (c_cliente, c_produto, c_qtd, c_preco, c_total, c_tipo))
-                    
-                    con_ins.commit()
-                    con_ins.close()
-                    
-                    st.success("Item salvo com sucesso!")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Erro ao salvar no banco: {e}")
+        if st.button("Salvar PEDIDO", type="primary"):
+            try:
+                import sqlite3
+                con_ins = sqlite3.connect("vendas.db")
+                cur_ins = con_ins.cursor()
+                
+                # Garante que a tabela vendas existe com a estrutura completa
+                cur_ins.execute("""
+                    CREATE TABLE IF NOT EXISTS vendas (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        cliente TEXT,
+                        produto TEXT,
+                        quantidade REAL,
+                        valor_venda REAL,
+                        valor_total REAL,
+                        tipo TEXT,
+                        status TEXT
+                    )
+                """)
+                
+                # Captura os valores atuais dos campos do formulário
+                c_cliente = cliente_ped if 'cliente_ped' in locals() else "Geral"
+                c_produto = produto_selecionado if 'produto_selecionado' in locals() else (produto if 'produto' in locals() else "Item")
+                c_qtd = float(quantidade) if 'quantidade' in locals() else 1.0
+                c_preco = float(preco_unitario) if 'preco_unitario' in locals() else 0.0
+                c_total = c_qtd * c_preco
+                c_tipo = 'ORÇAMENTO' if 'is_modo_pedido' in locals() and is_modo_pedido else 'VENDA'
+                
+                # Insere no banco SQLite
+                cur_ins.execute("""
+                    INSERT INTO vendas (cliente, produto, quantidade, valor_venda, valor_total, tipo)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (c_cliente, c_produto, c_qtd, c_preco, c_total, c_tipo))
+                
+                con_ins.commit()
+                con_ins.close()
+                
+                st.success("Item salvo com sucesso!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Erro ao salvar no banco: {e}")
                 else:
                     st.info("Nenhum registro encontrado na tabela 'vendas'. Faça um lançamento acima para testar.")
 
