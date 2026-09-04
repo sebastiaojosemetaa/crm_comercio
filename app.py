@@ -896,20 +896,16 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
                         for item in st.session_state.carrinho_pdv:
                             cursor.execute("""
-                                INSERT INTO pedidos (cliente, produto, fornecedor, grupo, quantidade, valor_unitario, valor_total, status, data, codigo_pedido, forma_pagamento, valor_recebido, tipo)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, 'Concluído (Convertido)', ?, ?, ?, ?, 'VENDA')
+                                INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, status, data, codigo_pedido, tipo)
+                                VALUES (?, ?, ?, ?, ?, 'Concluído (Convertido)', ?, ?, 'VENDA')
                             """, (
                                 cliente_pdv,
                                 item['produto'],
-                                item['fornecedor'],
-                                item['grupo'],
                                 item['quantidade'],
                                 item['valor_venda'],
                                 item['valor_total'],
                                 data_venda,
-                                codigo_pedido_gerado,
-                                f_pag,
-                                v_rec
+                                codigo_pedido_gerado
                             ))
 
                         cursor.execute("INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, ?, ?, ?, ?)",
