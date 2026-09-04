@@ -848,131 +848,120 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 valor_total_item = qtd_item * v_unit_item
                 st.metric("Valor Total do Item", f"R$ {valor_total_item:.2f}")
     
+                if st.button("➕ Incluir Produto no Carrinho", type="primary"):
+                    st.session_state.carrinho_pdv.append({
+                        "produto": prod_item,
+                        "fornecedor": forn_item,
+                        "grupo": grupo_item,
+                        "quantidade": qtd_item,
+                        "valor_venda": v_unit_item,
+                        "valor_total": valor_total_item
+                    })
+                    st.success(f"Item '{prod_item}' adicionado ao carrinho!")
+                    st.rerun()
+    
+            with col_pdv_dir:
+                st.markdown("#### 🛒 Itens Atuais no Carrinho")
+                if len(st.session_state.carrinho_pdv) > 0:
+                    df_carrinho = pd.DataFrame(st.session_state.carrinho_pdv)
+                    st.dataframe(df_carrinho, use_container_width=True, hide_index=True)
+                    total_geral_carrinho = df_carrinho['valor_total'].sum()
+                else:
+                    st.info("O carrinho está vazio.")
+                    total_geral_carrinho = 0.0
+    
+                if st.button("🗑️ Limpar Carrinho"):
+                    st.session_state.carrinho_pdv = []
+                    st.rerun()
+    
+                st.markdown("---")
+                st.markdown("#### 💳 Forma de Pagamento e Finalização")
+                
+                f_pag = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito", "Cartão de Débito", "Fiado / Prazo"], key="pdv_forma_pagto")
+                v_rec = st.number_input("Valor Recebido (R$)", min_value=0.0, step=1.0, value=float(total_geral_carrinho), key="pdv_val_rec")
+                troco = v_rec - total_geral_carrinho if v_rec > total_geral_carrinho else 0.0
+    
+                col_t1, col_t2 = st.columns(2)
+                with col_t1:
+                    st.metric("Valor Total da Venda", f"R$ {total_geral_carrinho:.2f}")
+                with col_t2:
+                    st.metric("Troco", f"R$ {troco:.2f}")
+    
+                if st.button("Finalizar Venda no PDV", type="primary"):
+                    if not df_caixa_aberto.empty and len(st.session_state.carrinho_pdv) > 0:
+                        sessao_id = df_caixa_aberto.iloc[0]['id']
+                        codigo_pedido_gerado = f"PED-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+                        data_venda = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    
+                        for item in st.session_state.carrinho_pdv:
+                            cursor.execute("""
+                                INSERT INTO pedidos (cliente, produto, fornecedor, grupo, quantidade, valor_unitario, valor_total, status, data, codigo_pedido, forma_pagamento, valor_recebido, tipo)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, 'Concluído (Convertido)', ?, ?, ?, ?, 'VENDA')
+                            """, (
+                                cliente_pdv,
+                                item['produto'],
+                                item['fornecedor'],
+                                item['grupo'],
+                                item['quantidade'],
+                                item['valor_venda'],
+                                item['valor_total'],
+                                data_venda,
+                                codigo_pedido_gerado,
+                                f_pag,
+                                v_rec
+                            ))
+    
+                        cursor.execute("INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, ?, ?, ?, ?)",
+                            (sessao_id, "VENDA", total_geral_carrinho, f"Venda PDV - Cliente: {cliente_pdv}", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+                        )
+                        conn.commit()
+    
+                        st.session_state.carrinho_pdv = []
+                        st.success(f"Venda realizada com sucesso! Troco: R$ {max(0.0, troco):.2f}")
+                        st.rerun()
+                    else:
+                        st.error("Verifique se o caixa está aberto e se há itens no carrinho.")
+
         elif menu_admin == "🔓 Abertura e Fechamento de Caixa":
             st.title("🔓 Abertura e Fechamento de Caixa")
             df_caixa_atual = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
 
-if st.button("➕ Incluir Produto no Carrinho", type="primary"):
-    st.session_state.carrinho_pdv.append({
-        "produto": prod_item,
-        "fornecedor": forn_item,
-        "grupo": grupo_item,
-        "quantidade": qtd_item,
-        "valor_venda": v_unit_item,
-        "valor_total": valor_total_item
-    })
-    st.success(f"Item '{prod_item}' adicionado ao carrinho!")
-    st.rerun()
-
-with col_pdv_dir:
-st.markdown("#### 🛒 Itens Atuais no Carrinho")
-if len(st.session_state.carrinho_pdv) > 0:
-    df_carrinho = pd.DataFrame(st.session_state.carrinho_pdv)
-    st.dataframe(df_carrinho, use_container_width=True, hide_index=True)
-    total_geral_carrinho = df_carrinho['valor_total'].sum()
-else:
-    st.info("O carrinho está vazio.")
-    total_geral_carrinho = 0.0
-
-if st.button("🗑️ Limpar Carrinho"):
-    st.session_state.carrinho_pdv = []
-    st.rerun()
-
-st.markdown("---")
-st.markdown("#### 💳 Forma de Pagamento e Finalização")
-
-f_pag = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito", "Cartão de Débito", "Fiado / Prazo"], key="pdv_forma_pagto")
-v_rec = st.number_input("Valor Recebido (R$)", min_value=0.0, step=1.0, value=float(total_geral_carrinho), key="pdv_val_rec")
-troco = v_rec - total_geral_carrinho if v_rec > total_geral_carrinho else 0.0
-
-col_t1, col_t2 = st.columns(2)
-with col_t1:
-    st.metric("Valor Total da Venda", f"R$ {total_geral_carrinho:.2f}")
-with col_t2:
-    st.metric("Troco", f"R$ {troco:.2f}")
-
-if st.button("Finalizar Venda no PDV", type="primary"):
-    if len(st.session_state.carrinho_pdv) > 0:
-        cursor = conn.cursor()
-        data_venda = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        
-        try:
-            cursor.execute("ALTER TABLE vendas ADD COLUMN status TEXT")
-            conn.commit()
-        except:
-            pass
-
-        f_pgto = locals().get('forma_pagamento', locals().get('forma_pgto', 'Dinheiro'))
-        v_rec = locals().get('valor_recebido', locals().get('valor_rec', 0.0))
-        v_troco = locals().get('troco', 0.0)
-        v_restante = locals().get('restante', 0.0)
-        cli_pdv = locals().get('cliente_pdv', locals().get('cliente', 'CLIENTE'))
-
-        for item in st.session_state.carrinho_pdv:
-            preco_item = item.get('preco_venda', item.get('preco', item.get('valor_venda', 0.0)))
-            total_item = item.get('valor_total', item.get('quantidade', 1) * preco_item)
-            
-            cursor.execute("""
-                INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, troco, restante, data, tipo, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'VENDA', 'Concluído')
-            """, (
-                cli_pdv,
-                item.get('produto', ''),
-                item.get('fornecedor', ''),
-                item.get('grupo', ''),
-                item.get('quantidade', 1.0),
-                preco_item,
-                total_item,
-                f_pgto,
-                v_rec,
-                v_troco,
-                v_restante,
-                data_venda
-            ))
-        
-        conn.commit()
-        st.session_state.carrinho_pdv = []
-        st.success("Venda realizada com sucesso!")
-        st.rerun()
-    else:
-        st.warning("O carrinho do PDV está vazio.")
-
-if df_caixa_atual.empty:
-    st.info("O caixa encontra-se **FECHADO**. Insira o valor inicial para abri-lo.")
-    with st.form("form_abrir_caixa"):
-        saldo_inicial = st.number_input("Saldo Inicial em Dinheiro (Troco / Fundo de Caixa)", min_value=0.0, step=10.0)
-        if st.form_submit_button("Abrir Caixa"):
-            cursor = conn.cursor()
-            data_agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            cursor.execute("INSERT INTO caixa_sessoes (data_abertura, saldo_inicial, status) VALUES (?, ?, ?)",
-                           (data_agora, saldo_inicial, "ABERTO"))
-            conn.commit()
-            st.success("Caixa aberto com sucesso!")
-            st.rerun()
-else:
-    sessao_id = int(df_caixa_atual.iloc[0]['id'])
-    data_abertura = df_caixa_atual.iloc[0]['data_abertura']
-    saldo_inicial = float(df_caixa_atual.iloc[0]['saldo_inicial'])
-    
-    st.success(f"🟢 **Caixa ABERTO** desde: {data_abertura} | Saldo Inicial: R$ {saldo_inicial:,.2f}")
-    df_movs = carregar_dados(f"SELECT * FROM caixa_movimentacoes WHERE sessao_id = {sessao_id}")
-    total_movimentado = df_movs['valor'].sum() if not df_movs.empty else 0.0
-    
-    st.metric("Total Movimentado neste Caixa", f"R$ {total_movimentado:,.2f}")
-    if not df_movs.empty:
-        st.dataframe(df_movs, use_container_width=True)
-    
-    st.markdown("---")
-    with st.form("form_fechar_caixa"):
-        saldo_final_informado = st.number_input("Conferência de Saldo Final (Dinheiro em Caixa)", min_value=0.0, step=10.0, value=saldo_inicial + total_movimentado)
-        if st.form_submit_button("🔒 Fechar Caixa"):
-            cursor = conn.cursor()
-            data_fechamento = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            cursor.execute("UPDATE caixa_sessoes SET data_fechamento = ?, saldo_final = ?, status = ? WHERE id = ?",
-                           (data_fechamento, saldo_final_informado, "FECHADO", sessao_id))
-            conn.commit()
-            st.success("Caixa fechado com sucesso!")
-            st.rerun()
+            if df_caixa_atual.empty:
+                st.info("O caixa encontra-se **FECHADO**. Insira o valor inicial para abri-lo.")
+                with st.form("form_abrir_caixa"):
+                    saldo_inicial = st.number_input("Saldo Inicial em Dinheiro (Troco / Fundo de Caixa)", min_value=0.0, step=10.0)
+                    if st.form_submit_button("Abrir Caixa"):
+                        cursor = conn.cursor()
+                        data_agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        cursor.execute("INSERT INTO caixa_sessoes (data_abertura, saldo_inicial, status) VALUES (?, ?, ?)",
+                                       (data_agora, saldo_inicial, "ABERTO"))
+                        conn.commit()
+                        st.success("Caixa aberto com sucesso!")
+                        st.rerun()
+            else:
+                sessao_id = int(df_caixa_atual.iloc[0]['id'])
+                data_abertura = df_caixa_atual.iloc[0]['data_abertura']
+                saldo_inicial = float(df_caixa_atual.iloc[0]['saldo_inicial'])
+                
+                st.success(f"🟢 **Caixa ABERTO** desde: {data_abertura} | Saldo Inicial: R$ {saldo_inicial:,.2f}")
+                df_movs = carregar_dados(f"SELECT * FROM caixa_movimentacoes WHERE sessao_id = {sessao_id}")
+                total_movimentado = df_movs['valor'].sum() if not df_movs.empty else 0.0
+                
+                st.metric("Total Movimentado neste Caixa", f"R$ {total_movimentado:,.2f}")
+                if not df_movs.empty:
+                    st.dataframe(df_movs, use_container_width=True)
+                
+                st.markdown("---")
+                with st.form("form_fechar_caixa"):
+                    saldo_final_informado = st.number_input("Conferência de Saldo Final (Dinheiro em Caixa)", min_value=0.0, step=10.0, value=saldo_inicial + total_movimentado)
+                    if st.form_submit_button("🔒 Fechar Caixa"):
+                        cursor = conn.cursor()
+                        data_fechamento = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        cursor.execute("UPDATE caixa_sessoes SET data_fechamento = ?, saldo_final = ?, status = ? WHERE id = ?",
+                                       (data_fechamento, saldo_final_informado, "FECHADO", sessao_id))
+                        conn.commit()
+                        st.success("Caixa fechado com sucesso!")
+                        st.rerun()
 
         elif menu_admin == "📊 Fechamento & Financeiro":
             st.title("📊 Painel Financeiro & Fechamento por Data")
@@ -1144,97 +1133,15 @@ else:
 
                 st.divider()
                 st.subheader("🛒 Itens já lançados neste Pedido (Hoje)")
-                tipo_banco_atual = 'ORÇAMENTO' if 'is_modo_pedido' in locals() and is_modo_pedido else 'VENDA'
-    
-                # Bloco único para salvar o pedido/orçamento e listar os itens
-                if st.button("Salvar PEDIDO", type="primary", key="btn_salvar_pedido_unico_correto"):
-                    try:
-                        import sqlite3
-                        con_ins = sqlite3.connect("vendas.db")
-                        cur_ins = con_ins.cursor()
-                        
-                        cur_ins.execute("""
-                            CREATE TABLE IF NOT EXISTS vendas (
-                                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                cliente TEXT,
-                                produto TEXT,
-                                quantidade REAL,
-                                valor_venda REAL,
-                                valor_total REAL,
-                                tipo TEXT,
-                                status TEXT
-                            )
-                        """)
-                        
-                        # Pega dinamicamente os valores das variáveis da tela
-                        c_cliente = cliente_ped if 'cliente_ped' in locals() else ("Carlos Alberto" if 'Carlos Alberto' in locals() else "Geral")
-                        c_produto = produto if 'produto' in locals() else (produto_selecionado if 'produto_selecionado' in locals() else (prod_item if 'prod_item' in locals() else "Item"))
-                        c_qtd = float(quantidade) if 'quantidade' in locals() else (float(qtd_ped) if 'qtd_ped' in locals() else 1.0)
-                        c_preco = float(preco_unitario) if 'preco_unitario' in locals() else (float(v_venda_ped) if 'v_venda_ped' in locals() else 0.0)
-                        c_total = c_qtd * c_preco
-                        c_tipo = 'ORÇAMENTO' if 'is_modo_pedido' in locals() and is_modo_pedido else 'VENDA'
-                        
-                        cur_ins.execute("""
-                            INSERT INTO vendas (cliente, produto, quantidade, valor_venda, valor_total, tipo)
-                            VALUES (?, ?, ?, ?, ?, ?)
-                        """, (str(c_cliente), str(c_produto), c_qtd, c_preco, c_total, c_tipo))
-                        
-                        con_ins.commit()
-                        con_ins.close()
-                        
-                        st.success("Item salvo com sucesso!")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Erro ao salvar no banco: {e}")
-            
-                st.divider()
-                st.subheader("🛒 Itens já lançados neste Pedido (Hoje)")
-                
-                import sqlite3
-                try:
-                    conn_direto = sqlite3.connect("vendas.db")
-                    df_parcial = pd.read_sql("SELECT id, cliente, produto, quantidade, valor_venda as valor_compra, valor_total, tipo, status FROM vendas ORDER BY id DESC LIMIT 20", conn_direto)
-                    conn_direto.close()
-                except Exception as e:
-                    df_parcial = pd.DataFrame()
-            
+                tipo_banco_atual = 'ORÇAMENTO' if is_modo_pedido else 'VENDA'
+                df_parcial = carregar_dados(f"SELECT id, produto, quantidade, valor_venda as valor_compra, valor_total FROM vendas WHERE TRIM(cliente) = TRIM('{cliente_ped}') AND tipo = '{tipo_banco_atual}' AND substr(data, 1, 10) = date('now')")
+
                 if not df_parcial.empty:
                     st.dataframe(df_parcial, use_container_width=True, hide_index=True)
                     total_parcial = df_parcial['valor_total'].sum()
-                    st.markdown(f"### **Valor Total Acumulado: R$ {total_parcial:.2f}**")
-            
-                    col_fin, col_del = st.columns([2, 1])
-                    
-                    with col_fin:
-                        if st.button("Finalizar Pedido / Venda", type="primary", key="btn_finalizar_pedido_unico"):
-                            try:
-                                con_local = sqlite3.connect("vendas.db")
-                                cur = con_local.cursor()
-                                for id_item in df_parcial['id'].tolist():
-                                    cur.execute("UPDATE vendas SET status = 'Concluído' WHERE id = ?", (int(id_item),))
-                                con_local.commit()
-                                con_local.close()
-                                st.success("Pedido finalizado com sucesso!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro ao finalizar: {e}")
-            
-                    with col_del:
-                        ids_disponiveis = df_parcial['id'].tolist()
-                        id_para_excluir = st.selectbox("ID para excluir", options=ids_disponiveis, key="select_excluir_item_unico")
-                        if st.button("Excluir Item Selecionado", key="btn_excluir_item_unico"):
-                            try:
-                                con_local = sqlite3.connect("vendas.db")
-                                cur = con_local.cursor()
-                                cur.execute("DELETE FROM vendas WHERE id = ?", (int(id_para_excluir),))
-                                con_local.commit()
-                                con_local.close()
-                                st.success(f"Item ID {id_para_excluir} excluído com sucesso!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro ao excluir: {e}")
+                    st.markdown(f"### **Valor Total Acumulado: R$ {total_parcial:,.2f}**")
                 else:
-                    st.info("Nenhum registro encontrado na tabela 'vendas'. Faça um lançamento acima para testar.")
+                    st.info("Nenhum item lançado para este cliente hoje.")
 
             if aba_baixa is not None:
                 with aba_baixa:
