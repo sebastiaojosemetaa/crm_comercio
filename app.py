@@ -1153,10 +1153,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.markdown(f"### **Valor Total Acumulado: R$ {total_parcial:.2f}**")
             
                     with st.form(key="form_finalizar_pedido"):
-                        st.write(f"Cliente selecionado: **{cliente_ped}**")
+                        st.write(f"Cliente: **{cliente_ped}** | IDs na tabela: {df_parcial['id'].tolist()}")
                         submit_finalizar = st.form_submit_button("Finalizar Pedido / Venda", type="primary")
                         
                         if submit_finalizar:
+                            conn_exec = sqlite3.connect("vendas.db") # Ajuste caso o nome do seu banco seja diferente, ou mantenha conn
                             cursor = conn.cursor()
                             try:
                                 cursor.execute("ALTER TABLE vendas ADD COLUMN status TEXT")
@@ -1164,15 +1165,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             except:
                                 pass
                             
-                            # Pega todos os IDs listados na tabela parcial atual
-                            ids_para_atualizar = df_parcial['id'].tolist()
-                            
-                            # Atualiza diretamente pelo ID da linha
-                            for id_item in ids_para_atualizar:
+                            for id_item in df_parcial['id'].tolist():
                                 cursor.execute("UPDATE vendas SET status = 'Concluído' WHERE id = ?", (int(id_item),))
                             
                             conn.commit()
-                            st.success(f"Pedido finalizado com sucesso! {len(ids_para_atualizar)} item(ns) atualizado(s).")
+                            st.success("Itens finalizados com sucesso!")
                             st.rerun()
 
             if aba_baixa is not None:
