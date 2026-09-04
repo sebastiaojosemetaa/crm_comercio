@@ -899,22 +899,80 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         except:
                             pass
         
+                        # Protege as variáveis de pagamento caso tenham nomes diferentes
+                        f_pgto = locals().get('forma_pagamento', locals().get('forma_pgto', 'Dinheiro'))
+                        v_rec = locals().get('valor_recebido', locals().get('valor_rec', 0.0))
+                        v_troco = locals().get('troco', 0.0)
+                        v_restante = locals().get('restante', 0.0)
+                        cli_pdv = locals().get('cliente_pdv', locals().get('cliente', 'CLIENTE'))
+        
                         for item in st.session_state.carrinho_pdv:
+                            # Pega o preço dinamicamente dependendo da chave usada no dicionário do carrinho
+                            preco_item = item.get('preco_venda', item.get('preco', item.get('valor_venda', 0.0)))
+                            total_item = item.get('valor_total', item.get('quantidade', 1) * preco_item)
+                            
                             cursor.execute("""
                                 INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, troco, restante, data, tipo, status)
                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'VENDA', 'Concluído')
                             """, (
-                                cliente_pdv,
-                                item['produto'],
-                                item['fornecedor'],
-                                item['grupo'],
-                                item['quantidade'],
-                                item.get('preco_venda', item.get('preco', 0.0)),
-                                item['valor_total'],
-                                forma_pagamento,
-                                valor_recebido,
-                                troco,
-                                restante,
+                                cli_pdv,
+                                item.get('produto', ''),
+                                item.get('fornecedor', ''),
+                                item.get('grupo', ''),
+                                item.get('quantidade', 1.0),
+                                preco_item,
+                                total_item,
+                                f_pgto,
+                                v_rec,
+                                v_troco,
+                                v_restante,
+                                data_venda
+                            ))
+                        
+                        conn.commit()
+                        st.session_state.carrinho_pdv = []
+                        st.success("Venda realizada com sucesso!")
+                        st.rerun()
+                    else:
+                        st.warning("O carrinho do PDV está vazio.")if st.button("Finalizar Venda no PDV", type="primary"):
+                    if len(st.session_state.carrinho_pdv) > 0:
+                        cursor = conn.cursor()
+                        data_venda = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        
+                        # Garante que a coluna status existe na tabela vendas
+                        try:
+                            cursor.execute("ALTER TABLE vendas ADD COLUMN status TEXT")
+                            conn.commit()
+                        except:
+                            pass
+        
+                        # Protege as variáveis de pagamento caso tenham nomes diferentes
+                        f_pgto = locals().get('forma_pagamento', locals().get('forma_pgto', 'Dinheiro'))
+                        v_rec = locals().get('valor_recebido', locals().get('valor_rec', 0.0))
+                        v_troco = locals().get('troco', 0.0)
+                        v_restante = locals().get('restante', 0.0)
+                        cli_pdv = locals().get('cliente_pdv', locals().get('cliente', 'CLIENTE'))
+        
+                        for item in st.session_state.carrinho_pdv:
+                            # Pega o preço dinamicamente dependendo da chave usada no dicionário do carrinho
+                            preco_item = item.get('preco_venda', item.get('preco', item.get('valor_venda', 0.0)))
+                            total_item = item.get('valor_total', item.get('quantidade', 1) * preco_item)
+                            
+                            cursor.execute("""
+                                INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, troco, restante, data, tipo, status)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'VENDA', 'Concluído')
+                            """, (
+                                cli_pdv,
+                                item.get('produto', ''),
+                                item.get('fornecedor', ''),
+                                item.get('grupo', ''),
+                                item.get('quantidade', 1.0),
+                                preco_item,
+                                total_item,
+                                f_pgto,
+                                v_rec,
+                                v_troco,
+                                v_restante,
                                 data_venda
                             ))
                         
