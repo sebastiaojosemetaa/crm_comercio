@@ -1129,7 +1129,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 if not df_parcial.empty:
                     st.dataframe(df_parcial, use_container_width=True, hide_index=True)
                     total_parcial = df_parcial['valor_total'].sum()
-                    st.markdown(f"### **Valor Total Acumulado: R$ {total_parcial:,.2f}**")
+                    st.markdown(f"### **Valor Total Acumulado: R$ {total_parcial:.2f}**")
+        
+                    if st.button("Finalizar Pedido / Venda", type="primary"):
+                        st.success("Pedido finalizado com sucesso!")
+                        st.rerun()
+                        
                 else:
                     st.info("Nenhum item lançado para este cliente hoje.")
 
