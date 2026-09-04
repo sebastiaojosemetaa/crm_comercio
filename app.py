@@ -1146,53 +1146,47 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.subheader("🛒 Itens já lançados neste Pedido (Hoje)")
                 tipo_banco_atual = 'ORÇAMENTO' if 'is_modo_pedido' in locals() and is_modo_pedido else 'VENDA'
     
-                import sqlite3
-                try:
-                    conn_direto = sqlite3.connect("vendas.db")
-                    # Busca sem filtros restritos para garantir que exiba o que foi gravado
-                    df_parcial = pd.read_sql("SELECT id, cliente, produto, quantidade, valor_venda as valor_compra, valor_total, tipo, status FROM vendas ORDER BY id DESC LIMIT 20", conn_direto)
-                    conn_direto.close()
-                except Exception as e:
-                    df_parcial = pd.DataFrame()
+    if st.button("Salvar PEDIDO", type="primary"):
+        try:
+            import sqlite3
+            con_ins = sqlite3.connect("vendas.db")
+            cur_ins = con_ins.cursor()
             
-                if not df_parcial.empty:
-                    st.dataframe(df_parcial, use_container_width=True, hide_index=True)
-                    total_parcial = df_parcial['valor_total'].sum()
-                    st.markdown(f"### **Valor Total Acumulado: R$ {total_parcial:.2f}**")
+            # Garante que a tabela vendas existe com a estrutura completa
+            cur_ins.execute("""
+                CREATE TABLE IF NOT EXISTS vendas (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    cliente TEXT,
+                    produto TEXT,
+                    quantidade REAL,
+                    valor_venda REAL,
+                    valor_total REAL,
+                    tipo TEXT,
+                    status TEXT
+                )
+            """)
             
-                    col_fin, col_del = st.columns([2, 1])
-                    
-                    with col_fin:
-                        if st.button("Finalizar Pedido / Venda", type="primary"):
-                            try:
-                                con_local = sqlite3.connect("vendas.db")
-                                cur = con_local.cursor()
-                                cur.execute("ALTER TABLE vendas ADD COLUMN status TEXT")
-                                con_local.commit()
-                                
-                                for id_item in df_parcial['id'].tolist():
-                                    cur.execute("UPDATE vendas SET status = 'Concluído' WHERE id = ?", (int(id_item),))
-                                con_local.commit()
-                                con_local.close()
-                                st.success("Pedido finalizado com sucesso!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro ao finalizar: {e}")
+            # Captura os valores atuais dos campos do formulário
+            c_cliente = cliente_ped if 'cliente_ped' in locals() else "Geral"
+            c_produto = produto_selecionado if 'produto_selecionado' in locals() else (produto if 'produto' in locals() else "Item")
+            c_qtd = float(quantidade) if 'quantidade' in locals() else 1.0
+            c_preco = float(preco_unitario) if 'preco_unitario' in locals() else 0.0
+            c_total = c_qtd * c_preco
+            c_tipo = 'ORÇAMENTO' if 'is_modo_pedido' in locals() and is_modo_pedido else 'VENDA'
             
-                    with col_del:
-                        ids_disponiveis = df_parcial['id'].tolist()
-                        id_para_excluir = st.selectbox("ID para excluir", options=ids_disponiveis, key="select_excluir_item")
-                        if st.button("Excluir Item Selecionado"):
-                            try:
-                                con_local = sqlite3.connect("vendas.db")
-                                cur = con_local.cursor()
-                                cur.execute("DELETE FROM vendas WHERE id = ?", (int(id_para_excluir),))
-                                con_local.commit()
-                                con_local.close()
-                                st.success(f"Item ID {id_para_excluir} excluído com sucesso!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro ao excluir: {e}")
+            # Insere no banco SQLite
+            cur_ins.execute("""
+                INSERT INTO vendas (cliente, produto, quantidade, valor_venda, valor_total, tipo)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (c_cliente, c_produto, c_qtd, c_preco, c_total, c_tipo))
+            
+            con_ins.commit()
+            con_ins.close()
+            
+            st.success("Item salvo com sucesso!")
+            st.rerun()
+        except Exception as e:
+            st.error(f"Erro ao salvar no banco: {e}")
                 else:
                     st.info("Nenhum registro encontrado na tabela 'vendas'. Faça um lançamento acima para testar.")
 
