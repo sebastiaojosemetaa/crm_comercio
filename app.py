@@ -895,7 +895,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         data_venda = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
                         for item in st.session_state.carrinho_pdv:
-                            cursor.execute("""
+                        cursor.execute("""
                                 INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, status, data, codigo_pedido, tipo)
                                 VALUES (?, ?, ?, ?, ?, 'Concluído (Convertido)', ?, ?, 'VENDA')
                             """, (
