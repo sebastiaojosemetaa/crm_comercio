@@ -889,27 +889,33 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
     
                 if st.button("Finalizar Venda no PDV", type="primary"):
                     if not df_caixa_aberto.empty and len(st.session_state.carrinho_pdv) > 0:
-                        cursor = conn.cursor()
                         sessao_id = df_caixa_aberto.iloc[0]['id']
+                        codigo_pedido_gerado = f"PED-{datetime.now().strftime('%Y%m%d%H%M%S')}"
                         data_venda = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
+    
                         for item in st.session_state.carrinho_pdv:
                             cursor.execute("""
-                                INSERT INTO pedidos (cliente, produto, quantidade, valor_total, status, data)
-                                VALUES (?, ?, ?, ?, 'Concluído (Convertido)', ?)
+                                INSERT INTO pedidos (cliente, produto, fornecedor, grupo, quantidade, valor_unitario, valor_total, status, data, codigo_pedido, forma_pagamento, valor_recebido, tipo)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, 'Concluído (Convertido)', ?, ?, ?, ?, 'VENDA')
                             """, (
                                 cliente_pdv,
                                 item['produto'],
+                                item['fornecedor'],
+                                item['grupo'],
                                 item['quantidade'],
+                                item['valor_venda'],
                                 item['valor_total'],
-                                data_venda
+                                data_venda,
+                                codigo_pedido_gerado,
+                                f_pag,
+                                v_rec
                             ))
-
+    
                         cursor.execute("INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, ?, ?, ?, ?)",
                             (sessao_id, "VENDA", total_geral_carrinho, f"Venda PDV - Cliente: {cliente_pdv}", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
                         )
                         conn.commit()
-
+    
                         st.session_state.carrinho_pdv = []
                         st.success(f"Venda realizada com sucesso! Troco: R$ {max(0.0, troco):.2f}")
                         st.rerun()
@@ -959,7 +965,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
         elif menu_admin == "📊 Fechamento & Financeiro":
             st.title("📊 Painel Financeiro & Fechamento por Data")
-            
             col_d1, col_d2, col_d3 = st.columns(3)
             with col_d1:
                 data_inicio = st.date_input("Data Inicial", value=date(2025, 1, 1))
@@ -967,38 +972,43 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 data_fim = st.date_input("Data Final", value=date.today())
             with col_d3:
                 status_filtro = st.selectbox("Status dos Registros", ["Somente Vendas Concluídas", "Incluir Pedidos Pendentes", "Todos"])
-    
+                
             str_d1 = data_inicio.strftime("%Y-%m-%d")
             str_d2 = data_fim.strftime("%Y-%m-%d")
+            df_todas = carregar_dados("SELECT * FROM vendas")
             
-            # Puxa os dados utilizando a função padrão carregar_dados do seu projeto
-            query_fin = f"SELECT * FROM pedidos WHERE date(data) BETWEEN '{str_d1}' AND '{str_d2}'"
-            df_todas = carregar_dados(query_fin)
-    
             if not df_todas.empty:
-                df_todas['status_str'] = df_todas['status'].fillna('').astype(str).str.strip().str.upper() if 'status' in df_todas.columns else ''
+                df_todas['tipo_str'] = df_todas['tipo'].fillna('').astype(str).str.strip().str.upper() if 'tipo' in df_todas.columns else ''
+                df_todas['codigo_str'] = df_todas['codigo'].fillna('').astype(str).str.strip().str.upper() if 'codigo' in df_todas.columns else ''
+                is_venda = df_todas['tipo_str'].isin(['VENDA', 'VENDAS', 'VEN']) | df_todas['codigo_str'].isin(['VEN', 'VENDA'])
                 
                 if status_filtro == "Somente Vendas Concluídas":
-                    df_filtrado = df_todas[df_todas['status_str'].str.contains('CONCLUÍDO|PAGO|CONVERTIDO', na=False)]
+                    df_vendas = df_todas[is_venda]
                 elif status_filtro == "Incluir Pedidos Pendentes":
-                    df_filtrado = df_todas[df_todas['status_str'].str.contains('PENDENTE|FIADO|CREDIÁRIO', na=False)]
+                    df_vendas = df_todas[~is_venda]
                 else:
-                    df_filtrado = df_todas
-    
-                if not df_filtrado.empty:
+                    df_vendas = df_todas.copy()
+                    
+                if 'data' in df_vendas.columns:
+                    df_vendas['data_curta'] = df_vendas['data'].fillna('').astype(str).str.slice(0, 10)
+                    mask_data = (df_vendas['data_curta'] >= str_d1) & (df_vendas['data_curta'] <= str_d2)
+                    df_vendas = df_vendas[mask_data | (df_vendas['data_curta'] == '')]
+                    df_vendas = df_vendas.drop(columns=['data_curta', 'tipo_str', 'codigo_str'], errors='ignore')
+                
+                if not df_vendas.empty:
                     col1, col2, col3 = st.columns(3)
-                    faturamento = pd.to_numeric(df_filtrado['valor_total'], errors='coerce').sum() if 'valor_total' in df_filtrado.columns else 0.0
-                    valor_rec = pd.to_numeric(df_filtrado['valor_recebido'], errors='coerce').sum() if 'valor_recebido' in df_filtrado.columns else 0.0
-    
+                    faturamento = df_vendas['valor_total'].sum() if 'valor_total' in df_vendas.columns else 0.0
+                    valor_rec = pd.to_numeric(df_vendas['valor_recebido'], errors='coerce').sum() if 'valor_recebido' in df_vendas.columns else 0.0
+                    
                     col1.metric("Faturamento do Período", f"R$ {faturamento:,.2f}")
                     col2.metric("Total Recebido em Caixa", f"R$ {valor_rec:,.2f}")
                     col3.metric("Total Pendente / Fiado", f"R$ {faturamento - valor_rec:,.2f}")
                     st.markdown("---")
-                    st.dataframe(df_filtrado, use_container_width=True)
+                    st.dataframe(df_vendas, use_container_width=True)
                 else:
                     st.info("Nenhum registro encontrado para os filtros selecionados.")
             else:
-                st.info("Nenhum dado cadastrado no período.")
+                st.info("Nenhum dado cadastrado.")
 
         elif menu_admin in ["📋 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
             is_modo_pedido = (menu_admin == "📋 Pedidos / Orçamentos")
