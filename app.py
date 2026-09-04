@@ -802,8 +802,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
             cliente_pdv = st.selectbox("Selecione o Cliente do Atendimento", clientes_opt)
 
-                        # Criando as duas colunas principais do PDV
-                        col_pdv_esq, col_pdv_dir = st.columns([1.1, 1.9])
+            # Criando as duas colunas principais do PDV
+            col_pdv_esq, col_pdv_dir = st.columns([1.1, 1.9])
 
                         with col_pdv_esq:
                             st.markdown("#### ➕ Adicionar Item ao Carrinho")
@@ -907,7 +907,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                             item['valor_venda'],
                                             item['valor_total'],
                                             data_venda,
-                               5             codigo_pedido_gerado,
+                                            codigo_pedido_gerado,
                                             f_pag,
                                             v_rec
                                         ))
