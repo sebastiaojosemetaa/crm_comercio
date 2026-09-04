@@ -805,35 +805,35 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         # Criando as duas colunas principais do PDV
         col_pdv_esq, col_pdv_dir = st.columns([1.1, 1.9])
 
-    with col_pdv_esq:
-        st.markdown("#### ➕ Adicionar Item ao Carrinho")
-        prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto")
-        
-        preco_sugerido = 0.0
-        forn_sugerido = fornecedores_opt[0]
-        grupo_sugerido = grupos_opt[0]
-
-        if not df_p.empty:
-            df_p['nome_limpo'] = df_p[col_nome_p].astype(str).str.strip().str.upper()
-            target_nome = str(prod_item).strip().upper()
-            df_filtrado_p = df_p[df_p['nome_limpo'] == target_nome]
-
-            if not df_filtrado_p.empty:
-                row_p = df_filtrado_p.iloc[0]
-                for col_v in ['valor_venda', 'preco_venda', 'venda']:
-                    if col_v in df_p.columns:
-                        try:
-                            val_aux = float(row_p[col_v])
-                            if val_aux > 0:
-                                preco_sugerido = val_aux
-                                break
-                        except:
-                            pass
-
-                if 'fornecedor' in df_p.columns and pd.notna(row_p['fornecedor']):
-                    forn_sugerido = str(row_p['fornecedor'])
-                if 'grupo' in df_p.columns and pd.notna(row_p['grupo']):
-                    grupo_sugerido = str(row_p['grupo'])
+        with col_pdv_esq:
+            st.markdown("#### ➕ Adicionar Item ao Carrinho")
+            prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto")
+            
+            preco_sugerido = 0.0
+            forn_sugerido = fornecedores_opt[0]
+            grupo_sugerido = grupos_opt[0]
+    
+            if not df_p.empty:
+                df_p['nome_limpo'] = df_p[col_nome_p].astype(str).str.strip().str.upper()
+                target_nome = str(prod_item).strip().upper()
+                df_filtrado_p = df_p[df_p['nome_limpo'] == target_nome]
+    
+                if not df_filtrado_p.empty:
+                    row_p = df_filtrado_p.iloc[0]
+                    for col_v in ['valor_venda', 'preco_venda', 'venda']:
+                        if col_v in df_p.columns:
+                            try:
+                                val_aux = float(row_p[col_v])
+                                if val_aux > 0:
+                                    preco_sugerido = val_aux
+                                    break
+                            except:
+                                pass
+    
+                    if 'fornecedor' in df_p.columns and pd.notna(row_p['fornecedor']):
+                        forn_sugerido = str(row_p['fornecedor'])
+                    if 'grupo' in df_p.columns and pd.notna(row_p['grupo']):
+                        grupo_sugerido = str(row_p['grupo'])
 
         col_s1, col_s2 = st.columns(2)
         with col_s1:
