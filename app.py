@@ -1132,16 +1132,20 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.markdown(f"### **Valor Total Acumulado: R$ {total_parcial:.2f}**")
         
                     if st.button("Finalizar Pedido / Venda", type="primary"):
-                        cursor = conn.cursor()
-                        # Atualiza o status dos registros na tabela vendas para Concluído
-                        cursor.execute("""
-                            UPDATE vendas 
-                            SET status = 'Concluído' 
-                            WHERE TRIM(cliente) = TRIM(?) AND (status = 'Pendente' OR status IS NULL OR status = '')
-                        """, (cliente_sel,))
-                        conn.commit()
-                        st.success("Venda finalizada com sucesso!")
-                        st.rerun()
+                        if not df_parcial.empty and 'id' in df_parcial.columns:
+                            cursor = conn.cursor()
+                            ids_itens = df_parcial['id'].tolist()
+                            placeholders = ','.join(['?'] * len(ids_itens))
+                            
+                            cursor.execute(f"""
+                                UPDATE vendas 
+                                SET status = 'Concluído' 
+                                WHERE id IN ({placeholders})
+                            """, ids_itens)
+                            conn.commit()
+                            
+                            st.success("Pedido finalizado com sucesso!")
+                            st.rerun()
                         
                 else:
                     st.info("Nenhum item lançado para este cliente hoje.")
