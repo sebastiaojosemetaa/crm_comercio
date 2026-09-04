@@ -889,33 +889,27 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
     
                 if st.button("Finalizar Venda no PDV", type="primary"):
                     if not df_caixa_aberto.empty and len(st.session_state.carrinho_pdv) > 0:
+                        cursor = conn.cursor()
                         sessao_id = df_caixa_aberto.iloc[0]['id']
-                        codigo_pedido_gerado = f"PED-{datetime.now().strftime('%Y%m%d%H%M%S')}"
                         data_venda = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    
+
                         for item in st.session_state.carrinho_pdv:
                             cursor.execute("""
-                                INSERT INTO pedidos (cliente, produto, fornecedor, grupo, quantidade, valor_unitario, valor_total, status, data, codigo_pedido, forma_pagamento, valor_recebido, tipo)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, 'Concluído (Convertido)', ?, ?, ?, ?, 'VENDA')
+                                INSERT INTO pedidos (cliente, produto, quantidade, valor_total, status, data)
+                                VALUES (?, ?, ?, ?, 'Concluído (Convertido)', ?)
                             """, (
                                 cliente_pdv,
                                 item['produto'],
-                                item['fornecedor'],
-                                item['grupo'],
                                 item['quantidade'],
-                                item['valor_venda'],
                                 item['valor_total'],
-                                data_venda,
-                                codigo_pedido_gerado,
-                                f_pag,
-                                v_rec
+                                data_venda
                             ))
-    
+
                         cursor.execute("INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, ?, ?, ?, ?)",
                             (sessao_id, "VENDA", total_geral_carrinho, f"Venda PDV - Cliente: {cliente_pdv}", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
                         )
                         conn.commit()
-    
+
                         st.session_state.carrinho_pdv = []
                         st.success(f"Venda realizada com sucesso! Troco: R$ {max(0.0, troco):.2f}")
                         st.rerun()
