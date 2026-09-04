@@ -891,21 +891,19 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     if not df_caixa_aberto.empty and len(st.session_state.carrinho_pdv) > 0:
                         cursor = conn.cursor()
                         sessao_id = df_caixa_aberto.iloc[0]['id']
-                        codigo_pedido_gerado = f"PED-{datetime.now().strftime('%Y%m%d%H%M%S')}"
                         data_venda = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
                         for item in st.session_state.carrinho_pdv:
-                        cursor.execute("""
-                                INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, status, data, codigo_pedido, tipo)
-                                VALUES (?, ?, ?, ?, ?, 'Concluído (Convertido)', ?, ?, 'VENDA')
+                            cursor.execute("""
+                                INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, status, data, tipo)
+                                VALUES (?, ?, ?, ?, ?, 'Concluído (Convertido)', ?, 'VENDA')
                             """, (
                                 cliente_pdv,
                                 item['produto'],
                                 item['quantidade'],
                                 item['valor_venda'],
                                 item['valor_total'],
-                                data_venda,
-                                codigo_pedido_gerado
+                                data_venda
                             ))
 
                         cursor.execute("INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, ?, ?, ?, ?)",
