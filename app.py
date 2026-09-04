@@ -1129,42 +1129,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 if not df_parcial.empty:
                     st.dataframe(df_parcial, use_container_width=True, hide_index=True)
                     total_parcial = df_parcial['valor_total'].sum()
-                    st.markdown(f"### **Valor Total Acumulado: R$ {total_parcial:.2f}**")
-        
-                    if st.button("Finalizar Pedido / Venda", type="primary"):
-                        if not df_parcial.empty:
-                            cursor = conn.cursor()
-                            
-                            # Garante que a coluna status existe
-                            for tabela in ['vendas', 'pedidos']:
-                                try:
-                                    cursor.execute(f"ALTER TABLE {tabela} ADD COLUMN status TEXT")
-                                    conn.commit()
-                                except:
-                                    pass
-                            
-                            # Pega o nome do cliente selecionado atualmente na tela
-                            # (ajuste 'cliente_pedido' para o nome exato da variável do cliente se necessário, 
-                            # ou pegamos direto da primeira linha do dataframe parcial se houver)
-                                cliente_atual = df_parcial['cliente'].iloc[0] if 'cliente' in df_parcial.columns else cliente_pedido
-                            
-                            # Atualiza na tabela vendas e pedidos para o cliente de hoje
-                            cursor.execute("""
-                                UPDATE vendas 
-                                SET status = 'Concluído' 
-                                WHERE TRIM(cliente) = TRIM(?) AND (status IS NULL OR status = '' OR status = 'Pendente')
-                            """, (cliente_atual,))
-                            
-                            cursor.execute("""
-                                UPDATE pedidos 
-                                SET status = 'Concluído' 
-                                WHERE TRIM(cliente) = TRIM(?) AND (status IS NULL OR status = '' OR status = 'Pendente')
-                            """, (cliente_atual,))
-                            
-                            conn.commit()
-                            st.success("Pedido finalizado e convertido com sucesso!")
-                            st.rerun()
-                        
+                    st.markdown(f"### **Valor Total Acumulado: R$ {total_parcial:,.2f}**")
                 else:
                     st.info("Nenhum item lançado para este cliente hoje.")
 
