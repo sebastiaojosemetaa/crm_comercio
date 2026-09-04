@@ -1133,14 +1133,14 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         
                     if st.button("Finalizar Pedido / Venda", type="primary"):
                         cursor = conn.cursor()
-                        # Atualiza o status dos itens pendentes deste cliente para Concluído/Convertido
+                        # Atualiza o status dos registros na tabela vendas para Concluído
                         cursor.execute("""
-                            UPDATE pedidos 
+                            UPDATE vendas 
                             SET status = 'Concluído' 
                             WHERE TRIM(cliente) = TRIM(?) AND (status = 'Pendente' OR status IS NULL OR status = '')
-                        """, (cliente_pedido,))
+                        """, (cliente_sel,))
                         conn.commit()
-                        st.success("Pedido finalizado e convertido com sucesso!")
+                        st.success("Venda finalizada com sucesso!")
                         st.rerun()
                         
                 else:
