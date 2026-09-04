@@ -884,8 +884,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 col_t1, col_t2 = st.columns(2)
                 with col_t1:
                     st.metric("Valor Total da Venda", f"R$ {total_geral_carrinho:.2f}")
-                with col_t2:
-                    st.metric("Troco", f"R$ {troco:.2f}")
+                    with col_t2:
+                        st.metric("Troco", f"R$ {troco:.2f}")
     
                 if st.button("Finalizar Venda no PDV", type="primary"):
                     if not df_caixa_aberto.empty and len(st.session_state.carrinho_pdv) > 0:
