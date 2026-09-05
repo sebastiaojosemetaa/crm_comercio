@@ -1089,30 +1089,23 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 con_local = sqlite3.connect("vendas.db")
                                 cur = con_local.cursor()
                                 
-                                # Busca o ID mais recente que ainda esteja como ORÇAMENTO ou pendente
+                                # Apenas atualiza o registro que está atualmente como ORÇAMENTO na sessão de hoje, sem inserir nada
                                 cur.execute("""
-                                    SELECT id FROM vendas 
-                                    WHERE status != 'Concluído (Convertido)' 
-                                    ORDER BY id DESC LIMIT 1
+                                    UPDATE vendas 
+                                    SET status = 'Concluído (Convertido)', tipo = 'VENDA' 
+                                    WHERE status != 'Concluído (Convertido)' OR status IS NULL
                                 """)
-                                pendente = cur.fetchone()
                                 
-                                if pendente:
-                                    id_item = pendente[0]
-                                    cur.execute("""
-                                        UPDATE vendas 
-                                        SET status = 'Concluído (Convertido)', tipo = 'VENDA' 
-                                        WHERE id = ?
-                                    """, (int(id_item),))
-                                    con_local.commit()
-                                    con_local.close()
-                                    
-                                    st.toast(f"Pedido #{id_item} finalizado com sucesso!", icon="✅")
+                                linhas_afetadas = cur.rowcount
+                                con_local.commit()
+                                con_local.close()
+                                
+                                if linhas_afetadas > 0:
+                                    st.toast(f"Pedido(s) finalizado(s) com sucesso!", icon="✅")
                                     st.balloons()
                                     st.rerun()
                                 else:
-                                    con_local.close()
-                                    st.warning("Não há nenhum pedido pendente (Orçamento) para finalizar na tabela atual.")
+                                    st.warning("Nenhum pedido pendente encontrado para converter.")
                                     
                             except Exception as e:
                                 st.error(f"Erro ao finalizar: {e}")
