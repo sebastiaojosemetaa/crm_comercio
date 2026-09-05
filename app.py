@@ -965,7 +965,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             with col_d2:
                 data_fim = st.date_input("Data Final", value=date.today())
             with col_d3:
-                status_filtro = st.selectbox("Status dos Registros", ["Somente Vendas Concluídas", "Somente Pedidos Pendentes", "Todos"])
+                status_filtro = st.selectbox("Status dos Registros", ["Somente Pedidos Concluídas", "Somente Pedidos Pendentes", "Todos"])
                 
             str_d1 = data_inicio.strftime("%Y-%m-%d")
             str_d2 = data_fim.strftime("%Y-%m-%d")
