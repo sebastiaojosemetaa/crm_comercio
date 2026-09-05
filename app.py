@@ -1097,7 +1097,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     id_item = ultimo[0]
                                     cur.execute("""
                                         UPDATE vendas 
-                                        SET status = 'Concluído (Convertido)', tipo = 'VENDA' 
+                                        SET status = 'ORÇAMENTO (Convertido)', tipo = 'VENDA' 
                                         WHERE id = ?
                                     """, (int(id_item),))
                                     con_local.commit()
