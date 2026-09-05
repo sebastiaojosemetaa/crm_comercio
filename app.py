@@ -1089,9 +1089,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 con_local = sqlite3.connect("vendas.db")
                                 cur = con_local.cursor()
                                 
-                                data_hoje = datetime.now().strftime("%Y-%m-%d")
-                                data_hora_completa = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                                
                                 ids_para_atualizar = edit_parcial['id'].tolist() if not edit_parcial.empty else []
                                 
                                 if not ids_para_atualizar:
@@ -1099,20 +1096,22 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 else:
                                     atualizados = 0
                                     for id_item in ids_para_atualizar:
+                                        # Tenta atualizar na tabela 'vendas' apenas as colunas garantidas
                                         cur.execute("""
                                             UPDATE vendas 
-                                            SET status = 'Concluído (Convertido)', tipo = 'VENDA', data = ?, data_str = ? 
+                                            SET status = 'Concluído (Convertido)', tipo = 'VENDA' 
                                             WHERE id = ?
-                                        """, (data_hora_completa, data_hoje, int(id_item)))
+                                        """, (int(id_item),))
                                         
                                         if cur.rowcount > 0:
                                             atualizados += 1
                                         else:
+                                            # Tenta na tabela 'pedidos' caso exista
                                             cur.execute("""
                                                 UPDATE pedidos 
-                                                SET status = 'Concluído (Convertido)', tipo = 'VENDA', data = ?, data_str = ? 
+                                                SET status = 'Concluído (Convertido)', tipo = 'VENDA' 
                                                 WHERE id = ?
-                                            """, (data_hora_completa, data_hoje, int(id_item)))
+                                            """, (int(id_item),))
                                             if cur.rowcount > 0:
                                                 atualizados += 1
                 
