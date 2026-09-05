@@ -1242,9 +1242,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     st.warning("Nenhum item marcado na tabela.")
                             except Exception as e:
                                 st.error(f"Erro ao excluir: {e}")
-                else:
-                    st.info("Nenhum registro encontrado na tabela 'vendas'. Faça um lançamento acima para testar.")
-
+                
             if aba_baixa is not None:
                 with aba_baixa:
                     st.subheader("💵 Baixa de Débitos & Lançamento de Haver")
