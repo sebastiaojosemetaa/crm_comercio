@@ -1090,38 +1090,54 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 cur = con_local.cursor()
                                 
                                 ids_para_atualizar = []
+                                
+                                # Tenta pegar da tabela edit_parcial se existir
                                 if 'edit_parcial' in locals() and not edit_parcial.empty:
                                     if 'id' in edit_parcial.columns:
                                         ids_para_atualizar = edit_parcial['id'].dropna().astype(int).tolist()
                                 
+                                # Se a lista veio vazia, busca automaticamente todos os IDs do dia atual que estão como ORÇAMENTO
                                 if not ids_para_atualizar:
-                                    ids_para_atualizar = [22] # ID capturado da tela atual
+                                    data_hoje = datetime.now().strftime("%Y-%m-%d")
+                                    cur.execute("SELECT id FROM vendas WHERE data_str = ? AND status != 'Concluído (Convertido)'", (data_hoje,))
+                                    resultados = cur.fetchall()
+                                    ids_para_atualizar = [row[0] for row in resultados]
+                                
+                                # Última segurança: se ainda estiver vazia, pega o último ID criado na tabela
+                                if not ids_para_atualizar:
+                                    cur.execute("SELECT id FROM vendas ORDER BY id DESC LIMIT 1")
+                                    ultimo = cur.fetchone()
+                                    if ultimo:
+                                        ids_para_atualizar = [ultimo[0]]
                 
-                                atualizados = 0
-                                for id_item in ids_para_atualizar:
-                                    cur.execute("""
-                                        UPDATE vendas 
-                                        SET status = 'Concluído (Convertido)', tipo = 'VENDA' 
-                                        WHERE id = ?
-                                    """, (int(id_item),))
-                                    
-                                    if cur.rowcount > 0:
-                                        atualizados += 1
-                                    else:
+                                if not ids_para_atualizar:
+                                    st.warning("Nenhum pedido pendente encontrado para finalizar.")
+                                else:
+                                    atualizados = 0
+                                    for id_item in ids_para_atualizar:
                                         cur.execute("""
-                                            UPDATE pedidos 
+                                            UPDATE vendas 
                                             SET status = 'Concluído (Convertido)', tipo = 'VENDA' 
                                             WHERE id = ?
                                         """, (int(id_item),))
+                                        
                                         if cur.rowcount > 0:
                                             atualizados += 1
+                                        else:
+                                            cur.execute("""
+                                                UPDATE pedidos 
+                                                SET status = 'Concluído (Convertido)', tipo = 'VENDA' 
+                                                WHERE id = ?
+                                            """, (int(id_item),))
+                                            if cur.rowcount > 0:
+                                                atualizados += 1
                 
-                                con_local.commit()
-                                con_local.close()
-                                
-                                st.success(f"Pedido finalizado com sucesso! ({atualizados} item(ns) atualizado(s))")
-                                st.balloons()
-                                st.rerun()
+                                    con_local.commit()
+                                    con_local.close()
+                                    
+                                    st.success(f"Pedido finalizado com sucesso! ({atualizados} item(ns) atualizado(s))")
+                                    st.balloons()
+                                    st.rerun()
                             except Exception as e:
                                 st.error(f"Erro ao finalizar: {e}")
             
