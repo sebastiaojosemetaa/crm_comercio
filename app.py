@@ -1085,6 +1085,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     
                     with col_fin:
                         # Se estiver dentro de um st.form, use st.form_submit_button:
+        # Se estiver dentro de um st.form, use st.form_submit_button:
         if st.form_submit_button("Finalizar Pedido / Venda", type="primary"):
             try:
                 con_local = sqlite3.connect("vendas.db")
