@@ -1086,9 +1086,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     with col_fin:
                         if st.button("Finalizar Pedido / Venda", type="primary", key="btn_finalizar_pedido_exclusivo"):
                             try:
-                                # Usa a conexão padrão do app ou a variável global conn
-                                global conn
-                                cursor = conn.cursor()
+                                con_local = sqlite3.connect("vendas.db")
+                                cur = con_local.cursor()
                                 
                                 data_hoje = datetime.now().strftime("%Y-%m-%d")
                                 data_hora_completa = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -1100,26 +1099,25 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 else:
                                     atualizados = 0
                                     for id_item in ids_para_atualizar:
-                                        # Tenta atualizar na tabela 'vendas'
-                                        cursor.execute("""
+                                        cur.execute("""
                                             UPDATE vendas 
                                             SET status = 'Concluído (Convertido)', tipo = 'VENDA', data = ?, data_str = ? 
                                             WHERE id = ?
                                         """, (data_hora_completa, data_hoje, int(id_item)))
                                         
-                                        if cursor.rowcount > 0:
+                                        if cur.rowcount > 0:
                                             atualizados += 1
                                         else:
-                                            # Se não achou na tabela 'vendas', tenta na tabela 'pedidos' caso seja o nome correto
-                                            cursor.execute("""
+                                            cur.execute("""
                                                 UPDATE pedidos 
                                                 SET status = 'Concluído (Convertido)', tipo = 'VENDA', data = ?, data_str = ? 
                                                 WHERE id = ?
                                             """, (data_hora_completa, data_hoje, int(id_item)))
-                                            if cursor.rowcount > 0:
+                                            if cur.rowcount > 0:
                                                 atualizados += 1
                 
-                                    conn.commit()
+                                    con_local.commit()
+                                    con_local.close()
                                     
                                     if atualizados > 0:
                                         st.success(f"Pedido finalizado com sucesso! ({atualizados} item(ns) atualizado(s))")
