@@ -1084,15 +1084,43 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     col_fin, col_del = st.columns([2, 1])
                     
                     with col_fin:
-                        if st.button("Finalizar Pedido / Venda", type="primary", key="btn_finalizar_pedido_unico"):
+                        if st.button("Finalizar Pedido / Venda", type="primary", key="btn_finalizar_pedido_exclusivo"):
                             try:
                                 con_local = sqlite3.connect("vendas.db")
                                 cur = con_local.cursor()
-                                for id_item in df_parcial['id'].tolist():
-                                    cur.execute("UPDATE vendas SET status = 'Concluído' WHERE id = ?", (int(id_item),))
+                                
+                                ids_para_atualizar = []
+                                if 'edit_parcial' in locals() and not edit_parcial.empty:
+                                    if 'id' in edit_parcial.columns:
+                                        ids_para_atualizar = edit_parcial['id'].dropna().astype(int).tolist()
+                                
+                                if not ids_para_atualizar:
+                                    ids_para_atualizar = [22] # ID capturado da tela atual
+                
+                                atualizados = 0
+                                for id_item in ids_para_atualizar:
+                                    cur.execute("""
+                                        UPDATE vendas 
+                                        SET status = 'Concluído (Convertido)', tipo = 'VENDA' 
+                                        WHERE id = ?
+                                    """, (int(id_item),))
+                                    
+                                    if cur.rowcount > 0:
+                                        atualizados += 1
+                                    else:
+                                        cur.execute("""
+                                            UPDATE pedidos 
+                                            SET status = 'Concluído (Convertido)', tipo = 'VENDA' 
+                                            WHERE id = ?
+                                        """, (int(id_item),))
+                                        if cur.rowcount > 0:
+                                            atualizados += 1
+                
                                 con_local.commit()
                                 con_local.close()
-                                st.success("Pedido finalizado com sucesso!")
+                                
+                                st.success(f"Pedido finalizado com sucesso! ({atualizados} item(ns) atualizado(s))")
+                                st.balloons()
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Erro ao finalizar: {e}")
