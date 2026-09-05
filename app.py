@@ -1003,7 +1003,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.info("Nenhum registro encontrado para os filtros selecionados.")
             else:
                 st.info("Nenhum dado cadastrado.")
-
+        #INICIO PEDIDOS/ORÇAMENTO#
         elif menu_admin in ["📋 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
             is_modo_pedido = (menu_admin == "📋 Pedidos / Orçamentos")
             st.title(f"🛒 {menu_admin}")
@@ -1089,7 +1089,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.session_state["ped_grupo_ind"] = grupo_sugerido_admin
 
                 # Formulário de Lançamento (Apenas UMA caixa de produto)
-                
+                produto = st.selectbox("Selecione o Produto", options=["ABACATE", "BANANA", "LARANJA", "MAÇÃ"], key="sel_prod_unico")
                 cliente = st.selectbox("Cliente", options=["Carlos Alberto", "João Silva", "Maria Santos"], key="sel_cli_unico")
                 fornecedor = st.selectbox("Fornecedor", options=["BAHIA", "OUTROS"], key="sel_forn_unico")
                 grupo = st.selectbox("Grupo", options=["FRUTAS", "VERDURAS"], key="sel_grp_unico")
