@@ -1023,7 +1023,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     col_nome_p = 'produto' if 'produto' in df_p_admin.columns else ('nome' if 'nome' in df_p_admin.columns else df_p_admin.columns[1])
                     produtos_base = df_p_admin[col_nome_p].dropna().astype(str).str.strip().unique().tolist()
                 else:
-                    
+                    produtos_base = ["AMEIXA IMPORTADA", "ABACATE"]
+                df_p_admin = pd.DataFrame()
 
                 produtos_opt = list(produtos_base) + ["➕ Cadastrar Novo Produto..."]
                 fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
