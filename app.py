@@ -1080,8 +1080,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
                     total_parcial = edit_parcial['valor_total'].sum() if 'valor_total' in edit_parcial.columns else 0.0
                     st.markdown(f"### **Valor Total Acumulado: R$ {total_parcial:.2f}**")
-            
-                    col_fin, col_del = st.columns([2, 1])
+                
+                    col_fin, col_del = st.columns(2)
                     
                     with col_fin:
                         if st.button("Finalizar Pedido / Venda", type="primary", key="btn_finalizar_pedido_exclusivo"):
@@ -1091,11 +1091,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 
                                 ids_a_finalizar = []
                                 if 'Excluir' in edit_parcial.columns:
-                                    # Pega os IDs das linhas onde o checkbox foi marcado
                                     ids_a_finalizar = edit_parcial[edit_parcial['Excluir'] == True]['id'].dropna().tolist()
                                 
                                 if ids_a_finalizar:
-                                    # Se o usuário marcou linhas específicas, finaliza apenas elas
                                     for item_id in ids_a_finalizar:
                                         cur.execute("""
                                             UPDATE vendas 
@@ -1104,17 +1102,16 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         """, (int(item_id),))
                                     msg = f"{len(ids_a_finalizar)} pedido(s) finalizado(s) com sucesso!"
                                 else:
-                                    # Se não marcou nenhuma, finaliza o último orçamento pendente da lista
                                     cur.execute("""
                                         UPDATE vendas 
                                         SET status = 'Concluído (Convertido)', tipo = 'VENDA' 
                                         WHERE id = (
                                             SELECT id FROM vendas 
-                                            WHERE status IS NULL OR status != 'Concluído (Convertido)' 
+                                            WHERE status IS NULL OR status NOT LIKE '%Concluído%' 
                                             ORDER BY id DESC LIMIT 1
                                         )
                                     """)
-                                    msg = "Último pedido pendente finalizado com sucesso!"
+                                    msg = "Pedido pendente finalizado com sucesso!"
                                 
                                 con_local.commit()
                                 con_local.close()
@@ -1124,6 +1121,27 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Erro ao finalizar: {e}")
+                    
+                    with col_del:
+                        if st.button("Excluir Selecionados", key="btn_excluir_parcial_sel"):
+                            try:
+                                ids_a_excluir = []
+                                if 'Excluir' in edit_parcial.columns:
+                                    ids_a_excluir = edit_parcial[edit_parcial['Excluir'] == True]['id'].dropna().tolist()
+                                
+                                if ids_a_excluir:
+                                    con_local = sqlite3.connect("vendas.db")
+                                    cur = con_local.cursor()
+                                    for item_id in ids_a_excluir:
+                                        cur.execute("DELETE FROM vendas WHERE id = ?", (int(item_id),))
+                                    con_local.commit()
+                                    con_local.close()
+                                    st.success(f"{len(ids_a_excluir)} item(ns) excluído(s) com sucesso!")
+                                    st.rerun()
+                                else:
+                                    st.warning("Nenhum item marcado na tabela.")
+                            except Exception as e:
+                                st.error(f"Erro ao excluir: {e}")
                 else:
                     st.info("Nenhum registro encontrado na tabela 'vendas'. Faça um lançamento acima para testar.")
 
