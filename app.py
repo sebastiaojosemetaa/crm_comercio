@@ -1089,32 +1089,25 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 con_local = sqlite3.connect("vendas.db")
                                 cur = con_local.cursor()
                                 
-                                # Pega o ID mais recente cadastrado na tabela de forma segura
+                                # Pega o ID mais recente cadastrado para garantir a conversão
                                 cur.execute("SELECT id FROM vendas ORDER BY id DESC LIMIT 1")
                                 ultimo = cur.fetchone()
                                 
-                                ids_para_atualizar = [ultimo[0]] if ultimo else []
-                
-                                if not ids_para_atualizar:
-                                    st.warning("Nenhum pedido encontrado para finalizar.")
-                                else:
-                                    atualizados = 0
-                                    for id_item in ids_para_atualizar:
-                                        cur.execute("""
-                                            UPDATE vendas 
-                                            SET status = 'Concluído (Convertido)', tipo = 'VENDA' 
-                                            WHERE id = ?
-                                        """, (int(id_item),))
-                                        
-                                        if cur.rowcount > 0:
-                                            atualizados += 1
-                
+                                if ultimo:
+                                    id_item = ultimo[0]
+                                    cur.execute("""
+                                        UPDATE vendas 
+                                        SET status = 'Concluído (Convertido)', tipo = 'VENDA' 
+                                        WHERE id = ?
+                                    """, (int(id_item),))
                                     con_local.commit()
-                                    con_local.close()
                                     
-                                    st.success(f"Pedido #{ids_para_atualizar[0]} finalizado com sucesso!")
-                                    st.balloons()
-                                    st.rerun()
+                                con_local.close()
+                                
+                                # Mensagem destacada para confirmar visualmente a conclusão
+                                st.toast(f"Pedido finalizado com sucesso!", icon="✅")
+                                st.balloons()
+                                st.rerun()
                             except Exception as e:
                                 st.error(f"Erro ao finalizar: {e}")
             
