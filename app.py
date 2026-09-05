@@ -1086,31 +1086,29 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     with col_fin:
                         if st.button("Finalizar Pedido / Venda", type="primary", key="btn_finalizar_pedido_unico"):
                             try:
-                                # Usando a conexão global 'conn' ou abrindo com tratamento seguro
-                                global conn
-                                cursor = conn.cursor()
+                                con_local = sqlite3.connect("vendas.db")
+                                cur = con_local.cursor()
                                 
                                 data_hoje = datetime.now().strftime("%Y-%m-%d")
                                 data_hora_completa = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                                 
                                 for id_item in edit_parcial['id'].tolist():
-                                    # Atualiza o status para 'Concluído (Convertido)', o tipo para 'VENDA' e atualiza a data para hoje
-                                    # Verificando as colunas comuns: status, tipo, data, data_str
                                     try:
-                                        cursor.execute("""
+                                        cur.execute("""
                                             UPDATE vendas 
                                             SET status = 'Concluído (Convertido)', tipo = 'VENDA', data = ?, data_str = ? 
                                             WHERE id = ?
                                         """, (data_hora_completa, data_hoje, int(id_item)))
                                     except Exception:
-                                        # Fallback caso alguma coluna de data não exista na tabela específica
-                                        cursor.execute("""
+                                        cur.execute("""
                                             UPDATE vendas 
                                             SET status = 'Concluído (Convertido)', tipo = 'VENDA' 
                                             WHERE id = ?
                                         """, (int(id_item),))
                                         
-                                conn.commit()
+                                con_local.commit()
+                                con_local.close()
+                                
                                 st.success("Pedido finalizado com sucesso! Agora ele aparecerá nos Pedidos do Dia.")
                                 st.balloons()
                                 st.rerun()
