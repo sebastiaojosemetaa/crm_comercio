@@ -411,7 +411,7 @@ st.sidebar.markdown("---")
 # AMBIENTE 1: PORTAL DO CLIENTE
 # ==========================================
 if perfil_selecionado == "👤 Portal do Cliente":
-    if not st.session_state.cliente_autenticado:
+    if not st.session_state.get("cliente_autenticado"):
         st.title("🔒 Portal do Cliente")
         st.info("Por favor, selecione seu nome no menu à esquerda e insira sua senha para acessar seus pedidos.")
         
@@ -445,7 +445,10 @@ if perfil_selecionado == "👤 Portal do Cliente":
                     valor_unitario REAL,
                     valor_total REAL,
                     fornecedor TEXT,
-                    grupo TEXT
+                    grupo TEXT,
+                    data TEXT,
+                    status TEXT,
+                    codigo_pedido TEXT
                 )
             """)
             conn.commit()
@@ -549,11 +552,13 @@ if perfil_selecionado == "👤 Portal do Cliente":
                                     "Pendente",
                                     codigo_pedido_gerado
                                 ))
+                            
                             conn.commit()
                             st.session_state.carrinho_cliente = []
                             st.success("Pedido finalizado e enviado com sucesso!")
                             st.rerun()
                         except Exception as ex:
+                            conn.rollback()
                             st.error(f"Erro ao finalizar pedido: {ex}")
             else:
                 st.info("Nenhum item adicionado ao pedido ainda.")
@@ -562,7 +567,6 @@ if perfil_selecionado == "👤 Portal do Cliente":
             st.subheader("Histórico e Gestão de Meus Pedidos")
             
             try:
-                # Seção de Pedidos do Dia (Editáveis)
                 query_dia = """
                     SELECT id, cliente, produto, quantidade, valor_unitario, valor_total, fornecedor, grupo, data, status 
                     FROM pedidos 
@@ -611,6 +615,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                                 st.success("Pedidos atualizados com sucesso!")
                                 st.rerun()
                             except Exception as ex:
+                                conn.rollback()
                                 st.error(f"Erro ao atualizar os pedidos: {ex}")
         
                     with col_btn2:
@@ -628,15 +633,15 @@ if perfil_selecionado == "👤 Portal do Cliente":
                                 else:
                                     st.info("Nenhum item foi marcado para exclusão.")
                             except Exception as ex:
+                                conn.rollback()
                                 st.error(f"Erro ao excluir os itens: {ex}")
 
-                    # Geração do PDF dos Pedidos do Dia (Com fuso horário ajustado para o Brasil)
                     try:
                         from reportlab.lib.pagesizes import letter
                         from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
                         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
                         from reportlab.lib import colors
-                        from datetime import datetime, timedelta
+                        from datetime import timedelta
                         import io
 
                         buffer = io.BytesIO()
@@ -644,7 +649,6 @@ if perfil_selecionado == "👤 Portal do Cliente":
                         elements = []
                         styles = getSampleStyleSheet()
 
-                        # Ajustando o horário para o Brasil (UTC-3)
                         fuso_brasil = timedelta(hours=3)
                         hora_local = datetime.now() - fuso_brasil
                         data_hora_str = hora_local.strftime('%Y-%m-%d %H:%M:%S')
@@ -662,17 +666,14 @@ if perfil_selecionado == "👤 Portal do Cliente":
                         estilo_total_label = ParagraphStyle('TotLabel', parent=styles['Normal'], fontSize=9, textColor=colors.white, alignment=0, fontName='Helvetica-Bold')
                         estilo_total_val = ParagraphStyle('TotVal', parent=styles['Normal'], fontSize=9, textColor=colors.white, alignment=2, fontName='Helvetica-Bold')
 
-                        # Cabeçalho
                         elements.append(Paragraph("REY DA CEBOLA", estilo_empresa))
                         elements.append(Paragraph("CNPJ: 194.174.39/000-42 INSC.EST.: 12.426725-4<br/>CONTATO: (99) 98814-9722 OU (99) 98414-3943", estilo_sub_empresa))
                         elements.append(Spacer(1, 4))
 
-                        # Título e Informações com o horário correto do Brasil
                         elements.append(Paragraph("Relatório de Pedidos / Orçamentos", estilo_titulo_rel))
                         elements.append(Paragraph(f"<b>Cliente:</b> {st.session_state.cliente_autenticado} | <b>Gerado em:</b> {data_hora_str}", estilo_info_cli))
                         elements.append(Spacer(1, 8))
 
-                        # Montagem da Tabela
                         data_tabela = [[
                             Paragraph("Produto", estilo_th),
                             Paragraph("Qtd Total", estilo_th),
@@ -710,7 +711,6 @@ if perfil_selecionado == "👤 Portal do Cliente":
                         ]))
                         
                         elements.append(t)
-
                         doc.build(elements)
                         pdf_bytes = buffer.getvalue()
 
