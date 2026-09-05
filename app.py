@@ -1086,38 +1086,47 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     with col_fin:
                         if st.button("Finalizar Pedido / Venda", type="primary", key="btn_finalizar_pedido_exclusivo"):
                             try:
-                                con_local = sqlite3.connect("vendas.db")
-                                cur = con_local.cursor()
+                                # Usa a conexão padrão do app ou a variável global conn
+                                global conn
+                                cursor = conn.cursor()
                                 
                                 data_hoje = datetime.now().strftime("%Y-%m-%d")
                                 data_hora_completa = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                                 
-                                # Pega todos os IDs presentes na tabela exibida na tela, garantindo que o ID 20 seja atualizado
                                 ids_para_atualizar = edit_parcial['id'].tolist() if not edit_parcial.empty else []
                                 
                                 if not ids_para_atualizar:
-                                    st.warning("Nenhum item encontrado para finalizar.")
+                                    st.warning("Nenhum item encontrado na tabela para finalizar.")
                                 else:
+                                    atualizados = 0
                                     for id_item in ids_para_atualizar:
-                                        try:
-                                            cur.execute("""
-                                                UPDATE vendas 
+                                        # Tenta atualizar na tabela 'vendas'
+                                        cursor.execute("""
+                                            UPDATE vendas 
+                                            SET status = 'Concluído (Convertido)', tipo = 'VENDA', data = ?, data_str = ? 
+                                            WHERE id = ?
+                                        """, (data_hora_completa, data_hoje, int(id_item)))
+                                        
+                                        if cursor.rowcount > 0:
+                                            atualizados += 1
+                                        else:
+                                            # Se não achou na tabela 'vendas', tenta na tabela 'pedidos' caso seja o nome correto
+                                            cursor.execute("""
+                                                UPDATE pedidos 
                                                 SET status = 'Concluído (Convertido)', tipo = 'VENDA', data = ?, data_str = ? 
                                                 WHERE id = ?
                                             """, (data_hora_completa, data_hoje, int(id_item)))
-                                        except Exception:
-                                            cur.execute("""
-                                                UPDATE vendas 
-                                                SET status = 'Concluído (Convertido)', tipo = 'VENDA' 
-                                                WHERE id = ?
-                                            """, (int(id_item),))
-                                            
-                                    con_local.commit()
-                                    con_local.close()
+                                            if cursor.rowcount > 0:
+                                                atualizados += 1
+                
+                                    conn.commit()
                                     
-                                    st.success("Pedido finalizado com sucesso!")
-                                    st.balloons()
-                                    st.rerun()
+                                    if atualizados > 0:
+                                        st.success(f"Pedido finalizado com sucesso! ({atualizados} item(ns) atualizado(s))")
+                                        st.balloons()
+                                        st.rerun()
+                                    else:
+                                        st.error("O comando rodou, mas nenhum registro correspondente foi encontrado no banco de dados.")
                             except Exception as e:
                                 st.error(f"Erro ao finalizar: {e}")
             
