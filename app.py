@@ -1132,6 +1132,26 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 else:
                                     st.warning("Nenhum item marcado na tabela para exclusão.")
                             except Exception as e:
+                                st.error(f"Erro ao excluir: {e}")                
+                    with col_del:
+                        if st.button("Excluir Selecionados", key="btn_excluir_parcial_sel"):
+                            try:
+                                ids_a_excluir = []
+                                if 'Excluir' in edit_parcial.columns:
+                                    ids_a_excluir = edit_parcial[edit_parcial['Excluir'] == True]['id'].dropna().tolist()
+                                
+                                if ids_a_excluir:
+                                    con_local = sqlite3.connect("vendas.db")
+                                    cur = con_local.cursor()
+                                    for item_id in ids_a_excluir:
+                                        cur.execute("DELETE FROM vendas WHERE id = ?", (int(item_id),))
+                                    con_local.commit()
+                                    con_local.close()
+                                    st.success(f"{len(ids_a_excluir)} item(ns) excluído(s) com sucesso!")
+                                    st.rerun()
+                                else:
+                                    st.warning("Nenhum item marcado na tabela para exclusão.")
+                            except Exception as e:
                                 st.error(f"Erro ao excluir: {e}")
                 
                 if not ha_dados:
