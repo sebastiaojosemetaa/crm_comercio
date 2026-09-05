@@ -1088,16 +1088,15 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     if grupo_sugerido_admin in grupos_opt:
                         st.session_state["ped_grupo_ind"] = grupo_sugerido_admin
 
-                # Formulário de Lançamento (Apenas UMA caixa de produto)
-                produto = st.selectbox("Selecione o Produto", options=["ABACATE", "BANANA", "LARANJA", "MAÇÃ"], key="sel_prod_unico")
-                cliente = st.selectbox("Cliente", options=["Carlos Alberto", "João Silva", "Maria Santos"], key="sel_cli_unico")
-                fornecedor = st.selectbox("Fornecedor", options=["BAHIA", "OUTROS"], key="sel_forn_unico")
-                grupo = st.selectbox("Grupo", options=["FRUTAS", "VERDURAS"], key="sel_grp_unico")
+                # Bloco único e limpo do formulário de Pedidos / Orçamentos
+                produto = st.selectbox("Selecione o Produto", options=["ABACATE", "BANANA", "LARANJA", "MAÇÃ"], key="sel_prod_unico_correto")
+                cliente = st.selectbox("Cliente", options=["Carlos Alberto", "João Silva", "Maria Santos"], key="sel_cli_unico_correto")
+                fornecedor = st.selectbox("Fornecedor", options=["BAHIA", "OUTROS"], key="sel_forn_unico_correto")
+                grupo = st.selectbox("Grupo", options=["FRUTAS", "VERDURAS"], key="sel_grp_unico_correto")
                 
-                quantidade = st.number_input("Quantidade", min_value=0.01, value=1.0, step=1.0, key="num_qtd_unico")
-                preco_unitario = st.number_input("Preço de Custo Unitário (R$)", min_value=0.0, value=80.0, step=1.0, key="num_preco_unico")
+                quantidade = st.number_input("Quantidade", min_value=0.01, value=1.0, step=1.0, key="num_qtd_unico_correto")
+                preco_unitario = st.number_input("Preço de Custo Unitário (R$)", min_value=0.0, value=80.0, step=1.0, key="num_preco_unico_correto")
             
-                # Botão para Salvar
                 if st.button("Salvar PEDIDO", type="primary", key="btn_salvar_pedido_unico_definitivo"):
                     try:
                         import sqlite3
@@ -1132,6 +1131,54 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.rerun()
                     except Exception as e:
                         st.error(f"Erro ao salvar: {e}")
+            
+                st.divider()
+                st.subheader("🛒 Itens já lançados neste Pedido (Hoje)")
+                
+                import sqlite3
+                try:
+                    conn_direto = sqlite3.connect("vendas.db")
+                    df_parcial = pd.read_sql("SELECT id, cliente, produto, quantidade, valor_venda as valor_compra, valor_total, tipo, status FROM vendas WHERE status IS NULL OR status != 'Finalizado' ORDER BY id DESC LIMIT 20", conn_direto)
+                    conn_direto.close()
+                except Exception as e:
+                    df_parcial = pd.DataFrame()
+            
+                if not df_parcial.empty:
+                    st.dataframe(df_parcial, use_container_width=True, hide_index=True)
+                    total_parcial = df_parcial['valor_total'].sum()
+                    st.markdown(f"### **Valor Total Acumulado: R$ {total_parcial:.2f}**")
+            
+                    col_fin, col_del = st.columns([2, 1])
+                    
+                    with col_fin:
+                        if st.button("Finalizar Pedido / Venda", type="primary", key="btn_finalizar_pedido_unico"):
+                            try:
+                                con_local = sqlite3.connect("vendas.db")
+                                cur = con_local.cursor()
+                                for id_item in df_parcial['id'].tolist():
+                                    cur.execute("UPDATE vendas SET status = 'Finalizado', tipo = 'VENDA' WHERE id = ?", (int(id_item),))
+                                con_local.commit()
+                                con_local.close()
+                                st.success("Pedido finalizado com sucesso!")
+                                st.balloons()
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao finalizar: {e}")
+            
+                    with col_del:
+                        ids_disponiveis = df_parcial['id'].tolist()
+                        id_para_excluir = st.selectbox("ID para excluir", options=ids_disponiveis, key="select_excluir_item_unico")
+                        if st.button("Excluir Item Selecionado", key="btn_excluir_item_unico"):
+                            try:
+                                con_local = sqlite3.connect("vendas.db")
+                                cur = con_local.cursor()
+                                cur.execute("DELETE FROM vendas WHERE id = ?", (int(id_para_excluir),))
+                                con_local.commit()
+                                con_local.close()
+                                st.success(f"Item ID {id_para_excluir} excluído com sucesso!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao excluir: {e}")
                 else:
                     st.info("Nenhum registro encontrado na tabela 'vendas'. Faça um lançamento acima para testar.")
 
