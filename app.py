@@ -1092,26 +1092,32 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 data_hoje = datetime.now().strftime("%Y-%m-%d")
                                 data_hora_completa = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                                 
-                                for id_item in edit_parcial['id'].tolist():
-                                    try:
-                                        cur.execute("""
-                                            UPDATE vendas 
-                                            SET status = 'Concluído (Convertido)', tipo = 'VENDA', data = ?, data_str = ? 
-                                            WHERE id = ?
-                                        """, (data_hora_completa, data_hoje, int(id_item)))
-                                    except Exception:
-                                        cur.execute("""
-                                            UPDATE vendas 
-                                            SET status = 'Concluído (Convertido)', tipo = 'VENDA' 
-                                            WHERE id = ?
-                                        """, (int(id_item),))
-                                        
-                                con_local.commit()
-                                con_local.close()
+                                # Pega todos os IDs presentes na tabela exibida na tela, garantindo que o ID 20 seja atualizado
+                                ids_para_atualizar = edit_parcial['id'].tolist() if not edit_parcial.empty else []
                                 
-                                st.success("Pedido finalizado com sucesso! Agora ele aparecerá nos Pedidos do Dia.")
-                                st.balloons()
-                                st.rerun()
+                                if not ids_para_atualizar:
+                                    st.warning("Nenhum item encontrado para finalizar.")
+                                else:
+                                    for id_item in ids_para_atualizar:
+                                        try:
+                                            cur.execute("""
+                                                UPDATE vendas 
+                                                SET status = 'Concluído (Convertido)', tipo = 'VENDA', data = ?, data_str = ? 
+                                                WHERE id = ?
+                                            """, (data_hora_completa, data_hoje, int(id_item)))
+                                        except Exception:
+                                            cur.execute("""
+                                                UPDATE vendas 
+                                                SET status = 'Concluído (Convertido)', tipo = 'VENDA' 
+                                                WHERE id = ?
+                                            """, (int(id_item),))
+                                            
+                                    con_local.commit()
+                                    con_local.close()
+                                    
+                                    st.success("Pedido finalizado com sucesso!")
+                                    st.balloons()
+                                    st.rerun()
                             except Exception as e:
                                 st.error(f"Erro ao finalizar: {e}")
             
