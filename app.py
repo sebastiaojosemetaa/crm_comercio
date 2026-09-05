@@ -1049,7 +1049,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 import sqlite3
                 try:
                     conn_direto = sqlite3.connect("vendas.db")
-                    # Filtra para mostrar APENAS o que ainda não foi concluído/convertido
                     df_parcial = pd.read_sql("""
                         SELECT id, cliente, produto, quantidade, valor_venda as valor_compra, valor_total, tipo, status 
                         FROM vendas 
@@ -1094,14 +1093,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             try:
                                 con_local = sqlite3.connect("vendas.db")
                                 cur = con_local.cursor()
-                                
-                                # Converte todos os itens pendentes listados atualmente na tela para VENDA / Concluído
                                 cur.execute("""
                                     UPDATE vendas 
                                     SET status = 'Concluído (Convertido)', tipo = 'VENDA' 
                                     WHERE status IS NULL OR status NOT LIKE '%Concluído%'
                                 """)
-                                
                                 qtd_afetada = cur.rowcount
                                 con_local.commit()
                                 con_local.close()
@@ -1136,8 +1132,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             except Exception as e:
                                 st.error(f"Erro ao excluir: {e}")
                 else:
-                    st.info("Nenhum pedido pendente no momento. Faça um lançamento acima para iniciar um novo pedido.")
-                    
+                    st.info("Nenhum pedido pendente no momento. Faça um lançamento acima para iniciar um novo pedido.")                    
                     with col_del:
                         if st.button("Excluir Selecionados", key="btn_excluir_parcial_sel"):
                             try:
