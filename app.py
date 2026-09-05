@@ -1084,31 +1084,28 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     col_fin, col_del = st.columns([2, 1])
                     
                     with col_fin:
-                        if st.button("Finalizar Pedido / Venda", type="primary", key="btn_finalizar_pedido_exclusivo"):
-                            try:
-                                con_local = sqlite3.connect("vendas.db")
-                                cur = con_local.cursor()
-                                
-                                # Pega o ID mais recente cadastrado para garantir a conversão
-                                cur.execute("SELECT id FROM vendas ORDER BY id DESC LIMIT 1")
-                                ultimo = cur.fetchone()
-                                
-                                if ultimo:
-                                    id_item = ultimo[0]
-                                    cur.execute("""
-                                        UPDATE vendas 
-                                        WHERE id = ?
-                                    """, (int(id_item),))
-                                    con_local.commit()
-                                    
-                                con_local.close()
-                                
-                                # Mensagem destacada para confirmar visualmente a conclusão
-                                st.toast(f"Pedido finalizado com sucesso!", icon="✅")
-                                st.balloons()
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro ao finalizar: {e}")
+                        if st.button("💾 Finalizar e Enviar Pedido", type="primary", key="cli_finalizar_unique_v3"):
+                        try:
+                            cursor = conn.cursor()
+                            for item in st.session_state.carrinho_cliente:
+                                cursor.execute("""
+                                    INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, fornecedor, grupo)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                                """, (
+                                    st.session_state.cliente_autenticado,
+                                    item["produto"],
+                                    item["quantidade"],
+                                    item["preco_unitario"],
+                                    item["valor_total"],
+                                    item["fornecedor"],
+                                    item["grupo"]
+                                ))
+                            conn.commit()
+                            st.session_state.carrinho_cliente = []
+                            st.success("Pedido finalizado com sucesso! Veja na aba de histórico.")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro ao finalizar pedido: {e}")
             
                     with col_del:
                         if st.button("Excluir Selecionados", key="btn_excluir_parcial_sel"):
