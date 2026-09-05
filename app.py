@@ -1089,36 +1089,32 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 con_local = sqlite3.connect("vendas.db")
                                 cur = con_local.cursor()
                                 
-                                # Busca diretamente no banco o ID mais recente ou os IDs do dia de hoje
-                                data_hoje = datetime.now().strftime("%Y-%m-%d")
-                                cur.execute("SELECT id FROM vendas WHERE data_str = ? ORDER BY id DESC", (data_hoje,))
-                                resultados = cur.fetchall()
+                                # Pega o ID mais recente cadastrado na tabela de forma segura
+                                cur.execute("SELECT id FROM vendas ORDER BY id DESC LIMIT 1")
+                                ultimo = cur.fetchone()
                                 
-                                ids_para_atualizar = [row[0] for row in resultados]
-                                
-                                # Se não achar por data_str, pega o último ID criado na tabela em geral
+                                ids_para_atualizar = [ultimo[0]] if ultimo else []
+                
                                 if not ids_para_atualizar:
-                                    cur.execute("SELECT id FROM vendas ORDER BY id DESC LIMIT 1")
-                                    ultimo = cur.fetchone()
-                                    if ultimo:
-                                        ids_para_atualizar = [ultimo[0]]
+                                    st.warning("Nenhum pedido encontrado para finalizar.")
+                                else:
+                                    atualizados = 0
+                                    for id_item in ids_para_atualizar:
+                                        cur.execute("""
+                                            UPDATE vendas 
+                                            SET status = 'Concluído (Convertido)', tipo = 'VENDA' 
+                                            WHERE id = ?
+                                        """, (int(id_item),))
+                                        
+                                        if cur.rowcount > 0:
+                                            atualizados += 1
                 
-                                atualizados = 0
-                                for id_item in ids_para_atualizar:
-                                    cur.execute("""
-                                        UPDATE vendas 
-                                        SET status = 'Concluído (Convertido)', tipo = 'VENDA' 
-                                        WHERE id = ?
-                                    """, (int(id_item),))
-                                    if cur.rowcount > 0:
-                                        atualizados += 1
-                
-                                con_local.commit()
-                                con_local.close()
-                                
-                                st.success(f"Pedido finalizado com sucesso! ({atualizados} item(ns) convertido(s))")
-                                st.balloons()
-                                st.rerun()
+                                    con_local.commit()
+                                    con_local.close()
+                                    
+                                    st.success(f"Pedido #{ids_para_atualizar[0]} finalizado com sucesso!")
+                                    st.balloons()
+                                    st.rerun()
                             except Exception as e:
                                 st.error(f"Erro ao finalizar: {e}")
             
