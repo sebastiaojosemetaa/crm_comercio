@@ -957,52 +957,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.success("Caixa fechado com sucesso!")
                         st.rerun()
 
-        elif menu_admin == "📊 Fechamento & Financeiro":
-            st.title("📊 Painel Financeiro & Fechamento por Data")
-            col_d1, col_d2, col_d3 = st.columns(3)
-            with col_d1:
-                data_inicio = st.date_input("Data Inicial", value=date(2025, 1, 1))
-            with col_d2:
-                data_fim = st.date_input("Data Final", value=date.today())
-            with col_d3:
-                status_filtro = st.selectbox("Status dos Registros", ["Somente Vendas Concluídas", "Incluir Pedidos Pendentes", "Todos"])
-                
-            str_d1 = data_inicio.strftime("%Y-%m-%d")
-            str_d2 = data_fim.strftime("%Y-%m-%d")
-            df_todas = carregar_dados("SELECT * FROM vendas")
-            
-            if not df_todas.empty:
-                df_todas['tipo_str'] = df_todas['tipo'].fillna('').astype(str).str.strip().str.upper() if 'tipo' in df_todas.columns else ''
-                df_todas['codigo_str'] = df_todas['codigo'].fillna('').astype(str).str.strip().str.upper() if 'codigo' in df_todas.columns else ''
-                is_venda = df_todas['tipo_str'].isin(['VENDA', 'VENDAS', 'VEN']) | df_todas['codigo_str'].isin(['VEN', 'VENDA'])
-                
-                if status_filtro == "Somente Vendas Concluídas":
-                    df_vendas = df_todas[is_venda]
-                elif status_filtro == "Incluir Pedidos Pendentes":
-                    df_vendas = df_todas[~is_venda]
-                else:
-                    df_vendas = df_todas.copy()
-                    
-                if 'data' in df_vendas.columns:
-                    df_vendas['data_curta'] = df_vendas['data'].fillna('').astype(str).str.slice(0, 10)
-                    mask_data = (df_vendas['data_curta'] >= str_d1) & (df_vendas['data_curta'] <= str_d2)
-                    df_vendas = df_vendas[mask_data | (df_vendas['data_curta'] == '')]
-                    df_vendas = df_vendas.drop(columns=['data_curta', 'tipo_str', 'codigo_str'], errors='ignore')
-                
-                if not df_vendas.empty:
-                    col1, col2, col3 = st.columns(3)
-                    faturamento = df_vendas['valor_total'].sum() if 'valor_total' in df_vendas.columns else 0.0
-                    valor_rec = pd.to_numeric(df_vendas['valor_recebido'], errors='coerce').sum() if 'valor_recebido' in df_vendas.columns else 0.0
-                    
-                    col1.metric("Faturamento do Período", f"R$ {faturamento:,.2f}")
-                    col2.metric("Total Recebido em Caixa", f"R$ {valor_rec:,.2f}")
-                    col3.metric("Total Pendente / Fiado", f"R$ {faturamento - valor_rec:,.2f}")
-                    st.markdown("---")
-                    st.dataframe(df_vendas, use_container_width=True)
-                else:
-                    st.info("Nenhum registro encontrado para os filtros selecionados.")
-            else:
-                st.info("Nenhum dado cadastrado.")
         #INICIO PEDIDOS/ORÇAMENTO#
         elif menu_admin in ["📋 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
             is_modo_pedido = (menu_admin == "📋 Pedidos / Orçamentos")
@@ -1030,7 +984,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
                 grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
 
-                # Formulário único e limpo (sem duplicações)
                 produto = st.selectbox("Selecione o Produto", options=produtos_opt, key="sel_prod_unico_correto")
 
                 if produto == "➕ Cadastrar Novo Produto...":
@@ -1188,6 +1141,18 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             col_m2.metric("Total Já Pago", f"R$ {tot_recebido:,.2f}")
                             col_m3.metric("Saldo Devedor Restante", f"R$ {total_pendente:,.2f}", delta_color="inverse")
                             
+                            st.markdown("---")
+                            st.markdown(f"### 📋 Detalhamento das Vendas / Débitos de **{cliente_baixa}**")
+                            
+                            df_exibicao_cli = df_cli_vendas.copy()
+                            if 'valor_recebido' not in df_exibicao_cli.columns:
+                                df_exibicao_cli['valor_recebido'] = 0.0
+                            df_exibicao_cli['saldo_devedor'] = df_exibicao_cli['valor_total'] - pd.to_numeric(df_exibicao_cli['valor_recebido'], errors='coerce').fillna(0.0)
+                            
+                            cols_mostrar = [c for c in ['id', 'data', 'produto', 'quantidade', 'valor_total', 'valor_recebido', 'saldo_devedor', 'status'] if c in df_exibicao_cli.columns]
+                            st.dataframe(df_exibicao_cli[cols_mostrar], use_container_width=True)
+                            
+                            st.markdown("---")
                             valor_haver = st.number_input("Valor do Haver / Pagamento Recebido (R$)", min_value=0.0, step=1.0, value=0.0, key="val_haver_input")
                             forma_pgto_baixa = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito"], key="fp_haver_input")
                             
