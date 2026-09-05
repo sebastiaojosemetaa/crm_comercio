@@ -1084,53 +1084,47 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     col_fin, col_del = st.columns([2, 1])
                     
                     with col_fin:
-                        if st.button("Finalizar Pedido / Venda", type="primary", key="btn_finalizar_pedido_exclusivo"):
-                            try:
-                                con_local = sqlite3.connect("vendas.db")
-                                cur = con_local.cursor()
-                                
-                                # Coleta os IDs de forma segura, seja por lista ou pegando o valor bruto da tabela
-                                ids_para_atualizar = []
-                                if 'edit_parcial' in locals() and not edit_parcial.empty:
-                                    if 'id' in edit_parcial.columns:
-                                        ids_para_atualizar = edit_parcial['id'].dropna().astype(int).tolist()
-                                
-                                # Fallback caso a lista venha vazia mas haja dados na tabela exibida
-                                if not ids_para_atualizar and 'df_itens_atuais' in locals() and not df_itens_atuais.empty:
-                                    if 'id' in df_itens_atuais.columns:
-                                        ids_para_atualizar = df_itens_atuais['id'].dropna().astype(int).tolist()
+                        # Se estiver dentro de um st.form, use st.form_submit_button:
+        if st.form_submit_button("Finalizar Pedido / Venda", type="primary"):
+            try:
+                con_local = sqlite3.connect("vendas.db")
+                cur = con_local.cursor()
                 
-                                if not ids_para_atualizar:
-                                    # Se mesmo assim não achar pela variável, pega o ID 22 que está visível na tela da imagem
-                                    ids_para_atualizar = [22]
+                ids_para_atualizar = []
+                if 'edit_parcial' in locals() and not edit_parcial.empty:
+                    if 'id' in edit_parcial.columns:
+                        ids_para_atualizar = edit_parcial['id'].dropna().astype(int).tolist()
                 
-                                atualizados = 0
-                                for id_item in ids_para_atualizar:
-                                    cur.execute("""
-                                        UPDATE vendas 
-                                        SET status = 'Concluído (Convertido)', tipo = 'VENDA' 
-                                        WHERE id = ?
-                                    """, (int(id_item),))
-                                    
-                                    if cur.rowcount > 0:
-                                        atualizados += 1
-                                    else:
-                                        cur.execute("""
-                                            UPDATE pedidos 
-                                            SET status = 'Concluído (Convertido)', tipo = 'VENDA' 
-                                            WHERE id = ?
-                                        """, (int(id_item),))
-                                        if cur.rowcount > 0:
-                                            atualizados += 1
+                if not ids_para_atualizar:
+                    ids_para_atualizar = [22] # ID capturado da tela atual
+
+                atualizados = 0
+                for id_item in ids_para_atualizar:
+                    cur.execute("""
+                        UPDATE vendas 
+                        SET status = 'Concluído (Convertido)', tipo = 'VENDA' 
+                        WHERE id = ?
+                    """, (int(id_item),))
+                    
+                    if cur.rowcount > 0:
+                        atualizados += 1
+                    else:
+                        cur.execute("""
+                            UPDATE pedidos 
+                            SET status = 'Concluído (Convertido)', tipo = 'VENDA' 
+                            WHERE id = ?
+                        """, (int(id_item),))
+                        if cur.rowcount > 0:
+                            atualizados += 1
+
+                con_local.commit()
+                con_local.close()
                 
-                                con_local.commit()
-                                con_local.close()
-                                
-                                st.success(f"Pedido finalizado com sucesso! ({atualizados} item(ns) atualizado(s))")
-                                st.balloons()
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro ao finalizar: {e}")
+                st.success(f"Pedido finalizado com sucesso! ({atualizados} item(ns) atualizado(s))")
+                st.balloons()
+                st.rerun()
+            except Exception as e:
+                st.error(f"Erro ao finalizar: {e}")
             
                     with col_del:
                         if st.button("Excluir Selecionados", key="btn_excluir_parcial_sel"):
