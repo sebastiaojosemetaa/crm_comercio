@@ -1085,27 +1085,27 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     
                     with col_fin:
                         if st.button("💾 Finalizar e Enviar Pedido", type="primary", key="cli_finalizar_unique_v3"):
-                        try:
-                            cursor = conn.cursor()
-                            for item in st.session_state.carrinho_cliente:
-                                cursor.execute("""
-                                    INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, fornecedor, grupo)
-                                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                                """, (
-                                    st.session_state.cliente_autenticado,
-                                    item["produto"],
-                                    item["quantidade"],
-                                    item["preco_unitario"],
-                                    item["valor_total"],
-                                    item["fornecedor"],
-                                    item["grupo"]
-                                ))
-                            conn.commit()
-                            st.session_state.carrinho_cliente = []
-                            st.success("Pedido finalizado com sucesso! Veja na aba de histórico.")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Erro ao finalizar pedido: {e}")
+                            try:
+                                cursor = conn.cursor()
+                                for item in st.session_state.carrinho_cliente:
+                                    cursor.execute("""
+                                        INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, fornecedor, grupo)
+                                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                                    """, (
+                                        st.session_state.cliente_autenticado,
+                                        item["produto"],
+                                        item["quantidade"],
+                                        item["preco_unitario"],
+                                        item["valor_total"],
+                                        item["fornecedor"],
+                                        item["grupo"]
+                                    ))
+                                conn.commit()
+                                st.session_state.carrinho_cliente = []
+                                st.success("Pedido finalizado com sucesso! Veja na aba de histórico.")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao finalizar pedido: {e}")
             
                     with col_del:
                         if st.button("Excluir Selecionados", key="btn_excluir_parcial_sel"):
