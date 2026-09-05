@@ -1033,7 +1033,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 if "last_prod_admin" not in st.session_state:
                     st.session_state.last_prod_admin = None
 
-                
+                prod_item = st.selectbox("Selecione o Produto", produtos_opt, key="ped_select_produto")
 
                 if prod_item == "➕ Cadastrar Novo Produto...":
                     st.warning("⚠️ Preencha os dados abaixo para cadastrar o novo produto:")
