@@ -1049,7 +1049,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 import sqlite3
                 try:
                     conn_direto = sqlite3.connect("vendas.db")
-                    df_parcial = pd.read_sql("SELECT id, cliente, produto, quantidade, valor_venda as valor_compra, valor_total, tipo, status FROM vendas WHERE status IS NULL OR status != 'Finalizado' ORDER BY id DESC LIMIT 20", conn_direto)
+                    # Filtra para mostrar APENAS o que ainda não foi concluído/convertido
+                    df_parcial = pd.read_sql("""
+                        SELECT id, cliente, produto, quantidade, valor_venda as valor_compra, valor_total, tipo, status 
+                        FROM vendas 
+                        WHERE status IS NULL OR status NOT LIKE '%Concluído%' 
+                        ORDER BY id DESC LIMIT 20
+                    """, conn_direto)
                     conn_direto.close()
                 except Exception as e:
                     df_parcial = pd.DataFrame()
@@ -1080,7 +1086,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
                     total_parcial = edit_parcial['valor_total'].sum() if 'valor_total' in edit_parcial.columns else 0.0
                     st.markdown(f"### **Valor Total Acumulado: R$ {total_parcial:.2f}**")
-                
+            
                     col_fin, col_del = st.columns(2)
                     
                     with col_fin:
@@ -1089,38 +1095,48 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 con_local = sqlite3.connect("vendas.db")
                                 cur = con_local.cursor()
                                 
-                                ids_a_finalizar = []
-                                if 'Excluir' in edit_parcial.columns:
-                                    ids_a_finalizar = edit_parcial[edit_parcial['Excluir'] == True]['id'].dropna().tolist()
+                                # Converte todos os itens pendentes listados atualmente na tela para VENDA / Concluído
+                                cur.execute("""
+                                    UPDATE vendas 
+                                    SET status = 'Concluído (Convertido)', tipo = 'VENDA' 
+                                    WHERE status IS NULL OR status NOT LIKE '%Concluído%'
+                                """)
                                 
-                                if ids_a_finalizar:
-                                    for item_id in ids_a_finalizar:
-                                        cur.execute("""
-                                            UPDATE vendas 
-                                            SET status = 'Concluído (Convertido)', tipo = 'VENDA' 
-                                            WHERE id = ?
-                                        """, (int(item_id),))
-                                    msg = f"{len(ids_a_finalizar)} pedido(s) finalizado(s) com sucesso!"
-                                else:
-                                    cur.execute("""
-                                        UPDATE vendas 
-                                        SET status = 'Concluído (Convertido)', tipo = 'VENDA' 
-                                        WHERE id = (
-                                            SELECT id FROM vendas 
-                                            WHERE status IS NULL OR status NOT LIKE '%Concluído%' 
-                                            ORDER BY id DESC LIMIT 1
-                                        )
-                                    """)
-                                    msg = "Pedido pendente finalizado com sucesso!"
-                                
+                                qtd_afetada = cur.rowcount
                                 con_local.commit()
                                 con_local.close()
                                 
-                                st.toast(msg, icon="✅")
-                                st.balloons()
-                                st.rerun()
+                                if qtd_afetada > 0:
+                                    st.toast(f"Pedido finalizado com sucesso! ({qtd_afetada} item(ns))", icon="✅")
+                                    st.balloons()
+                                    st.rerun()
+                                else:
+                                    st.warning("Não há itens pendentes para finalizar.")
                             except Exception as e:
                                 st.error(f"Erro ao finalizar: {e}")
+                
+                    with col_del:
+                        if st.button("Excluir Selecionados", key="btn_excluir_parcial_sel"):
+                            try:
+                                ids_a_excluir = []
+                                if 'Excluir' in edit_parcial.columns:
+                                    ids_a_excluir = edit_parcial[edit_parcial['Excluir'] == True]['id'].dropna().tolist()
+                                
+                                if ids_a_excluir:
+                                    con_local = sqlite3.connect("vendas.db")
+                                    cur = con_local.cursor()
+                                    for item_id in ids_a_excluir:
+                                        cur.execute("DELETE FROM vendas WHERE id = ?", (int(item_id),))
+                                    con_local.commit()
+                                    con_local.close()
+                                    st.success(f"{len(ids_a_excluir)} item(ns) excluído(s) com sucesso!")
+                                    st.rerun()
+                                else:
+                                    st.warning("Nenhum item marcado na tabela para exclusão.")
+                            except Exception as e:
+                                st.error(f"Erro ao excluir: {e}")
+                else:
+                    st.info("Nenhum pedido pendente no momento. Faça um lançamento acima para iniciar um novo pedido.")
                     
                     with col_del:
                         if st.button("Excluir Selecionados", key="btn_excluir_parcial_sel"):
