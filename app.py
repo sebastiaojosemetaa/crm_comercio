@@ -1059,9 +1059,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 except Exception as e:
                     df_parcial = pd.DataFrame()
             
-                ha_dados = not df_parcial.empty
-                
-                if ha_dados:
+                if df_parcial.empty:
+                    st.info("Nenhum pedido pendente no momento. Faça um lançamento acima para iniciar um novo pedido.")
+                else:
                     df_parcial.dropna(axis=1, how='all', inplace=True)
                     if 'excluir' in df_parcial.columns:
                         df_parcial = df_parcial.rename(columns={'excluir': 'Excluir'})
