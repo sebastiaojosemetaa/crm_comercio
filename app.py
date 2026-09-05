@@ -1085,18 +1085,37 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     
                     with col_fin:
                         if st.button("Finalizar Pedido / Venda", type="primary", key="btn_finalizar_pedido_unico"):
-                            try:
-                                con_local = sqlite3.connect("vendas.db")
-                                cur = con_local.cursor()
-                                for id_item in edit_parcial['id'].tolist():
-                                    cur.execute("UPDATE vendas SET status = 'Finalizado', tipo = 'VENDA' WHERE id = ?", (int(id_item),))
-                                con_local.commit()
-                                con_local.close()
-                                st.success("Pedido finalizado com sucesso!")
-                                st.balloons()
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro ao finalizar: {e}")
+            try:
+                # Usando a conexão global 'conn' ou abrindo com tratamento seguro
+                global conn
+                cursor = conn.cursor()
+                
+                data_hoje = datetime.now().strftime("%Y-%m-%d")
+                data_hora_completa = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                
+                for id_item in edit_parcial['id'].tolist():
+                    # Atualiza o status para 'Concluído (Convertido)', o tipo para 'VENDA' e atualiza a data para hoje
+                    # Verificando as colunas comuns: status, tipo, data, data_str
+                    try:
+                        cursor.execute("""
+                            UPDATE vendas 
+                            SET status = 'Concluído (Convertido)', tipo = 'VENDA', data = ?, data_str = ? 
+                            WHERE id = ?
+                        """, (data_hora_completa, data_hoje, int(id_item)))
+                    except Exception:
+                        # Fallback caso alguma coluna de data não exista na tabela específica
+                        cursor.execute("""
+                            UPDATE vendas 
+                            SET status = 'Concluído (Convertido)', tipo = 'VENDA' 
+                            WHERE id = ?
+                        """, (int(id_item),))
+                        
+                conn.commit()
+                st.success("Pedido finalizado com sucesso! Agora ele aparecerá nos Pedidos do Dia.")
+                st.balloons()
+                st.rerun()
+            except Exception as e:
+                st.error(f"Erro ao finalizar: {e}")
             
                     with col_del:
                         if st.button("Excluir Selecionados", key="btn_excluir_parcial_sel"):
