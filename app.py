@@ -1091,27 +1091,26 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 
                                 ids_para_atualizar = []
                                 
-                                # Tenta pegar da tabela edit_parcial se existir
+                                # Pega os IDs diretamente da tabela visível na tela
                                 if 'edit_parcial' in locals() and not edit_parcial.empty:
                                     if 'id' in edit_parcial.columns:
                                         ids_para_atualizar = edit_parcial['id'].dropna().astype(int).tolist()
                                 
-                                # Se a lista veio vazia, busca automaticamente todos os IDs do dia atual que estão como ORÇAMENTO
+                                # Se não encontrar na variável, pega todos os IDs gerados hoje na tabela
                                 if not ids_para_atualizar:
                                     data_hoje = datetime.now().strftime("%Y-%m-%d")
-                                    cur.execute("SELECT id FROM vendas WHERE data_str = ? AND status != 'Concluído (Convertido)'", (data_hoje,))
+                                    cur.execute("SELECT id FROM vendas WHERE data_str = ?", (data_hoje,))
                                     resultados = cur.fetchall()
                                     ids_para_atualizar = [row[0] for row in resultados]
                                 
-                                # Última segurança: se ainda estiver vazia, pega o último ID criado na tabela
+                                # Se ainda estiver vazio, pega os últimos lançados
                                 if not ids_para_atualizar:
-                                    cur.execute("SELECT id FROM vendas ORDER BY id DESC LIMIT 1")
-                                    ultimo = cur.fetchone()
-                                    if ultimo:
-                                        ids_para_atualizar = [ultimo[0]]
+                                    cur.execute("SELECT id FROM vendas ORDER BY id DESC LIMIT 5")
+                                    resultados = cur.fetchall()
+                                    ids_para_atualizar = [row[0] for row in resultados]
                 
                                 if not ids_para_atualizar:
-                                    st.warning("Nenhum pedido pendente encontrado para finalizar.")
+                                    st.warning("Nenhum item encontrado no banco de dados para atualizar.")
                                 else:
                                     atualizados = 0
                                     for id_item in ids_para_atualizar:
@@ -1135,7 +1134,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     con_local.commit()
                                     con_local.close()
                                     
-                                    st.success(f"Pedido finalizado com sucesso! ({atualizados} item(ns) atualizado(s))")
+                                    st.success(f"Pedido processado com sucesso! ({atualizados} item(ns) atualizado(s))")
                                     st.balloons()
                                     st.rerun()
                             except Exception as e:
