@@ -1089,24 +1089,19 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 con_local = sqlite3.connect("vendas.db")
                                 cur = con_local.cursor()
                                 
-                                # Apenas atualiza o registro que está atualmente como ORÇAMENTO na sessão de hoje, sem inserir nada
+                                # Atualiza EXCLUSIVAMENTE o registro de maior ID (o último lançado)
                                 cur.execute("""
                                     UPDATE vendas 
                                     SET status = 'Concluído (Convertido)', tipo = 'VENDA' 
-                                    WHERE status != 'Concluído (Convertido)' OR status IS NULL
+                                    WHERE id = (SELECT MAX(id) FROM vendas)
                                 """)
                                 
-                                linhas_afetadas = cur.rowcount
                                 con_local.commit()
                                 con_local.close()
                                 
-                                if linhas_afetadas > 0:
-                                    st.toast(f"Pedido(s) finalizado(s) com sucesso!", icon="✅")
-                                    st.balloons()
-                                    st.rerun()
-                                else:
-                                    st.warning("Nenhum pedido pendente encontrado para converter.")
-                                    
+                                st.toast("Pedido atualizado com sucesso!", icon="✅")
+                                st.balloons()
+                                st.rerun()
                             except Exception as e:
                                 st.error(f"Erro ao finalizar: {e}")
             
