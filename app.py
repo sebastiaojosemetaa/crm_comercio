@@ -38,39 +38,20 @@ def adequar_banco_e_migrar():
             data TEXT
         )
     """)
+    
     cursor.execute("PRAGMA table_info(vendas)")
     colunas_vendas = [col[1] for col in cursor.fetchall()]
 
-    if 'forma_pagamento' not in colunas_vendas:
-        try:
-            cursor.execute("ALTER TABLE vendas ADD COLUMN forma_pagamento TEXT")
-        except:
-            pass
-
-    if 'valor_recebido' not in colunas_vendas:
-        try:
-            cursor.execute("ALTER TABLE vendas ADD COLUMN valor_recebido TEXT")
-        except:
-            pass
-
-    if 'tipo' not in colunas_vendas:
-        try:
-            cursor.execute("ALTER TABLE vendas ADD COLUMN tipo TEXT DEFAULT 'PEDIDO'")
-        except:
-            pass
-
-    if 'codigo' not in colunas_vendas:
-        try:
-            cursor.execute("ALTER TABLE vendas ADD COLUMN codigo TEXT DEFAULT 'PED'")
-        except:
-            pass
-
-    if 'data' not in colunas_vendas:
-        try:
-            cursor.execute("ALTER TABLE vendas ADD COLUMN data TEXT")
-        except:
-            pass
-            
+    colunas_verificar_vendas = ['forma_pagamento', 'valor_recebido', 'tipo', 'codigo', 'data']
+    for col_nome in colunas_verificar_vendas:
+        if col_nome not in colunas_vendas:
+            try:
+                tipo_sql = "TEXT"
+                default_val = "DEFAULT 'PEDIDO'" if col_nome == 'tipo' else ("DEFAULT 'PED'" if col_nome == 'codigo' else "")
+                cursor.execute(f"ALTER TABLE vendas ADD COLUMN {col_nome} {tipo_sql} {default_val}")
+            except Exception:
+                pass
+          
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS produtos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -82,50 +63,22 @@ def adequar_banco_e_migrar():
             estoque_atual REAL
         )
     """)
+    
     cursor.execute("PRAGMA table_info(produtos)")
     colunas_produtos = [col[1] for col in cursor.fetchall()]
 
-    if 'fornecedor' not in colunas_produtos:
-        try:
-            cursor.execute("ALTER TABLE produtos ADD COLUMN fornecedor TEXT")
-        except:
-            pass
+    colunas_verificar_produtos = ['fornecedor', 'grupo', 'valor_compra', 'valor_venda', 'estoque_atual', 'nome']
+    for col_nome in colunas_verificar_produtos:
+        if col_nome not in colunas_produtos:
+            try:
+                cursor.execute(f"ALTER TABLE produtos ADD COLUMN {col_nome} TEXT")
+            except Exception:
+                pass
 
-    if 'grupo' not in colunas_produtos:
-        try:
-            cursor.execute("ALTER TABLE produtos ADD COLUMN grupo TEXT")
-        except:
-            pass
-
-    if 'valor_compra' not in colunas_produtos:
-        try:
-            cursor.execute("ALTER TABLE produtos ADD COLUMN valor_compra REAL")
-        except:
-            pass
-
-    if 'valor_venda' not in colunas_produtos:
-        try:
-            cursor.execute("ALTER TABLE produtos ADD COLUMN valor_venda REAL")
-        except:
-            pass
-
-    if 'estoque_atual' not in colunas_produtos:
-        try:
-            cursor.execute("ALTER TABLE produtos ADD COLUMN estoque_atual REAL")
-        except:
-            pass 
-            
-    cursor.execute("PRAGMA table_info(produtos)")
-    colunas_produtos = [col[1] for col in cursor.fetchall()]
     if 'nome' not in colunas_produtos and 'descricao' in colunas_produtos:
         try:
             cursor.execute("ALTER TABLE produtos RENAME COLUMN descricao TO nome")
-        except:
-            pass
-    elif 'nome' not in colunas_produtos:
-        try:
-            cursor.execute("ALTER TABLE produtos ADD COLUMN nome TEXT")
-        except:
+        except Exception:
             pass
 
     cursor.execute("""
@@ -166,7 +119,6 @@ def adequar_banco_e_migrar():
         )
     """)
     
-    # Garante que todas as colunas necessárias existam na tabela compras antiga
     colunas_compras = [
         ("produto", "TEXT"),
         ("fornecedor", "TEXT"),
@@ -179,7 +131,7 @@ def adequar_banco_e_migrar():
     for col_nome, col_tipo in colunas_compras:
         try:
             cursor.execute(f"ALTER TABLE compras ADD COLUMN {col_nome} {col_tipo}")
-        except:
+        except Exception:
             pass
 
     cursor.execute("""
