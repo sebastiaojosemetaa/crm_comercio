@@ -1360,6 +1360,87 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.info("Nenhum registro no histórico para o período selecionado.")
                 else:
                     st.info("Nenhum registro encontrado para os filtros aplicados.")
+        elif menu_admin == "📦 Estoque de Produtos":
+            st.title("📦 Estoque de Produtos e Preços")
+            
+            query_produtos = "SELECT * FROM produtos"
+            try:
+                df_produtos = carregar_dados(query_produtos)
+            except Exception:
+                df_produtos = pd.read_sql(query_produtos, conn)
+        
+            if not df_produtos.empty:
+                df_produtos = df_produtos.drop(columns=['estoque_atual', 'nome'], errors='ignore')
+                
+                df_editado = st.data_editor(
+                    df_produtos,
+                    use_container_width=True,
+                    key="editor_estoque_produtos",
+                    hide_index=True
+                )
+    
+                col_salvar, col_atualizar = st.columns(2)
+    
+                with col_salvar:
+                    if st.button("Salvar Alterações no Estoque"):
+                        try:
+                            cursor = conn.cursor()
+                            for index, row in df_editado.iterrows():
+                                p_id = row.get('id')
+                                p_prod = row.get('produto')
+                                
+                                # Pega a quantidade de qualquer uma das colunas para evitar conflito
+                                p_qtd = row.get('quantidade')
+                                if p_qtd is None or pd.isna(p_qtd):
+                                    p_qtd = row.get('estoque_atual', 0)
+                                    
+                                p_custo = row.get('valor_compra', row.get('valor_custo', 0))
+                                p_venda = row.get('valor_venda', 0)
+                                p_grupo = row.get('grupo')
+                                p_forn = row.get('fornecedor')
+    
+                                # Atualiza ambas as colunas de quantidade no banco para ficarem idênticas
+                                cursor.execute("""
+                                    UPDATE produtos 
+                                    SET produto = ?, 
+                                        quantidade = ?, 
+                                        estoque_atual = ?, 
+                                        valor_compra = ?, 
+                                        valor_venda = ?, 
+                                        grupo = ?, 
+                                        fornecedor = ?
+                                    WHERE id = ?
+                                """, (p_prod, p_qtd, p_qtd, p_custo, p_venda, p_grupo, p_forn, p_id))
+    
+                            conn.commit()
+                            st.success("Estoque e preços salvos permanentemente!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro ao salvar: {e}")
+    
+                with col_atualizar:
+                    if st.button("🔄 Atualizar Preços de Custos"):
+                        try:
+                            cursor = conn.cursor()
+                            cursor.execute("""
+                                UPDATE produtos 
+                                SET valor_compra = (
+                                    SELECT valor_compra FROM compras 
+                                    WHERE compras.produto = produtos.produto 
+                                    ORDER BY id DESC LIMIT 1
+                                )
+                                WHERE EXISTS (
+                                    SELECT 1 FROM compras 
+                                    WHERE compras.produto = produtos.produto
+                                )
+                            """)
+                            conn.commit()
+                            st.success("Preços de custo atualizados com sucesso!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro ao atualizar custos: {e}")
+            else:
+                st.info("Nenhum produto cadastrado no estoque.")
         elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
             st.title("👥 Cadastros Gerais")
             tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["👤 Clientes", "📦 Produtos", "🏢 Fornecedores", "🏷️ Grupos"])
