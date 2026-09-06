@@ -1008,13 +1008,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 quantidade = st.number_input("Quantidade", min_value=0.01, value=1.0, step=1.0, key="num_qtd_unico_correto")
                 preco_unitario = st.number_input("Preço Unitário (R$)", min_value=0.0, value=80.0, step=1.0, key="num_preco_unico_correto")
             
-                if st.button("Salvar PEDIDO", type="primary", key="btn_salvar_pedido_unico_definitivo"):
+                if st.button("Salvar PEDIDO", type="primary", key="btn_salvar_pedido_admin"):
                     try:
-                        import sqlite3
-                        con_ins = sqlite3.connect("vendas.db")
-                        cur_ins = con_ins.cursor()
+                        con_local = sqlite3.connect("vendas.db")
+                        cur = con_local.cursor()
                         
-                        cur_ins.execute("""
+                        # Garante que a tabela 'vendas' possui todas as colunas necessárias
+                        cur.execute("""
                             CREATE TABLE IF NOT EXISTS vendas (
                                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                                 cliente TEXT,
@@ -1022,26 +1022,42 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 quantidade REAL,
                                 valor_venda REAL,
                                 valor_total REAL,
+                                fornecedor TEXT,
+                                grupo TEXT,
                                 tipo TEXT,
                                 status TEXT
                             )
                         """)
                         
-                        c_total = float(quantidade) * float(preco_unitario)
-                        c_tipo = 'ORÇAMENTO'
+                        # Adiciona colunas extras se não existirem na tabela antiga
+                        for col_sql in ["fornecedor TEXT", "grupo TEXT", "tipo TEXT", "status TEXT"]:
+                            try:
+                                cur.execute(f"ALTER TABLE vendas ADD COLUMN {col_sql}")
+                            except:
+                                pass
+                                
+                        # Captura os valores selecionados nos inputs do formulário do admin
+                        # (Ajuste os nomes das variáveis abaixo caso os campos no seu formulário tenham nomes diferentes)
+                        prod_val = produto_selecionado  # Substitua pela variável do selectbox de produto se necessário
+                        forn_val = fornecedor_selecionado # Substitua pela variável do selectbox de fornecedor se necessário
+                        grupo_val = grupo_selecionado     # Substitua pela variável do selectbox de grupo se necessário
+                        qtd_val = float(quantidade)       # Substitua pela variável da quantidade
+                        preco_val = float(preco_unitario) # Substitua pela variável do preço unitário
+                        total_val = qtd_val * preco_val
+                        cliente_val = cliente_selecionado # Cliente ativo no momento
                         
-                        cur_ins.execute("""
-                            INSERT INTO vendas (cliente, produto, quantidade, valor_venda, valor_total, tipo)
-                            VALUES (?, ?, ?, ?, ?, ?)
-                        """, (str(cliente), str(produto), float(quantidade), float(preco_unitario), c_total, c_tipo))
+                        # Insere na tabela 'vendas' preenchendo exatamente as colunas solicitadas
+                        cur.execute("""
+                            INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, tipo, status)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, 'ORÇAMENTO', 'Pendente')
+                        """, (cliente_val, prod_val, forn_val, grupo_val, qtd_val, preco_val, total_val))
                         
-                        con_ins.commit()
-                        con_ins.close()
-                        
-                        st.success("Item salvo com sucesso!")
+                        con_local.commit()
+                        con_local.close()
+                        st.success("Item salvo com sucesso na tabela!")
                         st.rerun()
                     except Exception as e:
-                        st.error(f"Erro ao salvar: {e}")
+                        st.error(f"Erro ao salvar pedido: {e}")
             
                 st.divider()
                 st.subheader("🛒 Itens já lançados neste Pedido (Hoje)")
