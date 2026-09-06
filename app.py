@@ -1121,8 +1121,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 else:
                     st.info("Nenhum item adicionado ao pedido ainda.")
         
-            with aba_historico:
-                st.subheader("Histórico e Gestão de Meus Pedidos")
+                with aba_historico:
+                    st.subheader("Histórico e Gestão de Meus Pedidos")
                 
                 try:
                     query_dia = """
