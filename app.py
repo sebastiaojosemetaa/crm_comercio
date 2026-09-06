@@ -1091,17 +1091,17 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 
                                 for id_item in edit_parcial['id'].tolist():
                                     # 1. Busca os dados essenciais da venda atual
-                                    cur.execute("SELECT cliente, produto, quantidade, valor_venda, valor_total, data FROM vendas WHERE id = ?", (int(id_item),))
+                                    cur.execute("SELECT cliente, produto, quantidade, valor_venda, valor_total FROM vendas WHERE id = ?", (int(id_item),))
                                     venda_data = cur.fetchone()
                                     
                                     if venda_data:
-                                        cliente, produto, quantidade, valor_venda, valor_total, data = venda_data
+                                        cliente, produto, quantidade, valor_venda, valor_total = venda_data
                                         
-                                        # 2. Insere na tabela 'pedidos' com as colunas padrão compatíveis
+                                        # 2. Insere na tabela 'pedidos' apenas com as colunas essenciais
                                         cur.execute("""
-                                            INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, data, status)
-                                            VALUES (?, ?, ?, ?, ?, ?, 'Pendente')
-                                        """, (cliente, produto, quantidade, valor_venda, valor_total, data))
+                                            INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, status)
+                                            VALUES (?, ?, ?, ?, ?, 'Pendente')
+                                        """, (cliente, produto, quantidade, valor_venda, valor_total))
                                     
                                     # 3. Atualiza o status na tabela vendas para 'Pendente (Convertido)'
                                     cur.execute("UPDATE vendas SET status = 'Pendente (Convertido)', tipo = 'VENDA' WHERE id = ?", (int(id_item),))
