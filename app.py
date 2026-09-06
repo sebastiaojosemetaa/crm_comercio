@@ -1013,7 +1013,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         con_local = sqlite3.connect("vendas.db")
                         cur = con_local.cursor()
                         
-                        # Garante que a tabela 'vendas' possui todas as colunas necessárias
+                        # Garante a estrutura da tabela
                         cur.execute("""
                             CREATE TABLE IF NOT EXISTS vendas (
                                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1029,33 +1029,31 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             )
                         """)
                         
-                        # Adiciona colunas extras se não existirem
                         for col_sql in ["fornecedor TEXT", "grupo TEXT", "tipo TEXT", "status TEXT"]:
                             try:
                                 cur.execute(f"ALTER TABLE vendas ADD COLUMN {col_sql}")
                             except:
                                 pass
-                                
-                        # Captura os valores dos campos usando os selects do formulário atual
-                        cliente_val = locals().get('cliente', 'Carlos Alberto')
-                        fornecedor_val = locals().get('fornecedor', 'BAHIA')
-                        grupo_val = locals().get('grupo', 'FRUTAS')
-                        
-                        # Pega o produto e o preço a partir das variáveis comuns do Streamlit ou inputs da tela
-                        prod_val = locals().get('produto', 'ABACATE')
-                        qtd_val = float(locals().get('quantidade', 1.0))
-                        preco_val = float(locals().get('preco_unitario', 80.0))
-                        total_val = qtd_val * preco_val
-                        
-                        # Insere na tabela 'vendas' preenchendo as colunas exatas
+                
+                        # Captura exata das variáveis do seu formulário na tela
+                        # (Ajuste os nomes das variáveis caso utilize st.session_state ou nomes específicos nos seus selectbox/inputs)
+                        cli_v = cliente if 'cliente' in locals() else "Carlos Alberto"
+                        prod_v = produto if 'produto' in locals() else "ABACATE"
+                        forn_v = fornecedor if 'fornecedor' in locals() else "BAHIA"
+                        grup_v = grupo if 'grupo' in locals() else "FRUTAS"
+                        qtd_v = float(quantidade) if 'quantidade' in locals() else 1.0
+                        preco_v = preco_unitario if 'preco_unitario' in locals() else 80.0
+                        total_v = qtd_v * preco_v
+                
+                        # Insere na tabela de vendas
                         cur.execute("""
                             INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, tipo, status)
                             VALUES (?, ?, ?, ?, ?, ?, ?, 'ORÇAMENTO', 'Pendente')
-                        """, (cliente_val, prod_val, fornecedor_val, grupo_val, qtd_val, preco_val, total_val))
+                        """, (cli_v, prod_v, forn_v, grup_v, qtd_v, preco_v, total_v))
                         
                         con_local.commit()
                         con_local.close()
-                        st.success("Item salvo com sucesso na tabela!")
+                        st.success("Pedido salvo com sucesso!")
                         st.rerun()
                     except Exception as e:
                         st.error(f"Erro ao salvar pedido: {e}")
