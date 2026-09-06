@@ -1335,6 +1335,22 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         st.warning("Nenhum item selecionado para exclusão.")
                                 except Exception as e:
                                     st.error(f"Erro ao excluir: {e}")
+                            
+                            try:
+                                conn_hist = sqlite3.connect("vendas.db")
+                                query_hist_admin = """
+                                    SELECT id, cliente, produto, quantidade, valor_venda as valor_unitario, valor_total, status, observacoes, data, fornecedor, grupo, codigo_pedido, data_str 
+                                    FROM vendas 
+                                    WHERE status LIKE '%Concluído%' OR status LIKE '%Convertido%' 
+                                    ORDER BY id DESC
+                                """
+                                df_historico = pd.read_sql(query_hist_admin, conn_hist)
+                                conn_hist.close()
+                            except Exception as e:
+                                df_historico = pd.DataFrame()
+                            
+                            st.markdown("---")
+                            st.subheader("Histórico de Pedidos anteriores")
 
                     st.markdown("---")
                     st.subheader("📚 Histórico de Pedidos anteriores")
