@@ -1084,19 +1084,42 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     col_fin, col_del = st.columns([2, 1])
                     
                     with col_fin:
-                        if st.button("Finalizar Pedido / Venda", type="primary", key="btn_finalizar_pedido_unico"):
-                            try:
-                                con_local = sqlite3.connect("vendas.db")
-                                cur = con_local.cursor()
-                                for id_item in edit_parcial['id'].tolist():
-                                    cur.execute("UPDATE vendas SET status = 'Finalizado', tipo = 'VENDA' WHERE id = ?", (int(id_item),))
-                                con_local.commit()
-                                con_local.close()
-                                st.success("Pedido finalizado com sucesso!")
-                                st.balloons()
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro ao finalizar: {e}")
+                        if st.button("💾 Finalizar e Enviar Pedido", type="primary", key="cli_finalizar_unique_v3"):
+                        try:
+                            cursor = conn.cursor()
+                            data_hora_atual = datetime.now()
+                            codigo_pedido_gerado = f"PED-{data_hora_atual.strftime('%Y%m%d%H%M%S')}"
+                            data_str = data_hora_atual.strftime("%Y-%m-%d %H:%M:%S")
+                            
+                            for item in st.session_state.carrinho_cliente:
+                                cursor.execute("""
+                                    INSERT INTO pedidos (
+                                        cliente, produto, quantidade, valor_unitario, valor_total, 
+                                        fornecedor, grupo, data, status, codigo_pedido
+                                    )
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                """, (
+                                    st.session_state.cliente_autenticado,
+                                    item["produto"],
+                                    item["quantidade"],
+                                    item["preco_unitario"],
+                                    item["valor_total"],
+                                    item.get("fornecedor", "BAHIA"),
+                                    item.get("grupo", "GERAL"),
+                                    data_str,
+                                    "Pendente",
+                                    codigo_pedido_gerado
+                                ))
+                            
+                            conn.commit()
+                            st.session_state.carrinho_cliente = []
+                            st.success("Pedido finalizado e enviado com sucesso!")
+                            st.rerun()
+                        except Exception as ex:
+                            conn.rollback()
+                            st.error(f"Erro ao finalizar pedido: {ex}")
+            else:
+                st.info("Nenhum item adicionado ao pedido ainda.")
             
                     with col_del:
                         if st.button("Excluir Selecionados", key="btn_excluir_parcial_sel"):
