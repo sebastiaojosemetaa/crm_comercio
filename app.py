@@ -1049,19 +1049,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 import sqlite3
                 try:
                     conn_direto = sqlite3.connect("vendas.db")
-                    df_parcial = pd.read_sql("""
-                        SELECT id, cliente, produto, quantidade, valor_venda as valor_compra, valor_total, tipo, status 
-                        FROM vendas 
-                        WHERE status IS NULL OR status NOT LIKE '%Concluído%' 
-                        ORDER BY id DESC LIMIT 20
-                    """, conn_direto)
+                    df_parcial = pd.read_sql("SELECT id, cliente, produto, quantidade, valor_venda as valor_compra, valor_total, tipo, status FROM vendas WHERE status IS NULL OR status != 'Finalizado' ORDER BY id DESC LIMIT 20", conn_direto)
                     conn_direto.close()
                 except Exception as e:
                     df_parcial = pd.DataFrame()
             
-                if df_parcial.empty:
-                    st.info("Nenhum pedido pendente no momento. Faça um lançamento acima para iniciar um novo pedido.")
-                else:
+                if not df_parcial.empty:
                     df_parcial.dropna(axis=1, how='all', inplace=True)
                     if 'excluir' in df_parcial.columns:
                         df_parcial = df_parcial.rename(columns={'excluir': 'Excluir'})
@@ -1088,38 +1081,29 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     total_parcial = edit_parcial['valor_total'].sum() if 'valor_total' in edit_parcial.columns else 0.0
                     st.markdown(f"### **Valor Total Acumulado: R$ {total_parcial:.2f}**")
             
-                    col_fin, col_del = st.columns(2)
+                    col_fin, col_del = st.columns([2, 1])
                     
                     with col_fin:
-                        if st.button("Finalizar Pedido / Venda", type="primary", key="btn_finalizar_pedido_exclusivo"):
+                        if st.button("Finalizar Pedido / Venda", type="primary", key="btn_finalizar_pedido_unico"):
                             try:
                                 con_local = sqlite3.connect("vendas.db")
                                 cur = con_local.cursor()
-                                cur.execute("""
-                                    UPDATE vendas 
-                                    SET status = 'Concluído (Convertido)', tipo = 'VENDA' 
-                                    WHERE status IS NULL OR status NOT LIKE '%Concluído%'
-                                """)
-                                qtd_afetada = cur.rowcount
+                                for id_item in edit_parcial['id'].tolist():
+                                    cur.execute("UPDATE vendas SET status = 'Finalizado', tipo = 'VENDA' WHERE id = ?", (int(id_item),))
                                 con_local.commit()
                                 con_local.close()
-                                
-                                if qtd_afetada > 0:
-                                    st.toast(f"Pedido finalizado com sucesso! ({qtd_afetada} item(ns))", icon="✅")
-                                    st.balloons()
-                                    st.rerun()
-                                else:
-                                    st.warning("Não há itens pendentes para finalizar.")
+                                st.success("Pedido finalizado com sucesso!")
+                                st.balloons()
+                                st.rerun()
                             except Exception as e:
                                 st.error(f"Erro ao finalizar: {e}")
-                
+            
                     with col_del:
                         if st.button("Excluir Selecionados", key="btn_excluir_parcial_sel"):
                             try:
                                 ids_a_excluir = []
                                 if 'Excluir' in edit_parcial.columns:
                                     ids_a_excluir = edit_parcial[edit_parcial['Excluir'] == True]['id'].dropna().tolist()
-                                
                                 if ids_a_excluir:
                                     con_local = sqlite3.connect("vendas.db")
                                     cur = con_local.cursor()
@@ -1130,202 +1114,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     st.success(f"{len(ids_a_excluir)} item(ns) excluído(s) com sucesso!")
                                     st.rerun()
                                 else:
-                                    st.warning("Nenhum item marcado na tabela para exclusão.")
-                            except Exception as e:
-                                st.error(f"Erro ao excluir: {e}")
-                
-                    with col_del:
-                        if st.button("Excluir Selecionados", key="btn_excluir_parcial_sel"):
-                            try:
-                                ids_a_excluir = []
-                                if 'Excluir' in edit_parcial.columns:
-                                    ids_a_excluir = edit_parcial[edit_parcial['Excluir'] == True]['id'].dropna().tolist()
-                                
-                                if ids_a_excluir:
-                                    con_local = sqlite3.connect("vendas.db")
-                                    cur = con_local.cursor()
-                                    for item_id in ids_a_excluir:
-                                        cur.execute("DELETE FROM vendas WHERE id = ?", (int(item_id),))
-                                    con_local.commit()
-                                    con_local.close()
-                                    st.success(f"{len(ids_a_excluir)} item(ns) excluído(s) com sucesso!")
-                                    st.rerun()
-                                else:
-                                    st.warning("Nenhum item marcado na tabela para exclusão.")
-                            except Exception as e:
-                                st.error(f"Erro ao excluir: {e}")
-                
-                    with col_del:
-                        if st.button("Excluir Selecionados", key="btn_excluir_parcial_sel"):
-                            try:
-                                ids_a_excluir = []
-                                if 'Excluir' in edit_parcial.columns:
-                                    ids_a_excluir = edit_parcial[edit_parcial['Excluir'] == True]['id'].dropna().tolist()
-                                
-                                if ids_a_excluir:
-                                    con_local = sqlite3.connect("vendas.db")
-                                    cur = con_local.cursor()
-                                    for item_id in ids_a_excluir:
-                                        cur.execute("DELETE FROM vendas WHERE id = ?", (int(item_id),))
-                                    con_local.commit()
-                                    con_local.close()
-                                    st.success(f"{len(ids_a_excluir)} item(ns) excluído(s) com sucesso!")
-                                    st.rerun()
-                                else:
-                                    st.warning("Nenhum item marcado na tabela para exclusão.")
-                            except Exception as e:
-                                st.error(f"Erro ao excluir: {e}")
-                
-                    with col_del:
-                        if st.button("Excluir Selecionados", key="btn_excluir_parcial_sel"):
-                            try:
-                                ids_a_excluir = []
-                                if 'Excluir' in edit_parcial.columns:
-                                    ids_a_excluir = edit_parcial[edit_parcial['Excluir'] == True]['id'].dropna().tolist()
-                                
-                                if ids_a_excluir:
-                                    con_local = sqlite3.connect("vendas.db")
-                                    cur = con_local.cursor()
-                                    for item_id in ids_a_excluir:
-                                        cur.execute("DELETE FROM vendas WHERE id = ?", (int(item_id),))
-                                    con_local.commit()
-                                    con_local.close()
-                                    st.success(f"{len(ids_a_excluir)} item(ns) excluído(s) com sucesso!")
-                                    st.rerun()
-                                else:
-                                    st.warning("Nenhum item marcado na tabela para exclusão.")
-                            except Exception as e:
-                                st.error(f"Erro ao excluir: {e}")
-                
-                    with col_del:
-                        if st.button("Excluir Selecionados", key="btn_excluir_parcial_sel"):
-                            try:
-                                ids_a_excluir = []
-                                if 'Excluir' in edit_parcial.columns:
-                                    ids_a_excluir = edit_parcial[edit_parcial['Excluir'] == True]['id'].dropna().tolist()
-                                
-                                if ids_a_excluir:
-                                    con_local = sqlite3.connect("vendas.db")
-                                    cur = con_local.cursor()
-                                    for item_id in ids_a_excluir:
-                                        cur.execute("DELETE FROM vendas WHERE id = ?", (int(item_id),))
-                                    con_local.commit()
-                                    con_local.close()
-                                    st.success(f"{len(ids_a_excluir)} item(ns) excluído(s) com sucesso!")
-                                    st.rerun()
-                                else:
-                                    st.warning("Nenhum item marcado na tabela para exclusão.")
-                            except Exception as e:
-                                st.error(f"Erro ao excluir: {e}")
-                
-                    with col_del:
-                        if st.button("Excluir Selecionados", key="btn_excluir_parcial_sel"):
-                            try:
-                                ids_a_excluir = []
-                                if 'Excluir' in edit_parcial.columns:
-                                    ids_a_excluir = edit_parcial[edit_parcial['Excluir'] == True]['id'].dropna().tolist()
-                                
-                                if ids_a_excluir:
-                                    con_local = sqlite3.connect("vendas.db")
-                                    cur = con_local.cursor()
-                                    for item_id in ids_a_excluir:
-                                        cur.execute("DELETE FROM vendas WHERE id = ?", (int(item_id),))
-                                    con_local.commit()
-                                    con_local.close()
-                                    st.success(f"{len(ids_a_excluir)} item(ns) excluído(s) com sucesso!")
-                                    st.rerun()
-                                else:
-                                    st.warning("Nenhum item marcado na tabela para exclusão.")
-                            except Exception as e:
-                                st.error(f"Erro ao excluir: {e}")
-                
-                    with col_del:
-                        if st.button("Excluir Selecionados", key="btn_excluir_parcial_sel"):
-                            try:
-                                ids_a_excluir = []
-                                if 'Excluir' in edit_parcial.columns:
-                                    ids_a_excluir = edit_parcial[edit_parcial['Excluir'] == True]['id'].dropna().tolist()
-                                
-                                if ids_a_excluir:
-                                    con_local = sqlite3.connect("vendas.db")
-                                    cur = con_local.cursor()
-                                    for item_id in ids_a_excluir:
-                                        cur.execute("DELETE FROM vendas WHERE id = ?", (int(item_id),))
-                                    con_local.commit()
-                                    con_local.close()
-                                    st.success(f"{len(ids_a_excluir)} item(ns) excluído(s) com sucesso!")
-                                    st.rerun()
-                                else:
-                                    st.warning("Nenhum item marcado na tabela para exclusão.")
-                            except Exception as e:
-                                st.error(f"Erro ao excluir: {e}")                
-                    with col_del:
-                        if st.button("Excluir Selecionados", key="btn_excluir_parcial_sel"):
-                            try:
-                                ids_a_excluir = []
-                                if 'Excluir' in edit_parcial.columns:
-                                    ids_a_excluir = edit_parcial[edit_parcial['Excluir'] == True]['id'].dropna().tolist()
-                                
-                                if ids_a_excluir:
-                                    con_local = sqlite3.connect("vendas.db")
-                                    cur = con_local.cursor()
-                                    for item_id in ids_a_excluir:
-                                        cur.execute("DELETE FROM vendas WHERE id = ?", (int(item_id),))
-                                    con_local.commit()
-                                    con_local.close()
-                                    st.success(f"{len(ids_a_excluir)} item(ns) excluído(s) com sucesso!")
-                                    st.rerun()
-                                else:
-                                    st.warning("Nenhum item marcado na tabela para exclusão.")
-                            except Exception as e:
-                                st.error(f"Erro ao excluir: {e}")
-                
-                if not ha_dados:
-                    st.info("Nenhum pedido pendente no momento. Faça um lançamento acima para iniciar um novo pedido.")
-                
-                    with col_del:
-                        if st.button("Excluir Selecionados", key="btn_excluir_parcial_sel"):
-                            try:
-                                ids_a_excluir = []
-                                if 'Excluir' in edit_parcial.columns:
-                                    ids_a_excluir = edit_parcial[edit_parcial['Excluir'] == True]['id'].dropna().tolist()
-                                
-                                if ids_a_excluir:
-                                    con_local = sqlite3.connect("vendas.db")
-                                    cur = con_local.cursor()
-                                    for item_id in ids_a_excluir:
-                                        cur.execute("DELETE FROM vendas WHERE id = ?", (int(item_id),))
-                                    con_local.commit()
-                                    con_local.close()
-                                    st.success(f"{len(ids_a_excluir)} item(ns) excluído(s) com sucesso!")
-                                    st.rerun()
-                                else:
-                                    st.warning("Nenhum item marcado na tabela para exclusão.")
+                                    st.warning("Nenhum item marcado para exclusão.")
                             except Exception as e:
                                 st.error(f"Erro ao excluir: {e}")
                 else:
-                    st.info("Nenhum pedido pendente no momento. Faça um lançamento acima para iniciar um novo pedido.")                    
-                    with col_del:
-                        if st.button("Excluir Selecionados", key="btn_excluir_parcial_sel"):
-                            try:
-                                ids_a_excluir = []
-                                if 'Excluir' in edit_parcial.columns:
-                                    ids_a_excluir = edit_parcial[edit_parcial['Excluir'] == True]['id'].dropna().tolist()
-                                
-                                if ids_a_excluir:
-                                    con_local = sqlite3.connect("vendas.db")
-                                    cur = con_local.cursor()
-                                    for item_id in ids_a_excluir:
-                                        cur.execute("DELETE FROM vendas WHERE id = ?", (int(item_id),))
-                                    con_local.commit()
-                                    con_local.close()
-                                    st.success(f"{len(ids_a_excluir)} item(ns) excluído(s) com sucesso!")
-                                    st.rerun()
-                                else:
-                                    st.warning("Nenhum item marcado na tabela.")
-                            except Exception as e:
-                                st.error(f"Erro ao excluir: {e}")
-                
+                    st.info("Nenhum registro encontrado na tabela 'vendas'. Faça um lançamento acima para testar.")
+
             if aba_baixa is not None:
                 with aba_baixa:
                     st.subheader("💵 Baixa de Débitos & Lançamento de Haver")
@@ -1566,87 +1360,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.info("Nenhum registro no histórico para o período selecionado.")
                 else:
                     st.info("Nenhum registro encontrado para os filtros aplicados.")
-        elif menu_admin == "📦 Estoque de Produtos":
-            st.title("📦 Estoque de Produtos e Preços")
-            
-            query_produtos = "SELECT * FROM produtos"
-            try:
-                df_produtos = carregar_dados(query_produtos)
-            except Exception:
-                df_produtos = pd.read_sql(query_produtos, conn)
-        
-            if not df_produtos.empty:
-                df_produtos = df_produtos.drop(columns=['estoque_atual', 'nome'], errors='ignore')
-                
-                df_editado = st.data_editor(
-                    df_produtos,
-                    use_container_width=True,
-                    key="editor_estoque_produtos",
-                    hide_index=True
-                )
-    
-                col_salvar, col_atualizar = st.columns(2)
-    
-                with col_salvar:
-                    if st.button("Salvar Alterações no Estoque"):
-                        try:
-                            cursor = conn.cursor()
-                            for index, row in df_editado.iterrows():
-                                p_id = row.get('id')
-                                p_prod = row.get('produto')
-                                
-                                # Pega a quantidade de qualquer uma das colunas para evitar conflito
-                                p_qtd = row.get('quantidade')
-                                if p_qtd is None or pd.isna(p_qtd):
-                                    p_qtd = row.get('estoque_atual', 0)
-                                    
-                                p_custo = row.get('valor_compra', row.get('valor_custo', 0))
-                                p_venda = row.get('valor_venda', 0)
-                                p_grupo = row.get('grupo')
-                                p_forn = row.get('fornecedor')
-    
-                                # Atualiza ambas as colunas de quantidade no banco para ficarem idênticas
-                                cursor.execute("""
-                                    UPDATE produtos 
-                                    SET produto = ?, 
-                                        quantidade = ?, 
-                                        estoque_atual = ?, 
-                                        valor_compra = ?, 
-                                        valor_venda = ?, 
-                                        grupo = ?, 
-                                        fornecedor = ?
-                                    WHERE id = ?
-                                """, (p_prod, p_qtd, p_qtd, p_custo, p_venda, p_grupo, p_forn, p_id))
-    
-                            conn.commit()
-                            st.success("Estoque e preços salvos permanentemente!")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Erro ao salvar: {e}")
-    
-                with col_atualizar:
-                    if st.button("🔄 Atualizar Preços de Custos"):
-                        try:
-                            cursor = conn.cursor()
-                            cursor.execute("""
-                                UPDATE produtos 
-                                SET valor_compra = (
-                                    SELECT valor_compra FROM compras 
-                                    WHERE compras.produto = produtos.produto 
-                                    ORDER BY id DESC LIMIT 1
-                                )
-                                WHERE EXISTS (
-                                    SELECT 1 FROM compras 
-                                    WHERE compras.produto = produtos.produto
-                                )
-                            """)
-                            conn.commit()
-                            st.success("Preços de custo atualizados com sucesso!")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Erro ao atualizar custos: {e}")
-            else:
-                st.info("Nenhum produto cadastrado no estoque.")
         elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
             st.title("👥 Cadastros Gerais")
             tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["👤 Clientes", "📦 Produtos", "🏢 Fornecedores", "🏷️ Grupos"])
