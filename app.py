@@ -1008,58 +1008,70 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 quantidade = st.number_input("Quantidade", min_value=0.01, value=1.0, step=1.0, key="num_qtd_unico_correto")
                 preco_unitario = st.number_input("Preço Unitário (R$)", min_value=0.0, value=80.0, step=1.0, key="num_preco_unico_correto")
             
-                if st.button("Salvar PEDIDO", type="primary", key="btn_salvar_pedido_admin"):
-                    try:
-                        con_local = sqlite3.connect("vendas.db")
-                        cur = con_local.cursor()
-                        
-                        # Cria a tabela exatamente igual ao Portal do Cliente caso não exista
-                        cur.execute("""
-                            CREATE TABLE IF NOT EXISTS vendas (
-                                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                produto TEXT,
-                                fornecedor TEXT,
-                                grupo TEXT,
-                                quantidade REAL,
-                                preco_unitario REAL,
-                                valor_total REAL
-                            )
-                        """)
-                        
-                        # Garante que todas as colunas essenciais existam na tabela antiga se ela já foi criada antes
-                        for coluna, tipo_dado in [
-                            ("produto", "TEXT"),
-                            ("fornecedor", "TEXT"),
-                            ("grupo", "TEXT"),
-                            ("quantidade", "REAL"),
-                            ("preco_unitario", "REAL"),
-                            ("valor_total", "REAL")
-                        ]:
+                if st.button("➕ Incluir Produto no Pedido", type="primary", key="cli_btn_add_unique_v3"):
+                    if "carrinho_cliente" not in st.session_state:
+                        st.session_state.carrinho_cliente = []
+                    st.session_state.carrinho_cliente.append({
+                        "produto": prod,
+                        "fornecedor": forn_cli,
+                        "grupo": grupo_cli,
+                        "quantidade": qtd_cli,
+                        "preco_unitario": preco_cli,
+                        "valor_total": valor_total_item
+                    })
+                    st.success(f"Item '{prod}' adicionado ao pedido!")
+                    st.rerun()
+        
+                st.markdown("---")
+                st.subheader("📋 Itens Atuais no Pedido")
+        
+                if len(st.session_state.get("carrinho_cliente", [])) > 0:
+                    df_carrinho_cli = pd.DataFrame(st.session_state.carrinho_cliente)
+                    st.dataframe(df_carrinho_cli, use_container_width=True, hide_index=True)
+        
+                    col_b1, col_b2 = st.columns(2)
+                    with col_b1:
+                        if st.button("🗑️ Limpar Carrinho", key="cli_limpar_unique_v3"):
+                            st.session_state.carrinho_cliente = []
+                            st.rerun()
+        
+                    with col_b2:
+                        if st.button("💾 Finalizar e Enviar Pedido", type="primary", key="cli_finalizar_unique_v3"):
                             try:
-                                cur.execute(f"ALTER TABLE vendas ADD COLUMN {coluna} {tipo_dado}")
-                            except:
-                                pass
-                
-                        # Captura exata dos valores da tela
-                        prod_v = produto if 'produto' in locals() else "ABACATE"
-                        forn_v = fornecedor if 'fornecedor' in locals() else "BAHIA"
-                        grup_v = grupo if 'grupo' in locals() else "Geral"
-                        qtd_v = float(quantidade) if 'quantidade' in locals() else 1.0
-                        preco_v = float(preco_unitario) if 'preco_unitario' in locals() else 80.0
-                        total_v = qtd_v * preco_v
-                
-                        # Insere utilizando estritamente as mesmas 6 colunas da segunda tela
-                        cur.execute("""
-                            INSERT INTO vendas (produto, fornecedor, grupo, quantidade, preco_unitario, valor_total)
-                            VALUES (?, ?, ?, ?, ?, ?)
-                        """, (prod_v, forn_v, grup_v, qtd_v, preco_v, total_v))
-                        
-                        con_local.commit()
-                        con_local.close()
-                        st.success("Pedido salvo com sucesso!")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Erro ao salvar pedido: {e}")
+                                cursor = conn.cursor()
+                                data_hora_atual = datetime.now()
+                                codigo_pedido_gerado = f"PED-{data_hora_atual.strftime('%Y%m%d%H%M%S')}"
+                                data_str = data_hora_atual.strftime("%Y-%m-%d %H:%M:%S")
+                                
+                                for item in st.session_state.carrinho_cliente:
+                                    cursor.execute("""
+                                        INSERT INTO pedidos (
+                                            cliente, produto, quantidade, valor_unitario, valor_total, 
+                                            fornecedor, grupo, data, status, codigo_pedido
+                                        )
+                                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                    """, (
+                                        st.session_state.cliente_autenticado,
+                                        item["produto"],
+                                        item["quantidade"],
+                                        item["preco_unitario"],
+                                        item["valor_total"],
+                                        item.get("fornecedor", "BAHIA"),
+                                        item.get("grupo", "GERAL"),
+                                        data_str,
+                                        "Pendente",
+                                        codigo_pedido_gerado
+                                    ))
+                                
+                                conn.commit()
+                                st.session_state.carrinho_cliente = []
+                                st.success("Pedido finalizado e enviado com sucesso!")
+                                st.rerun()
+                            except Exception as ex:
+                                conn.rollback()
+                                st.error(f"Erro ao finalizar pedido: {ex}")
+                else:
+                    st.info("Nenhum item adicionado ao pedido ainda.")
             
                 st.divider()
                 st.subheader("🛒 Itens já lançados neste Pedido (Hoje)")
