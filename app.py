@@ -1235,7 +1235,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         query_admin = """
                             SELECT id, cliente, produto, quantidade, valor_venda as valor_unitario, valor_total, fornecedor, grupo, data, status 
                             FROM vendas 
-                            WHERE status = 'ORÇAMENTO' OR status IS NULL OR status = '' OR status LIKE '%Pendente%'
+                            WHERE (status = 'ORÇAMENTO' OR status IS NULL OR status = '' OR status LIKE '%Pendente%')
+                               OR (data LIKE '2026-09-06%' AND status NOT LIKE '%Concluído%')
                             ORDER BY id DESC
                         """
                         df_admin_dia = pd.read_sql(query_admin, conn_admin)
