@@ -1120,28 +1120,41 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 st.error(f"Erro ao finalizar pedido: {ex}")
                 else:
                     st.info("Nenhum item adicionado ao pedido ainda.")
+        
+            with aba_historico:
+                st.subheader("Histórico e Gestão de Meus Pedidos")
+                
+                try:
+                    query_dia = """
+                        SELECT id, cliente, produto, quantidade, valor_unitario, valor_total, fornecedor, grupo, data, status 
+                        FROM pedidos 
+                        WHERE DATE(data) = DATE('now') AND cliente = ?
+                    """
+                    df_dia = pd.read_sql_query(query_dia, conn, params=(st.session_state.cliente_autenticado,))
             
-                    with col_del:
-                        if st.button("Excluir Selecionados", key="btn_excluir_parcial_sel"):
-                            try:
-                                ids_a_excluir = []
-                                if 'Excluir' in edit_parcial.columns:
-                                    ids_a_excluir = edit_parcial[edit_parcial['Excluir'] == True]['id'].dropna().tolist()
-                                if ids_a_excluir:
-                                    con_local = sqlite3.connect("vendas.db")
-                                    cur = con_local.cursor()
-                                    for item_id in ids_a_excluir:
-                                        cur.execute("DELETE FROM vendas WHERE id = ?", (int(item_id),))
-                                    con_local.commit()
-                                    con_local.close()
-                                    st.success(f"{len(ids_a_excluir)} item(ns) excluído(s) com sucesso!")
-                                    st.rerun()
-                                else:
-                                    st.warning("Nenhum item marcado para exclusão.")
-                            except Exception as e:
-                                st.error(f"Erro ao excluir: {e}")
-                else:
-                    st.info("Nenhum registro encontrado na tabela 'vendas'. Faça um lançamento acima para testar.")
+                    if not df_dia.empty:
+                        st.markdown("### 🟢 Pedidos do Dia (Editáveis)")
+                        
+                        df_dia.insert(0, "Excluir", False)
+                        
+                        df_editado = st.data_editor(
+                            df_dia,
+                            column_config={
+                                "Excluir": st.column_config.CheckboxColumn("❌ Excluir?", default=False),
+                                "id": st.column_config.NumberColumn("ID", disabled=True),
+                                "cliente": st.column_config.TextColumn("Cliente", disabled=True),
+                                "produto": st.column_config.TextColumn("Produto", disabled=True),
+                                "quantidade": st.column_config.NumberColumn("Quantidade", min_value=0.01, step=0.01, format="%.2f"),
+                                "valor_unitario": st.column_config.NumberColumn("Valor Unitário (R$)", disabled=True, format="R$ %.2f"),
+                                "valor_total": st.column_config.NumberColumn("Total (R$)", disabled=True, format="R$ %.2f"),
+                                "fornecedor": st.column_config.TextColumn("Fornecedor", disabled=True),
+                                "grupo": st.column_config.TextColumn("Grupo", disabled=True),
+                                "data": st.column_config.TextColumn("Data", disabled=True),
+                                "status": st.column_config.TextColumn("Status", disabled=True),
+                            },
+                            hide_index=True,
+                            key="tabela_pedidos_do_dia_unica"
+                        )
 
             if aba_baixa is not None:
                 with aba_baixa:
