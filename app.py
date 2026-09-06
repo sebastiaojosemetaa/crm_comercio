@@ -1110,18 +1110,18 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     if venda_data:
                                         cliente, produto, quantidade, valor_venda, valor_total = venda_data
                                         
-                                        # 2. Insere na tabela 'pedidos'
+                                        # 2. Insere na tabela 'pedidos' para o cliente
                                         cur.execute("""
                                             INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, status)
                                             VALUES (?, ?, ?, ?, ?, 'Pendente')
                                         """, (cliente, produto, quantidade, valor_venda, valor_total))
                                     
-                                    # 3. Atualiza o status na tabela vendas para 'Pendente (Convertido)'
-                                    cur.execute("UPDATE vendas SET status = 'Pendente (Convertido)', tipo = 'VENDA' WHERE id = ?", (int(id_item),))
+                                    # 3. Mantém o status como 'Pendente' na tabela de vendas para ele continuar aparecendo nos Pedidos do Dia
+                                    cur.execute("UPDATE vendas SET status = 'Pendente', tipo = 'VENDA' WHERE id = ?", (int(id_item),))
                                     
                                 con_local.commit()
                                 con_local.close()
-                                st.success("Pedido finalizado e enviado com sucesso!")
+                                st.success("Pedido enviado para o cliente e mantido nos Pedidos do Dia!")
                                 st.balloons()
                                 st.rerun()
                             except Exception as e:
