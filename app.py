@@ -1084,7 +1084,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     col_fin, col_del = st.columns([2, 1])
                     
                     with col_fin:
-                        if st.button("Finalizar Pedido / Venda", type="primary", key="btn_finalizar_pedido_unico"):
+                        if st.button("Finalizar e Enviar Pedido", type="primary", key="btn_finalizar_pedido_unico"):
                             try:
                                 con_local = sqlite3.connect("vendas.db")
                                 cur = con_local.cursor()
