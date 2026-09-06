@@ -1089,7 +1089,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 con_local = sqlite3.connect("vendas.db")
                                 cur = con_local.cursor()
                                 
-                                # Garante que a tabela 'pedidos' existe com a estrutura padrão universal
+                                # 1. Garante a tabela 'pedidos' com a estrutura completa e idêntica ao Portal do Cliente
                                 cur.execute("""
                                     CREATE TABLE IF NOT EXISTS pedidos (
                                         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1098,30 +1098,54 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         quantidade REAL,
                                         valor_unitario REAL,
                                         valor_total REAL,
+                                        fornecedor TEXT,
+                                        grupo TEXT,
+                                        codigo_pedido TEXT,
+                                        data TEXT,
                                         status TEXT
                                     )
                                 """)
                                 
+                                # Adiciona colunas caso a tabela seja antiga
+                                for col_sql in ["fornecedor TEXT", "grupo TEXT", "codigo_pedido TEXT", "data TEXT"]:
+                                    try:
+                                        cur.execute(f"ALTER TABLE pedidos ADD COLUMN {col_sql}")
+                                    except:
+                                        pass
+                                
                                 for id_item in edit_parcial['id'].tolist():
-                                    # 1. Pega os dados essenciais da venda
+                                    # 2. Busca os dados completos da venda, incluindo fornecedor e grupo se houverem
                                     cur.execute("SELECT cliente, produto, quantidade, valor_venda, valor_total FROM vendas WHERE id = ?", (int(id_item),))
                                     venda_data = cur.fetchone()
                                     
                                     if venda_data:
                                         cliente, produto, quantidade, valor_venda, valor_total = venda_data
                                         
-                                        # 2. Insere na tabela 'pedidos' que a tela de Gestão de Pedidos lê
+                                        # Busca colunas extras de forma segura
+                                        fornecedor, grupo, codigo_pedido, data = "GERAL", "GERAL", "", ""
+                                        try:
+                                            cur.execute("SELECT fornecedor, grupo, codigo_pedido, data FROM vendas WHERE id = ?", (int(id_item),))
+                                            extras = cur.fetchone()
+                                            if extras:
+                                                fornecedor = extras[0] or "GERAL"
+                                                grupo = extras[1] or "GERAL"
+                                                codigo_pedido = extras[2] or ""
+                                                data = extras[3] or ""
+                                        except:
+                                            pass
+                                        
+                                        # 3. Insere na tabela 'pedidos' exatamente igual ao Portal do Cliente
                                         cur.execute("""
-                                            INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, status)
-                                            VALUES (?, ?, ?, ?, ?, 'Pendente')
-                                        """, (cliente, produto, quantidade, valor_venda, valor_total))
+                                            INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, fornecedor, grupo, codigo_pedido, data, status)
+                                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pendente')
+                                        """, (cliente, produto, quantidade, valor_venda, valor_total, fornecedor, grupo, codigo_pedido, data))
                                     
-                                    # 3. Atualiza o status na tabela vendas
+                                    # 4. Atualiza o status na tabela vendas para 'Pendente' mantendo visível no admin
                                     cur.execute("UPDATE vendas SET status = 'Pendente' WHERE id = ?", (int(id_item),))
                                     
                                 con_local.commit()
                                 con_local.close()
-                                st.success("Pedido enviado para a Gestão de Pedidos com sucesso!")
+                                st.success("Pedido finalizado e enviado com sucesso!")
                                 st.balloons()
                                 st.rerun()
                             except Exception as e:
