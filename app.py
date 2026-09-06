@@ -1228,70 +1228,92 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         df_dia = pd.DataFrame()
                         df_historico = df_registros
 
-                    st.subheader("📋 Pedidos do Dia (Consolidado / Edição Rápida)")
-                    if not df_dia.empty:
-                        df_dia.dropna(axis=1, how='all', inplace=True)
-                        if 'excluir' in df_dia.columns:
-                            df_dia = df_dia.rename(columns={'excluir': 'Excluir'})
-                        if 'Excluir' not in df_dia.columns:
-                            df_dia.insert(0, 'Excluir', False)
+                    st.subheader("🟢 Pedidos do Dia (Editáveis — Admin)")
+
+                    # Consulta dos pedidos do dia/pendentes com todas as colunas espelhadas do portal
+                    try:
+                        conn_admin = sqlite3.connect("vendas.db")
+                        query_admin = """
+                            SELECT id, cliente, produto, quantidade, valor_venda as valor_unitario, valor_total, fornecedor, grupo, data, status 
+                            FROM vendas 
+                            WHERE status IS NULL OR status NOT LIKE '%Concluído%' 
+                            ORDER BY id DESC
+                        """
+                        df_admin_dia = pd.read_sql(query_admin, conn_admin)
+                        conn_admin.close()
+                    except Exception as e:
+                        df_admin_dia = pd.DataFrame()
+                    
+                    if df_admin_dia.empty:
+                        st.info("Nenhum pedido pendente no momento.")
+                    else:
+                        if 'Excluir' not in df_admin_dia.columns:
+                            df_admin_dia.insert(0, 'Excluir', False)
                         else:
-                            df_dia['Excluir'] = False
-
-                        cols_config_dia = {
-                            "Excluir": st.column_config.CheckboxColumn("Excluir", default=False),
-                            "quantidade": st.column_config.NumberColumn("Qtd", min_value=0.0, format="%.2f"),
-                            "valor_total": st.column_config.NumberColumn("Vlr Total", format="R$ %.2f")
+                            df_admin_dia['Excluir'] = False
+                    
+                        cols_config_admin = {
+                            "Excluir": st.column_config.CheckboxColumn("Excluir?", default=False),
+                            "id": "ID",
+                            "cliente": "Cliente",
+                            "produto": "Produto",
+                            "quantidade": st.column_config.NumberColumn("Quantidade", min_value=0.0, format="%.2f"),
+                            "valor_unitario": st.column_config.NumberColumn("Valor Unitário (R$)", format="R$ %.2f"),
+                            "valor_total": st.column_config.NumberColumn("Total (R$)", format="R$ %.2f"),
+                            "fornecedor": "Fornecedor",
+                            "grupo": "Grupo",
+                            "data": "Data",
+                            "status": "Status"
                         }
-
-                        edit_dia = st.data_editor(
-                            df_dia,
-                            column_config=cols_config_dia,
-                            disabled=[c for c in df_dia.columns if c != 'Excluir' and c != 'quantidade'],
-                            key=f"editor_pedidos_dia_{menu_admin}",
+                    
+                        edit_admin_dia = st.data_editor(
+                            df_admin_dia,
+                            column_config=cols_config_admin,
+                            disabled=[c for c in df_admin_dia.columns if c != 'Excluir' and c != 'quantidade' and c != 'valor_unitario'],
+                            key="editor_admin_pedidos_dia",
                             use_container_width=True
                         )
-
-                        col_salvar_dia, col_excluir_dia = st.columns(2)
-                        with col_salvar_dia:
-                            if st.button("💾 Salvar Alterações (Dia)", key=f"btn_salvar_dia_{menu_admin}"):
+                    
+                        col_btn1, col_btn2 = st.columns(2)
+                        with col_btn1:
+                            if st.button("Salvar Alterações", key="btn_salvar_alt_admin_dia"):
                                 try:
-                                    cursor_upd = conn.cursor()
-                                    for idx, row in edit_dia.iterrows():
-                                        if 'id' in row and pd.notna(row['id']):
-                                            item_id = int(row['id'])
-                                            qtd_nova = float(row.get('quantidade', 0))
-                                            vlr_unit = float(row.get('valor_venda', row.get('valor_unitario', 0)))
-                                            vlr_tot_novo = qtd_nova * vlr_unit
-                                            cursor_upd.execute(
-                                                f"UPDATE {tabela_alvo_historico} SET quantidade = ?, valor_total = ? WHERE id = ?",
-                                                (qtd_nova, vlr_tot_novo, item_id)
-                                            )
-                                    conn.commit()
-                                    st.success("Alterações do dia salvas com sucesso!")
+                                    con_up = sqlite3.connect("vendas.db")
+                                    cur_up = con_up.cursor()
+                                    for index, row in edit_admin_dia.iterrows():
+                                        item_id = row['id']
+                                        nova_qtd = row['quantidade']
+                                        novo_vlr = row['valor_unitario']
+                                        novo_total = nova_qtd * novo_vlr
+                                        cur_up.execute("""
+                                            UPDATE vendas 
+                                            SET quantidade = ?, valor_venda = ?, valor_total = ? 
+                                            WHERE id = ?
+                                        """, (nova_qtd, novo_vlr, novo_total, int(item_id)))
+                                    con_up.commit()
+                                    con_up.close()
+                                    st.success("Alterações salvas com sucesso!")
                                     st.rerun()
                                 except Exception as e:
-                                    st.error(f"Erro ao salvar alterações do dia: {e}")
-
-                        with col_excluir_dia:
-                            if st.button("🗑️ Excluir Selecionados (Dia)", key=f"btn_excluir_dia_{menu_admin}"):
+                                    st.error(f"Erro ao salvar: {e}")
+                    
+                        with col_btn2:
+                            if st.button("Excluir Marcados", key="btn_excluir_marcados_admin_dia"):
                                 try:
-                                    ids_a_excluir = []
-                                    if 'Excluir' in edit_dia.columns:
-                                        ids_a_excluir = edit_dia[edit_dia['Excluir'] == True]['id'].dropna().tolist()
-                                    if ids_a_excluir:
-                                        cursor_del = conn.cursor()
-                                        for item_id in ids_a_excluir:
-                                            cursor_del.execute(f"DELETE FROM {tabela_alvo_historico} WHERE id = ?", (int(item_id),))
-                                        conn.commit()
-                                        st.success(f"{len(ids_a_excluir)} item(ns) excluído(s) com sucesso!")
+                                    ids_excluir = edit_admin_dia[edit_admin_dia['Excluir'] == True]['id'].tolist()
+                                    if ids_excluir:
+                                        con_del = sqlite3.connect("vendas.db")
+                                        cur_del = con_del.cursor()
+                                        for i_id in ids_excluir:
+                                            cur_del.execute("DELETE FROM vendas WHERE id = ?", (int(i_id),))
+                                        con_del.commit()
+                                        con_del.close()
+                                        st.success(f"{len(ids_excluir)} item(ns) excluído(s)!")
                                         st.rerun()
                                     else:
-                                        st.warning("Nenhum item marcado para exclusão.")
+                                        st.warning("Nenhum item selecionado para exclusão.")
                                 except Exception as e:
-                                    st.error(f"Erro ao excluir itens do dia: {e}")
-                    else:
-                        st.info("Nenhum pedido registrado para o dia de hoje.")
+                                    st.error(f"Erro ao excluir: {e}")
 
                     st.markdown("---")
                     st.subheader("📚 Histórico de Pedidos anteriores")
