@@ -1155,247 +1155,156 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             hide_index=True,
                             key="tabela_pedidos_do_dia_unica"
                         )
-
-            if aba_baixa is not None:
-                with aba_baixa:
-                    st.subheader("💵 Baixa de Débitos & Lançamento de Haver")
-                    clientes_com_divida = carregar_coluna("vendas", "cliente") or []
-                    if clientes_com_divida:
-                        cliente_baixa = st.selectbox("Selecione o Cliente para Baixa:", clientes_com_divida, key="sel_cli_baixa")
-                        df_cli_vendas = carregar_dados(f"SELECT * FROM vendas WHERE TRIM(cliente) = TRIM('{cliente_baixa}')")
+            
+                        col_btn1, col_btn2 = st.columns(2)
+            
+                        with col_btn1:
+                            if st.button("💾 Salvar Alterações", type="primary", key="btn_salvar_tabela_unica"):
+                                try:
+                                    cursor = conn.cursor()
+                                    for index, row in df_editado.iterrows():
+                                        novo_total = float(row['quantidade']) * float(row['valor_unitario'])
+                                        cursor.execute("""
+                                            UPDATE pedidos 
+                                            SET quantidade = ?, valor_total = ? 
+                                            WHERE id = ?
+                                        """, (row['quantidade'], novo_total, row['id']))
+                                    conn.commit()
+                                    st.success("Pedidos atualizados com sucesso!")
+                                    st.rerun()
+                                except Exception as ex:
+                                    conn.rollback()
+                                    st.error(f"Erro ao atualizar os pedidos: {ex}")
+            
+                        with col_btn2:
+                            if st.button("🗑️ Excluir Marcados", type="secondary", key="btn_excluir_selecionados"):
+                                try:
+                                    cursor = conn.cursor()
+                                    ids_para_excluir = df_editado[df_editado['Excluir'] == True]['id'].tolist()
+                                    
+                                    if ids_para_excluir:
+                                        for id_pedido in ids_para_excluir:
+                                            cursor.execute("DELETE FROM pedidos WHERE id = ?", (id_pedido,))
+                                        conn.commit()
+                                        st.warning("Itens selecionados excluídos com sucesso!")
+                                        st.rerun()
+                                    else:
+                                        st.info("Nenhum item foi marcado para exclusão.")
+                                except Exception as ex:
+                                    conn.rollback()
+                                    st.error(f"Erro ao excluir os itens: {ex}")
+    
+                        try:
+                            from reportlab.lib.pagesizes import letter
+                            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+                            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+                            from reportlab.lib import colors
+                            from datetime import timedelta
+                            import io
+    
+                            buffer = io.BytesIO()
+                            doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=15, bottomMargin=30)
+                            elements = []
+                            styles = getSampleStyleSheet()
+    
+                            fuso_brasil = timedelta(hours=3)
+                            hora_local = datetime.now() - fuso_brasil
+                            data_hora_str = hora_local.strftime('%Y-%m-%d %H:%M:%S')
+    
+                            estilo_empresa = ParagraphStyle('Empresa', parent=styles['Heading1'], fontSize=14, textColor=colors.HexColor('#002060'), alignment=1, fontName='Helvetica-Bold', spaceAfter=0)
+                            estilo_sub_empresa = ParagraphStyle('SubEmpresa', parent=styles['Normal'], fontSize=8, textColor=colors.black, alignment=1, leading=9, spaceAfter=0)
+                            estilo_titulo_rel = ParagraphStyle('TituloRel', parent=styles['Heading2'], fontSize=10, textColor=colors.black, alignment=1, fontName='Helvetica-Bold', spaceBefore=4, spaceAfter=0)
+                            estilo_info_cli = ParagraphStyle('InfoCli', parent=styles['Normal'], fontSize=8, textColor=colors.black, alignment=1, leading=10, spaceAfter=0)
+                            
+                            estilo_th = ParagraphStyle('TH', parent=styles['Normal'], fontSize=9, textColor=colors.white, alignment=1, fontName='Helvetica-Bold')
+                            estilo_td_left = ParagraphStyle('TDLeft', parent=styles['Normal'], fontSize=9, textColor=colors.black, alignment=0)
+                            estilo_td_center = ParagraphStyle('TDCenter', parent=styles['Normal'], fontSize=9, textColor=colors.black, alignment=1)
+                            estilo_td_right = ParagraphStyle('TDRight', parent=styles['Normal'], fontSize=9, textColor=colors.black, alignment=2)
+                            
+                            estilo_total_label = ParagraphStyle('TotLabel', parent=styles['Normal'], fontSize=9, textColor=colors.white, alignment=0, fontName='Helvetica-Bold')
+                            estilo_total_val = ParagraphStyle('TotVal', parent=styles['Normal'], fontSize=9, textColor=colors.white, alignment=2, fontName='Helvetica-Bold')
+    
+                            elements.append(Paragraph("REY DA CEBOLA", estilo_empresa))
+                            elements.append(Paragraph("CNPJ: 194.174.39/000-42 INSC.EST.: 12.426725-4<br/>CONTATO: (99) 98814-9722 OU (99) 98414-3943", estilo_sub_empresa))
+                            elements.append(Spacer(1, 4))
+    
+                            elements.append(Paragraph("Relatório de Pedidos / Orçamentos", estilo_titulo_rel))
+                            elements.append(Paragraph(f"<b>Cliente:</b> {st.session_state.cliente_autenticado} | <b>Gerado em:</b> {data_hora_str}", estilo_info_cli))
+                            elements.append(Spacer(1, 8))
+    
+                            data_tabela = [[
+                                Paragraph("Produto", estilo_th),
+                                Paragraph("Qtd Total", estilo_th),
+                                Paragraph("Preço Unitário (R$)", estilo_th),
+                                Paragraph("Valor Total (R$)", estilo_th)
+                            ]]
+    
+                            for _, row in df_dia.iterrows():
+                                data_tabela.append([
+                                    Paragraph(str(row['produto']), estilo_td_left),
+                                    Paragraph(f"{row['quantidade']:.2f}", estilo_td_center),
+                                    Paragraph(f"R$ {row['valor_unitario']:.2f}", estilo_td_right),
+                                    Paragraph(f"R$ {row['valor_total']:.2f}", estilo_td_right)
+                                ])
+    
+                            total_geral_dia = df_dia['valor_total'].sum()
+    
+                            data_tabela.append([
+                                Paragraph("VALOR TOTAL GERAL", estilo_total_label),
+                                Paragraph("", estilo_total_val),
+                                Paragraph("", estilo_total_val),
+                                Paragraph(f"R$ {total_geral_dia:.2f}", estilo_total_val)
+                            ])
+    
+                            t = Table(data_tabela, colWidths=[220, 80, 110, 130])
+                            t.setStyle(TableStyle([
+                                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1F4E79')),
+                                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                                ('GRID', (0, 0), (-1, -2), 0.5, colors.HexColor('#CCCCCC')),
+                                ('SPAN', (0, -1), (2, -1)),
+                                ('BACKGROUND', (0, -1), (-1, -1), colors.black),
+                            ]))
+                            
+                            elements.append(t)
+                            doc.build(elements)
+                            pdf_bytes = buffer.getvalue()
+    
+                            st.download_button(
+                                label="📥 Baixar PDF do Dia",
+                                data=pdf_bytes,
+                                file_name=f"relatorio_pedidos_dia_{st.session_state.cliente_autenticado}.pdf",
+                                mime="application/pdf",
+                                key="btn_pdf_portal_dia"
+                            )
+                        except Exception as ex:
+                            st.error(f"Erro ao gerar PDF dos pedidos do dia: {ex}")
+                    else:
+                        st.info("Nenhum pedido registrado hoje para edição.")
                         
-                        if not df_cli_vendas.empty:
-                            tot_vendas = df_cli_vendas['valor_total'].sum()
-                            tot_recebido = pd.to_numeric(df_cli_vendas['valor_recebido'], errors='coerce').fillna(0.0).sum() if 'valor_recebido' in df_cli_vendas.columns else 0.0
-                            total_pendente = tot_vendas - tot_recebido
+                except Exception as e:
+                    st.error(f"Erro ao carregar pedidos do dia: {e}")
                             
-                            col_m1, col_m2, col_m3 = st.columns(3)
-                            col_m1.metric("Total de Compras", f"R$ {tot_vendas:,.2f}")
-                            col_m2.metric("Total Já Pago", f"R$ {tot_recebido:,.2f}")
-                            col_m3.metric("Saldo Devedor Restante", f"R$ {total_pendente:,.2f}", delta_color="inverse")
-                            
-                            st.markdown("---")
-                            st.markdown(f"### 📋 Detalhamento das Vendas / Débitos de **{cliente_baixa}**")
-                            
-                            df_exibicao_cli = df_cli_vendas.copy()
-                            if 'valor_recebido' not in df_exibicao_cli.columns:
-                                df_exibicao_cli['valor_recebido'] = 0.0
-                            df_exibicao_cli['saldo_devedor'] = df_exibicao_cli['valor_total'] - pd.to_numeric(df_exibicao_cli['valor_recebido'], errors='coerce').fillna(0.0)
-                            
-                            cols_mostrar = [c for c in ['id', 'data', 'produto', 'quantidade', 'valor_total', 'valor_recebido', 'saldo_devedor', 'status'] if c in df_exibicao_cli.columns]
-                            st.dataframe(df_exibicao_cli[cols_mostrar], use_container_width=True)
-                            
-                            st.markdown("---")
-                            valor_haver = st.number_input("Valor do Haver / Pagamento Recebido (R$)", min_value=0.0, step=1.0, value=0.0, key="val_haver_input")
-                            forma_pgto_baixa = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito"], key="fp_haver_input")
-                            
-                            if st.button("Aplicar Haver"):
-                                if valor_haver > 0:
-                                    baixar_debito_cliente(cliente_baixa, valor_haver, forma_pagamento=forma_pgto_baixa)
-                                    st.success(f"Haver de R$ {valor_haver:,.2f} aplicado com sucesso!")
-                                    st.rerun()
-
-            with aba_list:
-                st.subheader("🔍 Edição Direta na Tabela & Gestão por Cliente")
-                
-                clientes_filtro = ["TODOS"] + (carregar_coluna("clientes", "nome") or carregar_coluna("vendas", "cliente") or [])
-                
-                col_f1, col_f2, col_f3 = st.columns(3)
-                with col_f1:
-                    cliente_sel = st.selectbox("Filtrar por Cliente:", clientes_filtro, key=f"filtro_cli_tabela_{menu_admin}")
-                with col_f2:
-                    d_inicio = st.date_input("Data Inicial do Filtro", value=date(2025, 1, 1), key=f"filtro_d_ini_{menu_admin}")
-                with col_f3:
-                    d_fin = st.date_input("Data Final do Filtro", value=date.today(), key=f"filtro_d_fim_{menu_admin}")
-
-                texto_botao_atualizar = "🔄 Atualizar Preços de Venda" if not is_modo_pedido else "🔄 Atualizar Preços de Custo"
-                if st.button(texto_botao_atualizar, key=f"btn_atualizar_precos_{menu_admin}"):
-                    cursor = conn.cursor()
-                    coluna_alvo_estoque = 'valor_venda' if not is_modo_pedido else 'valor_compra'
-                    
-                    cursor.execute(f"""
-                        UPDATE vendas 
-                        SET valor_venda = (
-                            SELECT {coluna_alvo_estoque} 
-                            FROM produtos 
-                            WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
-                        ),
-                        valor_total = quantidade * (
-                            SELECT {coluna_alvo_estoque} 
-                            FROM produtos 
-                            WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
-                        )
-                        WHERE TRIM(UPPER(produto)) IN (SELECT TRIM(UPPER(nome)) FROM produtos)
-                    """)
-                    linhas_afetadas = cursor.rowcount
-                    conn.commit()
-                    
-                    if linhas_afetadas > 0:
-                        st.success(f"Preços atualizados com sucesso! ({linhas_afetadas} itens modificados)")
-                    else:
-                        st.warning("Nenhum produto correspondente foi encontrado na tabela de estoque para atualizar.")
-                    
-                    st.rerun()
-                
+                # ==========================================
+                # Seção de Histórico de Pedidos do Cliente
+                # ==========================================
                 st.markdown("---")
-                s_d1, s_d2 = d_inicio.strftime("%Y-%m-%d"), d_fin.strftime("%Y-%m-%d")
-                
-                tabela_alvo_historico = 'pedidos' if 'pedidos' in [t[0] for t in conn.cursor().execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()] else 'vendas'
-                
-                query_filt = f"SELECT * FROM {tabela_alvo_historico}"
-                df_registros = carregar_dados(query_filt)
-                
-                if not df_registros.empty:
-                    df_registros.columns = [c.lower() for c in df_registros.columns]
-                    
-                    if 'data' in df_registros.columns:
-                        df_registros['data_str'] = df_registros['data'].astype(str).str.slice(0, 10)
-                        df_registros = df_registros[(df_registros['data_str'] >= s_d1) & (df_registros['data_str'] <= s_d2)]
-                    
-                    if cliente_sel != "TODOS" and 'cliente' in df_registros.columns:
-                        df_registros = df_registros[df_registros['cliente'].astype(str).str.strip().str.upper() == str(cliente_sel).strip().upper()]
-
-                    data_hoje_str = datetime.now().strftime("%Y-%m-%d")
-                    
-                    if 'data_str' in df_registros.columns:
-                        df_dia = df_registros[df_registros['data_str'] == data_hoje_str]
-                        df_historico = df_registros[df_registros['data_str'] != data_hoje_str]
+                st.subheader("📚 Pedidos Anteriores (Histórico)")
+                try:
+                    query_hist_cliente = """
+                        SELECT id, produto, quantidade, valor_unitario, valor_total, status, data, fornecedor, grupo, codigo_pedido
+                        FROM pedidos
+                        WHERE DATE(data) != DATE('now') AND cliente = ?
+                    """
+                    df_hist_cli = pd.read_sql_query(query_hist_cliente, conn, params=(st.session_state.cliente_autenticado,))
+                    if not df_hist_cli.empty:
+                        st.dataframe(df_hist_cli, use_container_width=True, hide_index=True)
                     else:
-                        df_dia = pd.DataFrame()
-                        df_historico = df_registros
-
-                    st.subheader("📋 Pedidos do Dia (Consolidado / Edição Rápida)")
-                    if not df_dia.empty:
-                        df_dia.dropna(axis=1, how='all', inplace=True)
-                        if 'excluir' in df_dia.columns:
-                            df_dia = df_dia.rename(columns={'excluir': 'Excluir'})
-                        if 'Excluir' not in df_dia.columns:
-                            df_dia.insert(0, 'Excluir', False)
-                        else:
-                            df_dia['Excluir'] = False
-
-                        cols_config_dia = {
-                            "Excluir": st.column_config.CheckboxColumn("Excluir", default=False),
-                            "quantidade": st.column_config.NumberColumn("Qtd", min_value=0.0, format="%.2f"),
-                            "valor_total": st.column_config.NumberColumn("Vlr Total", format="R$ %.2f")
-                        }
-
-                        edit_dia = st.data_editor(
-                            df_dia,
-                            column_config=cols_config_dia,
-                            disabled=[c for c in df_dia.columns if c != 'Excluir' and c != 'quantidade'],
-                            key=f"editor_pedidos_dia_{menu_admin}",
-                            use_container_width=True
-                        )
-
-                        col_salvar_dia, col_excluir_dia = st.columns(2)
-                        with col_salvar_dia:
-                            if st.button("💾 Salvar Alterações (Dia)", key=f"btn_salvar_dia_{menu_admin}"):
-                                try:
-                                    cursor_upd = conn.cursor()
-                                    for idx, row in edit_dia.iterrows():
-                                        if 'id' in row and pd.notna(row['id']):
-                                            item_id = int(row['id'])
-                                            qtd_nova = float(row.get('quantidade', 0))
-                                            vlr_unit = float(row.get('valor_venda', row.get('valor_unitario', 0)))
-                                            vlr_tot_novo = qtd_nova * vlr_unit
-                                            cursor_upd.execute(
-                                                f"UPDATE {tabela_alvo_historico} SET quantidade = ?, valor_total = ? WHERE id = ?",
-                                                (qtd_nova, vlr_tot_novo, item_id)
-                                            )
-                                    conn.commit()
-                                    st.success("Alterações do dia salvas com sucesso!")
-                                    st.rerun()
-                                except Exception as e:
-                                    st.error(f"Erro ao salvar alterações do dia: {e}")
-
-                        with col_excluir_dia:
-                            if st.button("🗑️ Excluir Selecionados (Dia)", key=f"btn_excluir_dia_{menu_admin}"):
-                                try:
-                                    ids_a_excluir = []
-                                    if 'Excluir' in edit_dia.columns:
-                                        ids_a_excluir = edit_dia[edit_dia['Excluir'] == True]['id'].dropna().tolist()
-                                    if ids_a_excluir:
-                                        cursor_del = conn.cursor()
-                                        for item_id in ids_a_excluir:
-                                            cursor_del.execute(f"DELETE FROM {tabela_alvo_historico} WHERE id = ?", (int(item_id),))
-                                        conn.commit()
-                                        st.success(f"{len(ids_a_excluir)} item(ns) excluído(s) com sucesso!")
-                                        st.rerun()
-                                    else:
-                                        st.warning("Nenhum item marcado para exclusão.")
-                                except Exception as e:
-                                    st.error(f"Erro ao excluir itens do dia: {e}")
-                    else:
-                        st.info("Nenhum pedido registrado para o dia de hoje.")
-
-                    st.markdown("---")
-                    st.subheader("📚 Histórico de Pedidos anteriores")
-                    if not df_historico.empty:
-                        df_historico.dropna(axis=1, how='all', inplace=True)
-                        if 'excluir' in df_historico.columns:
-                            df_historico = df_historico.rename(columns={'excluir': 'Excluir'})
-                        if 'Excluir' not in df_historico.columns:
-                            df_historico.insert(0, 'Excluir', False)
-                        else:
-                            df_historico['Excluir'] = False
-
-                        cols_config_hist = {
-                            "Excluir": st.column_config.CheckboxColumn("Excluir", default=False),
-                            "quantidade": st.column_config.NumberColumn("Qtd", min_value=0.0, format="%.2f"),
-                            "valor_total": st.column_config.NumberColumn("Vlr Total", format="R$ %.2f")
-                        }
-
-                        edit_hist = st.data_editor(
-                            df_historico,
-                            column_config=cols_config_hist,
-                            disabled=[c for c in df_historico.columns if c != 'Excluir' and c != 'quantidade'],
-                            key=f"editor_pedidos_hist_{menu_admin}",
-                            use_container_width=True
-                        )
-
-                        col_salvar_hist, col_excluir_hist = st.columns(2)
-                        with col_salvar_hist:
-                            if st.button("💾 Salvar Alterações (Histórico)", key=f"btn_salvar_hist_{menu_admin}"):
-                                try:
-                                    cursor_upd = conn.cursor()
-                                    for idx, row in edit_hist.iterrows():
-                                        if 'id' in row and pd.notna(row['id']):
-                                            item_id = int(row['id'])
-                                            qtd_nova = float(row.get('quantidade', 0))
-                                            vlr_unit = float(row.get('valor_venda', row.get('valor_unitario', 0)))
-                                            vlr_tot_novo = qtd_nova * vlr_unit
-                                            cursor_upd.execute(
-                                                f"UPDATE {tabela_alvo_historico} SET quantidade = ?, valor_total = ? WHERE id = ?",
-                                                (qtd_nova, vlr_tot_novo, item_id)
-                                            )
-                                    conn.commit()
-                                    st.success("Alterações do histórico salvas com sucesso!")
-                                    st.rerun()
-                                except Exception as e:
-                                    st.error(f"Erro ao salvar alterações do histórico: {e}")
-
-                        with col_excluir_hist:
-                            if st.button("🗑️ Excluir Selecionados (Histórico)", key=f"btn_excluir_hist_{menu_admin}"):
-                                try:
-                                    ids_a_excluir_hist = []
-                                    if 'Excluir' in edit_hist.columns:
-                                        ids_a_excluir_hist = edit_hist[edit_hist['Excluir'] == True]['id'].dropna().tolist()
-                                    if ids_a_excluir_hist:
-                                        cursor_del = conn.cursor()
-                                        for item_id in ids_a_excluir_hist:
-                                            cursor_del.execute(f"DELETE FROM {tabela_alvo_historico} WHERE id = ?", (int(item_id),))
-                                        conn.commit()
-                                        st.success(f"{len(ids_a_excluir_hist)} item(ns) do histórico excluído(s) com sucesso!")
-                                        st.rerun()
-                                    else:
-                                        st.warning("Nenhum item marcado para exclusão no histórico.")
-                                except Exception as e:
-                                    st.error(f"Erro ao excluir itens do histórico: {e}")
-                    else:
-                        st.info("Nenhum registro no histórico para o período selecionado.")
-                else:
-                    st.info("Nenhum registro encontrado para os filtros aplicados.")
+                        st.info("Nenhum pedido anterior encontrado.")
+                except Exception as e_hist:
+                    st.error(f"Erro ao carregar histórico: {e_hist}")
         elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
             st.title("👥 Cadastros Gerais")
             tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["👤 Clientes", "📦 Produtos", "🏢 Fornecedores", "🏷️ Grupos"])
