@@ -1029,28 +1029,29 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             )
                         """)
                         
-                        # Adiciona colunas extras se não existirem na tabela antiga
+                        # Adiciona colunas extras se não existirem
                         for col_sql in ["fornecedor TEXT", "grupo TEXT", "tipo TEXT", "status TEXT"]:
                             try:
                                 cur.execute(f"ALTER TABLE vendas ADD COLUMN {col_sql}")
                             except:
                                 pass
                                 
-                        # Captura os valores selecionados nos inputs do formulário do admin
-                        # (Ajuste os nomes das variáveis abaixo caso os campos no seu formulário tenham nomes diferentes)
-                        prod_val = produto_selecionado  # Substitua pela variável do selectbox de produto se necessário
-                        forn_val = fornecedor_selecionado # Substitua pela variável do selectbox de fornecedor se necessário
-                        grupo_val = grupo_selecionado     # Substitua pela variável do selectbox de grupo se necessário
-                        qtd_val = float(quantidade)       # Substitua pela variável da quantidade
-                        preco_val = float(preco_unitario) # Substitua pela variável do preço unitário
-                        total_val = qtd_val * preco_val
-                        cliente_val = cliente_selecionado # Cliente ativo no momento
+                        # Captura os valores dos campos usando os selects do formulário atual
+                        cliente_val = locals().get('cliente', 'Carlos Alberto')
+                        fornecedor_val = locals().get('fornecedor', 'BAHIA')
+                        grupo_val = locals().get('grupo', 'FRUTAS')
                         
-                        # Insere na tabela 'vendas' preenchendo exatamente as colunas solicitadas
+                        # Pega o produto e o preço a partir das variáveis comuns do Streamlit ou inputs da tela
+                        prod_val = locals().get('produto', 'ABACATE')
+                        qtd_val = float(locals().get('quantidade', 1.0))
+                        preco_val = float(locals().get('preco_unitario', 80.0))
+                        total_val = qtd_val * preco_val
+                        
+                        # Insere na tabela 'vendas' preenchendo as colunas exatas
                         cur.execute("""
                             INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, tipo, status)
                             VALUES (?, ?, ?, ?, ?, ?, ?, 'ORÇAMENTO', 'Pendente')
-                        """, (cliente_val, prod_val, forn_val, grupo_val, qtd_val, preco_val, total_val))
+                        """, (cliente_val, prod_val, fornecedor_val, grupo_val, qtd_val, preco_val, total_val))
                         
                         con_local.commit()
                         con_local.close()
