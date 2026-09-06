@@ -1013,23 +1013,34 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         con_local = sqlite3.connect("vendas.db")
                         cur = con_local.cursor()
                         
-                        # Garante a estrutura limpa idêntica ao Portal do Cliente
+                        # Garante a estrutura básica da tabela
                         cur.execute("""
                             CREATE TABLE IF NOT EXISTS vendas (
                                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                                 cliente TEXT,
                                 produto TEXT,
-                                fornecedor TEXT,
-                                grupo TEXT,
                                 quantidade REAL,
-                                preco_unitario REAL,
                                 valor_total REAL,
                                 tipo TEXT,
                                 status TEXT
                             )
                         """)
                         
-                        # Pega os valores exatos dos inputs da tela de administração
+                        # Adiciona de forma segura todas as colunas necessárias se não existirem
+                        for coluna, tipo_dado in [
+                            ("fornecedor", "TEXT"),
+                            ("grupo", "TEXT"),
+                            ("preco_unitario", "REAL"),
+                            ("valor_venda", "REAL"),
+                            ("tipo", "TEXT"),
+                            ("status", "TEXT")
+                        ]:
+                            try:
+                                cur.execute(f"ALTER TABLE vendas ADD COLUMN {coluna} {tipo_dado}")
+                            except:
+                                pass
+                
+                        # Captura os valores dos inputs da tela
                         cli_v = cliente if 'cliente' in locals() else "Carlos Alberto"
                         prod_v = produto if 'produto' in locals() else "ABACATE"
                         forn_v = fornecedor if 'fornecedor' in locals() else "BAHIA"
@@ -1038,11 +1049,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         preco_v = float(preco_unitario) if 'preco_unitario' in locals() else 80.0
                         total_v = qtd_v * preco_v
                 
-                        # Insere na tabela com as mesmas colunas da segunda tela
+                        # Insere na tabela preenchendo as colunas exatas
                         cur.execute("""
-                            INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, preco_unitario, valor_total, tipo, status)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, 'ORÇAMENTO', 'Pendente')
-                        """, (cli_v, prod_v, forn_v, grup_v, qtd_v, preco_v, total_v))
+                            INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, preco_unitario, valor_venda, valor_total, tipo, status)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ORÇAMENTO', 'Pendente')
+                        """, (cli_v, prod_v, forn_v, grup_v, qtd_v, preco_v, preco_v, total_v))
                         
                         con_local.commit()
                         con_local.close()
