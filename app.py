@@ -1089,7 +1089,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 con_local = sqlite3.connect("vendas.db")
                                 cur = con_local.cursor()
                                 
-                                # Garante que a tabela 'pedidos' tem a estrutura completa idêntica ao portal
+                                # Garante que a tabela 'pedidos' existe com as colunas essenciais
                                 cur.execute("""
                                     CREATE TABLE IF NOT EXISTS pedidos (
                                         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1098,26 +1098,24 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         quantidade REAL,
                                         valor_unitario REAL,
                                         valor_total REAL,
-                                        fornecedor TEXT,
-                                        grupo TEXT,
                                         data TEXT,
                                         status TEXT
                                     )
                                 """)
                                 
                                 for id_item in edit_parcial['id'].tolist():
-                                    # 1. Busca todos os dados da venda atual (sem o campo tipo)
-                                    cur.execute("SELECT cliente, produto, quantidade, valor_venda, valor_total, fornecedor, grupo, data FROM vendas WHERE id = ?", (int(id_item),))
+                                    # 1. Busca os dados essenciais da venda atual (sem depender de colunas opcionais)
+                                    cur.execute("SELECT cliente, produto, quantidade, valor_venda, valor_total, data FROM vendas WHERE id = ?", (int(id_item),))
                                     venda_data = cur.fetchone()
                                     
                                     if venda_data:
-                                        cliente, produto, quantidade, valor_venda, valor_total, fornecedor, grupo, data = venda_data
+                                        cliente, produto, quantidade, valor_venda, valor_total, data = venda_data
                                         
-                                        # 2. Insere na tabela 'pedidos' sem a coluna tipo, igualzinho ao portal
+                                        # 2. Insere na tabela 'pedidos' de forma segura
                                         cur.execute("""
-                                            INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, fornecedor, grupo, data, status)
-                                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Pendente')
-                                        """, (cliente, produto, quantidade, valor_venda, valor_total, fornecedor, grupo, data))
+                                            INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, data, status)
+                                            VALUES (?, ?, ?, ?, ?, ?, 'Pendente')
+                                        """, (cliente, produto, quantidade, valor_venda, valor_total, data))
                                     
                                     # 3. Mantém o status como 'Pendente' na tabela de vendas
                                     cur.execute("UPDATE vendas SET status = 'Pendente', tipo = 'VENDA' WHERE id = ?", (int(id_item),))
