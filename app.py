@@ -1230,13 +1230,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
                     st.subheader("🟢 Pedidos do Dia (Editáveis — Admin)")
 
-                    # Consulta dos pedidos do dia/pendentes com todas as colunas espelhadas do portal
                     try:
                         conn_admin = sqlite3.connect("vendas.db")
                         query_admin = """
                             SELECT id, cliente, produto, quantidade, valor_venda as valor_unitario, valor_total, fornecedor, grupo, data, status 
                             FROM vendas 
-                            WHERE status = 'ORÇAMENTO' OR status IS NULL OR status = '' 
+                            WHERE status = 'ORÇAMENTO' OR status IS NULL OR status = '' OR status LIKE '%Pendente%'
                             ORDER BY id DESC
                         """
                         df_admin_dia = pd.read_sql(query_admin, conn_admin)
@@ -1274,7 +1273,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             use_container_width=True
                         )
                     
-                        col_btn1, col_btn2 = st.columns(2)
+                        col_btn1, col_btn2, col_btn3 = st.columns(3)
+                        
                         with col_btn1:
                             if st.button("Salvar Alterações", key="btn_salvar_alt_admin_dia"):
                                 try:
@@ -1298,6 +1298,27 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     st.error(f"Erro ao salvar: {e}")
                     
                         with col_btn2:
+                            if st.button("Finalizar Pedido / Venda", type="primary", key="btn_finalizar_admin_dia"):
+                                try:
+                                    con_fin = sqlite3.connect("vendas.db")
+                                    cur_fin = con_fin.cursor()
+                                    cur_fin.execute("""
+                                        UPDATE vendas 
+                                        SET status = 'Concluído (Convertido)', tipo = 'VENDA' 
+                                        WHERE status = 'ORÇAMENTO' OR status IS NULL OR status = '' OR status LIKE '%Pendente%'
+                                    """)
+                                    afetados = cur_fin.rowcount
+                                    con_fin.commit()
+                                    con_fin.close()
+                                    if afetados > 0:
+                                        st.success(f"{afetados} pedido(s) finalizado(s) e movido(s) para o histórico com sucesso!")
+                                        st.rerun()
+                                    else:
+                                        st.warning("Nenhum pedido pendente para finalizar.")
+                                except Exception as e:
+                                    st.error(f"Erro ao finalizar: {e}")
+                    
+                        with col_btn3:
                             if st.button("Excluir Marcados", key="btn_excluir_marcados_admin_dia"):
                                 try:
                                     ids_excluir = edit_admin_dia[edit_admin_dia['Excluir'] == True]['id'].tolist()
