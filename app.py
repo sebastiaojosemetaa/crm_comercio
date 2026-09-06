@@ -1089,7 +1089,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 con_local = sqlite3.connect("vendas.db")
                                 cur = con_local.cursor()
                                 
-                                # Garante que a tabela 'pedidos' tem a estrutura completa idêntica à esperada
+                                # 1. Garante que a tabela 'pedidos' existe com a estrutura completa
                                 cur.execute("""
                                     CREATE TABLE IF NOT EXISTS pedidos (
                                         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1106,21 +1106,28 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     )
                                 """)
                                 
+                                # Adiciona colunas caso a tabela antiga não as possua
+                                for col_sql in ["fornecedor TEXT", "grupo TEXT", "codigo_pedido TEXT", "data TEXT"]:
+                                    try:
+                                        cur.execute(f"ALTER TABLE pedidos ADD COLUMN {col_sql}")
+                                    except:
+                                        pass # Se a coluna já existir, ele apenas ignora o erro e continua
+                                
                                 for id_item in edit_parcial['id'].tolist():
-                                    # 1. Busca todos os campos da venda atual
+                                    # 2. Busca todos os campos da venda atual
                                     cur.execute("SELECT cliente, produto, quantidade, valor_venda, valor_total, fornecedor, grupo, codigo_pedido, data FROM vendas WHERE id = ?", (int(id_item),))
                                     venda_data = cur.fetchone()
                                     
                                     if venda_data:
                                         cliente, produto, quantidade, valor_venda, valor_total, fornecedor, grupo, codigo_pedido, data = venda_data
                                         
-                                        # 2. Insere na tabela 'pedidos' com todas as colunas preenchidas perfeitamente
+                                        # 3. Insere na tabela 'pedidos' com todas as colunas idênticas ao portal do cliente
                                         cur.execute("""
                                             INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, fornecedor, grupo, codigo_pedido, data, status)
                                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pendente')
                                         """, (cliente, produto, quantidade, valor_venda, valor_total, fornecedor, grupo, codigo_pedido, data))
                                     
-                                    # 3. Atualiza o status na tabela vendas para 'Pendente' (mantendo visível nos pedidos do dia)
+                                    # 4. Atualiza o status na tabela vendas para 'Pendente' mantendo visível
                                     cur.execute("UPDATE vendas SET status = 'Pendente' WHERE id = ?", (int(id_item),))
                                     
                                 con_local.commit()
