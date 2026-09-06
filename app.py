@@ -1089,6 +1089,19 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 con_local = sqlite3.connect("vendas.db")
                                 cur = con_local.cursor()
                                 
+                                # Garante que a tabela 'pedidos' existe no banco de dados
+                                cur.execute("""
+                                    CREATE TABLE IF NOT EXISTS pedidos (
+                                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                        cliente TEXT,
+                                        produto TEXT,
+                                        quantidade REAL,
+                                        valor_unitario REAL,
+                                        valor_total REAL,
+                                        status TEXT
+                                    )
+                                """)
+                                
                                 for id_item in edit_parcial['id'].tolist():
                                     # 1. Busca os dados essenciais da venda atual
                                     cur.execute("SELECT cliente, produto, quantidade, valor_venda, valor_total FROM vendas WHERE id = ?", (int(id_item),))
@@ -1097,7 +1110,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     if venda_data:
                                         cliente, produto, quantidade, valor_venda, valor_total = venda_data
                                         
-                                        # 2. Insere na tabela 'pedidos' apenas com as colunas essenciais
+                                        # 2. Insere na tabela 'pedidos'
                                         cur.execute("""
                                             INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, status)
                                             VALUES (?, ?, ?, ?, ?, 'Pendente')
