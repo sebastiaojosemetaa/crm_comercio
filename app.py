@@ -1231,18 +1231,17 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.subheader("🟢 Pedidos do Dia (Editáveis — Admin)")
 
                     try:
-                        conn_admin = sqlite3.connect("vendas.db")
-                        query_admin = """
-                            SELECT id, cliente, produto, quantidade, valor_venda as valor_unitario, valor_total, fornecedor, grupo, data, status 
+                        conn_hist = sqlite3.connect("vendas.db")
+                        query_hist_admin = """
+                            SELECT id, cliente, produto, quantidade, valor_venda as valor_unitario, valor_total, status, observacoes, data, fornecedor, grupo, codigo_pedido, data_str 
                             FROM vendas 
-                            WHERE (status = 'ORÇAMENTO' OR status IS NULL OR status = '' OR status LIKE '%Pendente%')
-                               OR (data LIKE '2026-09-06%' AND status NOT LIKE '%Concluído%')
+                            WHERE status LIKE '%Concluído%' OR status LIKE '%Convertido%' OR status LIKE '%VENDA%'
                             ORDER BY id DESC
                         """
-                        df_admin_dia = pd.read_sql(query_admin, conn_admin)
-                        conn_admin.close()
+                        df_historico = pd.read_sql(query_hist_admin, conn_hist)
+                        conn_hist.close()
                     except Exception as e:
-                        df_admin_dia = pd.DataFrame()
+                        df_historico = pd.DataFrame()
                     
                     if df_admin_dia.empty:
                         st.info("Nenhum pedido pendente no momento.")
