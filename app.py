@@ -1230,22 +1230,27 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
                     st.subheader("🟢 Pedidos do Dia (Editáveis — Admin)")
 
+                    # Inicializa o dataframe vazio por segurança para evitar NameError
+                    df_admin_dia = pd.DataFrame()
+                    
                     try:
-                        conn_hist = sqlite3.connect("vendas.db")
-                        query_hist_admin = """
-                            SELECT id, cliente, produto, quantidade, valor_venda as valor_unitario, valor_total, status, observacoes, data, fornecedor, grupo, codigo_pedido, data_str 
+                        conn_admin = sqlite3.connect("vendas.db")
+                        query_admin = """
+                            SELECT id, cliente, produto, quantidade, valor_venda as valor_unitario, valor_total, fornecedor, grupo, data, status 
                             FROM vendas 
-                            WHERE status LIKE '%Concluído%' OR status LIKE '%Convertido%' OR status LIKE '%VENDA%'
+                            WHERE (status = 'ORÇAMENTO' OR status IS NULL OR status = '' OR status LIKE '%Pendente%')
+                               OR (data LIKE '2026-09-06%' AND status NOT LIKE '%Concluído%')
                             ORDER BY id DESC
                         """
-                        df_historico = pd.read_sql(query_hist_admin, conn_hist)
-                        conn_hist.close()
+                        df_admin_dia = pd.read_sql(query_admin, conn_admin)
+                        conn_admin.close()
                     except Exception as e:
-                        df_historico = pd.DataFrame()
+                        df_admin_dia = pd.DataFrame()
                     
                     if df_admin_dia.empty:
                         st.info("Nenhum pedido pendente no momento.")
                     else:
+                        # Resto da tabela editável e botões...
                         if 'Excluir' not in df_admin_dia.columns:
                             df_admin_dia.insert(0, 'Excluir', False)
                         else:
