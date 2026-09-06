@@ -1103,21 +1103,21 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 """)
                                 
                                 for id_item in edit_parcial['id'].tolist():
-                                    # 1. Busca somente as 4 colunas essenciais de valores e produtos da venda atual
+                                    # 1. Busca os dados essenciais da venda atual
                                     cur.execute("SELECT cliente, produto, quantidade, valor_venda, valor_total FROM vendas WHERE id = ?", (int(id_item),))
                                     venda_data = cur.fetchone()
                                     
                                     if venda_data:
                                         cliente, produto, quantidade, valor_venda, valor_total = venda_data
                                         
-                                        # 2. Insere na tabela 'pedidos' sem depender de data ou colunas extras
+                                        # 2. Insere na tabela 'pedidos' para o cliente
                                         cur.execute("""
                                             INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, status)
                                             VALUES (?, ?, ?, ?, ?, 'Pendente')
                                         """, (cliente, produto, quantidade, valor_venda, valor_total))
                                     
-                                    # 3. Mantém o status como 'Pendente' na tabela de vendas para continuar visível nos Pedidos do Dia
-                                    cur.execute("UPDATE vendas SET status = 'Pendente', tipo = 'VENDA' WHERE id = ?", (int(id_item),))
+                                    # 3. Atualiza SOMENTE o status para 'Pendente', sem mexer na coluna tipo
+                                    cur.execute("UPDATE vendas SET status = 'Pendente' WHERE id = ?", (int(id_item),))
                                     
                                 con_local.commit()
                                 con_local.close()
