@@ -1088,8 +1088,24 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             try:
                                 con_local = sqlite3.connect("vendas.db")
                                 cur = con_local.cursor()
+                                
                                 for id_item in edit_parcial['id'].tolist():
-                                    cur.execute("UPDATE vendas SET status = 'Concluído (Convertido)', tipo = 'VENDA' WHERE id = ?", (int(id_item),))
+                                    # 1. Busca os dados da venda atual para enviar para a tabela pedidos
+                                    cur.execute("SELECT cliente, produto, quantidade, valor_venda, valor_total, fornecedor, grupo, codigo_pedido, data FROM vendas WHERE id = ?", (int(id_item),))
+                                    venda_data = cur.fetchone()
+                                    
+                                    if venda_data:
+                                        cliente, produto, quantidade, valor_venda, valor_total, fornecedor, grupo, codigo_pedido, data = venda_data
+                                        
+                                        # 2. Insere na tabela 'pedidos' (para sincronizar com o Portal do Cliente)
+                                        cur.execute("""
+                                            INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, fornecedor, grupo, codigo_pedido, data, status)
+                                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pendente')
+                                        """, (cliente, produto, quantidade, valor_venda, valor_total, fornecedor, grupo, codigo_pedido, data))
+                                    
+                                    # 3. Atualiza o status na tabela vendas para 'Pendente (Convertido)'
+                                    cur.execute("UPDATE vendas SET status = 'Pendente (Convertido)', tipo = 'VENDA' WHERE id = ?", (int(id_item),))
+                                    
                                 con_local.commit()
                                 con_local.close()
                                 st.success("Pedido finalizado e enviado com sucesso!")
