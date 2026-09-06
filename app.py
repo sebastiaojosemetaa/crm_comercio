@@ -1073,7 +1073,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 else:
                     st.info("Nenhum item adicionado ao pedido ainda.")
             
-                    with col_del:
+                    # Define a coluna ou renderiza direto o botão de exclusão
+                    col_del1, col_del2 = st.columns([1, 4])
+                    with col_del1:
                         if st.button("Excluir Selecionados", key="btn_excluir_parcial_sel"):
                             try:
                                 ids_a_excluir = []
