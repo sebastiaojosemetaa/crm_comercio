@@ -1089,7 +1089,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 con_local = sqlite3.connect("vendas.db")
                                 cur = con_local.cursor()
                                 
-                                # 1. Garante que a tabela 'pedidos' existe com a estrutura completa
+                                # 1. Garante que a tabela 'pedidos' existe com a estrutura básica universal
                                 cur.execute("""
                                     CREATE TABLE IF NOT EXISTS pedidos (
                                         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1106,22 +1106,28 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     )
                                 """)
                                 
-                                # Adiciona colunas caso a tabela antiga não as possua
-                                for col_sql in ["fornecedor TEXT", "grupo TEXT", "codigo_pedido TEXT", "data TEXT"]:
-                                    try:
-                                        cur.execute(f"ALTER TABLE pedidos ADD COLUMN {col_sql}")
-                                    except:
-                                        pass # Se a coluna já existir, ele apenas ignora o erro e continua
-                                
                                 for id_item in edit_parcial['id'].tolist():
-                                    # 2. Busca todos os campos da venda atual
-                                    cur.execute("SELECT cliente, produto, quantidade, valor_venda, valor_total, fornecedor, grupo, codigo_pedido, data FROM vendas WHERE id = ?", (int(id_item),))
+                                    # 2. Busca os dados essenciais que com certeza existem na tabela vendas
+                                    cur.execute("SELECT cliente, produto, quantidade, valor_venda, valor_total FROM vendas WHERE id = ?", (int(id_item),))
                                     venda_data = cur.fetchone()
                                     
                                     if venda_data:
-                                        cliente, produto, quantidade, valor_venda, valor_total, fornecedor, grupo, codigo_pedido, data = venda_data
+                                        cliente, produto, quantidade, valor_venda, valor_total = venda_data
                                         
-                                        # 3. Insere na tabela 'pedidos' com todas as colunas idênticas ao portal do cliente
+                                        # Tenta buscar colunas opcionais caso existam na tabela vendas, senão usa vazio/padrão
+                                        fornecedor, grupo, codigo_pedido, data = "GERAL", "GERAL", "", ""
+                                        try:
+                                            cur.execute("SELECT fornecedor, grupo, codigo_pedido, data FROM vendas WHERE id = ?", (int(id_item),))
+                                            extras = cur.fetchone()
+                                            if extras:
+                                                fornecedor = extras[0] or "GERAL"
+                                                grupo = extras[1] or "GERAL"
+                                                codigo_pedido = extras[2] or ""
+                                                data = extras[3] or ""
+                                        except:
+                                            pass
+                    
+                                        # 3. Insere na tabela 'pedidos' com segurança total
                                         cur.execute("""
                                             INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, fornecedor, grupo, codigo_pedido, data, status)
                                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pendente')
