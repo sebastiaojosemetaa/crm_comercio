@@ -1059,9 +1059,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 except Exception as e:
                     df_parcial = pd.DataFrame()
             
-                if df_parcial.empty:
+                # Garante que a variável exista para qualquer verificação abaixo
+                ha_dados = not df_parcial.empty
+
+                if not ha_dados:
                     st.info("Nenhum pedido pendente no momento. Faça um lançamento acima para iniciar um novo pedido.")
-                else:
+
+                if ha_dados:
                     df_parcial.dropna(axis=1, how='all', inplace=True)
                     if 'excluir' in df_parcial.columns:
                         df_parcial = df_parcial.rename(columns={'excluir': 'Excluir'})
@@ -1112,6 +1116,27 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     st.warning("Não há itens pendentes para finalizar.")
                             except Exception as e:
                                 st.error(f"Erro ao finalizar: {e}")
+                
+                    with col_del:
+                        if st.button("Excluir Selecionados", key="btn_excluir_parcial_sel"):
+                            try:
+                                ids_a_excluir = []
+                                if 'Excluir' in edit_parcial.columns:
+                                    ids_a_excluir = edit_parcial[edit_parcial['Excluir'] == True]['id'].dropna().tolist()
+                                
+                                if ids_a_excluir:
+                                    con_local = sqlite3.connect("vendas.db")
+                                    cur = con_local.cursor()
+                                    for item_id in ids_a_excluir:
+                                        cur.execute("DELETE FROM vendas WHERE id = ?", (int(item_id),))
+                                    con_local.commit()
+                                    con_local.close()
+                                    st.success(f"{len(ids_a_excluir)} item(ns) excluído(s) com sucesso!")
+                                    st.rerun()
+                                else:
+                                    st.warning("Nenhum item marcado na tabela para exclusão.")
+                            except Exception as e:
+                                st.error(f"Erro ao excluir: {e}")
                 
                     with col_del:
                         if st.button("Excluir Selecionados", key="btn_excluir_parcial_sel"):
