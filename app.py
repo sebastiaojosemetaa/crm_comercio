@@ -1008,18 +1008,27 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 quantidade = st.number_input("Quantidade", min_value=0.01, value=1.0, step=1.0, key="num_qtd_unico_correto")
                 preco_unitario = st.number_input("Preço Unitário (R$)", min_value=0.0, value=80.0, step=1.0, key="num_preco_unico_correto")
             
-                if st.button("➕ Incluir Produto no Pedido", type="primary", key="cli_btn_add_unique_v3"):
+                if st.button("+ Incluir Produto no Pedido", type="primary", key="cli_btn_add_unique_v3"):
                     if "carrinho_cliente" not in st.session_state:
                         st.session_state.carrinho_cliente = []
+                        
+                    # Pega os valores corretos vindos dos widgets da tela
+                    p_val = produto if 'produto' in locals() else "ABACATE"
+                    f_val = fornecedor if 'fornecedor' in locals() else "BAHIA"
+                    g_val = grupo if 'grupo' in locals() else "Geral"
+                    q_val = float(quantidade) if 'quantidade' in locals() else 1.0
+                    pr_val = float(preco_unitario) if 'preco_unitario' in locals() else 80.0
+                    tot_val = q_val * pr_val
+                
                     st.session_state.carrinho_cliente.append({
-                        "produto": prod,
-                        "fornecedor": forn_cli,
-                        "grupo": grupo_cli,
-                        "quantidade": qtd_cli,
-                        "preco_unitario": preco_cli,
-                        "valor_total": valor_total_item
+                        "produto": p_val,
+                        "fornecedor": f_val,
+                        "grupo": g_val,
+                        "quantidade": q_val,
+                        "preco_unitario": pr_val,
+                        "valor_total": tot_val
                     })
-                    st.success(f"Item '{prod}' adicionado ao pedido!")
+                    st.success(f"Item '{p_val}' adicionado ao pedido!")
                     st.rerun()
         
                 st.markdown("---")
