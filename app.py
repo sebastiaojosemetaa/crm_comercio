@@ -1490,18 +1490,18 @@ if 'menu_admin' in locals() or 'menu_admin' in globals():
 with tab_forn:
     st.subheader("🏢 Gerenciar Fornecedores")
         
-        with st.form("form_cad_fornecedor", clear_on_submit=True):
-            nome_forn = st.text_input("Nome do Fornecedor / Empresa")
-            if st.form_submit_button("Salvar Novo Fornecedor"):
-                if nome_forn.strip():
-                    try:
-                        salvar_simples("fornecedores", "fornecedor", nome_forn.upper())
-                        st.success(f"Fornecedor '{nome_forn}' cadastrado com sucesso!")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Erro ao cadastrar fornecedor: {e}")
-                else:
-                    st.warning("Informe o nome do fornecedor.")
+    with st.form("form_cad_fornecedor", clear_on_submit=True):
+        nome_forn = st.text_input("Nome do Fornecedor / Empresa")
+        if st.form_submit_button("Salvar Novo Fornecedor"):
+            if nome_forn.strip():
+                try:
+                    salvar_simples("fornecedores", "fornecedor", nome_forn.upper())
+                    st.success(f"Fornecedor '{nome_forn}' cadastrado com sucesso!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Erro ao cadastrar fornecedor: {e}")
+            else:
+                st.warning("Informe o nome do fornecedor.")
         
         st.markdown("---")
         st.subheader("📋 Lista de Fornecedores (Edite ou Exclua)")
