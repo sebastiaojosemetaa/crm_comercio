@@ -21,7 +21,19 @@ conn = get_connection()
 
 def adequar_banco_e_migrar():
     cursor = conn.cursor()
-    
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS pedidos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            cliente TEXT,
+            produto TEXT,
+            quantidade REAL,
+            valor_unitario REAL,
+            valor_total REAL,
+            status TEXT,
+            data TEXT
+        )
+    """)
+    conn.commit()
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS vendas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
