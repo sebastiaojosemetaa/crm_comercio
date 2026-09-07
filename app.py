@@ -1369,21 +1369,21 @@ if menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
     
     with tab_cli:
         st.subheader("Gerenciamento de Clientes")
-                with st.form("form_cad_cliente_completo"):
-                    novo_cli = st.text_input("Nome do Cliente / Razão Social")
-                    telefone = st.text_input("Telefone / WhatsApp")
-                    doc = st.text_input("CPF / CNPJ")
-                    endereco = st.text_input("Endereço")
-                    cidade = st.text_input("Cidade / Email")
+        with st.form("form_cad_cliente_completo"):
+            novo_cli = st.text_input("Nome do Cliente / Razão Social")
+            telefone = st.text_input("Telefone / WhatsApp")
+            doc = st.text_input("CPF / CNPJ")
+            endereco = st.text_input("Endereço")
+            cidade = st.text_input("Cidade / Email")
 
-                    if st.form_submit_button("💾 Salvar Cliente"):
-                        if novo_cli.strip():
-                            salvar_cliente_completo(novo_cli, telefone, doc, endereco, cidade)
-                            st.success("Cliente cadastrado com sucesso!")
-                            st.rerun()
-                        else:
-                            st.warning("Preencha o nome do cliente.")
-                st.dataframe(carregar_dados("SELECT * FROM clientes"), use_container_width=True)
+            if st.form_submit_button("💾 Salvar Cliente"):
+                if novo_cli.strip():
+                    salvar_cliente_completo(novo_cli, telefone, doc, endereco, cidade)
+                    st.success("Cliente cadastrado com sucesso!")
+                    st.rerun()
+                else:
+                    st.warning("Preencha o nome do cliente.")
+        st.dataframe(carregar_dados("SELECT * FROM clientes"), use_container_width=True)
 
             with tab_prod:
                 st.subheader("📝 Gerenciar Produtos (Cadastrar, Editar e Excluir)")
