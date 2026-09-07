@@ -1366,9 +1366,9 @@ except Exception as err_ped:
 if menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
     st.title("Cadastros Gerais")
     tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["Clientes", "Produtos", "Fornecedores", "Grupos"])
-            
-                with tab_cli:
-                    st.subheader("Gerenciamento de Clientes")
+    
+    with tab_cli:
+        st.subheader("Gerenciamento de Clientes")
                 with st.form("form_cad_cliente_completo"):
                     novo_cli = st.text_input("Nome do Cliente / Razão Social")
                     telefone = st.text_input("Telefone / WhatsApp")
