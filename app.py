@@ -1603,8 +1603,8 @@ with tab_forn:
                     st.info("Nenhum grupo cadastrado.")
                 
                 st.dataframe(carregar_dados("SELECT * FROM grupos"), use_container_width=True, hide_index=True)            
-        elif menu_admin == "📥 Entrada de Estoque (Compras)":
-            st.title("📥 Entrada de Estoque (Compras)")
+    elif menu_admin == "📥 Entrada de Estoque (Compras)":
+        st.title("📥 Entrada de Estoque (Compras)")
             aba_compra, aba_historico_compras = st.tabs(["📦 Dar Entrada em Estoque", "📋 Histórico de Entradas"])
             
             # Padronizado para usar 'nome' na tabela produtos
