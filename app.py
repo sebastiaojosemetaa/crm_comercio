@@ -1472,20 +1472,20 @@ if 'menu_admin' in locals() or 'menu_admin' in globals():
                 except Exception as e:
                     st.error(f"Erro ao salvar alterações: {e}")
         
-        with col_btn2:
-            produtos_para_excluir = df_produtos_view['produto'].tolist()
-            prod_selecionado_excluir = st.selectbox("Selecione um produto para excluir", produtos_para_excluir, key="select_del_prod")
-            if st.button("🗑️ Excluir Produto Selecionado"):
-                try:
-                    cursor = conn.cursor()
-                    cursor.execute("DELETE FROM produtos WHERE produto = ?", (prod_selecionado_excluir,))
-                    conn.commit()
-                    st.success(f"Produto '{prod_selecionado_excluir}' excluído com sucesso!")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Erro ao excluir: {e}")
-    else:
-        st.info("Nenhum produto cadastrado.")
+            with col_btn2:
+                produtos_para_excluir = df_produtos_view['produto'].tolist()
+                prod_selecionado_excluir = st.selectbox("Selecione um produto para excluir", produtos_para_excluir, key="select_del_prod")
+                if st.button("🗑️ Excluir Produto Selecionado"):
+                    try:
+                        cursor = conn.cursor()
+                        cursor.execute("DELETE FROM produtos WHERE produto = ?", (prod_selecionado_excluir,))
+                        conn.commit()
+                        st.success(f"Produto '{prod_selecionado_excluir}' excluído com sucesso!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao excluir: {e}")
+        else:
+            st.info("Nenhum produto cadastrado.")
 
     with tab_forn:
         st.subheader("🏢 Gerenciar Fornecedores")
