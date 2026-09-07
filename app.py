@@ -1381,13 +1381,13 @@ if 'menu_admin' in locals() or 'menu_admin' in globals():
                 endereco = st.text_input("Endereço")
                 cidade = st.text_input("Cidade / Email")
 
-            if st.form_submit_button("💾 Salvar Cliente"):
-                if novo_cli.strip():
-                    salvar_cliente_completo(novo_cli, telefone, doc, endereco, cidade)
-                    st.success("Cliente cadastrado com sucesso!")
-                    st.rerun()
-                else:
-                    st.warning("Preencha o nome do cliente.")
+if st.form_submit_button("💾 Salvar Cliente"):
+    if novo_cli.strip():
+        salvar_cliente_completo(novo_cli, telefone, doc, endereco, cidade)
+        st.success("Cliente cadastrado com sucesso!")
+        st.rerun()
+    else:
+        st.warning("Preencha o nome do cliente.")
         st.dataframe(carregar_dados("SELECT * FROM clientes"), use_container_width=True)
 
         with tab_prod:
