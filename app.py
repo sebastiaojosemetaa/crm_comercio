@@ -1486,7 +1486,9 @@ if 'menu_admin' in locals() or 'menu_admin' in globals():
                         st.error(f"Erro ao excluir: {e}")
     else:
         st.info("Nenhum produto cadastrado.")
-
+if 'tab_forn' in locals():
+    with tab_forn:
+        # todo o seu código de fornecedores aqui dentro com recuo (indentado)
 with tab_forn:
     st.subheader("🏢 Gerenciar Fornecedores")
         
