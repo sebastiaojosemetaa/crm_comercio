@@ -1600,7 +1600,7 @@ if 'menu_admin' in locals() or 'menu_admin' in globals():
                                 st.info("Nenhum grupo cadastrado.")
                             
                             st.dataframe(carregar_dados("SELECT * FROM grupos"), use_container_width=True, hide_index=True)            
-elif menu_admin == "📥 Entrada de Estoque (Compras)":
+if menu_admin == "📥 Entrada de Estoque (Compras)":
     st.title("📥 Entrada de Estoque (Compras)")
     aba_compra, aba_historico_compras = st.tabs(["📦 Dar Entrada em Estoque", "📋 Histórico de Entradas"])
     
