@@ -1142,7 +1142,26 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     baixar_debito_cliente(cliente_baixa, valor_haver, forma_pagamento=forma_pgto_baixa)
                                     st.success(f"Haver de R$ {valor_haver:,.2f} aplicado com sucesso!")
                                     st.rerun()
+st.markdown("---")
+st.subheader("🛒 Pedidos do Dia do Cliente")
 
+# Pega a data de hoje e o cliente que está sendo baixado
+from datetime import date
+data_hoje = date.today().strftime("%Y-%m-%d")
+cli_alvo = locals().get('cliente_baixa', 'TODOS')
+
+try:
+    con_ped = sqlite3.connect("vendas.db")
+    query_p = "SELECT id, cliente, produto, quantidade, valor_unitario, valor_total, status, data FROM pedidos WHERE date(data) = ? AND cliente = ?"
+    df_p_dia = pd.read_sql(query_p, con_ped, params=(data_hoje, cli_alvo))
+    con_ped.close()
+    
+    if not df_p_dia.empty:
+        st.dataframe(df_p_dia, use_container_width=True)
+    else:
+        st.info(f"Nenhum pedido do dia encontrado para {cli_alvo}.")
+except Exception as err_ped:
+    st.warning((f"Aviso ao carregar pedidos do dia: {err_ped}"))
             with aba_list:
                 st.subheader("🔍 Edição Direta na Tabela & Gestão por Cliente")
                 
