@@ -1381,7 +1381,7 @@ if 'menu_admin' in locals() or 'menu_admin' in globals():
                 endereco = st.text_input("Endereço")
                 cidade = st.text_input("Cidade / Email")
 
-    if st.form_submit_button("💾 Salvar Cliente"):
+        if st.form_submit_button("💾 Salvar Cliente"):
         if novo_cli.strip():
             salvar_cliente_completo(novo_cli, telefone, doc, endereco, cidade)
             st.success("Cliente cadastrado com sucesso!")
