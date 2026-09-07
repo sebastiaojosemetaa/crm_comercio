@@ -1163,8 +1163,10 @@ try:
         st.info(f"Nenhum pedido do dia encontrado para {cli_alvo}.")
 except Exception as err_ped:
                 st.warning((f"Aviso ao carregar pedidos do dia: {err_ped}"))
-                with aba_list:
-                    st.subheader("🔍 Edição Direta na Tabela & Gestão por Cliente")
+                if 'aba_list' in locals() or 'aba_list' in globals():
+            with aba_list:
+                st.subheader("🔍 Edição Direta na Tabela & Gestão por Cliente")
+                # restante do seu código...
                 
                 clientes_filtro = ["TODOS"] + (carregar_coluna("clientes", "nome") or carregar_coluna("vendas", "cliente") or [])
                 
