@@ -1370,14 +1370,14 @@ if 'menu_admin' in locals() or 'menu_admin' in globals():
         tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["Clientes", "Produtos", "Fornecedores", "Grupos"])
         # ... restante do código dos cadastros ...
     
-    with tab_cli:
-        st.subheader("Gerenciamento de Clientes")
-        with st.form("form_cad_cliente_completo"):
-            novo_cli = st.text_input("Nome do Cliente / Razão Social")
-            telefone = st.text_input("Telefone / WhatsApp")
-            doc = st.text_input("CPF / CNPJ")
-            endereco = st.text_input("Endereço")
-            cidade = st.text_input("Cidade / Email")
+with tab_cli:
+    st.subheader("Gerenciamento de Clientes")
+    with st.form("form_cad_cliente_completo"):
+        novo_cli = st.text_input("Nome do Cliente / Razão Social")
+        telefone = st.text_input("Telefone / WhatsApp")
+        doc = st.text_input("CPF / CNPJ")
+        endereco = st.text_input("Endereço")
+        cidade = st.text_input("Cidade / Email")
 
             if st.form_submit_button("💾 Salvar Cliente"):
                 if novo_cli.strip():
