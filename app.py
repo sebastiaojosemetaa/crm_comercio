@@ -1363,9 +1363,11 @@ except Exception as err_ped:
                         st.info("Nenhum registro no histórico para o período selecionado.")
                 else:
                     st.info("Nenhum registro encontrado para os filtros aplicados.")
-if menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
-    st.title("Cadastros Gerais")
-    tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["Clientes", "Produtos", "Fornecedores", "Grupos"])
+if 'menu_admin' in locals() or 'menu_admin' in globals():
+    if menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
+        st.title("Cadastros Gerais")
+        tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["Clientes", "Produtos", "Fornecedores", "Grupos"])
+        # ... restante do código dos cadastros ...
     
     with tab_cli:
         st.subheader("Gerenciamento de Clientes")
