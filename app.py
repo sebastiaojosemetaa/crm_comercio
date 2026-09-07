@@ -1487,8 +1487,8 @@ if 'menu_admin' in locals() or 'menu_admin' in globals():
     else:
         st.info("Nenhum produto cadastrado.")
 
-    with tab_forn:
-        st.subheader("🏢 Gerenciar Fornecedores")
+with tab_forn:
+    st.subheader("🏢 Gerenciar Fornecedores")
         
         with st.form("form_cad_fornecedor", clear_on_submit=True):
             nome_forn = st.text_input("Nome do Fornecedor / Empresa")
