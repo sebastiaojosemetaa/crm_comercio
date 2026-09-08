@@ -844,60 +844,60 @@ else:
 # O erro de indentação ocorreu porque a linha "if aba_baixa is not None:" ficou com espaços a mais à esquerda comparada ao restante do bloco. 
 # Remova qualquer espaço antes de "if aba_baixa is not None:" para alinhá-lo corretamente com a margem do código:
 
-if aba_baixa is not None:
-    with aba_baixa:
-        st.subheader("💵 Baixa de Débitos & Lançamento de Haver")
-        clientes_com_divida = carregar_coluna("vendas", "cliente") or []
-        if clientes_com_divida:
-            cliente_baixa = st.selectbox("Selecione o Cliente para Baixa:", clientes_com_divida, key="sel_cli_baixa")
-            df_cli_vendas = carregar_dados(f"SELECT * FROM vendas WHERE TRIM(cliente) = TRIM('{cliente_baixa}')")
-            
-            if not df_cli_vendas.empty:
-                tot_vendas = df_cli_vendas['valor_total'].sum()
-                tot_recebido = pd.to_numeric(df_cli_vendas['valor_recebido'], errors='coerce').fillna(0.0).sum() if 'valor_recebido' in df_cli_vendas.columns else 0.0
-                total_pendente = tot_vendas - tot_recebido
+    if aba_baixa is not None:
+        with aba_baixa:
+            st.subheader("💵 Baixa de Débitos & Lançamento de Haver")
+            clientes_com_divida = carregar_coluna("vendas", "cliente") or []
+            if clientes_com_divida:
+                cliente_baixa = st.selectbox("Selecione o Cliente para Baixa:", clientes_com_divida, key="sel_cli_baixa")
+                df_cli_vendas = carregar_dados(f"SELECT * FROM vendas WHERE TRIM(cliente) = TRIM('{cliente_baixa}')")
                 
-                col_m1, col_m2, col_m3 = st.columns(3)
-                col_m1.metric("Total de Compras", f"R$ {tot_vendas:,.2f}")
-                col_m2.metric("Total Já Pago", f"R$ {tot_recebido:,.2f}")
-                col_m3.metric("Saldo Devedor Restante", f"R$ {total_pendente:,.2f}", delta_color="inverse")
-                
-                st.markdown("---")
-                valor_haver = st.number_input("Valor do Haver / Pagamento Recebido (R$)", min_value=0.0, step=1.0, value=0.0, key="val_haver_input")
-                forma_pgto_baixa = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito"], key="fp_haver_input")
-                
-                if st.button("Aplicar Haver"):
-                    if valor_haver > 0:
-                        baixar_debito_cliente(cliente_baixa, valor_haver, forma_pagamento=forma_pgto_baixa)
-                        st.success(f"Haver de R$ {valor_haver:,.2f} aplicado com sucesso!")
-                        st.rerun()
-            with aba_list:
-                st.subheader("🔍 Edição Direta na Tabela & Gestão por Cliente")
-                clientes_filtro = ["TODOS"] + (carregar_coluna("clientes", "nome") or carregar_coluna("vendas", "cliente") or [])
-                
-                col_f1, col_f2, col_f3 = st.columns(3)
-                with col_f1:
-                    cliente_sel = st.selectbox("Filtrar por Cliente:", clientes_filtro, key=f"filtro_cli_tabela_{menu_admin}")
-                with col_f2:
-                    d_inicio = st.date_input("Data Inicial do Filtro", value=date(2025, 1, 1), key=f"filtro_d_ini_{menu_admin}")
-                with col_f3:
-                    d_fin = st.date_input("Data Final do Filtro", value=date.today(), key=f"filtro_d_fim_{menu_admin}")
-
-                s_d1, s_d2 = d_inicio.strftime("%Y-%m-%d"), d_fin.strftime("%Y-%m-%d")
-                df_registros = carregar_dados("SELECT * FROM vendas")
-                
-                if not df_registros.empty:
-                    df_registros.columns = [c.lower() for c in df_registros.columns]
-                    if 'data' in df_registros.columns:
-                        df_registros['data_str'] = df_registros['data'].astype(str).str.slice(0, 10)
-                        df_registros = df_registros[(df_registros['data_str'] >= s_d1) & (df_registros['data_str'] <= s_d2)]
+                if not df_cli_vendas.empty:
+                    tot_vendas = df_cli_vendas['valor_total'].sum()
+                    tot_recebido = pd.to_numeric(df_cli_vendas['valor_recebido'], errors='coerce').fillna(0.0).sum() if 'valor_recebido' in df_cli_vendas.columns else 0.0
+                    total_pendente = tot_vendas - tot_recebido
                     
-                    if cliente_sel != "TODOS" and 'cliente' in df_registros.columns:
-                        df_registros = df_registros[df_registros['cliente'].astype(str).str.strip().str.upper() == str(cliente_sel).strip().upper()]
-
-                    st.dataframe(df_registros, use_container_width=True, hide_index=True)
-                else:
-                    st.info("Nenhum registro encontrado.")
+                    col_m1, col_m2, col_m3 = st.columns(3)
+                    col_m1.metric("Total de Compras", f"R$ {tot_vendas:,.2f}")
+                    col_m2.metric("Total Já Pago", f"R$ {tot_recebido:,.2f}")
+                    col_m3.metric("Saldo Devedor Restante", f"R$ {total_pendente:,.2f}", delta_color="inverse")
+                    
+                    st.markdown("---")
+                    valor_haver = st.number_input("Valor do Haver / Pagamento Recebido (R$)", min_value=0.0, step=1.0, value=0.0, key="val_haver_input")
+                    forma_pgto_baixa = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito"], key="fp_haver_input")
+                    
+                    if st.button("Aplicar Haver"):
+                        if valor_haver > 0:
+                            baixar_debito_cliente(cliente_baixa, valor_haver, forma_pagamento=forma_pgto_baixa)
+                            st.success(f"Haver de R$ {valor_haver:,.2f} aplicado com sucesso!")
+                            st.rerun()
+                with aba_list:
+                    st.subheader("🔍 Edição Direta na Tabela & Gestão por Cliente")
+                    clientes_filtro = ["TODOS"] + (carregar_coluna("clientes", "nome") or carregar_coluna("vendas", "cliente") or [])
+                    
+                    col_f1, col_f2, col_f3 = st.columns(3)
+                    with col_f1:
+                        cliente_sel = st.selectbox("Filtrar por Cliente:", clientes_filtro, key=f"filtro_cli_tabela_{menu_admin}")
+                    with col_f2:
+                        d_inicio = st.date_input("Data Inicial do Filtro", value=date(2025, 1, 1), key=f"filtro_d_ini_{menu_admin}")
+                    with col_f3:
+                        d_fin = st.date_input("Data Final do Filtro", value=date.today(), key=f"filtro_d_fim_{menu_admin}")
+    
+                    s_d1, s_d2 = d_inicio.strftime("%Y-%m-%d"), d_fin.strftime("%Y-%m-%d")
+                    df_registros = carregar_dados("SELECT * FROM vendas")
+                    
+                    if not df_registros.empty:
+                        df_registros.columns = [c.lower() for c in df_registros.columns]
+                        if 'data' in df_registros.columns:
+                            df_registros['data_str'] = df_registros['data'].astype(str).str.slice(0, 10)
+                            df_registros = df_registros[(df_registros['data_str'] >= s_d1) & (df_registros['data_str'] <= s_d2)]
+                        
+                        if cliente_sel != "TODOS" and 'cliente' in df_registros.columns:
+                            df_registros = df_registros[df_registros['cliente'].astype(str).str.strip().str.upper() == str(cliente_sel).strip().upper()]
+    
+                        st.dataframe(df_registros, use_container_width=True, hide_index=True)
+                    else:
+                        st.info("Nenhum registro encontrado.")
 
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Controle e Consulta de Estoque")
