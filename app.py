@@ -841,7 +841,6 @@ if not df_parcial.empty:
 else:
     st.info("Nenhum registro lançado para hoje.")
 
-    with col_del:
         if st.button("Excluir Selecionados", key="btn_excluir_parcial_sel"):
             try:
                 # Utiliza o dataframe editado na tela para capturar quais linhas estão com a coluna 'Excluir' marcada como True
