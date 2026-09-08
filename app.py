@@ -986,3 +986,8 @@ elif menu_admin == "📦 Estoque de Produtos":
         st.dataframe(df_estoque, use_container_width=True, hide_index=True)
     else:
         st.info("Nenhum produto cadastrado no estoque.")
+
+elif menu_admin == "Pedidos / Orçamentos":
+    st.title("🛒 Pedidos e Orçamentos")
+    st.info("Painel de pedidos em construção ou configurado nesta seção.")
+    # Coloque aqui o conteúdo da sua tela de pedidos
