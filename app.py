@@ -1228,32 +1228,31 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         df_dia = pd.DataFrame()
                         df_historico = df_registros
 
-                    st.subheader("📋 Pedidos do Dia (Consolidado / Edição Rápida)")
-                    if not df_dia.empty:
-                        df_dia.dropna(axis=1, how='all', inplace=True)
-                        if 'excluir' in df_dia.columns:
-                            df_dia = df_dia.rename(columns={'excluir': 'Excluir'})
-                        if 'Excluir' not in df_dia.columns:
-                            df_dia.insert(0, 'Excluir', False)
-                        else:
-                            df_dia['Excluir'] = False
-
-                        cols_config_dia = {
-                            "Excluir": st.column_config.CheckboxColumn("Excluir", default=False),
-                            "quantidade": st.column_config.NumberColumn("Qtd", min_value=0.0, format="%.2f"),
-                            "valor_total": st.column_config.NumberColumn("Vlr Total", format="R$ %.2f")
-                        }
-
-                        edit_dia = st.data_editor(
-                            df_dia,
-                            column_config=cols_config_dia,
-                            disabled=[c for c in df_dia.columns if c != 'Excluir' and c != 'quantidade'],
-                            key=f"editor_pedidos_dia_{menu_admin}",
-                            use_container_width=True
-                        )
-
-                        col_salvar_dia, col_excluir_dia = st.columns(2)
-                        with col_e3:
+                    st.markdown("### 🟢 Pedidos do Dia (Editáveis)")
+                    if not df_hoje.empty:
+                        for index, row in df_hoje.iterrows():
+                            pedido_id = row['id']
+                            prod_nome = row.get('produto', 'Item')
+                            qtd_val = row.get('quantidade', 1)
+                            tot_val = row.get('valor_total', 0)
+                            
+                            with st.expander(f"Pedido #{pedido_id} - {prod_nome} (Qtd: {qtd_val} | R$ {tot_val:.2f})"):
+                                col_e1, col_e2, col_e3 = st.columns(3)
+                                with col_e1:
+                                    nova_qtd = st.number_input("Nova Qtd", min_value=0.01, value=float(qtd_val), format="%.2f", key=f"edit_qtd_{pedido_id}")
+                                with col_e2:
+                                    st.write("")
+                                    st.write("")
+                                    if st.button("💾 Salvar Edição", key=f"btn_salvar_{pedido_id}"):
+                                        try:
+                                            novo_total = nova_qtd * float(row.get('valor_unitario', 0))
+                                            cursor.execute("UPDATE pedidos SET quantidade = ?, valor_total = ? WHERE id = ?", (nova_qtd, novo_total, pedido_id))
+                                            conn.commit()
+                                            st.success("Pedido atualizado com sucesso!")
+                                            st.rerun()
+                                        except Exception as ex:
+                                            st.error(f"Erro ao atualizar: {ex}")
+                                with col_e3:
                                     st.write("")
                                     st.write("")
                                     if st.button("🗑️ Excluir Pedido", key=f"btn_excluir_{pedido_id}", type="primary"):
@@ -1266,94 +1265,18 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                             st.error(f"Erro ao excluir: {ex}")
                     else:
                         st.info("Nenhum pedido registrado hoje para edição.")
-
-                        with col_excluir_dia:
-                            if st.button("🗑️ Excluir Selecionados (Dia)", key=f"btn_excluir_dia_{menu_admin}"):
-                                try:
-                                    ids_a_excluir = []
-                                    if 'Excluir' in edit_dia.columns:
-                                        ids_a_excluir = edit_dia[edit_dia['Excluir'] == True]['id'].dropna().tolist()
-                                    if ids_a_excluir:
-                                        cursor_del = conn.cursor()
-                                        for item_id in ids_a_excluir:
-                                            cursor_del.execute(f"DELETE FROM {tabela_alvo_historico} WHERE id = ?", (int(item_id),))
-                                        conn.commit()
-                                        st.success(f"{len(ids_a_excluir)} item(ns) excluído(s) com sucesso!")
-                                        st.rerun()
-                                    else:
-                                        st.warning("Nenhum item marcado para exclusão.")
-                                except Exception as e:
-                                    st.error(f"Erro ao excluir itens do dia: {e}")
-                    else:
-                        st.info("Nenhum pedido registrado para o dia de hoje.")
-
+    
                     st.markdown("---")
-                    st.subheader("📚 Histórico de Pedidos anteriores")
-                    if not df_historico.empty:
-                        df_historico.dropna(axis=1, how='all', inplace=True)
-                        if 'excluir' in df_historico.columns:
-                            df_historico = df_historico.rename(columns={'excluir': 'Excluir'})
-                        if 'Excluir' not in df_historico.columns:
-                            df_historico.insert(0, 'Excluir', False)
-                        else:
-                            df_historico['Excluir'] = False
-
-                        cols_config_hist = {
-                            "Excluir": st.column_config.CheckboxColumn("Excluir", default=False),
-                            "quantidade": st.column_config.NumberColumn("Qtd", min_value=0.0, format="%.2f"),
-                            "valor_total": st.column_config.NumberColumn("Vlr Total", format="R$ %.2f")
-                        }
-
-                        edit_hist = st.data_editor(
-                            df_historico,
-                            column_config=cols_config_hist,
-                            disabled=[c for c in df_historico.columns if c != 'Excluir' and c != 'quantidade'],
-                            key=f"editor_pedidos_hist_{menu_admin}",
-                            use_container_width=True
-                        )
-
-                        col_salvar_hist, col_excluir_hist = st.columns(2)
-                        with col_salvar_hist:
-                            if st.button("💾 Salvar Alterações (Histórico)", key=f"btn_salvar_hist_{menu_admin}"):
-                                try:
-                                    cursor_upd = conn.cursor()
-                                    for idx, row in edit_hist.iterrows():
-                                        if 'id' in row and pd.notna(row['id']):
-                                            item_id = int(row['id'])
-                                            qtd_nova = float(row.get('quantidade', 0))
-                                            vlr_unit = float(row.get('valor_venda', row.get('valor_unitario', 0)))
-                                            vlr_tot_novo = qtd_nova * vlr_unit
-                                            cursor_upd.execute(
-                                                f"UPDATE {tabela_alvo_historico} SET quantidade = ?, valor_total = ? WHERE id = ?",
-                                                (qtd_nova, vlr_tot_novo, item_id)
-                                            )
-                                    conn.commit()
-                                    st.success("Alterações do histórico salvas com sucesso!")
-                                    st.rerun()
-                                except Exception as e:
-                                    st.error(f"Erro ao salvar alterações do histórico: {e}")
-
-                        with col_excluir_hist:
-                            if st.button("🗑️ Excluir Selecionados (Histórico)", key=f"btn_excluir_hist_{menu_admin}"):
-                                try:
-                                    ids_a_excluir_hist = []
-                                    if 'Excluir' in edit_hist.columns:
-                                        ids_a_excluir_hist = edit_hist[edit_hist['Excluir'] == True]['id'].dropna().tolist()
-                                    if ids_a_excluir_hist:
-                                        cursor_del = conn.cursor()
-                                        for item_id in ids_a_excluir_hist:
-                                            cursor_del.execute(f"DELETE FROM {tabela_alvo_historico} WHERE id = ?", (int(item_id),))
-                                        conn.commit()
-                                        st.success(f"{len(ids_a_excluir_hist)} item(ns) do histórico excluído(s) com sucesso!")
-                                        st.rerun()
-                                    else:
-                                        st.warning("Nenhum item marcado para exclusão no histórico.")
-                                except Exception as e:
-                                    st.error(f"Erro ao excluir itens do histórico: {e}")
+                    st.markdown("### 📚 Pedidos Anteriores (Histórico)")
+                    if not df_antigos.empty:
+                        st.dataframe(df_antigos.drop(columns=['data_limpa'], errors='ignore'), use_container_width=True, hide_index=True)
                     else:
-                        st.info("Nenhum registro no histórico para o período selecionado.")
+                        st.info("Não há pedidos anteriores registrados.")
+                        
                 else:
-                    st.info("Nenhum registro encontrado para os filtros aplicados.")
+                    st.info(f"O cliente '{st.session_state.cliente_autenticado}' ainda não possui pedidos registrados.")
+            except Exception as e:
+                st.error(f"Erro ao carregar histórico: {e}")
 
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
