@@ -692,54 +692,54 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
             aba_cad, aba_list = st.tabs(["+ Novo Registro / Pedido", "🔧 Tabela Editável"])
 
-with aba_cad:
-    # Garante que as listas de clientes e produtos existem
-    clientes_opt = carregar_coluna("clientes", "nome") or ["Carlos Alberto"]
-    df_p_admin = carregar_dados("SELECT * FROM produtos")
-    if not df_p_admin.empty:
-        df_p_admin.columns = [c.lower() for c in df_p_admin.columns]
-        col_nome_p = 'produto' if 'produto' in df_p_admin.columns else ('nome' if 'nome' in df_p_admin.columns else df_p_admin.columns[1])
-        produtos_base = df_p_admin[col_nome_p].dropna().astype(str).str.strip().unique().tolist()
-    else:
-        produtos_base = ["ABACATE", "BANANA", "LARANJA", "MAÇÃ"]
-    
-    produtos_opt = list(produtos_base) + ["+ Cadastrar Novo Produto..."]
-
-    # Inicializa o carrinho na sessão se não existir
-    if "carrinho_pedido" not in st.session_state:
-        st.session_state.carrinho_pedido = []
-
-    # --- FORMULÁRIO DE LANÇAMENTO DO ITEM ---
-    with st.form("form_item_pedido", clear_on_submit=True):
-        col_a, col_b = st.columns(2)
-        with col_a:
-            produto = st.selectbox("Selecione o Produto", produtos_opt)
-        with col_b:
-            cliente = st.selectbox("Cliente", clientes_opt)
+        with aba_cad:
+            # Garante que as listas de clientes e produtos existem
+            clientes_opt = carregar_coluna("clientes", "nome") or ["Carlos Alberto"]
+            df_p_admin = carregar_dados("SELECT * FROM produtos")
+            if not df_p_admin.empty:
+                df_p_admin.columns = [c.lower() for c in df_p_admin.columns]
+                col_nome_p = 'produto' if 'produto' in df_p_admin.columns else ('nome' if 'nome' in df_p_admin.columns else df_p_admin.columns[1])
+                produtos_base = df_p_admin[col_nome_p].dropna().astype(str).str.strip().unique().tolist()
+            else:
+                produtos_base = ["ABACATE", "BANANA", "LARANJA", "MAÇÃ"]
             
-        fornecedor = st.text_input("Fornecedor", value="BAHIA")
-        grupo = st.text_input("Grupo", value="FRUTAS")
+            produtos_opt = list(produtos_base) + ["+ Cadastrar Novo Produto..."]
         
-        col_c, col_d = st.columns(2)
-        with col_c:
-            quantidade = st.number_input("Quantidade", min_value=0.01, value=1.0, format="%.2f")
-        with col_d:
-            preco_unitario = st.number_input("Preço Unitário (R$)", min_value=0.0, value=0.0, format="%.2f")
+            # Inicializa o carrinho na sessão se não existir
+            if "carrinho_pedido" not in st.session_state:
+                st.session_state.carrinho_pedido = []
         
-        submitted = st.form_submit_button("Adicionar à Lista")
-        if submitted:
-            c_total = quantidade * preco_unitario
-            st.session_state.carrinho_pedido.append({
-                "cliente": cliente,
-                "produto": produto,
-                "fornecedor": fornecedor,
-                "grupo": grupo,
-                "quantidade": quantidade,
-                "valor_venda": preco_unitario,
-                "valor_total": c_total
-            })
-            st.success("Item adicionado à lista temporária!")
-            st.rerun()
+            # --- FORMULÁRIO DE LANÇAMENTO DO ITEM ---
+            with st.form("form_item_pedido", clear_on_submit=True):
+                col_a, col_b = st.columns(2)
+                with col_a:
+                    produto = st.selectbox("Selecione o Produto", produtos_opt)
+                with col_b:
+                    cliente = st.selectbox("Cliente", clientes_opt)
+                    
+                fornecedor = st.text_input("Fornecedor", value="BAHIA")
+                grupo = st.text_input("Grupo", value="FRUTAS")
+                
+                col_c, col_d = st.columns(2)
+                with col_c:
+                    quantidade = st.number_input("Quantidade", min_value=0.01, value=1.0, format="%.2f")
+                with col_d:
+                    preco_unitario = st.number_input("Preço Unitário (R$)", min_value=0.0, value=0.0, format="%.2f")
+                
+                submitted = st.form_submit_button("Adicionar à Lista")
+                if submitted:
+                    c_total = quantidade * preco_unitario
+                    st.session_state.carrinho_pedido.append({
+                        "cliente": cliente,
+                        "produto": produto,
+                        "fornecedor": fornecedor,
+                        "grupo": grupo,
+                        "quantidade": quantidade,
+                        "valor_venda": preco_unitario,
+                        "valor_total": c_total
+                    })
+                    st.success("Item adicionado à lista temporária!")
+                    st.rerun()
 
     # --- EXIBIÇÃO DOS ITENS ADICIONADOS (CARRINHO) E BOTÃO DE FINALIZAR ---
     if st.session_state.carrinho_pedido:
