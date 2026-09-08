@@ -839,11 +839,13 @@ if not df_parcial.empty:
         except Exception as e:
             st.error(f"Erro ao finalizar: {e}")
 
-# O erro de indentação ocorreu porque a linha "if aba_baixa is not None:" ficou com espaços a mais à esquerda comparada ao restante do bloco. 
-# Remova qualquer espaço antes de "if aba_baixa is not None:" para alinhá-lo corretamente com a margem do código:                                                 
+else:
+    st.info("Nenhum registro lançado para hoje.")
+
+# Deixe uma linha em branco aqui para separar os blocos
 
 if menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
-    st.title("👥 Cadastros Gerais")
+    st.title("Cadastros Gerais")
     tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["👤 Clientes", "📦 Produtos", "🏢 Fornecedores", "🏷️ Grupos"])
     
     with tab_cli:
