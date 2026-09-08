@@ -717,7 +717,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             else:
                 st.info("Nenhum dado cadastrado.")
 
-        elif menu_admin in ["📋 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
+        if menu_admin in ["📋 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
             is_modo_pedido = (menu_admin == "📋 Pedidos / Orçamentos")
             st.title(f"🛒 {menu_admin}")
 
@@ -844,7 +844,7 @@ else:
 
 # Deixe uma linha em branco aqui para separar os blocos
 
-if menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
+elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
     st.title("Cadastros Gerais")
     tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["👤 Clientes", "📦 Produtos", "🏢 Fornecedores", "🏷️ Grupos"])
     
@@ -975,3 +975,10 @@ if menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
                         st.info("Nenhuma entrada de estoque registrada no histórico.")
                 except Exception as e:
                     st.error(f"Erro ao carregar histórico de compras: {e}")
+if menu_admin == "📦 Estoque de Produtos":
+    st.title("Controle e Consulta de Estoque")
+    df_estoque = carregar_dados("SELECT * FROM produtos")
+    if not df_estoque.empty:
+        st.dataframe(df_estoque, use_container_width=True, hide_index=True)
+    else:
+        st.info("Nenhum produto cadastrado no estoque.")
