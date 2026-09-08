@@ -842,15 +842,7 @@ else:
     st.info("Nenhum registro lançado para hoje.")
 
 # O erro de indentação ocorreu porque a linha "if aba_baixa is not None:" ficou com espaços a mais à esquerda comparada ao restante do bloco. 
-# Remova qualquer espaço antes de "if aba_baixa is not None:" para alinhá-lo corretamente com a margem do código:             
-                                    
-                        if menu_admin == "📦 Estoque de Produtos":
-                            st.title("📦 Controle e Consulta de Estoque")
-                            df_estoque = carregar_dados("SELECT * FROM produtos")
-                            if not df_estoque.empty:
-                                st.dataframe(df_estoque, use_container_width=True, hide_index=True)
-                            else:
-                                st.info("Nenhum produto cadastrado no estoque.")
+# Remova qualquer espaço antes de "if aba_baixa is not None:" para alinhá-lo corretamente com a margem do código:                                                 
 
 if menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
     st.title("👥 Cadastros Gerais")
