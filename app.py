@@ -840,7 +840,13 @@ if not df_parcial.empty:
     with col_del:
         if st.button("Excluir Selecionados", key="btn_excluir_parcial_sel"):
             try:
+                # Utiliza o dataframe editado na tela para capturar quais linhas estão com a coluna 'Excluir' marcada como True
                 ids_a_excluir = edit_parcial[edit_parcial['Excluir'] == True]['id'].dropna().tolist()
+                
+                if not ids_a_excluir:
+                    # Alternativa caso o tipo de dado venha como booleano puro ou string/objeto
+                    ids_a_excluir = edit_parcial[edit_parcial['Excluir'] == 1]['id'].dropna().tolist()
+
                 if ids_a_excluir:
                     cursor = conn.cursor()
                     for item_id in ids_a_excluir:
@@ -849,7 +855,7 @@ if not df_parcial.empty:
                     st.success(f"{len(ids_a_excluir)} item(ns) excluído(s) com sucesso!")
                     st.rerun()
                 else:
-                    st.warning("Nenhum item foi marcado para exclusão na caixa 'Excluir'.")
+                    st.warning("Nenhum item foi marcado com o visto (checkbox) na coluna 'Excluir'.")
             except Exception as e:
                 st.error(f"Erro ao excluir: {e}")
 else:
