@@ -785,7 +785,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     except Exception as e:
                         st.error(f"Erro ao salvar: {e}")
             
-# O erro aconteceu apenas por conta de um espaçamento (indentação) incorreto no início da linha do st.divider(). 
+# O erro aconteceu apenas por conta de um espaçamento (indentação) incorreto no início da linha do . 
 # Basta alinhar o código removendo o excesso de espaços à esquerda da seguinte forma:
 
 st.divider()
