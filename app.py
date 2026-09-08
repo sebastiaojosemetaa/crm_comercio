@@ -197,38 +197,6 @@ def salvar_simples(tabela, coluna, valor):
     except:
         return False
 
-def baixar_debito_cliente(cliente_nome, valor_haver, forma_pagamento="Dinheiro"):
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT id, valor_total, valor_recebido 
-        FROM vendas 
-        WHERE TRIM(cliente) = TRIM(?)
-    """, (cliente_nome,))
-    registros = cursor.fetchall()
-    
-    saldo_haver = float(valor_haver)
-    
-    for reg in registros:
-        reg_id, v_total, v_rec_atual = reg
-        v_rec_atual = float(v_rec_atual) if v_rec_atual else 0.0
-        pendente_linha = v_total - v_rec_atual
-        
-        if pendente_linha > 0 and saldo_haver > 0:
-            if saldo_haver >= pendente_linha:
-                novo_recebido = v_total
-                saldo_haver -= pendente_linha
-            else:
-                novo_recebido = v_rec_atual + saldo_haver
-                saldo_haver = 0.0
-            
-            cursor.execute("""
-                UPDATE vendas 
-                SET valor_recebido = ?, forma_pagamento = ? 
-                WHERE id = ?
-            """, (str(novo_recebido), forma_pagamento, reg_id))
-            
-    conn.commit()
-
 # -----------------------------------------------------------------------------
 # 2. INICIALIZAÇÃO DE SESSÃO E PERFIL
 # -----------------------------------------------------------------------------
@@ -488,187 +456,187 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             st.session_state.admin_logged = False
             st.rerun()
             
-            menu_admin = st.sidebar.radio(
-                "Navegação",
-                [
-                    "🛒 PDV — Frente de Caixa",
-                    "🔓 Abertura e Fechamento de Caixa",
-                    "📊 Fechamento & Financeiro",
-                    "📋 Pedidos / Orçamentos",
-                    "🛒 Registrar Venda",
-                    "📥 Entrada de Estoque (Compras)",
-                    "📦 Estoque de Produtos",
-                    "👥 Cadastros (Clientes / Fornecedores / Grupos)"
-                ]
-            )
-        
-            if menu_admin == "🛒 PDV — Frente de Caixa":
-                st.title("🛒 PDV — Frente de Caixa (Múltiplos Produtos)")
-                df_caixa_aberto = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
-                if df_caixa_aberto.empty:
-                    st.warning("⚠️ Atenção: Não há nenhum caixa aberto no momento. Vá em '🔓 Abertura e Fechamento de Caixa' para abrir o caixa.")
-        
-                clientes_opt = carregar_coluna("clientes", "nome") or ["Carlos Alberto"]
-                fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
-                grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
-        
-                df_p = carregar_dados("SELECT * FROM produtos")
+        menu_admin = st.sidebar.radio(
+            "Navegação",
+            [
+                "🛒 PDV — Frente de Caixa",
+                "🔓 Abertura e Fechamento de Caixa",
+                "📊 Fechamento & Financeiro",
+                "📋 Pedidos / Orçamentos",
+                "🛒 Registrar Venda",
+                "📥 Entrada de Estoque (Compras)",
+                "📦 Estoque de Produtos",
+                "👥 Cadastros (Clientes / Fornecedores / Grupos)"
+            ]
+        )
+    
+        if menu_admin == "🛒 PDV — Frente de Caixa":
+            st.title("🛒 PDV — Frente de Caixa (Múltiplos Produtos)")
+            df_caixa_aberto = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
+            if df_caixa_aberto.empty:
+                st.warning("⚠️ Atenção: Não há nenhum caixa aberto no momento. Vá em '🔓 Abertura e Fechamento de Caixa' para abrir o caixa.")
+    
+            clientes_opt = carregar_coluna("clientes", "nome") or ["Carlos Alberto"]
+            fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
+            grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
+    
+            df_p = carregar_dados("SELECT * FROM produtos")
+            if not df_p.empty:
+                df_p.columns = [c.lower() for c in df_p.columns]
+                col_nome_p = 'produto' if 'produto' in df_p.columns else ('nome' if 'nome' in df_p.columns else df_p.columns[1])
+                produtos_opt = df_p[col_nome_p].dropna().astype(str).str.strip().unique().tolist()
+            else:
+                produtos_opt = ["AMEIXA IMPORTADA", "ABACATE"]
+    
+            cliente_pdv = st.selectbox("Selecione o Cliente do Atendimento", clientes_opt)
+            col_pdv_esq, col_pdv_dir = st.columns([1.1, 1.9])
+    
+            with col_pdv_esq:
+                st.markdown("#### ➕ Adicionar Item ao Carrinho")
+                prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto")
+                
+                preco_sugerido = 0.0
+                forn_sugerido = fornecedores_opt[0]
+                grupo_sugerido = grupos_opt[0]
+    
                 if not df_p.empty:
-                    df_p.columns = [c.lower() for c in df_p.columns]
-                    col_nome_p = 'produto' if 'produto' in df_p.columns else ('nome' if 'nome' in df_p.columns else df_p.columns[1])
-                    produtos_opt = df_p[col_nome_p].dropna().astype(str).str.strip().unique().tolist()
+                    df_p['nome_limpo'] = df_p[col_nome_p].astype(str).str.strip().str.upper()
+                    target_nome = str(prod_item).strip().upper()
+                    df_filtrado_p = df_p[df_p['nome_limpo'] == target_nome]
+    
+                    if not df_filtrado_p.empty:
+                        row_p = df_filtrado_p.iloc[0]
+                        for col_v in ['valor_venda', 'preco_venda', 'venda']:
+                            if col_v in df_p.columns:
+                                try:
+                                    val_aux = float(row_p[col_v])
+                                    if val_aux > 0:
+                                        preco_sugerido = val_aux
+                                        break
+                                except:
+                                    pass
+    
+                col_s1, col_s2 = st.columns(2)
+                with col_s1:
+                    idx_f = fornecedores_opt.index(forn_sugerido) if fornecedores_opt and forn_sugerido in fornecedores_opt else 0
+                    forn_item = st.selectbox("Fornecedor", fornecedores_opt, index=idx_f, key="pdv_forn_input")
+                    idx_g = grupos_opt.index(grupo_sugerido) if grupos_opt and grupo_sugerido in grupos_opt else 0
+                    grupo_item = st.selectbox("Grupo", grupos_opt, index=idx_g, key="pdv_grupo_input")
+    
+                with col_s2:
+                    qtd_item = st.number_input("Quantidade", min_value=0.1, step=1.0, value=1.0, key="pdv_qtd")
+                    v_unit_item = st.number_input("Preço de Venda (R$)", min_value=0.0, step=1.0, value=float(preco_sugerido), key=f"vunit_{prod_item}")
+    
+                valor_total_item = qtd_item * v_unit_item
+                st.metric("Valor Total do Item", f"R$ {valor_total_item:.2f}")
+    
+                if st.button("➕ Incluir Produto no Carrinho", type="primary"):
+                    st.session_state.carrinho_pdv.append({
+                        "produto": prod_item,
+                        "fornecedor": forn_item,
+                        "grupo": grupo_item,
+                        "quantidade": qtd_item,
+                        "valor_venda": v_unit_item,
+                        "valor_total": valor_total_item
+                    })
+                    st.success(f"Item '{prod_item}' adicionado ao carrinho!")
+                    st.rerun()
+    
+            with col_pdv_dir:
+                st.markdown("#### 🛒 Itens Atuais no Carrinho")
+                if len(st.session_state.carrinho_pdv) > 0:
+                    df_carrinho = pd.DataFrame(st.session_state.carrinho_pdv)
+                    st.dataframe(df_carrinho, use_container_width=True, hide_index=True)
+                    total_geral_carrinho = df_carrinho['valor_total'].sum()
                 else:
-                    produtos_opt = ["AMEIXA IMPORTADA", "ABACATE"]
-        
-                cliente_pdv = st.selectbox("Selecione o Cliente do Atendimento", clientes_opt)
-                col_pdv_esq, col_pdv_dir = st.columns([1.1, 1.9])
-        
-                with col_pdv_esq:
-                    st.markdown("#### ➕ Adicionar Item ao Carrinho")
-                    prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto")
-                    
-                    preco_sugerido = 0.0
-                    forn_sugerido = fornecedores_opt[0]
-                    grupo_sugerido = grupos_opt[0]
-        
-                    if not df_p.empty:
-                        df_p['nome_limpo'] = df_p[col_nome_p].astype(str).str.strip().str.upper()
-                        target_nome = str(prod_item).strip().upper()
-                        df_filtrado_p = df_p[df_p['nome_limpo'] == target_nome]
-        
-                        if not df_filtrado_p.empty:
-                            row_p = df_filtrado_p.iloc[0]
-                            for col_v in ['valor_venda', 'preco_venda', 'venda']:
-                                if col_v in df_p.columns:
-                                    try:
-                                        val_aux = float(row_p[col_v])
-                                        if val_aux > 0:
-                                            preco_sugerido = val_aux
-                                            break
-                                    except:
-                                        pass
-        
-                    col_s1, col_s2 = st.columns(2)
-                    with col_s1:
-                        idx_f = fornecedores_opt.index(forn_sugerido) if fornecedores_opt and forn_sugerido in fornecedores_opt else 0
-                        forn_item = st.selectbox("Fornecedor", fornecedores_opt, index=idx_f, key="pdv_forn_input")
-                        idx_g = grupos_opt.index(grupo_sugerido) if grupos_opt and grupo_sugerido in grupos_opt else 0
-                        grupo_item = st.selectbox("Grupo", grupos_opt, index=idx_g, key="pdv_grupo_input")
-        
-                    with col_s2:
-                        qtd_item = st.number_input("Quantidade", min_value=0.1, step=1.0, value=1.0, key="pdv_qtd")
-                        v_unit_item = st.number_input("Preço de Venda (R$)", min_value=0.0, step=1.0, value=float(preco_sugerido), key=f"vunit_{prod_item}")
-        
-                    valor_total_item = qtd_item * v_unit_item
-                    st.metric("Valor Total do Item", f"R$ {valor_total_item:.2f}")
-        
-                    if st.button("➕ Incluir Produto no Carrinho", type="primary"):
-                        st.session_state.carrinho_pdv.append({
-                            "produto": prod_item,
-                            "fornecedor": forn_item,
-                            "grupo": grupo_item,
-                            "quantidade": qtd_item,
-                            "valor_venda": v_unit_item,
-                            "valor_total": valor_total_item
-                        })
-                        st.success(f"Item '{prod_item}' adicionado ao carrinho!")
-                        st.rerun()
-        
-                with col_pdv_dir:
-                    st.markdown("#### 🛒 Itens Atuais no Carrinho")
-                    if len(st.session_state.carrinho_pdv) > 0:
-                        df_carrinho = pd.DataFrame(st.session_state.carrinho_pdv)
-                        st.dataframe(df_carrinho, use_container_width=True, hide_index=True)
-                        total_geral_carrinho = df_carrinho['valor_total'].sum()
-                    else:
-                        st.info("O carrinho está vazio.")
-                        total_geral_carrinho = 0.0
-        
-                    if st.button("🗑️ Limpar Carrinho"):
+                    st.info("O carrinho está vazio.")
+                    total_geral_carrinho = 0.0
+    
+                if st.button("🗑️ Limpar Carrinho"):
+                    st.session_state.carrinho_pdv = []
+                    st.rerun()
+    
+                st.markdown("---")
+                st.markdown("#### 💳 Forma de Pagamento e Finalização")
+                f_pag = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito", "Cartão de Débito", "Fiado / Prazo"], key="pdv_forma_pagto")
+                v_rec = st.number_input("Valor Recebido (R$)", min_value=0.0, step=1.0, value=float(total_geral_carrinho), key="pdv_val_rec")
+                troco = v_rec - total_geral_carrinho if v_rec > total_geral_carrinho else 0.0
+    
+                col_t1, col_t2 = st.columns(2)
+                with col_t1:
+                    st.metric("Valor Total da Venda", f"R$ {total_geral_carrinho:.2f}")
+                with col_t2:
+                    st.metric("Troco", f"R$ {troco:.2f}")
+    
+                if st.button("Finalizar Venda no PDV", type="primary"):
+                    if not df_caixa_aberto.empty and len(st.session_state.carrinho_pdv) > 0:
+                        cursor = conn.cursor()
+                        sessao_id = df_caixa_aberto.iloc[0]['id']
+                        data_venda = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+                        for item in st.session_state.carrinho_pdv:
+                            cursor.execute("""
+                                INSERT INTO vendas (cliente, produto, quantidade, valor_total, status, data, tipo)
+                                VALUES (?, ?, ?, ?, 'Concluído', ?, 'VENDA')
+                            """, (
+                                cliente_pdv,
+                                item['produto'],
+                                item['quantidade'],
+                                item['valor_total'],
+                                data_venda
+                            ))
+
+                        cursor.execute("INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, ?, ?, ?, ?)",
+                            (sessao_id, "VENDA", total_geral_carrinho, f"Venda PDV - Cliente: {cliente_pdv}", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+                        )
+                        conn.commit()
+
                         st.session_state.carrinho_pdv = []
+                        st.success(f"Venda realizada com sucesso! Troco: R$ {max(0.0, troco):.2f}")
                         st.rerun()
-        
-                    st.markdown("---")
-                    st.markdown("#### 💳 Forma de Pagamento e Finalização")
-                    f_pag = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito", "Cartão de Débito", "Fiado / Prazo"], key="pdv_forma_pagto")
-                    v_rec = st.number_input("Valor Recebido (R$)", min_value=0.0, step=1.0, value=float(total_geral_carrinho), key="pdv_val_rec")
-                    troco = v_rec - total_geral_carrinho if v_rec > total_geral_carrinho else 0.0
-        
-                    col_t1, col_t2 = st.columns(2)
-                    with col_t1:
-                        st.metric("Valor Total da Venda", f"R$ {total_geral_carrinho:.2f}")
-                    with col_t2:
-                        st.metric("Troco", f"R$ {troco:.2f}")
-        
-                    if st.button("Finalizar Venda no PDV", type="primary"):
-                        if not df_caixa_aberto.empty and len(st.session_state.carrinho_pdv) > 0:
-                            cursor = conn.cursor()
-                            sessao_id = df_caixa_aberto.iloc[0]['id']
-                            data_venda = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    
-                            for item in st.session_state.carrinho_pdv:
-                                cursor.execute("""
-                                    INSERT INTO vendas (cliente, produto, quantidade, valor_total, status, data, tipo)
-                                    VALUES (?, ?, ?, ?, 'Concluído', ?, 'VENDA')
-                                """, (
-                                    cliente_pdv,
-                                    item['produto'],
-                                    item['quantidade'],
-                                    item['valor_total'],
-                                    data_venda
-                                ))
-    
-                            cursor.execute("INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, ?, ?, ?, ?)",
-                                (sessao_id, "VENDA", total_geral_carrinho, f"Venda PDV - Cliente: {cliente_pdv}", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-                            )
-                            conn.commit()
-    
-                            st.session_state.carrinho_pdv = []
-                            st.success(f"Venda realizada com sucesso! Troco: R$ {max(0.0, troco):.2f}")
-                            st.rerun()
-                        else:
-                            st.error("Verifique se o caixa está aberto e se há itens no carrinho.")
-    
-            elif menu_admin == "🔓 Abertura e Fechamento de Caixa":
-                st.title("🔓 Abertura e Fechamento de Caixa")
-                df_caixa_atual = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
-    
-                if df_caixa_atual.empty:
-                    st.info("O caixa encontra-se **FECHADO**. Insira o valor inicial para abri-lo.")
-                    with st.form("form_abrir_caixa"):
-                        saldo_inicial = st.number_input("Saldo Inicial em Dinheiro (Troco / Fundo de Caixa)", min_value=0.0, step=10.0)
-                        if st.form_submit_button("Abrir Caixa"):
-                            cursor = conn.cursor()
-                            data_agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            cursor.execute("INSERT INTO caixa_sessoes (data_abertura, saldo_inicial, status) VALUES (?, ?, ?)",
-                                           (data_agora, saldo_inicial, "ABERTO"))
-                            conn.commit()
-                            st.success("Caixa aberto com sucesso!")
-                            st.rerun()
-                else:
-                    sessao_id = int(df_caixa_atual.iloc[0]['id'])
-                    data_abertura = df_caixa_atual.iloc[0]['data_abertura']
-                    saldo_inicial = float(df_caixa_atual.iloc[0]['saldo_inicial'])
-                    
-                    st.success(f"🟢 **Caixa ABERTO** desde: {data_abertura} | Saldo Inicial: R$ {saldo_inicial:,.2f}")
-                    df_movs = carregar_dados(f"SELECT * FROM caixa_movimentacoes WHERE sessao_id = {sessao_id}")
-                    total_movimentado = df_movs['valor'].sum() if not df_movs.empty else 0.0
-                    
-                    st.metric("Total Movimentado neste Caixa", f"R$ {total_movimentado:,.2f}")
-                    if not df_movs.empty:
-                        st.dataframe(df_movs, use_container_width=True)
-                    
-                    st.markdown("---")
-                    with st.form("form_fechar_caixa"):
-                        saldo_final_informado = st.number_input("Conferência de Saldo Final (Dinheiro em Caixa)", min_value=0.0, step=10.0, value=saldo_inicial + total_movimentado)
-                        if st.form_submit_button("🔒 Fechar Caixa"):
-                            cursor = conn.cursor()
-                            data_fechamento = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            cursor.execute("UPDATE caixa_sessoes SET data_fechamento = ?, saldo_final = ?, status = ? WHERE id = ?",
-                                           (data_fechamento, saldo_final_informado, "FECHADO", sessao_id))
-                            conn.commit()
-                            st.success("Caixa fechado com sucesso!")
-                            st.rerun()
+                    else:
+                        st.error("Verifique se o caixa está aberto e se há itens no carrinho.")
+
+        elif menu_admin == "🔓 Abertura e Fechamento de Caixa":
+            st.title("🔓 Abertura e Fechamento de Caixa")
+            df_caixa_atual = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
+
+            if df_caixa_atual.empty:
+                st.info("O caixa encontra-se **FECHADO**. Insira o valor inicial para abri-lo.")
+                with st.form("form_abrir_caixa"):
+                    saldo_inicial = st.number_input("Saldo Inicial em Dinheiro (Troco / Fundo de Caixa)", min_value=0.0, step=10.0)
+                    if st.form_submit_button("Abrir Caixa"):
+                        cursor = conn.cursor()
+                        data_agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        cursor.execute("INSERT INTO caixa_sessoes (data_abertura, saldo_inicial, status) VALUES (?, ?, ?)",
+                                       (data_agora, saldo_inicial, "ABERTO"))
+                        conn.commit()
+                        st.success("Caixa aberto com sucesso!")
+                        st.rerun()
+            else:
+                sessao_id = int(df_caixa_atual.iloc[0]['id'])
+                data_abertura = df_caixa_atual.iloc[0]['data_abertura']
+                saldo_inicial = float(df_caixa_atual.iloc[0]['saldo_inicial'])
+                
+                st.success(f"🟢 **Caixa ABERTO** desde: {data_abertura} | Saldo Inicial: R$ {saldo_inicial:,.2f}")
+                df_movs = carregar_dados(f"SELECT * FROM caixa_movimentacoes WHERE sessao_id = {sessao_id}")
+                total_movimentado = df_movs['valor'].sum() if not df_movs.empty else 0.0
+                
+                st.metric("Total Movimentado neste Caixa", f"R$ {total_movimentado:,.2f}")
+                if not df_movs.empty:
+                    st.dataframe(df_movs, use_container_width=True)
+                
+                st.markdown("---")
+                with st.form("form_fechar_caixa"):
+                    saldo_final_informado = st.number_input("Conferência de Saldo Final (Dinheiro em Caixa)", min_value=0.0, step=10.0, value=saldo_inicial + total_movimentado)
+                    if st.form_submit_button("🔒 Fechar Caixa"):
+                        cursor = conn.cursor()
+                        data_fechamento = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        cursor.execute("UPDATE caixa_sessoes SET data_fechamento = ?, saldo_final = ?, status = ? WHERE id = ?",
+                                       (data_fechamento, saldo_final_informado, "FECHADO", sessao_id))
+                        conn.commit()
+                        st.success("Caixa fechado com sucesso!")
+                        st.rerun()
 
         elif menu_admin == "📊 Fechamento & Financeiro":
             st.title("📊 Painel Financeiro & Fechamento por Data")
@@ -717,15 +685,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             else:
                 st.info("Nenhum dado cadastrado.")
 
-        if menu_admin in ["📋 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
+        elif menu_admin in ["📋 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
             is_modo_pedido = (menu_admin == "📋 Pedidos / Orçamentos")
             st.title(f"🛒 {menu_admin}")
 
-            if not is_modo_pedido:
-                aba_cad, aba_baixa, aba_list = st.tabs(["+ Novo Registro", "📋 Baixa de Débito / Haver", "🔧 Tabela Editável"])
-            else:
-                aba_cad, aba_list = st.tabs(["+ Novo Registro / Pedido", "🔧 Tabela Editável"])
-                aba_baixa = None
+            aba_cad, aba_list = st.tabs(["+ Novo Registro / Pedido", "🔧 Tabela Editável"])
 
             with aba_cad:
                 clientes_opt = carregar_coluna("clientes", "nome") or ["Carlos Alberto"]
@@ -785,140 +749,136 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     except Exception as e:
                         st.error(f"Erro ao salvar: {e}")
             
-# O erro aconteceu apenas por conta de um espaçamento (indentação) incorreto no início da linha do . 
-# Basta alinhar o código removendo o excesso de espaços à esquerda da seguinte forma:
+            with aba_list:
+                st.divider()
+                st.subheader("🛒 Itens Lançados Hoje (Separados por Cliente)")
+                try:
+                    df_parcial = carregar_dados("SELECT id, cliente, produto, quantidade, valor_venda, valor_total, tipo, status, data FROM vendas WHERE (status IS NULL OR status != 'Finalizado') AND DATE(data) = DATE('now') ORDER BY id DESC")
+                except Exception:
+                    df_parcial = pd.DataFrame()
 
-st.divider()
-st.subheader("🛒 Itens Lançados Hoje (Separados por Cliente)")
-try:
-    df_parcial = carregar_dados("SELECT id, cliente, produto, quantidade, valor_venda, valor_total, tipo, status, data FROM vendas WHERE (status IS NULL OR status != 'Finalizado') AND DATE(data) = DATE('now') ORDER BY id DESC")
-except Exception:
-    df_parcial = pd.DataFrame()
+                if not df_parcial.empty:
+                    clientes_com_lancamento = ["TODOS"] + df_parcial['cliente'].dropna().astype(str).unique().tolist()
+                    filtro_cliente_dia = st.selectbox("Filtrar visualização por cliente:", clientes_com_lancamento, key="filtro_cli_dia_vendas")
+                    
+                    if filtro_cliente_dia != "TODOS":
+                        df_parcial = df_parcial[df_parcial['cliente'].astype(str).str.strip().str.upper() == filtro_cliente_dia.strip().upper()]
 
-if not df_parcial.empty:
-    clientes_com_lancamento = ["TODOS"] + df_parcial['cliente'].dropna().astype(str).unique().tolist()
-    filtro_cliente_dia = st.selectbox("Filtrar visualização por cliente:", clientes_com_lancamento, key="filtro_cli_dia_vendas")
-    
-    if filtro_cliente_dia != "TODOS":
-        df_parcial = df_parcial[df_parcial['cliente'].astype(str).str.strip().str.upper() == filtro_cliente_dia.strip().upper()]
+                    total_parcial = df_parcial['valor_total'].sum() if 'valor_total' in df_parcial.columns else 0.0
 
-    total_parcial = df_parcial['valor_total'].sum() if 'valor_total' in df_parcial.columns else 0.0
+                    for index, row in df_parcial.iterrows():
+                        item_id = int(row['id'])
+                        cols = st.columns([1, 2, 2, 1, 1, 1])
+                        cols[0].text(f"ID: {item_id}")
+                        cols[1].text(str(row['cliente']))
+                        cols[2].text(str(row['produto']))
+                        cols[3].text(f"Qtd: {row['quantidade']}")
+                        cols[4].text(f"R$ {row['valor_total']:.2f}")
+                        
+                        if cols[5].button("🗑️ Excluir", key=f"exc_venda_{item_id}"):
+                            try:
+                                cursor = conn.cursor()
+                                cursor.execute("DELETE FROM vendas WHERE id = ?", (item_id,))
+                                conn.commit()
+                                st.toast(f"Item ID {item_id} excluído com sucesso!", icon="✅")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao excluir: {e}")
+                    
+                    st.markdown("---")
+                    st.markdown(f"### **Valor Total Exibido: R$ {total_parcial:.2f}**")
 
-    for index, row in df_parcial.iterrows():
-        item_id = int(row['id'])
-        cols = st.columns([1, 2, 2, 1, 1, 1])
-        cols[0].text(f"ID: {item_id}")
-        cols[1].text(str(row['cliente']))
-        cols[2].text(str(row['produto']))
-        cols[3].text(f"Qtd: {row['quantidade']}")
-        cols[4].text(f"R$ {row['valor_total']:.2f}")
-        
-        if cols[5].button("🗑️ Excluir", key=f"exc_venda_{item_id}"):
-            try:
-                cursor = conn.cursor()
-                cursor.execute("DELETE FROM vendas WHERE id = ?", (item_id,))
-                conn.commit()
-                st.toast(f"Item ID {item_id} excluído com sucesso!", icon="✅")
-                st.rerun()
-            except Exception as e:
-                st.error(f"Erro ao excluir: {e}")
-    
-    st.markdown("---")
-    st.markdown(f"### **Valor Total Exibido: R$ {total_parcial:.2f}**")
+                    if st.button("Finalizar Pedido / Venda de Todos os Itens Exibidos", type="primary", key="btn_finalizar_pedido_unico"):
+                        try:
+                            cursor = conn.cursor()
+                            ids_para_finalizar = df_parcial['id'].tolist()
+                            for id_item in ids_para_finalizar:
+                                cursor.execute("UPDATE vendas SET status = 'Finalizado', tipo = 'VENDA' WHERE id = ?", (int(id_item),))
+                            conn.commit()
+                            st.success("Pedido(s) finalizado(s) com sucesso!")
+                            st.balloons()
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro ao finalizar: {e}")
 
-    if st.button("Finalizar Pedido / Venda de Todos os Itens Exibidos", type="primary", key="btn_finalizar_pedido_unico"):
-        try:
-            cursor = conn.cursor()
-            ids_para_finalizar = df_parcial['id'].tolist()
-            for id_item in ids_para_finalizar:
-                cursor.execute("UPDATE vendas SET status = 'Finalizado', tipo = 'VENDA' WHERE id = ?", (int(id_item),))
-            conn.commit()
-            st.success("Pedido(s) finalizado(s) com sucesso!")
-            st.balloons()
-            st.rerun()
-        except Exception as e:
-            st.error(f"Erro ao finalizar: {e}")
-
-else:
-    st.info("Nenhum registro lançado para hoje.")
-
-# Deixe uma linha em branco aqui para separar os blocos
-
-if menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
-    st.title("Cadastros Gerais")
-    tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["👤 Clientes", "📦 Produtos", "🏢 Fornecedores", "🏷️ Grupos"])
-    
-    with tab_cli:
-        st.subheader("Gerenciamento de Clientes")
-        with st.form("form_cad_cliente_completo"):
-            novo_cli = st.text_input("Nome do Cliente / Razão Social")
-            telefone = st.text_input("Telefone / WhatsApp")
-            doc = st.text_input("CPF / CNPJ")
-            endereco = st.text_input("Endereço")
-            cidade = st.text_input("Cidade / Email")
-
-            if st.form_submit_button("💾 Salvar Cliente"):
-                if novo_cli.strip():
-                    salvar_cliente_completo(novo_cli, telefone, doc, endereco, cidade)
-                    st.success("Cliente cadastrado com sucesso!")
-                    st.rerun()
                 else:
-                    st.warning("Preencha o nome do cliente.")
-        st.dataframe(carregar_dados("SELECT * FROM clientes"), use_container_width=True)
+                    st.info("Nenhum registro lançado para hoje.")
 
-    with tab_prod:
-        st.subheader("📝 Gerenciar Produtos")
-        with st.form("form_cad_produto_completo", clear_on_submit=True):
-            col1, col2 = st.columns(2)
-            with col1:
-                txt_nome_produto = st.text_input("Nome do Produto")
-                val_custo = st.number_input("Preço de Custo (R$)", min_value=0.0, format="%.2f")
-            with col2:
-                grupo_produto = st.text_input("Grupo / Categoria", value="Geral")
-                val_venda = st.number_input("Preço de Venda (R$)", min_value=0.0, format="%.2f")
-                
-            col3, col4 = st.columns(2)
-            with col3:
-                estoque_inicial = st.number_input("Estoque Inicial", min_value=0.0, value=0.0, step=1.0)
-            with col4:
-                fornecedor_produto = st.text_input("Fornecedor", value="")
+        elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
+            st.title("Cadastros Gerais")
+            tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["👤 Clientes", "📦 Produtos", "🏢 Fornecedores", "🏷️ Grupos"])
+            
+            with tab_cli:
+                st.subheader("Gerenciamento de Clientes")
+                with st.form("form_cad_cliente_completo"):
+                    novo_cli = st.text_input("Nome do Cliente / Razão Social")
+                    telefone = st.text_input("Telefone / WhatsApp")
+                    doc = st.text_input("CPF / CNPJ")
+                    endereco = st.text_input("Endereço")
+                    cidade = st.text_input("Cidade / Email")
 
-            if st.form_submit_button("Salvar Novo Produto"):
-                if not txt_nome_produto.strip():
-                    st.warning("Por favor, informe o nome do produto.")
-                else:
-                    salvar_produto_completo(txt_nome_produto, fornecedor_produto, grupo_produto, val_custo, val_venda, estoque_inicial)
-                    st.success(f"Produto '{txt_nome_produto}' cadastrado com sucesso!")
-                    st.rerun()
-        st.dataframe(carregar_dados("SELECT * FROM produtos"), use_container_width=True)
+                    if st.form_submit_button("💾 Salvar Cliente"):
+                        if novo_cli.strip():
+                            salvar_cliente_completo(novo_cli, telefone, doc, endereco, cidade)
+                            st.success("Cliente cadastrado com sucesso!")
+                            st.rerun()
+                        else:
+                            st.warning("Preencha o nome do cliente.")
+                st.dataframe(carregar_dados("SELECT * FROM clientes"), use_container_width=True)
 
-    with tab_forn:
-        st.subheader("🏢 Gerenciar Fornecedores")
-        with st.form("form_cad_fornecedor", clear_on_submit=True):
-            nome_forn = st.text_input("Nome do Fornecedor / Empresa")
-            if st.form_submit_button("Salvar Novo Fornecedor"):
-                if nome_forn.strip():
-                    salvar_simples("fornecedores", "fornecedor", nome_forn.upper())
-                    st.success(f"Fornecedor '{nome_forn}' cadastrado com sucesso!")
-                    st.rerun()
-                else:
-                    st.warning("Informe o nome do fornecedor.")
-        st.dataframe(carregar_dados("SELECT * FROM fornecedores"), use_container_width=True)
+            with tab_prod:
+                st.subheader("📝 Gerenciar Produtos")
+                with st.form("form_cad_produto_completo", clear_on_submit=True):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        txt_nome_produto = st.text_input("Nome do Produto")
+                        val_custo = st.number_input("Preço de Custo (R$)", min_value=0.0, format="%.2f")
+                    with col2:
+                        grupo_produto = st.text_input("Grupo / Categoria", value="Geral")
+                        val_venda = st.number_input("Preço de Venda (R$)", min_value=0.0, format="%.2f")
+                        
+                    col3, col4 = st.columns(2)
+                    with col3:
+                        estoque_inicial = st.number_input("Estoque Inicial", min_value=0.0, value=0.0, step=1.0)
+                    with col4:
+                        fornecedor_produto = st.text_input("Fornecedor", value="")
 
-    with tab_grup:
-        st.subheader("🏷️ Gerenciar Grupos / Categorias")
-        with st.form("form_cad_grupo", clear_on_submit=True):
-            nome_grupo = st.text_input("Nome do Grupo / Categoria")
-            if st.form_submit_button("Salvar Novo Grupo"):
-                if nome_grupo.strip():
-                    salvar_simples("grupos", "grupo", nome_grupo.upper())
-                    st.success(f"Grupo '{nome_grupo}' cadastrado com sucesso!")
-                    st.rerun()
-                else:
-                    st.warning("Informe o nome do grupo.")
-        st.dataframe(carregar_dados("SELECT * FROM grupos"), use_container_width=True)
+                    if st.form_submit_button("Salvar Novo Produto"):
+                        if not txt_nome_produto.strip():
+                            st.warning("Por favor, informe o nome do produto.")
+                        else:
+                            salvar_produto_completo(txt_nome_produto, fornecedor_produto, grupo_produto, val_custo, val_venda, estoque_inicial)
+                            st.success(f"Produto '{txt_nome_produto}' cadastrado com sucesso!")
+                            st.rerun()
+                st.dataframe(carregar_dados("SELECT * FROM produtos"), use_container_width=True)
 
-        if menu_admin == "📥 Entrada de Estoque (Compras)":
+            with tab_forn:
+                st.subheader("🏢 Gerenciar Fornecedores")
+                with st.form("form_cad_fornecedor", clear_on_submit=True):
+                    nome_forn = st.text_input("Nome do Fornecedor / Empresa")
+                    if st.form_submit_button("Salvar Novo Fornecedor"):
+                        if nome_forn.strip():
+                            salvar_simples("fornecedores", "fornecedor", nome_forn.upper())
+                            st.success(f"Fornecedor '{nome_forn}' cadastrado com sucesso!")
+                            st.rerun()
+                        else:
+                            st.warning("Informe o nome do fornecedor.")
+                st.dataframe(carregar_dados("SELECT * FROM fornecedores"), use_container_width=True)
+
+            with tab_grup:
+                st.subheader("🏷️ Gerenciar Grupos / Categorias")
+                with st.form("form_cad_grupo", clear_on_submit=True):
+                    nome_grupo = st.text_input("Nome do Grupo / Categoria")
+                    if st.form_submit_button("Salvar Novo Grupo"):
+                        if nome_grupo.strip():
+                            salvar_simples("grupos", "grupo", nome_grupo.upper())
+                            st.success(f"Grupo '{nome_grupo}' cadastrado com sucesso!")
+                            st.rerun()
+                        else:
+                            st.warning("Informe o nome do grupo.")
+                st.dataframe(carregar_dados("SELECT * FROM grupos"), use_container_width=True)
+
+        elif menu_admin == "📥 Entrada de Estoque (Compras)":
             st.title("📥 Entrada de Estoque (Compras)")
             aba_compra, aba_historico_compras = st.tabs(["📦 Dar Entrada em Estoque", "📋 Histórico de Entradas"])
             
@@ -975,10 +935,11 @@ if menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
                         st.info("Nenhuma entrada de estoque registrada no histórico.")
                 except Exception as e:
                     st.error(f"Erro ao carregar histórico de compras: {e}")
-if menu_admin == "📦 Estoque de Produtos":
-    st.title("Controle e Consulta de Estoque")
-    df_estoque = carregar_dados("SELECT * FROM produtos")
-    if not df_estoque.empty:
-        st.dataframe(df_estoque, use_container_width=True, hide_index=True)
-    else:
-        st.info("Nenhum produto cadastrado no estoque.")
+
+        elif menu_admin == "📦 Estoque de Produtos":
+            st.title("Controle e Consulta de Estoque")
+            df_estoque = carregar_dados("SELECT * FROM produtos")
+            if not df_estoque.empty:
+                st.dataframe(df_estoque, use_container_width=True, hide_index=True)
+            else:
+                st.info("Nenhum produto cadastrado no estoque.")
