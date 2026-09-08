@@ -1253,25 +1253,19 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         )
 
                         col_salvar_dia, col_excluir_dia = st.columns(2)
-                        with col_salvar_dia:
-                            if st.button("💾 Salvar Alterações (Dia)", key=f"btn_salvar_dia_{menu_admin}"):
-                                try:
-                                    cursor_upd = conn.cursor()
-                                    for idx, row in edit_dia.iterrows():
-                                        if 'id' in row and pd.notna(row['id']):
-                                            item_id = int(row['id'])
-                                            qtd_nova = float(row.get('quantidade', 0))
-                                            vlr_unit = float(row.get('valor_venda', row.get('valor_unitario', 0)))
-                                            vlr_tot_novo = qtd_nova * vlr_unit
-                                            cursor_upd.execute(
-                                                f"UPDATE {tabela_alvo_historico} SET quantidade = ?, valor_total = ? WHERE id = ?",
-                                                (qtd_nova, vlr_tot_novo, item_id)
-                                            )
-                                    conn.commit()
-                                    st.success("Alterações do dia salvas com sucesso!")
-                                    st.rerun()
-                                except Exception as e:
-                                    st.error(f"Erro ao salvar alterações do dia: {e}")
+                        with col_e3:
+                                    st.write("")
+                                    st.write("")
+                                    if st.button("🗑️ Excluir Pedido", key=f"btn_excluir_{pedido_id}", type="primary"):
+                                        try:
+                                            cursor.execute("DELETE FROM pedidos WHERE id = ?", (pedido_id,))
+                                            conn.commit()
+                                            st.warning("Pedido excluído!")
+                                            st.rerun()
+                                        except Exception as ex:
+                                            st.error(f"Erro ao excluir: {ex}")
+                    else:
+                        st.info("Nenhum pedido registrado hoje para edição.")
 
                         with col_excluir_dia:
                             if st.button("🗑️ Excluir Selecionados (Dia)", key=f"btn_excluir_dia_{menu_admin}"):
