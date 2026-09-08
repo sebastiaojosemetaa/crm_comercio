@@ -899,13 +899,13 @@ else:
                     else:
                         st.info("Nenhum registro encontrado.")
 
-elif menu_admin == "📦 Estoque de Produtos":
-    st.title("📦 Controle e Consulta de Estoque")
-    df_estoque = carregar_dados("SELECT * FROM produtos")
-    if not df_estoque.empty:
-        st.dataframe(df_estoque, use_container_width=True, hide_index=True)
-    else:
-        st.info("Nenhum produto cadastrado no estoque.")
+        elif menu_admin == "📦 Estoque de Produtos":
+            st.title("📦 Controle e Consulta de Estoque")
+            df_estoque = carregar_dados("SELECT * FROM produtos")
+            if not df_estoque.empty:
+                st.dataframe(df_estoque, use_container_width=True, hide_index=True)
+            else:
+                st.info("Nenhum produto cadastrado no estoque.")
 
 elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
     st.title("👥 Cadastros Gerais")
