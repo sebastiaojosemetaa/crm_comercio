@@ -989,5 +989,20 @@ elif menu_admin == "📦 Estoque de Produtos":
 
 elif menu_admin == "Pedidos / Orçamentos":
     st.title("🛒 Pedidos e Orçamentos")
-    st.info("Painel de pedidos em construção ou configurado nesta seção.")
-    # Coloque aqui o conteúdo da sua tela de pedidos
+    st.info("Módulo de Pedidos e Orçamentos ativo.")
+
+elif menu_admin == "Registrar Venda":
+    st.title("💳 Registrar Venda")
+    st.info("Módulo de Registro de Vendas ativo.")
+
+elif menu_admin == "PDV — Frente de Caixa":
+    st.title("🖥️ PDV — Frente de Caixa")
+    st.info("Módulo de Frente de Caixa ativo.")
+
+elif menu_admin == "Abertura e Fechamento de Caixa":
+    st.title("💰 Abertura e Fechamento de Caixa")
+    st.info("Módulo de Caixa ativo.")
+
+elif menu_admin == "Fechamento & Financeiro":
+    st.title("📊 Fechamento & Financeiro")
+    st.info("Módulo Financeiro ativo.")
