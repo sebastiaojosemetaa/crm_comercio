@@ -843,13 +843,7 @@ else:
 
 # O erro de indentação ocorreu porque a linha "if aba_baixa is not None:" ficou com espaços a mais à esquerda comparada ao restante do bloco. 
 # Remova qualquer espaço antes de "if aba_baixa is not None:" para alinhá-lo corretamente com a margem do código:
-    
-            st.subheader("💵 Baixa de Débitos & Lançamento de Haver")
-            clientes_com_divida = carregar_coluna("vendas", "cliente") or []
-            if clientes_com_divida:
-                cliente_baixa = st.selectbox("Selecione o Cliente para Baixa:", clientes_com_divida, key="sel_cli_baixa")
-                df_cli_vendas = carregar_dados(f"SELECT * FROM vendas WHERE TRIM(cliente) = TRIM('{cliente_baixa}')")
-                
+                                
                 if not df_cli_vendas.empty:
                     tot_vendas = df_cli_vendas['valor_total'].sum()
                     tot_recebido = pd.to_numeric(df_cli_vendas['valor_recebido'], errors='coerce').fillna(0.0).sum() if 'valor_recebido' in df_cli_vendas.columns else 0.0
