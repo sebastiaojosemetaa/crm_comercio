@@ -849,9 +849,9 @@ with aba_cad:
                 else:
                     st.info("Nenhum registro lançado para hoje.")
 
-        elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
-            st.title("Cadastros Gerais")
-            tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["👤 Clientes", "📦 Produtos", "🏢 Fornecedores", "🏷️ Grupos"])
+elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
+    st.title("Cadastros Gerais")
+    tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["👤 Clientes", "📦 Produtos", "🏢 Fornecedores", "🏷️ Grupos"])
             
             with tab_cli:
                 st.subheader("Gerenciamento de Clientes")
