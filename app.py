@@ -18,6 +18,7 @@ def get_connection():
     return sqlite3.connect("crm_comercio.db", check_same_thread=False)
 
 conn = get_connection()
+adequar_banco_e_migrar()
 
 def adequar_banco_e_migrar():
     cursor = conn.cursor()
