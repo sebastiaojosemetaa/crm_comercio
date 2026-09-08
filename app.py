@@ -905,7 +905,7 @@ else:
                             else:
                                 st.info("Nenhum produto cadastrado no estoque.")
 
-elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
+if menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
     st.title("👥 Cadastros Gerais")
     tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["👤 Clientes", "📦 Produtos", "🏢 Fornecedores", "🏷️ Grupos"])
     
