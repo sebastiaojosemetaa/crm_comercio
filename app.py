@@ -1627,94 +1627,94 @@ if 'menu_admin' in locals() or 'menu_admin' in globals():
             else:
                 st.info("Nenhum grupo cadastrado.")
                 
-        elif menu_admin == "📥 Entrada de Estoque (Compras)":
-            st.title("📥 Entrada de Estoque (Compras)")
-            aba_compra, aba_historico_compras = st.tabs(["📦 Dar Entrada em Estoque", "📋 Histórico de Entradas"])
+elif menu_admin == "📥 Entrada de Estoque (Compras)":
+st.title("📥 Entrada de Estoque (Compras)")
+aba_compra, aba_historico_compras = st.tabs(["📦 Dar Entrada em Estoque", "📋 Histórico de Entradas"])
+
+# Padronizado para usar 'nome' na tabela produtos
+produtos_opt = carregar_coluna("produtos", "nome") or carregar_coluna("produtos", "produto") or ["AMEIXA IMPORTADA", "ABACATE"]
+fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
+grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
+
+with aba_compra:
+    st.subheader("Registrar Entrada de Estoque")
+    
+    tipo_cadastro = st.radio("Escolha a opção:", ["Produto Existente", "Novo Produto"], horizontal=True, key="radio_tipo_prod")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        if tipo_cadastro == "Produto Existente":
+            produto_escolhido = st.selectbox("Selecione o Produto", produtos_opt, key="prod_entrada_estoque")
+            produto_final = produto_escolhido
+        else:
+            produto_final = st.text_input("Digite o Nome do NOVO Produto").strip().upper()
             
-            # Padronizado para usar 'nome' na tabela produtos
-            produtos_opt = carregar_coluna("produtos", "nome") or carregar_coluna("produtos", "produto") or ["AMEIXA IMPORTADA", "ABACATE"]
-            fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
-            grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
+        fornecedor_escolhido = st.selectbox("Fornecedor", fornecedores_opt, key="forn_entrada")
+        quantidade_entrada = st.number_input("Quantidade", min_value=0.0, format="%.2f", key="qtd_entrada")
+
+    with col2:
+        grupo_escolhido = st.selectbox("Grupo / Categoria", grupos_opt, key="grupo_entrada")
+        
+        preco_cadastrado = 0.0
+        if tipo_cadastro == "Produto Existente" and 'produto_escolhido' in locals() and produto_escolhido:
+            try:
+                cursor = conn.cursor()
+                cursor.execute("SELECT valor_venda FROM produtos WHERE nome = ? OR produto = ?", (produto_escolhido, produto_escolhido))
+                resultado = cursor.fetchone()
+                if resultado and resultado[0] is not None:
+                    preco_cadastrado = float(resultado[0])
+            except Exception:
+                pass
+
+        preco_custo = st.number_input("Preço de Custo Unitário (R$)", min_value=0.0, format="%.2f", key="custo_entrada")
+        preco_venda = st.number_input("Preço de Venda Unitário (R$)", min_value=0.0, value=preco_cadastrado, format="%.2f", key="venda_entrada")
+
+if st.button("💾 Confirmar Entrada no Estoque", type="primary", key="btn_conf_entrada"):
+    if not produto_final:
+        st.warning("Informe ou selecione o nome do produto.")
+    else:
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id FROM produtos WHERE nome = ? OR produto = ?", (produto_final, produto_final))
+            existe = cursor.fetchone()
             
-            with aba_compra:
-                st.subheader("Registrar Entrada de Estoque")
-                
-                tipo_cadastro = st.radio("Escolha a opção:", ["Produto Existente", "Novo Produto"], horizontal=True, key="radio_tipo_prod")
-                
-                col1, col2 = st.columns(2)
-                with col1:
-                    if tipo_cadastro == "Produto Existente":
-                        produto_escolhido = st.selectbox("Selecione o Produto", produtos_opt, key="prod_entrada_estoque")
-                        produto_final = produto_escolhido
-                    else:
-                        produto_final = st.text_input("Digite o Nome do NOVO Produto").strip().upper()
-                        
-                    fornecedor_escolhido = st.selectbox("Fornecedor", fornecedores_opt, key="forn_entrada")
-                    quantidade_entrada = st.number_input("Quantidade", min_value=0.0, format="%.2f", key="qtd_entrada")
-        
-                with col2:
-                    grupo_escolhido = st.selectbox("Grupo / Categoria", grupos_opt, key="grupo_entrada")
-                    
-                    preco_cadastrado = 0.0
-                    if tipo_cadastro == "Produto Existente" and 'produto_escolhido' in locals() and produto_escolhido:
-                        try:
-                            cursor = conn.cursor()
-                            cursor.execute("SELECT valor_venda FROM produtos WHERE nome = ? OR produto = ?", (produto_escolhido, produto_escolhido))
-                            resultado = cursor.fetchone()
-                            if resultado and resultado[0] is not None:
-                                preco_cadastrado = float(resultado[0])
-                        except Exception:
-                            pass
-        
-                    preco_custo = st.number_input("Preço de Custo Unitário (R$)", min_value=0.0, format="%.2f", key="custo_entrada")
-                    preco_venda = st.number_input("Preço de Venda Unitário (R$)", min_value=0.0, value=preco_cadastrado, format="%.2f", key="venda_entrada")
-        
-                if st.button("💾 Confirmar Entrada no Estoque", type="primary", key="btn_conf_entrada"):
-                    if not produto_final:
-                        st.warning("Informe ou selecione o nome do produto.")
-                    else:
-                        try:
-                            cursor = conn.cursor()
-                            cursor.execute("SELECT id FROM produtos WHERE nome = ? OR produto = ?", (produto_final, produto_final))
-                            existe = cursor.fetchone()
-                            
-                            data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S") if 'datetime' in globals() else ""
-                            
-                            if existe:
-                                cursor.execute("""
-                                    UPDATE produtos 
-                                    SET estoque_atual = COALESCE(estoque_atual, 0) + ?, valor_compra = ?, valor_venda = ?, grupo = ?, fornecedor = ?
-                                    WHERE nome = ? OR produto = ?
-                                """, (quantidade_entrada, preco_custo, preco_venda, grupo_escolhido, fornecedor_escolhido, produto_final, produto_final))
-                            else:
-                                cursor.execute("""
-                                    INSERT INTO produtos (nome, produto, estoque_atual, quantidade, valor_compra, valor_venda, grupo, fornecedor)
-                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                                """, (produto_final, produto_final, quantidade_entrada, quantidade_entrada, preco_custo, preco_venda, grupo_escolhido, fornecedor_escolhido))
-                            
-                            # Registrar também na tabela compras se existir
-                            try:
-                                cursor.execute("""
-                                    INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data)
-                                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                                """, (produto_final, fornecedor_escolhido, grupo_escolhido, quantidade_entrada, preco_custo, quantidade_entrada * preco_custo, data_atual))
-                            except Exception:
-                                pass
-        
-                            conn.commit()
-                            st.success(f"Estoque atualizado/produto '{produto_final}' cadastrado com sucesso!")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Erro ao registrar entrada: {e}")
-        
-            with aba_historico_compras:
-                st.subheader("📋 Histórico de Entradas de Estoque")
-                try:
-                    df_compras = carregar_dados("SELECT * FROM compras")
-                    if not df_compras.empty:
-                        st.dataframe(df_compras, use_container_width=True, hide_index=True)
-                    else:
-                        st.info("Nenhuma entrada de estoque registrada no histórico.")
-                except Exception as e:
-                    st.error(f"Erro ao carregar histórico de compras: {e}")
+            data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S") if 'datetime' in globals() else ""
+            
+            if existe:
+                cursor.execute("""
+                    UPDATE produtos 
+                    SET estoque_atual = COALESCE(estoque_atual, 0) + ?, valor_compra = ?, valor_venda = ?, grupo = ?, fornecedor = ?
+                    WHERE nome = ? OR produto = ?
+                """, (quantidade_entrada, preco_custo, preco_venda, grupo_escolhido, fornecedor_escolhido, produto_final, produto_final))
+            else:
+                cursor.execute("""
+                    INSERT INTO produtos (nome, produto, estoque_atual, quantidade, valor_compra, valor_venda, grupo, fornecedor)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (produto_final, produto_final, quantidade_entrada, quantidade_entrada, preco_custo, preco_venda, grupo_escolhido, fornecedor_escolhido))
+            
+            # Registrar também na tabela compras se existir
+            try:
+                cursor.execute("""
+                    INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (produto_final, fornecedor_escolhido, grupo_escolhido, quantidade_entrada, preco_custo, quantidade_entrada * preco_custo, data_atual))
+            except Exception:
+                pass
+
+            conn.commit()
+            st.success(f"Estoque atualizado/produto '{produto_final}' cadastrado com sucesso!")
+            st.rerun()
+        except Exception as e:
+            st.error(f"Erro ao registrar entrada: {e}")
+
+with aba_historico_compras:
+    st.subheader("📋 Histórico de Entradas de Estoque")
+    try:
+        df_compras = carregar_dados("SELECT * FROM compras")
+        if not df_compras.empty:
+            st.dataframe(df_compras, use_container_width=True, hide_index=True)
+        else:
+            st.info("Nenhuma entrada de estoque registrada no histórico.")
+    except Exception as e:
+        st.error(f"Erro ao carregar histórico de compras: {e}")
                 
