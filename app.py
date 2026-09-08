@@ -975,7 +975,7 @@ elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
                         st.info("Nenhuma entrada de estoque registrada no histórico.")
                 except Exception as e:
                     st.error(f"Erro ao carregar histórico de compras: {e}")
-elif menu_admin == "📦 Estoque de Produtos":
+if menu_admin == "📦 Estoque de Produtos":
     st.title("Controle e Consulta de Estoque")
     df_estoque = carregar_dados("SELECT * FROM produtos")
     if not df_estoque.empty:
