@@ -686,111 +686,111 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 else:
                     st.info("Nenhum registro encontrado para os filtros selecionados.")
             
-        elif menu_admin in ["📋 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
-            is_modo_pedido = (menu_admin == "📋 Pedidos / Orçamentos")
-            st.title(f"🛒 {menu_admin}")
-
-            aba_cad, aba_list = st.tabs(["+ Novo Registro / Pedido", "🔧 Tabela Editável"])
-
-        with aba_cad:
-            # Garante que as listas de clientes e produtos existem
-            clientes_opt = carregar_coluna("clientes", "nome") or ["Carlos Alberto"]
-            df_p_admin = carregar_dados("SELECT * FROM produtos")
-            if not df_p_admin.empty:
-                df_p_admin.columns = [c.lower() for c in df_p_admin.columns]
-                col_nome_p = 'produto' if 'produto' in df_p_admin.columns else ('nome' if 'nome' in df_p_admin.columns else df_p_admin.columns[1])
-                produtos_base = df_p_admin[col_nome_p].dropna().astype(str).str.strip().unique().tolist()
-            else:
-                produtos_base = ["ABACATE", "BANANA", "LARANJA", "MAÇÃ"]
+        elif menu_admin in ["🛒 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
+            is_modo_pedido = (menu_admin == "🛒 Pedidos / Orçamentos")
+            st.title(f"{menu_admin}")
             
-            produtos_opt = list(produtos_base) + ["+ Cadastrar Novo Produto..."]
-        
-            # Inicializa o carrinho na sessão se não existir
-            if "carrinho_pedido" not in st.session_state:
-                st.session_state.carrinho_pedido = []
-        
-            # --- FORMULÁRIO DE LANÇAMENTO DO ITEM ---
-            with st.form("form_item_pedido", clear_on_submit=True):
-                col_a, col_b = st.columns(2)
-                with col_a:
-                    produto = st.selectbox("Selecione o Produto", produtos_opt)
-                with col_b:
-                    cliente = st.selectbox("Cliente", clientes_opt)
-                    
-                fornecedor = st.text_input("Fornecedor", value="BAHIA")
-                grupo = st.text_input("Grupo", value="FRUTAS")
+            aba_cad, aba_list = st.tabs(["+ Novo Registro / Pedido", "Tabela Editável"])
+            
+            with aba_cad:
+                # Garante que as listas de clientes e produtos existem
+                clientes_opt = carregar_coluna("clientes", "nome") or ["Carlos Alberto"]
+                df_p_admin = carregar_dados("SELECT * FROM produtos")
+                if not df_p_admin.empty:
+                    df_p_admin.columns = [c.lower() for c in df_p_admin.columns]
+                    col_nome_p = 'produto' if 'produto' in df_p_admin.columns else ('nome' if 'nome' in df_p_admin.columns else df_p_admin.columns[1])
+                    produtos_base = df_p_admin[col_nome_p].dropna().astype(str).str.strip().unique().tolist()
+                else:
+                    produtos_base = ["ABACATE", "BANANA", "LARANJA", "MAÇÃ"]
                 
-                col_c, col_d = st.columns(2)
-                with col_c:
-                    quantidade = st.number_input("Quantidade", min_value=0.01, value=1.0, format="%.2f")
-                with col_d:
-                    preco_unitario = st.number_input("Preço Unitário (R$)", min_value=0.0, value=0.0, format="%.2f")
-                
-                submitted = st.form_submit_button("Adicionar à Lista")
-                if submitted:
-                    c_total = quantidade * preco_unitario
-                    st.session_state.carrinho_pedido.append({
-                        "cliente": cliente,
-                        "produto": produto,
-                        "fornecedor": fornecedor,
-                        "grupo": grupo,
-                        "quantidade": quantidade,
-                        "valor_venda": preco_unitario,
-                        "valor_total": c_total
-                    })
-                    st.success("Item adicionado à lista temporária!")
-                    st.rerun()
-
-    # --- EXIBIÇÃO DOS ITENS ADICIONADOS (CARRINHO) E BOTÃO DE FINALIZAR ---
-    if st.session_state.carrinho_pedido:
-        st.divider()
-        st.subheader("🛒 Itens na Comanda (Prontos para Finalizar)")
+                produtos_opt = list(produtos_base) + ["+ Cadastrar Novo Produto..."]
         
-        import pandas as pd
-        df_carrinho = pd.DataFrame(st.session_state.carrinho_pedido)
-        st.dataframe(df_carrinho, use_container_width=True)
-        
-        indices_disponiveis = list(range(len(st.session_state.carrinho_pedido)))
-        item_para_remover = st.selectbox(
-            "Selecione o índice do item para remover se houver erro", 
-            indices_disponiveis, 
-            format_func=lambda x: f"Item {x+1}: {st.session_state.carrinho_pedido[x]['produto']} ({st.session_state.carrinho_pedido[x]['quantidade']} un)"
-        )
-        
-        col_btn1, col_btn2 = st.columns(2)
-        with col_btn1:
-            if st.button("❌ Excluir Item Selecionado"):
-                st.session_state.carrinho_pedido.pop(item_para_remover)
-                st.success("Item removido da lista!")
-                st.rerun()
-                
-        with col_btn2:
-            if st.button("🚀 Finalizar e Salvar Todos os Pedidos", type="primary"):
-                try:
-                    conn = com.cur()
-                    cursor = conn.cursor()
-                    for item in st.session_state.carrinho_pedido:
-                        cursor.execute("""
-                            INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, tipo, status, data)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        """, (
-                            str(item["cliente"]), 
-                            str(item["produto"]), 
-                            str(item["fornecedor"]), 
-                            str(item["grupo"]), 
-                            float(item["quantidade"]), 
-                            float(item["valor_venda"]), 
-                            float(item["valor_total"]), 
-                            "Pedido", 
-                            "Pendente", 
-                            data_atual
-                        ))
-                    conn.commit()
-                    st.success("Todos os pedidos foram finalizados e salvos com sucesso!")
+                # Inicializa o carrinho na sessão se não existir
+                if "carrinho_pedido" not in st.session_state:
                     st.session_state.carrinho_pedido = []
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Erro ao salvar no banco: {e}")
+        
+                # --- FORMULÁRIO DE LANÇAMENTO DO ITEM ---
+                with st.form("form_item_pedido", clear_on_submit=True):
+                    col_a, col_b = st.columns(2)
+                    with col_a:
+                        produto = st.selectbox("Selecione o Produto", produtos_opt)
+                    with col_b:
+                        cliente = st.selectbox("Cliente", clientes_opt)
+                        
+                    fornecedor = st.text_input("Fornecedor", value="BAHIA")
+                    grupo = st.text_input("Grupo", value="FRUTAS")
+                    
+                    col_c, col_d = st.columns(2)
+                    with col_c:
+                        quantidade = st.number_input("Quantidade", min_value=0.01, value=1.0, format="%.2f")
+                    with col_d:
+                        preco_unitario = st.number_input("Preço Unitário (R$)", min_value=0.0, value=0.0, format="%.2f")
+                    
+                    submitted = st.form_submit_button("Adicionar à Lista")
+                    if submitted:
+                        c_total = quantidade * preco_unitario
+                        st.session_state.carrinho_pedido.append({
+                            "cliente": cliente,
+                            "produto": produto,
+                            "fornecedor": fornecedor,
+                            "grupo": grupo,
+                            "quantidade": quantidade,
+                            "valor_venda": preco_unitario,
+                            "valor_total": c_total
+                        })
+                        st.success("Item adicionado à lista temporária!")
+                        st.rerun()
+        
+                # --- EXIBIÇÃO DOS ITENS ADICIONADOS (CARRINHO) E BOTÃO DE FINALIZAR ---
+                if st.session_state.carrinho_pedido:
+                    st.divider()
+                    st.subheader("🛒 Itens na Comanda (Prontos para Finalizar)")
+                    
+                    import pandas as pd
+                    df_carrinho = pd.DataFrame(st.session_state.carrinho_pedido)
+                    st.dataframe(df_carrinho, use_container_width=True)
+                    
+                    indices_disponiveis = list(range(len(st.session_state.carrinho_pedido)))
+                    item_para_remover = st.selectbox(
+                        "Selecione o índice do item para remover se houver erro", 
+                        indices_disponiveis, 
+                        format_func=lambda x: f"Item {x+1}: {st.session_state.carrinho_pedido[x]['produto']} ({st.session_state.carrinho_pedido[x]['quantidade']} un)"
+                    )
+                    
+                    col_btn1, col_btn2 = st.columns(2)
+                    with col_btn1:
+                        if st.button("❌ Excluir Item Selecionado"):
+                            st.session_state.carrinho_pedido.pop(item_para_remover)
+                            st.success("Item removido da lista!")
+                            st.rerun()
+                            
+                    with col_btn2:
+                        if st.button("🚀 Finalizar e Salvar Todos os Pedidos", type="primary"):
+                            try:
+                                conn = com.cur()
+                                cursor = conn.cursor()
+                                for item in st.session_state.carrinho_pedido:
+                                    cursor.execute("""
+                                        INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, tipo, status, data)
+                                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                    """, (
+                                        str(item["cliente"]), 
+                                        str(item["produto"]), 
+                                        str(item["fornecedor"]), 
+                                        str(item["grupo"]), 
+                                        float(item["quantidade"]), 
+                                        float(item["valor_venda"]), 
+                                        float(item["valor_total"]), 
+                                        "Pedido", 
+                                        "Pendente", 
+                                        data_atual
+                                    ))
+                                conn.commit()
+                                st.success("Todos os pedidos foram finalizados e salvos com sucesso!")
+                                st.session_state.carrinho_pedido = []
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao salvar no banco: {e}")
             
             with aba_list:
                 st.divider()
