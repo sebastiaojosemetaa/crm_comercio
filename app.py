@@ -796,7 +796,6 @@ except Exception:
     df_parcial = pd.DataFrame()
 
 if not df_parcial.empty:
-    # Filtro opcional por cliente
     clientes_com_lancamento = ["TODOS"] + df_parcial['cliente'].dropna().astype(str).unique().tolist()
     filtro_cliente_dia = st.selectbox("Filtrar visualização por cliente:", clientes_com_lancamento, key="filtro_cli_dia_vendas")
     
@@ -805,7 +804,6 @@ if not df_parcial.empty:
 
     total_parcial = df_parcial['valor_total'].sum() if 'valor_total' in df_parcial.columns else 0.0
 
-    # Exibição linha por linha com botão de exclusão funcional imediato
     for index, row in df_parcial.iterrows():
         cols = st.columns([1, 2, 2, 1, 1, 1])
         cols[0].text(f"ID: {row['id']}")
@@ -814,7 +812,6 @@ if not df_parcial.empty:
         cols[3].text(f"Qtd: {row['quantidade']}")
         cols[4].text(f"R$ {row['valor_total']:.2f}")
         
-        # Botão de exclusão individual direto na linha
         if cols[5].button("🗑️ Excluir", key=f"btn_del_item_{row['id']}"):
             try:
                 cursor = conn.cursor()
