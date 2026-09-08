@@ -841,26 +841,26 @@ if not df_parcial.empty:
 else:
     st.info("Nenhum registro lançado para hoje.")
 
-        if st.button("Excluir Selecionados", key="btn_excluir_parcial_sel"):
-            try:
-                # Utiliza o dataframe editado na tela para capturar quais linhas estão com a coluna 'Excluir' marcada como True
-                ids_a_excluir = edit_parcial[edit_parcial['Excluir'] == True]['id'].dropna().tolist()
-                
-                if not ids_a_excluir:
-                    # Alternativa caso o tipo de dado venha como booleano puro ou string/objeto
-                    ids_a_excluir = edit_parcial[edit_parcial['Excluir'] == 1]['id'].dropna().tolist()
+if st.button("Excluir Selecionados", key="btn_excluir_parcial_sel"):
+    try:
+        # Utiliza o dataframe editado na tela para capturar quais linhas estão com a coluna 'Excluir' marcada como True
+        ids_a_excluir = edit_parcial[edit_parcial['Excluir'] == True]['id'].dropna().tolist()
+        
+        if not ids_a_excluir:
+            # Alternativa caso o tipo de dado venha como booleano puro ou string/objeto
+            ids_a_excluir = edit_parcial[edit_parcial['Excluir'] == 1]['id'].dropna().tolist()
 
-                if ids_a_excluir:
-                    cursor = conn.cursor()
-                    for item_id in ids_a_excluir:
-                        cursor.execute("DELETE FROM vendas WHERE id = ?", (int(item_id),))
-                    conn.commit()
-                    st.success(f"{len(ids_a_excluir)} item(ns) excluído(s) com sucesso!")
-                    st.rerun()
-                else:
-                    st.warning("Nenhum item foi marcado com o visto (checkbox) na coluna 'Excluir'.")
-            except Exception as e:
-                st.error(f"Erro ao excluir: {e}")
+        if ids_a_excluir:
+            cursor = conn.cursor()
+            for item_id in ids_a_excluir:
+                cursor.execute("DELETE FROM vendas WHERE id = ?", (int(item_id),))
+            conn.commit()
+            st.success(f"{len(ids_a_excluir)} item(ns) excluído(s) com sucesso!")
+            st.rerun()
+        else:
+            st.warning("Nenhum item foi marcado com o visto (checkbox) na coluna 'Excluir'.")
+    except Exception as e:
+        st.error(f"Erro ao excluir: {e}")
 
 # O erro de indentação ocorreu porque a linha "if aba_baixa is not None:" ficou com espaços a mais à esquerda comparada ao restante do bloco. 
 # Remova qualquer espaço antes de "if aba_baixa is not None:" para alinhá-lo corretamente com a margem do código:
