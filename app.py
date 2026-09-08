@@ -844,7 +844,7 @@ else:
 # O erro de indentação ocorreu porque a linha "if aba_baixa is not None:" ficou com espaços a mais à esquerda comparada ao restante do bloco. 
 # Remova qualquer espaço antes de "if aba_baixa is not None:" para alinhá-lo corretamente com a margem do código:                                                 
 
-elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
+if menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
     st.title("👥 Cadastros Gerais")
     tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["👤 Clientes", "📦 Produtos", "🏢 Fornecedores", "🏷️ Grupos"])
     
