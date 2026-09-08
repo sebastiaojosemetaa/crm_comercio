@@ -853,133 +853,133 @@ elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
     st.title("Cadastros Gerais")
     tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["👤 Clientes", "📦 Produtos", "🏢 Fornecedores", "🏷️ Grupos"])
             
-            with tab_cli:
-                st.subheader("Gerenciamento de Clientes")
-                with st.form("form_cad_cliente_completo"):
-                    novo_cli = st.text_input("Nome do Cliente / Razão Social")
-                    telefone = st.text_input("Telefone / WhatsApp")
-                    doc = st.text_input("CPF / CNPJ")
-                    endereco = st.text_input("Endereço")
-                    cidade = st.text_input("Cidade / Email")
+    with tab_cli:
+        st.subheader("Gerenciamento de Clientes")
+        with st.form("form_cad_cliente_completo"):
+            novo_cli = st.text_input("Nome do Cliente / Razão Social")
+            telefone = st.text_input("Telefone / WhatsApp")
+            doc = st.text_input("CPF / CNPJ")
+            endereco = st.text_input("Endereço")
+            cidade = st.text_input("Cidade / Email")
 
-                    if st.form_submit_button("💾 Salvar Cliente"):
-                        if novo_cli.strip():
-                            salvar_cliente_completo(novo_cli, telefone, doc, endereco, cidade)
-                            st.success("Cliente cadastrado com sucesso!")
-                            st.rerun()
-                        else:
-                            st.warning("Preencha o nome do cliente.")
-                st.dataframe(carregar_dados("SELECT * FROM clientes"), use_container_width=True)
+            if st.form_submit_button("💾 Salvar Cliente"):
+                if novo_cli.strip():
+                    salvar_cliente_completo(novo_cli, telefone, doc, endereco, cidade)
+                    st.success("Cliente cadastrado com sucesso!")
+                    st.rerun()
+                else:
+                    st.warning("Preencha o nome do cliente.")
+        st.dataframe(carregar_dados("SELECT * FROM clientes"), use_container_width=True)
 
-            with tab_prod:
-                st.subheader("📝 Gerenciar Produtos")
-                with st.form("form_cad_produto_completo", clear_on_submit=True):
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        txt_nome_produto = st.text_input("Nome do Produto")
-                        val_custo = st.number_input("Preço de Custo (R$)", min_value=0.0, format="%.2f")
-                    with col2:
-                        grupo_produto = st.text_input("Grupo / Categoria", value="Geral")
-                        val_venda = st.number_input("Preço de Venda (R$)", min_value=0.0, format="%.2f")
-                        
-                    col3, col4 = st.columns(2)
-                    with col3:
-                        estoque_inicial = st.number_input("Estoque Inicial", min_value=0.0, value=0.0, step=1.0)
-                    with col4:
-                        fornecedor_produto = st.text_input("Fornecedor", value="")
-
-                    if st.form_submit_button("Salvar Novo Produto"):
-                        if not txt_nome_produto.strip():
-                            st.warning("Por favor, informe o nome do produto.")
-                        else:
-                            salvar_produto_completo(txt_nome_produto, fornecedor_produto, grupo_produto, val_custo, val_venda, estoque_inicial)
-                            st.success(f"Produto '{txt_nome_produto}' cadastrado com sucesso!")
-                            st.rerun()
-                st.dataframe(carregar_dados("SELECT * FROM produtos"), use_container_width=True)
-
-            with tab_forn:
-                st.subheader("🏢 Gerenciar Fornecedores")
-                with st.form("form_cad_fornecedor", clear_on_submit=True):
-                    nome_forn = st.text_input("Nome do Fornecedor / Empresa")
-                    if st.form_submit_button("Salvar Novo Fornecedor"):
-                        if nome_forn.strip():
-                            salvar_simples("fornecedores", "fornecedor", nome_forn.upper())
-                            st.success(f"Fornecedor '{nome_forn}' cadastrado com sucesso!")
-                            st.rerun()
-                        else:
-                            st.warning("Informe o nome do fornecedor.")
-                st.dataframe(carregar_dados("SELECT * FROM fornecedores"), use_container_width=True)
-
-            with tab_grup:
-                st.subheader("🏷️ Gerenciar Grupos / Categorias")
-                with st.form("form_cad_grupo", clear_on_submit=True):
-                    nome_grupo = st.text_input("Nome do Grupo / Categoria")
-                    if st.form_submit_button("Salvar Novo Grupo"):
-                        if nome_grupo.strip():
-                            salvar_simples("grupos", "grupo", nome_grupo.upper())
-                            st.success(f"Grupo '{nome_grupo}' cadastrado com sucesso!")
-                            st.rerun()
-                        else:
-                            st.warning("Informe o nome do grupo.")
-                st.dataframe(carregar_dados("SELECT * FROM grupos"), use_container_width=True)
-
-        elif menu_admin == "📥 Entrada de Estoque (Compras)":
-            st.title("📥 Entrada de Estoque (Compras)")
-            aba_compra, aba_historico_compras = st.tabs(["📦 Dar Entrada em Estoque", "📋 Histórico de Entradas"])
-            
-            produtos_opt = carregar_coluna("produtos", "nome") or carregar_coluna("produtos", "produto") or ["AMEIXA IMPORTADA", "ABACATE"]
-            fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
-            grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
-            
-            with aba_compra:
-                st.subheader("Registrar Entrada de Estoque")
-                tipo_cadastro = st.radio("Escolha a opção:", ["Produto Existente", "Novo Produto"], horizontal=True, key="radio_tipo_prod")
+    with tab_prod:
+        st.subheader("📝 Gerenciar Produtos")
+        with st.form("form_cad_produto_completo", clear_on_submit=True):
+            col1, col2 = st.columns(2)
+            with col1:
+                txt_nome_produto = st.text_input("Nome do Produto")
+                val_custo = st.number_input("Preço de Custo (R$)", min_value=0.0, format="%.2f")
+            with col2:
+                grupo_produto = st.text_input("Grupo / Categoria", value="Geral")
+                val_venda = st.number_input("Preço de Venda (R$)", min_value=0.0, format="%.2f")
                 
-                col1, col2 = st.columns(2)
-                with col1:
-                    if tipo_cadastro == "Produto Existente":
-                        produto_escolhido = st.selectbox("Selecione o Produto", produtos_opt, key="prod_entrada_estoque")
-                        produto_final = produto_escolhido
-                    else:
-                        produto_final = st.text_input("Digite o Nome do NOVO Produto").strip().upper()
-                        
-                    fornecedor_escolhido = st.selectbox("Fornecedor", fornecedores_opt, key="forn_entrada")
-                    quantidade_entrada = st.number_input("Quantidade", min_value=0.0, format="%.2f", key="qtd_entrada")
-    
-                with col2:
-                    grupo_escolhido = st.selectbox("Grupo / Categoria", grupos_opt, key="grupo_entrada")
-                    preco_custo = st.number_input("Preço de Custo Unitário (R$)", min_value=0.0, format="%.2f", key="custo_entrada")
-                    preco_venda = st.number_input("Preço de Venda Unitário (R$)", min_value=0.0, format="%.2f", key="venda_entrada")
-    
-                if st.button("💾 Confirmar Entrada no Estoque", type="primary", key="btn_conf_entrada"):
-                    if not produto_final:
-                        st.warning("Informe ou selecione o nome do produto.")
-                    else:
-                        try:
-                            cursor = conn.cursor()
-                            data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            
-                            cursor.execute("""
-                                INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data)
-                                VALUES (?, ?, ?, ?, ?, ?, ?)
-                            """, (produto_final, fornecedor_escolhido, grupo_escolhido, quantidade_entrada, preco_custo, quantidade_entrada * preco_custo, data_atual))
-                            
-                            conn.commit()
-                            st.success(f"Entrada registrada com sucesso para '{produto_final}'!")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Erro ao registrar entrada: {e}")
+            col3, col4 = st.columns(2)
+            with col3:
+                estoque_inicial = st.number_input("Estoque Inicial", min_value=0.0, value=0.0, step=1.0)
+            with col4:
+                fornecedor_produto = st.text_input("Fornecedor", value="")
 
-            with aba_historico_compras:
-                st.subheader("📋 Histórico de Entradas de Estoque")
+            if st.form_submit_button("Salvar Novo Produto"):
+                if not txt_nome_produto.strip():
+                    st.warning("Por favor, informe o nome do produto.")
+                else:
+                    salvar_produto_completo(txt_nome_produto, fornecedor_produto, grupo_produto, val_custo, val_venda, estoque_inicial)
+                    st.success(f"Produto '{txt_nome_produto}' cadastrado com sucesso!")
+                    st.rerun()
+        st.dataframe(carregar_dados("SELECT * FROM produtos"), use_container_width=True)
+
+    with tab_forn:
+        st.subheader("🏢 Gerenciar Fornecedores")
+        with st.form("form_cad_fornecedor", clear_on_submit=True):
+            nome_forn = st.text_input("Nome do Fornecedor / Empresa")
+            if st.form_submit_button("Salvar Novo Fornecedor"):
+                if nome_forn.strip():
+                    salvar_simples("fornecedores", "fornecedor", nome_forn.upper())
+                    st.success(f"Fornecedor '{nome_forn}' cadastrado com sucesso!")
+                    st.rerun()
+                else:
+                    st.warning("Informe o nome do fornecedor.")
+        st.dataframe(carregar_dados("SELECT * FROM fornecedores"), use_container_width=True)
+
+    with tab_grup:
+        st.subheader("🏷️ Gerenciar Grupos / Categorias")
+        with st.form("form_cad_grupo", clear_on_submit=True):
+            nome_grupo = st.text_input("Nome do Grupo / Categoria")
+            if st.form_submit_button("Salvar Novo Grupo"):
+                if nome_grupo.strip():
+                    salvar_simples("grupos", "grupo", nome_grupo.upper())
+                    st.success(f"Grupo '{nome_grupo}' cadastrado com sucesso!")
+                    st.rerun()
+                else:
+                    st.warning("Informe o nome do grupo.")
+        st.dataframe(carregar_dados("SELECT * FROM grupos"), use_container_width=True)
+
+elif menu_admin == "📥 Entrada de Estoque (Compras)":
+    st.title("📥 Entrada de Estoque (Compras)")
+    aba_compra, aba_historico_compras = st.tabs(["📦 Dar Entrada em Estoque", "📋 Histórico de Entradas"])
+    
+    produtos_opt = carregar_coluna("produtos", "nome") or carregar_coluna("produtos", "produto") or ["AMEIXA IMPORTADA", "ABACATE"]
+    fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
+    grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
+    
+    with aba_compra:
+        st.subheader("Registrar Entrada de Estoque")
+        tipo_cadastro = st.radio("Escolha a opção:", ["Produto Existente", "Novo Produto"], horizontal=True, key="radio_tipo_prod")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if tipo_cadastro == "Produto Existente":
+                produto_escolhido = st.selectbox("Selecione o Produto", produtos_opt, key="prod_entrada_estoque")
+                produto_final = produto_escolhido
+            else:
+                produto_final = st.text_input("Digite o Nome do NOVO Produto").strip().upper()
+                
+            fornecedor_escolhido = st.selectbox("Fornecedor", fornecedores_opt, key="forn_entrada")
+            quantidade_entrada = st.number_input("Quantidade", min_value=0.0, format="%.2f", key="qtd_entrada")
+
+        with col2:
+            grupo_escolhido = st.selectbox("Grupo / Categoria", grupos_opt, key="grupo_entrada")
+            preco_custo = st.number_input("Preço de Custo Unitário (R$)", min_value=0.0, format="%.2f", key="custo_entrada")
+            preco_venda = st.number_input("Preço de Venda Unitário (R$)", min_value=0.0, format="%.2f", key="venda_entrada")
+
+        if st.button("💾 Confirmar Entrada no Estoque", type="primary", key="btn_conf_entrada"):
+            if not produto_final:
+                st.warning("Informe ou selecione o nome do produto.")
+            else:
                 try:
-                    df_compras = carregar_dados("SELECT * FROM compras")
-                    if not df_compras.empty:
-                        st.dataframe(df_compras, use_container_width=True, hide_index=True)
-                    else:
-                        st.info("Nenhuma entrada de estoque registrada no histórico.")
+                    cursor = conn.cursor()
+                    data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    
+                    cursor.execute("""
+                        INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_custo, valor_total, data)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """, (produto_final, fornecedor_escolhido, grupo_escolhido, quantidade_entrada, preco_custo, quantidade_entrada * preco_custo, data_atual))
+                    
+                    conn.commit()
+                    st.success(f"Entrada registrada com sucesso para '{produto_final}'!")
+                    st.rerun()
                 except Exception as e:
-                    st.error(f"Erro ao carregar histórico de compras: {e}")
+                    st.error(f"Erro ao registrar entrada: {e}")
+
+    with aba_historico_compras:
+        st.subheader("📋 Histórico de Entradas de Estoque")
+        try:
+            df_compras = carregar_dados("SELECT * FROM compras")
+            if not df_compras.empty:
+                st.dataframe(df_compras, use_container_width=True, hide_index=True)
+            else:
+                st.info("Nenhuma entrada de estoque registrada no histórico.")
+        except Exception as e:
+            st.error(f"Erro ao carregar histórico de compras: {e}")
 
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("Controle e Consulta de Estoque")
