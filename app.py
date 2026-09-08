@@ -796,46 +796,52 @@ except Exception:
     df_parcial = pd.DataFrame()
 
 if not df_parcial.empty:
+    # Filtro opcional por cliente
     clientes_com_lancamento = ["TODOS"] + df_parcial['cliente'].dropna().astype(str).unique().tolist()
     filtro_cliente_dia = st.selectbox("Filtrar visualização por cliente:", clientes_com_lancamento, key="filtro_cli_dia_vendas")
     
     if filtro_cliente_dia != "TODOS":
         df_parcial = df_parcial[df_parcial['cliente'].astype(str).str.strip().str.upper() == filtro_cliente_dia.strip().upper()]
 
-    df_parcial.dropna(axis=1, how='all', inplace=True)
-    if 'Excluir' not in df_parcial.columns:
-        df_parcial.insert(0, 'Excluir', False)
+    total_parcial = df_parcial['valor_total'].sum() if 'valor_total' in df_parcial.columns else 0.0
 
-    edit_parcial = st.data_editor(
-        df_parcial,
-        column_config={
-            "Excluir": st.column_config.CheckboxColumn("Excluir", default=False),
-            "quantidade": st.column_config.NumberColumn("Qtd", min_value=0.0, format="%.2f"),
-            "valor_venda": st.column_config.NumberColumn("Vlr Unit", format="R$ %.2f"),
-            "valor_total": st.column_config.NumberColumn("Vlr Total", format="R$ %.2f")
-        },
-        disabled=[c for c in df_parcial.columns if c not in ['Excluir', 'quantidade', 'valor_venda']],
-        key=f"editor_parcial_{menu_admin}",
-        use_container_width=True
-    )
-
-    total_parcial = edit_parcial['valor_total'].sum() if 'valor_total' in edit_parcial.columns else 0.0
-    st.markdown(f"### **Valor Total Exibido: R$ {total_parcial:.2f}**")
-
-    col_fin, col_del = st.columns([2, 1])
-    with col_fin:
-        if st.button("Finalizar Pedido / Venda", type="primary", key="btn_finalizar_pedido_unico"):
+    # Exibição linha por linha com botão de exclusão funcional imediato
+    for index, row in df_parcial.iterrows():
+        cols = st.columns([1, 2, 2, 1, 1, 1])
+        cols[0].text(f"ID: {row['id']}")
+        cols[1].text(str(row['cliente']))
+        cols[2].text(str(row['produto']))
+        cols[3].text(f"Qtd: {row['quantidade']}")
+        cols[4].text(f"R$ {row['valor_total']:.2f}")
+        
+        # Botão de exclusão individual direto na linha
+        if cols[5].button("🗑️ Excluir", key=f"btn_del_item_{row['id']}"):
             try:
                 cursor = conn.cursor()
-                ids_para_finalizar = edit_parcial['id'].tolist()
-                for id_item in ids_para_finalizar:
-                    cursor.execute("UPDATE vendas SET status = 'Finalizado', tipo = 'VENDA' WHERE id = ?", (int(id_item),))
+                cursor.execute("DELETE FROM vendas WHERE id = ?", (int(row['id']),))
                 conn.commit()
-                st.success("Pedido(s) finalizado(s) com sucesso!")
-                st.balloons()
+                st.success(f"Item ID {row['id']} excluído com sucesso!")
                 st.rerun()
             except Exception as e:
-                st.error(f"Erro ao finalizar: {e}")
+                st.error(f"Erro ao excluir: {e}")
+    
+    st.markdown("---")
+    st.markdown(f"### **Valor Total Exibido: R$ {total_parcial:.2f}**")
+
+    if st.button("Finalizar Pedido / Venda de Todos os Itens Exibidos", type="primary", key="btn_finalizar_pedido_unico"):
+        try:
+            cursor = conn.cursor()
+            ids_para_finalizar = df_parcial['id'].tolist()
+            for id_item in ids_para_finalizar:
+                cursor.execute("UPDATE vendas SET status = 'Finalizado', tipo = 'VENDA' WHERE id = ?", (int(id_item),))
+            conn.commit()
+            st.success("Pedido(s) finalizado(s) com sucesso!")
+            st.balloons()
+            st.rerun()
+        except Exception as e:
+            st.error(f"Erro ao finalizar: {e}")
+else:
+    st.info("Nenhum registro lançado para hoje.")
 
     with col_del:
         if st.button("Excluir Selecionados", key="btn_excluir_parcial_sel"):
