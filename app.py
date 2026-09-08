@@ -889,8 +889,8 @@ else:
                     if not df_registros.empty:
                         df_registros.columns = [c.lower() for c in df_registros.columns]
                         if 'data' in df_registros.columns:
-                        df_registros['data_str'] = df_registros['data'].astype(str).str.slice(0, 10)
-                        df_registros = df_registros[(df_registros['data_str'] >= s_d1) & (df_registros['data_str'] <= s_d2)]
+                    df_registros['data_str'] = df_registros['data'].astype(str).str.slice(0, 10)
+                    df_registros = df_registros[(df_registros['data_str'] >= s_d1) & (df_registros['data_str'] <= s_d2)]
                         
                         if cliente_sel != "TODOS" and 'cliente' in df_registros.columns:
                             df_registros = df_registros[df_registros['cliente'].astype(str).str.strip().str.upper() == str(cliente_sel).strip().upper()]
