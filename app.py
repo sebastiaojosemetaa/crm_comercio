@@ -805,19 +805,22 @@ if not df_parcial.empty:
     total_parcial = df_parcial['valor_total'].sum() if 'valor_total' in df_parcial.columns else 0.0
 
     for index, row in df_parcial.iterrows():
+        # Garantir conversão limpa do ID para inteiro
+        item_id = int(row['id'])
         cols = st.columns([1, 2, 2, 1, 1, 1])
-        cols[0].text(f"ID: {row['id']}")
+        cols[0].text(f"ID: {item_id}")
         cols[1].text(str(row['cliente']))
         cols[2].text(str(row['produto']))
         cols[3].text(f"Qtd: {row['quantidade']}")
         cols[4].text(f"R$ {row['valor_total']:.2f}")
         
-        if cols[5].button("🗑️ Excluir", key=f"btn_del_item_{row['id']}"):
+        # Botão com chave única baseada no ID exato do registro
+        if cols[5].button("🗑️ Excluir", key=f"exc_venda_{item_id}"):
             try:
                 cursor = conn.cursor()
-                cursor.execute("DELETE FROM vendas WHERE id = ?", (int(row['id']),))
+                cursor.execute("DELETE FROM vendas WHERE id = ?", (item_id,))
                 conn.commit()
-                st.success(f"Item ID {row['id']} excluído com sucesso!")
+                st.toast(f"Item ID {item_id} excluído com sucesso!", icon="✅")
                 st.rerun()
             except Exception as e:
                 st.error(f"Erro ao excluir: {e}")
