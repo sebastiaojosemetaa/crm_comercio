@@ -685,9 +685,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.dataframe(df_vendas, use_container_width=True)
                 else:
                     st.info("Nenhum registro encontrado para os filtros selecionados.")
-            else:
-                st.info("Nenhum dado cadastrado.")
-
+            
         elif menu_admin in ["📋 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
             is_modo_pedido = (menu_admin == "📋 Pedidos / Orçamentos")
             st.title(f"🛒 {menu_admin}")
