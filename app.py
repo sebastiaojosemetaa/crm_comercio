@@ -843,9 +843,7 @@ else:
 
 # O erro de indentação ocorreu porque a linha "if aba_baixa is not None:" ficou com espaços a mais à esquerda comparada ao restante do bloco. 
 # Remova qualquer espaço antes de "if aba_baixa is not None:" para alinhá-lo corretamente com a margem do código:
-
-    if aba_baixa is not None:
-        with aba_baixa:
+    
             st.subheader("💵 Baixa de Débitos & Lançamento de Haver")
             clientes_com_divida = carregar_coluna("vendas", "cliente") or []
             if clientes_com_divida:
