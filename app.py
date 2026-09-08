@@ -864,8 +864,6 @@ else:
                     st.warning("Nenhum item foi marcado com o visto (checkbox) na coluna 'Excluir'.")
             except Exception as e:
                 st.error(f"Erro ao excluir: {e}")
-else:
-    st.info("Nenhum registro lançado para hoje.")
 
 # O erro de indentação ocorreu porque a linha "if aba_baixa is not None:" ficou com espaços a mais à esquerda comparada ao restante do bloco. 
 # Remova qualquer espaço antes de "if aba_baixa is not None:" para alinhá-lo corretamente com a margem do código:
