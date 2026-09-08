@@ -805,7 +805,6 @@ if not df_parcial.empty:
     total_parcial = df_parcial['valor_total'].sum() if 'valor_total' in df_parcial.columns else 0.0
 
     for index, row in df_parcial.iterrows():
-        # Garantir conversão limpa do ID para inteiro
         item_id = int(row['id'])
         cols = st.columns([1, 2, 2, 1, 1, 1])
         cols[0].text(f"ID: {item_id}")
@@ -814,7 +813,6 @@ if not df_parcial.empty:
         cols[3].text(f"Qtd: {row['quantidade']}")
         cols[4].text(f"R$ {row['valor_total']:.2f}")
         
-        # Botão com chave única baseada no ID exato do registro
         if cols[5].button("🗑️ Excluir", key=f"exc_venda_{item_id}"):
             try:
                 cursor = conn.cursor()
