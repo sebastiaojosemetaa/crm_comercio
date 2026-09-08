@@ -879,6 +879,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.info("Nenhum dado cadastrado.")
 
         elif menu_admin in ["📋 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
+            is_modo_pedido = (menu_admin == "📋 Pedidos / Orçamentos")
             st.title(f"🛒 {menu_admin}")
 
             if not is_modo_pedido:
