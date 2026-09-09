@@ -1230,21 +1230,28 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         df_historico = df_registros
 
                 if not df_dia.empty:
-                    st.subheader("📋 Pedidos do Dia (Consolidado / Edição Rápida)")
-                    if not df_dia.empty:
-                        df_dia.dropna(axis=1, how='all', inplace=True)
-                        if 'excluir' in df_dia.columns:
-                            df_dia = df_dia.rename(columns={'excluir': 'Excluir'})
-                        if 'Excluir' not in df_dia.columns:
-                            df_dia.insert(0, 'Excluir', False)
-                        else:
-                            df_dia['Excluir'] = False
-
-                        cols_config_dia = {
-                            "Excluir": st.column_config.CheckboxColumn("Excluir", default=False),
-                            "quantidade": st.column_config.NumberColumn("Qtd", min_value=0.0, format="%.2f"),
-                            "valor_total": st.column_config.NumberColumn("Vlr Total", format="R$ %.2f")
-                        }
+                    st.markdown("### 🟢 Pedidos do Dia (Editáveis)")
+                    
+                    df_dia.insert(0, "Excluir", False)
+                    
+                    df_editado = st.data_editor(
+                        df_dia,
+                        column_config={
+                            "Excluir": st.column_config.CheckboxColumn("❌ Excluir?", default=False),
+                            "id": st.column_config.NumberColumn("ID", disabled=True),
+                            "cliente": st.column_config.TextColumn("Cliente", disabled=True),
+                            "produto": st.column_config.TextColumn("Produto", disabled=True),
+                            "quantidade": st.column_config.NumberColumn("Quantidade", min_value=0.01, step=0.01, format="%.2f"),
+                            "valor_unitario": st.column_config.NumberColumn("Valor Unitário (R$)", disabled=True, format="R$ %.2f"),
+                            "valor_total": st.column_config.NumberColumn("Total (R$)", disabled=True, format="R$ %.2f"),
+                            "fornecedor": st.column_config.TextColumn("Fornecedor", disabled=True),
+                            "grupo": st.column_config.TextColumn("Grupo", disabled=True),
+                            "data": st.column_config.TextColumn("Data", disabled=True),
+                            "status": st.column_config.TextColumn("Status", disabled=True),
+                        },
+                        hide_index=True,
+                        key="tabela_pedidos_do_dia_unica"
+                    )
 
                         edit_dia = st.data_editor(
                             df_dia,
