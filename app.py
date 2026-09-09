@@ -1232,25 +1232,22 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.markdown("---")
                 st.markdown("### 🔍 Consultar e Editar por Data Específica")
                 
-                from datetime import date, datetime, timedelta
+                from datetime import datetime, timedelta
 
-                # Ajusta para o horário do Brasil (UTC-3)
-                fuso_brasil = timedelta(hours=3)
-                data_hoje_brasil = (datetime.now() - fuso_brasil).date()
-            
-                data_sugerida = data_hoje_brasil
+                # Descobre automaticamente a data mais recente cadastrada no banco de dados para sugerir no campo
+                data_sugerida = datetime.now().date()
                 if not df_registros.empty and 'data_str' in df_registros.columns:
+                    # Pega a maior (mais recente) data que existe nos dados
                     max_data_str = df_registros['data_str'].max()
-                    if max_data_str and len(max_data_str) == 10:
+                    if max_data_str and len(str(max_data_str)) >= 10:
                         try:
-                            data_sugerida = datetime.strptime(max_data_str, "%Y-%m-%d").date()
+                            data_sugerida = datetime.strptime(str(max_data_str)[:10], "%Y-%m-%d").date()
                         except:
                             pass
             
-                # Campo para você escolher/digitar a data que deseja editar em cima
+                # Campo para você escolher/digitar a data (já vem preenchido com o dia do último pedido feito)
                 data_consulta_input = st.date_input("Escolha a data para gerenciar/editar os pedidos:", value=data_sugerida, key=f"input_data_especifica_{menu_admin}")
-                data_consulta_str = data_consulta_input.strftime("%Y-%m-%d")
-            
+                data_consulta_str = data_consulta_input.strftime("%Y-%m-%d")            
                 # Filtra os dados da tabela superior com base na data escolhida no input acima
                 df_dia = pd.DataFrame()
                 if not df_historico_periodo.empty and 'data_str' in df_historico_periodo.columns:
