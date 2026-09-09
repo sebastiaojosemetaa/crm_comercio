@@ -1217,30 +1217,34 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 query_filt = f"SELECT * FROM {tabela_alvo_historico}"
                 df_registros = carregar_dados(query_filt)
                 
-                df_dia = pd.DataFrame()
-                df_historico = pd.DataFrame()
+                df_historico_periodo = pd.DataFrame()
                 
                 if not df_registros.empty:
                     df_registros.columns = [c.lower() for c in df_registros.columns]
                     
                     if 'data' in df_registros.columns:
                         df_registros['data_str'] = df_registros['data'].astype(str).str.slice(0, 10)
-                        df_registros = df_registros[(df_registros['data_str'] >= s_d1) & (df_registros['data_str'] <= s_d2)]
+                        df_historico_periodo = df_registros[(df_registros['data_str'] >= s_d1) & (df_registros['data_str'] <= s_d2)]
                     
-                    if cliente_sel != "TODOS" and 'cliente' in df_registros.columns:
-                        df_registros = df_registros[df_registros['cliente'].astype(str).str.strip().str.upper() == str(cliente_sel).strip().upper()]
+                    if cliente_sel != "TODOS" and 'cliente' in df_historico_periodo.columns:
+                        df_historico_periodo = df_historico_periodo[df_historico_periodo['cliente'].astype(str).str.strip().str.upper() == str(cliente_sel).strip().upper()]
             
-                    if not df_registros.empty and 'data_str' in df_registros.columns:
-                        # Pega a data mais recente disponível nos dados filtrados para preencher a tabela superior editável
-                        data_mais_recente = df_registros['data_str'].max()
-                        df_dia = df_registros[df_registros['data_str'] == data_mais_recente]
-                        df_historico = df_registros[df_registros['data_str'] != data_mais_recente]
-                    else:
-                        df_historico = df_registros
+                st.markdown("---")
+                st.markdown("### 🔍 Consultar e Editar por Data Específica")
+                
+                # Campo para você escolher/digitar a data que deseja editar em cima
+                from datetime import date
+                data_consulta_input = st.date_input("Escolha a data para gerenciar/editar os pedidos:", value=date.today(), key=f"input_data_especifica_{menu_admin}")
+                data_consulta_str = data_consulta_input.strftime("%Y-%m-%d")
             
-                # SEÇÃO 1: Tabela Superior Editável (Preenchida com o dia mais recente do filtro)
+                # Filtra os dados da tabela superior com base na data escolhida no input acima
+                df_dia = pd.DataFrame()
+                if not df_historico_periodo.empty and 'data_str' in df_historico_periodo.columns:
+                    df_dia = df_historico_periodo[df_historico_periodo['data_str'] == data_consulta_str]
+            
+                # SEÇÃO 1: Tabela Superior Editável (Baseada na data escolhida no campo de data)
                 if not df_dia.empty:
-                    st.markdown(f"### 🟢 Registros Recentes / Do Dia ({df_dia['data_str'].iloc[0]}) - Editáveis")
+                    st.markdown(f"### 🟢 Pedidos da Data: {data_consulta_str} (Editáveis)")
                     
                     if "Excluir" not in df_dia.columns:
                         df_dia.insert(0, "Excluir", False)
@@ -1258,13 +1262,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             "status": st.column_config.TextColumn("Status", disabled=True),
                         },
                         hide_index=True,
-                        key=f"tabela_pedidos_do_dia_{menu_admin}"
+                        key=f"tabela_pedidos_data_esp_{menu_admin}"
                     )
                     
                     col_btn1, col_btn2 = st.columns(2)
                     
                     with col_btn1:
-                        if st.button("💾 Salvar Alterações", type="primary", key=f"btn_salvar_dia_{menu_admin}"):
+                        if st.button("💾 Salvar Alterações", type="primary", key=f"btn_salvar_data_esp_{menu_admin}"):
                             try:
                                 cursor = conn.cursor()
                                 for index, row in df_editado.iterrows():
@@ -1282,7 +1286,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 st.error(f"Erro ao atualizar: {ex}")
                     
                     with col_btn2:
-                        if st.button("🗑️ Excluir Marcados", type="secondary", key=f"btn_excluir_dia_{menu_admin}"):
+                        if st.button("🗑️ Excluir Marcados", type="secondary", key=f"btn_excluir_data_esp_{menu_admin}"):
                             try:
                                 cursor = conn.cursor()
                                 ids_para_excluir = df_editado[df_editado['Excluir'] == True]['id'].tolist()
@@ -1299,7 +1303,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 conn.rollback()
                                 st.error(f"Erro ao excluir: {ex}")
             
-                    # Geração do PDF do Dia
+                    # Geração do PDF da data consultada
                     try:
                         from reportlab.lib.pagesizes import letter
                         from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -1335,7 +1339,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         elements.append(Spacer(1, 4))
             
                         cliente_atual_pdf = cliente_sel if cliente_sel != "TODOS" else "Geral"
-                        elements.append(Paragraph("Relatório de Pedidos do Dia", estilo_titulo_rel))
+                        elements.append(Paragraph(f"Relatório de Pedidos - Data: {data_consulta_str}", estilo_titulo_rel))
                         elements.append(Paragraph(f"<b>Cliente:</b> {cliente_atual_pdf} | <b>Gerado em:</b> {data_hora_str}", estilo_info_cli))
                         elements.append(Spacer(1, 8))
             
@@ -1380,20 +1384,24 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         pdf_bytes = buffer.getvalue()
             
                         st.download_button(
-                            label="📥 Baixar PDF do Dia",
+                            label="📥 Baixar PDF da Data Escolhida",
                             data=pdf_bytes,
-                            file_name=f"relatorio_pedidos_dia_{cliente_atual_pdf}.pdf",
+                            file_name=f"relatorio_pedidos_{data_consulta_str}_{cliente_atual_pdf}.pdf",
                             mime="application/pdf",
-                            key=f"btn_pdf_dia_{menu_admin}"
+                            key=f"btn_pdf_data_esp_{menu_admin}"
                         )
                     except Exception as ex:
-                        st.error(f"Erro ao gerar PDF do dia: {ex}")
+                        st.error(f"Erro ao gerar PDF: {ex}")
+                else:
+                    st.info(f"ℹ️ Nenhum pedido encontrado para a data {data_consulta_str}. Selecione outra data no campo acima para editar.")
             
-                # SEÇÃO 2: Tabela Inferior de Histórico (Preenchida com o restante dos registros do período)
-                if not df_historico.empty:
+                # SEÇÃO 2: Tabela Inferior de Histórico do Período
+                if not df_historico_periodo.empty:
                     st.markdown("---")
                     st.markdown("### 📚 Histórico de Registros do Período")
-                    st.dataframe(df_historico, hide_index=True, use_container_width=True)
+                    st.dataframe(df_historico_periodo, hide_index=True, use_container_width=True)
+                else:
+                    st.warning("Nenhum registro encontrado no histórico para o período selecionado.")
             
                 # SEÇÃO 2: Histórico de Registros do Período (Abaixo dos pedidos do dia)
                             
