@@ -163,11 +163,14 @@ def adequar_banco_e_migrar():
 
 adequar_banco_e_migrar()
 
-def carregar_coluna(tabela, coluna):
-    cursor = conn.cursor()
-    cursor.execute(f"PRAGMA table_info({tabela})")
-    cols = [col[1] for col in cursor.fetchall()]
-    col_alvo = coluna if coluna in cols else (cols[1] if len(cols) > 1 else coluna)
+def carregar_dados(query):
+    try:
+        temp_conn = get_connection()
+        df = pd.read_sql_query(query, temp_conn)
+        temp_conn.close()
+        return df
+    except Exception:
+        return pd.DataFrame()
 
 def carregar_coluna(tabela, coluna):
     cursor = conn.cursor()
