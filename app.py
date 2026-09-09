@@ -1229,10 +1229,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     if cliente_sel != "TODOS" and 'cliente' in df_registros.columns:
                         df_registros = df_registros[df_registros['cliente'].astype(str).str.strip().str.upper() == str(cliente_sel).strip().upper()]
             
-                    # Usamos os registros filtrados pelo período selecionado na tabela editável principal
                     df_dia = df_registros
             
-                # Tabela principal editável com base no filtro de período
                 if not df_dia.empty:
                     st.markdown("### 🟢 Registros do Período (Editáveis)")
                     
