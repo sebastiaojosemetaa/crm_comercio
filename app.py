@@ -1209,12 +1209,16 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.markdown("---")
                 # ... (código anterior da aba_list até o filtro de datas)
 
+                # ... (código dos filtros de cliente, data inicial e final)
+
                 s_d1, s_d2 = d_inicio.strftime("%Y-%m-%d"), d_fin.strftime("%Y-%m-%d")
-                
-                tabela_alvo_historico = 'vendas' # Garantindo que aponta para vendas
+                tabela_alvo_historico = 'vendas'
                 
                 query_filt = f"SELECT * FROM {tabela_alvo_historico}"
                 df_registros = carregar_dados(query_filt)
+                
+                df_dia = pd.DataFrame()
+                df_historico = pd.DataFrame()
                 
                 if not df_registros.empty:
                     df_registros.columns = [c.lower() for c in df_registros.columns]
@@ -1225,166 +1229,173 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     
                     if cliente_sel != "TODOS" and 'cliente' in df_registros.columns:
                         df_registros = df_registros[df_registros['cliente'].astype(str).str.strip().str.upper() == str(cliente_sel).strip().upper()]
-    
-                    # Usamos o próprio período filtrado para exibir na tabela editável
-                    df_dia = df_registros
-                    df_historico = pd.DataFrame()
-                else:
-                    df_dia = pd.DataFrame()
-                    df_historico = pd.DataFrame()
-    
-            if not df_dia.empty:
-                st.markdown("### 🟢 Registros do Período (Editáveis)")
-                
-                if "Excluir" not in df_dia.columns:
-                    df_dia.insert(0, "Excluir", False)
-                
-                df_editado = st.data_editor(
-                    df_dia,
-                    column_config={
-                        "Excluir": st.column_config.CheckboxColumn("❌ Excluir?", default=False),
-                        "id": st.column_config.NumberColumn("ID", disabled=True),
-                        "cliente": st.column_config.TextColumn("Cliente", disabled=True),
-                        "produto": st.column_config.TextColumn("Produto", disabled=True),
-                        "quantidade": st.column_config.NumberColumn("Quantidade", min_value=0.01, step=0.01, format="%.2f"),
-                        "valor_venda": st.column_config.NumberColumn("Preço Unitário (R$)", format="R$ %.2f"),
-                        "valor_total": st.column_config.NumberColumn("Total (R$)", disabled=True, format="R$ %.2f"),
-                        "status": st.column_config.TextColumn("Status", disabled=True),
-                    },
-                    hide_index=True,
-                    key=f"tabela_pedidos_periodo_{menu_admin}"
-                )
-                
-                col_btn1, col_btn2 = st.columns(2)
-                
-                with col_btn1:
-                    if st.button("💾 Salvar Alterações", type="primary", key=f"btn_salvar_tabela_{menu_admin}"):
-                        try:
-                            cursor = conn.cursor()
-                            for index, row in df_editado.iterrows():
-                                novo_total = float(row['quantidade']) * float(row['valor_venda'])
-                                cursor.execute("""
-                                    UPDATE vendas 
-                                    SET quantidade = ?, valor_venda = ?, valor_total = ? 
-                                    WHERE id = ?
-                                """, (row['quantidade'], row['valor_venda'], novo_total, row['id']))
-                            conn.commit()
-                            st.success("Registros atualizados com sucesso!")
-                            st.rerun()
-                        except Exception as ex:
-                            conn.rollback()
-                            st.error(f"Erro ao atualizar: {ex}")
-                
-                with col_btn2:
-                    if st.button("🗑️ Excluir Marcados", type="secondary", key=f"btn_excluir_{menu_admin}"):
-                        try:
-                            cursor = conn.cursor()
-                            ids_para_excluir = df_editado[df_editado['Excluir'] == True]['id'].tolist()
-                            
-                            if ids_para_excluir:
-                                for id_pedido in ids_para_excluir:
-                                    cursor.execute("DELETE FROM vendas WHERE id = ?", (id_pedido,))
-                                conn.commit()
-                                st.warning("Itens selecionados excluídos com sucesso!")
-                                st.rerun()
-                            else:
-                                st.info("Nenhum item foi marcado para exclusão.")
-                        except Exception as ex:
-                            conn.rollback()
-                            st.error(f"Erro ao excluir: {ex}")
-    
-                # Geração do PDF adaptada para o período filtrado
-                try:
-                    from reportlab.lib.pagesizes import letter
-                    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-                    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-                    from reportlab.lib import colors
-                    from datetime import timedelta
-                    import io
-    
-                    buffer = io.BytesIO()
-                    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=15, bottomMargin=30)
-                    elements = []
-                    styles = getSampleStyleSheet()
-    
-                    fuso_brasil = timedelta(hours=3)
-                    hora_local = datetime.now() - fuso_brasil
-                    data_hora_str = hora_local.strftime('%Y-%m-%d %H:%M:%S')
-    
-                    estilo_empresa = ParagraphStyle('Empresa', parent=styles['Heading1'], fontSize=14, textColor=colors.HexColor('#002060'), alignment=1, fontName='Helvetica-Bold', spaceAfter=0)
-                    estilo_sub_empresa = ParagraphStyle('SubEmpresa', parent=styles['Normal'], fontSize=8, textColor=colors.black, alignment=1, leading=9, spaceAfter=0)
-                    estilo_titulo_rel = ParagraphStyle('TituloRel', parent=styles['Heading2'], fontSize=10, textColor=colors.black, alignment=1, fontName='Helvetica-Bold', spaceBefore=4, spaceAfter=0)
-                    estilo_info_cli = ParagraphStyle('InfoCli', parent=styles['Normal'], fontSize=8, textColor=colors.black, alignment=1, leading=10, spaceAfter=0)
-                    
-                    estilo_th = ParagraphStyle('TH', parent=styles['Normal'], fontSize=9, textColor=colors.white, alignment=1, fontName='Helvetica-Bold')
-                    estilo_td_left = ParagraphStyle('TDLeft', parent=styles['Normal'], fontSize=9, textColor=colors.black, alignment=0)
-                    estilo_td_center = ParagraphStyle('TDCenter', parent=styles['Normal'], fontSize=9, textColor=colors.black, alignment=1)
-                    estilo_td_right = ParagraphStyle('TDRight', parent=styles['Normal'], fontSize=9, textColor=colors.black, alignment=2)
-                    
-                    estilo_total_label = ParagraphStyle('TotLabel', parent=styles['Normal'], fontSize=9, textColor=colors.white, alignment=0, fontName='Helvetica-Bold')
-                    estilo_total_val = ParagraphStyle('TotVal', parent=styles['Normal'], fontSize=9, textColor=colors.white, alignment=2, fontName='Helvetica-Bold')
-    
-                    elements.append(Paragraph("REY DA CEBOLA", estilo_empresa))
-                    elements.append(Paragraph("CNPJ: 194.174.39/000-42 INSC.EST.: 12.426725-4<br/>CONTATO: (99) 98814-9722 OU (99) 98414-3943", estilo_sub_empresa))
-                    elements.append(Spacer(1, 4))
-    
-                    cliente_atual_pdf = cliente_sel if cliente_sel != "TODOS" else "Geral"
-                    elements.append(Paragraph("Relatório de Pedidos / Orçamentos", estilo_titulo_rel))
-                    elements.append(Paragraph(f"<b>Cliente:</b> {cliente_atual_pdf} | <b>Período:</b> {s_d1} até {s_d2}", estilo_info_cli))
-                    elements.append(Spacer(1, 8))
-    
-                    data_tabela = [[
-                        Paragraph("Produto", estilo_th),
-                        Paragraph("Qtd Total", estilo_th),
-                        Paragraph("Preço Unitário (R$)", estilo_th),
-                        Paragraph("Valor Total (R$)", estilo_th)
-                    ]]
-    
-                    for _, row in df_dia.iterrows():
-                        data_tabela.append([
-                            Paragraph(str(row['produto']), estilo_td_left),
-                            Paragraph(f"{row['quantidade']:.2f}", estilo_td_center),
-                            Paragraph(f"R$ {row['valor_venda']:.2f}", estilo_td_right),
-                            Paragraph(f"R$ {row['valor_total']:.2f}", estilo_td_right)
-                        ])
-    
-                    total_geral_dia = df_dia['valor_total'].sum()
-    
-                    data_tabela.append([
-                        Paragraph("VALOR TOTAL GERAL", estilo_total_label),
-                        Paragraph("", estilo_total_val),
-                        Paragraph("", estilo_total_val),
-                        Paragraph(f"R$ {total_geral_dia:.2f}", estilo_total_val)
-                    ])
-    
-                    t = Table(data_tabela, colWidths=[220, 80, 110, 130])
-                    t.setStyle(TableStyle([
-                        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1F4E79')),
-                        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-                        ('TOPPADDING', (0, 0), (-1, -1), 4),
-                        ('GRID', (0, 0), (-1, -2), 0.5, colors.HexColor('#CCCCCC')),
-                        ('SPAN', (0, -1), (2, -1)),
-                        ('BACKGROUND', (0, -1), (-1, -1), colors.black),
-                    ]))
-                    
-                    elements.append(t)
-                    doc.build(elements)
-                    pdf_bytes = buffer.getvalue()
-    
-                    st.download_button(
-                        label="📥 Baixar PDF do Período",
-                        data=pdf_bytes,
-                        file_name=f"relatorio_pedidos_{cliente_atual_pdf}.pdf",
-                        mime="application/pdf",
-                        key=f"btn_pdf_portal_{menu_admin}"
-                    )
-                except Exception as ex:
-                    st.error(f"Erro ao gerar PDF: {ex}")
-            else:
-                st.info("Nenhum registro encontrado para o filtro e período selecionados.")
             
+                    data_hoje_str = datetime.now().strftime("%Y-%m-%d")
+                    
+                    if 'data_str' in df_registros.columns:
+                        df_dia = df_registros[df_registros['data_str'] == data_hoje_str]
+                        df_historico = df_registros[df_registros['data_str'] != data_hoje_str]
+                    else:
+                        df_historico = df_registros
+            
+                # SEÇÃO 1: Pedidos do Dia (Editáveis e com PDF do dia)
+                if not df_dia.empty:
+                    st.markdown("### 🟢 Pedidos do Dia (Editáveis)")
+                    
+                    if "Excluir" not in df_dia.columns:
+                        df_dia.insert(0, "Excluir", False)
+                    
+                    df_editado = st.data_editor(
+                        df_dia,
+                        column_config={
+                            "Excluir": st.column_config.CheckboxColumn("❌ Excluir?", default=False),
+                            "id": st.column_config.NumberColumn("ID", disabled=True),
+                            "cliente": st.column_config.TextColumn("Cliente", disabled=True),
+                            "produto": st.column_config.TextColumn("Produto", disabled=True),
+                            "quantidade": st.column_config.NumberColumn("Quantidade", min_value=0.01, step=0.01, format="%.2f"),
+                            "valor_venda": st.column_config.NumberColumn("Preço Unitário (R$)", format="R$ %.2f"),
+                            "valor_total": st.column_config.NumberColumn("Total (R$)", disabled=True, format="R$ %.2f"),
+                            "status": st.column_config.TextColumn("Status", disabled=True),
+                        },
+                        hide_index=True,
+                        key=f"tabela_pedidos_do_dia_{menu_admin}"
+                    )
+                    
+                    col_btn1, col_btn2 = st.columns(2)
+                    
+                    with col_btn1:
+                        if st.button("💾 Salvar Alterações", type="primary", key=f"btn_salvar_dia_{menu_admin}"):
+                            try:
+                                cursor = conn.cursor()
+                                for index, row in df_editado.iterrows():
+                                    novo_total = float(row['quantidade']) * float(row['valor_venda'])
+                                    cursor.execute("""
+                                        UPDATE vendas 
+                                        SET quantidade = ?, valor_venda = ?, valor_total = ? 
+                                        WHERE id = ?
+                                    """, (row['quantidade'], row['valor_venda'], novo_total, row['id']))
+                                conn.commit()
+                                st.success("Pedidos atualizados com sucesso!")
+                                st.rerun()
+                            except Exception as ex:
+                                conn.rollback()
+                                st.error(f"Erro ao atualizar: {ex}")
+                    
+                    with col_btn2:
+                        if st.button("🗑️ Excluir Marcados", type="secondary", key=f"btn_excluir_dia_{menu_admin}"):
+                            try:
+                                cursor = conn.cursor()
+                                ids_para_excluir = df_editado[df_editado['Excluir'] == True]['id'].tolist()
+                                
+                                if ids_para_excluir:
+                                    for id_pedido in ids_para_excluir:
+                                        cursor.execute("DELETE FROM vendas WHERE id = ?", (id_pedido,))
+                                    conn.commit()
+                                    st.warning("Itens selecionados excluídos com sucesso!")
+                                    st.rerun()
+                                else:
+                                    st.info("Nenhum item foi marcado para exclusão.")
+                            except Exception as ex:
+                                conn.rollback()
+                                st.error(f"Erro ao excluir: {ex}")
+            
+                    # Geração do PDF do Dia
+                    try:
+                        from reportlab.lib.pagesizes import letter
+                        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+                        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+                        from reportlab.lib import colors
+                        from datetime import timedelta
+                        import io
+            
+                        buffer = io.BytesIO()
+                        doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=15, bottomMargin=30)
+                        elements = []
+                        styles = getSampleStyleSheet()
+            
+                        fuso_brasil = timedelta(hours=3)
+                        hora_local = datetime.now() - fuso_brasil
+                        data_hora_str = hora_local.strftime('%Y-%m-%d %H:%M:%S')
+            
+                        estilo_empresa = ParagraphStyle('Empresa', parent=styles['Heading1'], fontSize=14, textColor=colors.HexColor('#002060'), alignment=1, fontName='Helvetica-Bold', spaceAfter=0)
+                        estilo_sub_empresa = ParagraphStyle('SubEmpresa', parent=styles['Normal'], fontSize=8, textColor=colors.black, alignment=1, leading=9, spaceAfter=0)
+                        estilo_titulo_rel = ParagraphStyle('TituloRel', parent=styles['Heading2'], fontSize=10, textColor=colors.black, alignment=1, fontName='Helvetica-Bold', spaceBefore=4, spaceAfter=0)
+                        estilo_info_cli = ParagraphStyle('InfoCli', parent=styles['Normal'], fontSize=8, textColor=colors.black, alignment=1, leading=10, spaceAfter=0)
+                        
+                        estilo_th = ParagraphStyle('TH', parent=styles['Normal'], fontSize=9, textColor=colors.white, alignment=1, fontName='Helvetica-Bold')
+                        estilo_td_left = ParagraphStyle('TDLeft', parent=styles['Normal'], fontSize=9, textColor=colors.black, alignment=0)
+                        estilo_td_center = ParagraphStyle('TDCenter', parent=styles['Normal'], fontSize=9, textColor=colors.black, alignment=1)
+                        estilo_td_right = ParagraphStyle('TDRight', parent=styles['Normal'], fontSize=9, textColor=colors.black, alignment=2)
+                        
+                        estilo_total_label = ParagraphStyle('TotLabel', parent=styles['Normal'], fontSize=9, textColor=colors.white, alignment=0, fontName='Helvetica-Bold')
+                        estilo_total_val = ParagraphStyle('TotVal', parent=styles['Normal'], fontSize=9, textColor=colors.white, alignment=2, fontName='Helvetica-Bold')
+            
+                        elements.append(Paragraph("REY DA CEBOLA", estilo_empresa))
+                        elements.append(Paragraph("CNPJ: 194.174.39/000-42 INSC.EST.: 12.426725-4<br/>CONTATO: (99) 98814-9722 OU (99) 98414-3943", estilo_sub_empresa))
+                        elements.append(Spacer(1, 4))
+            
+                        cliente_atual_pdf = cliente_sel if cliente_sel != "TODOS" else "Geral"
+                        elements.append(Paragraph("Relatório de Pedidos do Dia", estilo_titulo_rel))
+                        elements.append(Paragraph(f"<b>Cliente:</b> {cliente_atual_pdf} | <b>Gerado em:</b> {data_hora_str}", estilo_info_cli))
+                        elements.append(Spacer(1, 8))
+            
+                        data_tabela = [[
+                            Paragraph("Produto", estilo_th),
+                            Paragraph("Qtd Total", estilo_th),
+                            Paragraph("Preço Unitário (R$)", estilo_th),
+                            Paragraph("Valor Total (R$)", estilo_th)
+                        ]]
+            
+                        for _, row in df_dia.iterrows():
+                            data_tabela.append([
+                                Paragraph(str(row['produto']), estilo_td_left),
+                                Paragraph(f"{row['quantidade']:.2f}", estilo_td_center),
+                                Paragraph(f"R$ {row['valor_venda']:.2f}", estilo_td_right),
+                                Paragraph(f"R$ {row['valor_total']:.2f}", estilo_td_right)
+                            ])
+            
+                        total_geral_dia = df_dia['valor_total'].sum()
+            
+                        data_tabela.append([
+                            Paragraph("VALOR TOTAL GERAL", estilo_total_label),
+                            Paragraph("", estilo_total_val),
+                            Paragraph("", estilo_total_val),
+                            Paragraph(f"R$ {total_geral_dia:.2f}", estilo_total_val)
+                        ])
+            
+                        t = Table(data_tabela, colWidths=[220, 80, 110, 130])
+                        t.setStyle(TableStyle([
+                            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1F4E79')),
+                            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                            ('TOPPADDING', (0, 0), (-1, -1), 4),
+                            ('GRID', (0, 0), (-1, -2), 0.5, colors.HexColor('#CCCCCC')),
+                            ('SPAN', (0, -1), (2, -1)),
+                            ('BACKGROUND', (0, -1), (-1, -1), colors.black),
+                        ]))
+                        
+                        elements.append(t)
+                        doc.build(elements)
+                        pdf_bytes = buffer.getvalue()
+            
+                        st.download_button(
+                            label="📥 Baixar PDF do Dia",
+                            data=pdf_bytes,
+                            file_name=f"relatorio_pedidos_dia_{cliente_atual_pdf}.pdf",
+                            mime="application/pdf",
+                            key=f"btn_pdf_dia_{menu_admin}"
+                        )
+                    except Exception as ex:
+                        st.error(f"Erro ao gerar PDF do dia: {ex}")
+                else:
+                    st.info("Nenhum pedido registrado hoje para edição.")
+            
+                # SEÇÃO 2: Histórico / Registros Anteriores do Período
+                if not df_historico.empty:
+                    st.markdown("---")
+                    st.markdown("### 📚 Histórico de Registros do Período")
+                    st.dataframe(df_historico, hide_index=True, use_container_width=True)            
         elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
             st.title("👥 Cadastros Gerais")
             tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["👤 Clientes", "📦 Produtos", "🏢 Fornecedores", "🏷️ Grupos"])
