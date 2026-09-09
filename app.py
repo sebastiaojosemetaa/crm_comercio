@@ -1217,30 +1217,36 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 query_filt = f"SELECT * FROM {tabela_alvo_historico}"
                 df_registros = carregar_dados(query_filt)
                 
-                df_periodo_editavel = pd.DataFrame()
+                df_dia = pd.DataFrame()
+                df_historico = pd.DataFrame()
                 
                 if not df_registros.empty:
                     df_registros.columns = [c.lower() for c in df_registros.columns]
                     
                     if 'data' in df_registros.columns:
                         df_registros['data_str'] = df_registros['data'].astype(str).str.slice(0, 10)
-                        # Filtra pelo intervalo de datas escolhido nos seletores do topo
                         df_registros = df_registros[(df_registros['data_str'] >= s_d1) & (df_registros['data_str'] <= s_d2)]
                     
                     if cliente_sel != "TODOS" and 'cliente' in df_registros.columns:
                         df_registros = df_registros[df_registros['cliente'].astype(str).str.strip().str.upper() == str(cliente_sel).strip().upper()]
             
-                    df_periodo_editavel = df_registros
+                    if not df_registros.empty and 'data_str' in df_registros.columns:
+                        # Pega a data mais recente disponível nos dados filtrados para preencher a tabela superior editável
+                        data_mais_recente = df_registros['data_str'].max()
+                        df_dia = df_registros[df_registros['data_str'] == data_mais_recente]
+                        df_historico = df_registros[df_registros['data_str'] != data_mais_recente]
+                    else:
+                        df_historico = df_registros
             
-                # Tabela principal editável baseada no período selecionado
-                if not df_periodo_editavel.empty:
-                    st.markdown("### 🟢 Registros do Período Selecionado (Editáveis)")
+                # SEÇÃO 1: Tabela Superior Editável (Preenchida com o dia mais recente do filtro)
+                if not df_dia.empty:
+                    st.markdown(f"### 🟢 Registros Recentes / Do Dia ({df_dia['data_str'].iloc[0]}) - Editáveis")
                     
-                    if "Excluir" not in df_periodo_editavel.columns:
-                        df_periodo_editavel.insert(0, "Excluir", False)
+                    if "Excluir" not in df_dia.columns:
+                        df_dia.insert(0, "Excluir", False)
                     
                     df_editado = st.data_editor(
-                        df_periodo_editavel,
+                        df_dia,
                         column_config={
                             "Excluir": st.column_config.CheckboxColumn("❌ Excluir?", default=False),
                             "id": st.column_config.NumberColumn("ID", disabled=True),
@@ -1252,13 +1258,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             "status": st.column_config.TextColumn("Status", disabled=True),
                         },
                         hide_index=True,
-                        key=f"tabela_pedidos_periodo_{menu_admin}"
+                        key=f"tabela_pedidos_do_dia_{menu_admin}"
                     )
                     
                     col_btn1, col_btn2 = st.columns(2)
                     
                     with col_btn1:
-                        if st.button("💾 Salvar Alterações", type="primary", key=f"btn_salvar_periodo_{menu_admin}"):
+                        if st.button("💾 Salvar Alterações", type="primary", key=f"btn_salvar_dia_{menu_admin}"):
                             try:
                                 cursor = conn.cursor()
                                 for index, row in df_editado.iterrows():
@@ -1276,7 +1282,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 st.error(f"Erro ao atualizar: {ex}")
                     
                     with col_btn2:
-                        if st.button("🗑️ Excluir Marcados", type="secondary", key=f"btn_excluir_periodo_{menu_admin}"):
+                        if st.button("🗑️ Excluir Marcados", type="secondary", key=f"btn_excluir_dia_{menu_admin}"):
                             try:
                                 cursor = conn.cursor()
                                 ids_para_excluir = df_editado[df_editado['Excluir'] == True]['id'].tolist()
@@ -1293,7 +1299,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 conn.rollback()
                                 st.error(f"Erro ao excluir: {ex}")
             
-                    # Geração do PDF do Período
+                    # Geração do PDF do Dia
                     try:
                         from reportlab.lib.pagesizes import letter
                         from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -1306,6 +1312,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=15, bottomMargin=30)
                         elements = []
                         styles = getSampleStyleSheet()
+            
+                        fuso_brasil = timedelta(hours=3)
+                        hora_local = datetime.now() - fuso_brasil
+                        data_hora_str = hora_local.strftime('%Y-%m-%d %H:%M:%S')
             
                         estilo_empresa = ParagraphStyle('Empresa', parent=styles['Heading1'], fontSize=14, textColor=colors.HexColor('#002060'), alignment=1, fontName='Helvetica-Bold', spaceAfter=0)
                         estilo_sub_empresa = ParagraphStyle('SubEmpresa', parent=styles['Normal'], fontSize=8, textColor=colors.black, alignment=1, leading=9, spaceAfter=0)
@@ -1325,8 +1335,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         elements.append(Spacer(1, 4))
             
                         cliente_atual_pdf = cliente_sel if cliente_sel != "TODOS" else "Geral"
-                        elements.append(Paragraph("Relatório de Pedidos / Orçamentos", estilo_titulo_rel))
-                        elements.append(Paragraph(f"<b>Cliente:</b> {cliente_atual_pdf} | <b>Período:</b> {s_d1} até {s_d2}", estilo_info_cli))
+                        elements.append(Paragraph("Relatório de Pedidos do Dia", estilo_titulo_rel))
+                        elements.append(Paragraph(f"<b>Cliente:</b> {cliente_atual_pdf} | <b>Gerado em:</b> {data_hora_str}", estilo_info_cli))
                         elements.append(Spacer(1, 8))
             
                         data_tabela = [[
@@ -1336,7 +1346,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             Paragraph("Valor Total (R$)", estilo_th)
                         ]]
             
-                        for _, row in df_periodo_editavel.iterrows():
+                        for _, row in df_dia.iterrows():
                             data_tabela.append([
                                 Paragraph(str(row['produto']), estilo_td_left),
                                 Paragraph(f"{row['quantidade']:.2f}", estilo_td_center),
@@ -1344,13 +1354,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 Paragraph(f"R$ {row['valor_total']:.2f}", estilo_td_right)
                             ])
             
-                        total_geral_periodo = df_periodo_editavel['valor_total'].sum()
+                        total_geral_dia = df_dia['valor_total'].sum()
             
                         data_tabela.append([
                             Paragraph("VALOR TOTAL GERAL", estilo_total_label),
                             Paragraph("", estilo_total_val),
                             Paragraph("", estilo_total_val),
-                            Paragraph(f"R$ {total_geral_periodo:.2f}", estilo_total_val)
+                            Paragraph(f"R$ {total_geral_dia:.2f}", estilo_total_val)
                         ])
             
                         t = Table(data_tabela, colWidths=[220, 80, 110, 130])
@@ -1370,16 +1380,20 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         pdf_bytes = buffer.getvalue()
             
                         st.download_button(
-                            label="📥 Baixar PDF do Período",
+                            label="📥 Baixar PDF do Dia",
                             data=pdf_bytes,
-                            file_name=f"relatorio_pedidos_{cliente_atual_pdf}.pdf",
+                            file_name=f"relatorio_pedidos_dia_{cliente_atual_pdf}.pdf",
                             mime="application/pdf",
-                            key=f"btn_pdf_periodo_{menu_admin}"
+                            key=f"btn_pdf_dia_{menu_admin}"
                         )
                     except Exception as ex:
-                        st.error(f"Erro ao gerar PDF: {ex}")
-                else:
-                    st.warning("Nenhum registro encontrado para o período e cliente selecionados.")
+                        st.error(f"Erro ao gerar PDF do dia: {ex}")
+            
+                # SEÇÃO 2: Tabela Inferior de Histórico (Preenchida com o restante dos registros do período)
+                if not df_historico.empty:
+                    st.markdown("---")
+                    st.markdown("### 📚 Histórico de Registros do Período")
+                    st.dataframe(df_historico, hide_index=True, use_container_width=True)
             
                 # SEÇÃO 2: Histórico de Registros do Período (Abaixo dos pedidos do dia)
                             
