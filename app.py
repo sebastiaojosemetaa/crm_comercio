@@ -1382,11 +1382,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.warning("Nenhum registro encontrado para o período e cliente selecionados.")
             
                 # SEÇÃO 2: Histórico de Registros do Período (Abaixo dos pedidos do dia)
-                if not df_historico.empty:
-                    st.markdown("---")
-                    st.markdown("### 📚 Histórico de Registros do Período")
-                    st.dataframe(df_historico, hide_index=True, use_container_width=True)
-            
+                            
         elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
             st.title("👥 Cadastros Gerais")
             tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["👤 Clientes", "📦 Produtos", "🏢 Fornecedores", "🏷️ Grupos"])
