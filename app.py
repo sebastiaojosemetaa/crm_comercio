@@ -1234,29 +1234,49 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     if cliente_sel != "TODOS" and 'cliente' in df_historico_periodo.columns:
                         df_historico_periodo = df_historico_periodo[df_historico_periodo['cliente'].astype(str).str.strip().str.upper() == str(cliente_sel).strip().upper()]
             
-                st.markdown("---")
-                st.markdown("### 🔍 Consultar e Editar por Data Específica")
+                with aba_list:
+                    st.subheader("🔍 Edição Direta na Tabela & Gestão por Cliente")
+                    
+                    clientes_filtro = ["TODOS"] + (carregar_coluna("clientes", "nome") or carregar_coluna("vendas", "cliente") or [])
+                    
+                    col_f1, col_f2, col_f3 = st.columns(3)
+                    with col_f1:
+                        cliente_sel = st.selectbox("Filtrar por Cliente:", clientes_filtro, key=f"filtro_cli_tabela_{menu_admin}")
+                    with col_f2:
+                        d_inicio = st.date_input("Data Inicial do Filtro", value=date(2025, 1, 1), key=f"filtro_d_ini_{menu_admin}")
+                    with col_f3:
+                        d_fin = st.date_input("Data Final do Filtro", value=data_hoje_brasil, key=f"filtro_d_fin_{menu_admin}")
                 
-                
-
-                # Descobre automaticamente a data mais recente cadastrada no banco de dados para sugerir no campo
-                data_sugerida = datetime.now().date()
-                if not df_registros.empty and 'data_str' in df_registros.columns:
-                    # Pega a maior (mais recente) data que existe nos dados
-                    max_data_str = df_registros['data_str'].max()
-                    if max_data_str and len(str(max_data_str)) >= 10:
-                        try:
-                            data_sugerida = datetime.strptime(str(max_data_str)[:10], "%Y-%m-%d").date()
-                        except:
-                            pass
-            
-                # Campo para você escolher/digitar a data (já vem preenchido com o dia do último pedido feito)
-                data_consulta_input = st.date_input("Escolha a data para gerenciar/editar os pedidos:", value=data_sugerida, key=f"input_data_especifica_{menu_admin}")
-                data_consulta_str = data_consulta_input.strftime("%Y-%m-%d")            
-                # Filtra os dados da tabela superior com base na data escolhida no input acima
-                df_dia = pd.DataFrame()
-                if not df_registros.empty and 'data_str' in df_registros.columns:
-                    df_dia = df_registros[df_registros['data_str'] == data_consulta_str]
+                    texto_botao_atualizar = "🔄 Atualizar Preços de Venda" if not is_modo_pedido else "🔄 Atualizar Preços de Custo"
+                    if st.button(texto_botao_atualizar, key=f"btn_atualizar_precos_{menu_admin}"):
+                        cursor = conn.cursor()
+                        coluna_alvo_estoque = 'valor_venda' if not is_modo_pedido else 'valor_compra'
+                        
+                        cursor.execute(f"""
+                            UPDATE vendas 
+                            SET valor_venda = (
+                                SELECT {coluna_alvo_estoque} 
+                                FROM produtos 
+                                WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
+                            ),
+                            valor_total = quantidade * (
+                                SELECT {coluna_alvo_estoque} 
+                                FROM produtos 
+                                WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
+                            )
+                            WHERE TRIM(UPPER(produto)) IN (SELECT TRIM(UPPER(nome)) FROM produtos)
+                        """)
+                        linhas_afetadas = cursor.rowcount
+                        conn.commit()
+                        
+                        if linhas_afetadas > 0:
+                            st.success(f"Preços atualizados com sucesso! ({linhas_afetadas} itens modificados)")
+                        else:
+                            st.warning("Nenhum produto correspondente foi encontrado na tabela de estoque para atualizar.")
+                        
+                        st.rerun()
+                    
+                    st.markdown("---")
             
                 # SEÇÃO 1: Tabela Superior Editável (Baseada na data escolhida no campo de data)
                 if not df_dia.empty:
