@@ -1260,9 +1260,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
                 # SEÇÃO 1: Tabela Superior Editável (Baseada na data escolhida no campo de data)
                 if not df_dia.empty:
-                    st.markdown("### 🟢 Pedidos do Dia (Editáveis)")
+                    st.markdown(f"### 🟢 Pedidos da Data: {data_consulta_str} (Editáveis)")
                     
-                    df_dia.insert(0, "Excluir", False)
+                    if "Excluir" not in df_dia.columns:
+                        df_dia.insert(0, "Excluir", False)
                     
                     df_editado = st.data_editor(
                         df_dia,
@@ -1272,15 +1273,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             "cliente": st.column_config.TextColumn("Cliente", disabled=True),
                             "produto": st.column_config.TextColumn("Produto", disabled=True),
                             "quantidade": st.column_config.NumberColumn("Quantidade", min_value=0.01, step=0.01, format="%.2f"),
-                            "valor_unitario": st.column_config.NumberColumn("Valor Unitário (R$)", disabled=True, format="R$ %.2f"),
+                            "valor_venda": st.column_config.NumberColumn("Preço Unitário (R$)", format="R$ %.2f"),
                             "valor_total": st.column_config.NumberColumn("Total (R$)", disabled=True, format="R$ %.2f"),
-                            "fornecedor": st.column_config.TextColumn("Fornecedor", disabled=True),
-                            "grupo": st.column_config.TextColumn("Grupo", disabled=True),
-                            "data": st.column_config.TextColumn("Data", disabled=True),
                             "status": st.column_config.TextColumn("Status", disabled=True),
                         },
                         hide_index=True,
-                        key="tabela_pedidos_do_dia_unica"
+                        key=f"tabela_pedidos_data_esp_{menu_admin}"
                     )
                     
                     col_btn1, col_btn2 = st.columns(2)
