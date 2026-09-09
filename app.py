@@ -1289,12 +1289,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             try:
                                 cursor = conn.cursor()
                                 for index, row in df_editado.iterrows():
-                                    novo_total = float(row['quantidade']) * float(row['valor_venda'])
+                                    novo_total = float(row['quantidade']) * float(row['valor_unitario'])
                                     cursor.execute("""
-                                        UPDATE vendas 
-                                        SET quantidade = ?, valor_venda = ?, valor_total = ? 
+                                        UPDATE pedidos
+                                        SET quantidade = ?, valor_unitario = ?, valor_total = ?
                                         WHERE id = ?
-                                    """, (row['quantidade'], row['valor_venda'], novo_total, row['id']))
+                                    """, (row['quantidade'], row['valor_unitario'], novo_total, row['id']))
                                 conn.commit()
                                 st.success("Registros atualizados com sucesso!")
                                 st.rerun()
