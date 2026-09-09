@@ -165,7 +165,10 @@ adequar_banco_e_migrar()
 
 def carregar_dados(query):
     try:
-        return pd.read_sql_query(query, conn)
+        temp_conn = get_connection()
+        df = pd.read_sql_query(query, temp_conn)
+        temp_conn.close()
+        return df
     except Exception:
         return pd.DataFrame()
 
