@@ -1253,8 +1253,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 data_consulta_str = data_consulta_input.strftime("%Y-%m-%d")            
                 # Filtra os dados da tabela superior com base na data escolhida no input acima
                 df_dia = pd.DataFrame()
-                if not df_historico_periodo.empty and 'data_str' in df_historico_periodo.columns:
-                    df_dia = df_historico_periodo[df_historico_periodo['data_str'] == data_consulta_str]
+                if not df_registros.empty and 'data_str' in df_registros.columns:
+                    df_dia = df_registros[df_registros['data_str'] == data_consulta_str]
             
                 # SEÇÃO 1: Tabela Superior Editável (Baseada na data escolhida no campo de data)
                 if not df_dia.empty:
