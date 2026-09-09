@@ -2,14 +2,17 @@ menu_admin = None
 import streamlit as st
 import sqlite3
 import pandas as pd
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import io
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
-# -----------------------------------------------------------------------------
+# Fuso horário do Brasil (UTC-3) para padronizar as datas em todo o app
+fuso_brasil = timedelta(hours=3)
+data_hoje_brasil = (datetime.now() - fuso_brasil).date()
+
 # 1. CONFIGURAÇÃO E CONEXÃO COM O BANCO DE DADOS
 # -----------------------------------------------------------------------------
 st.set_page_config(page_title="CRM Comércio - Rey da Cebola", layout="wide")
@@ -1175,7 +1178,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 with col_f2:
                     d_inicio = st.date_input("Data Inicial do Filtro", value=date(2025, 1, 1), key=f"filtro_d_ini_{menu_admin}")
                 with col_f3:
-                    d_fin = st.date_input("Data Final do Filtro", value=date.today(), key=f"filtro_d_fim_{menu_admin}")
+                    d_fin = st.date_input("Data Final do Filtro", value=data_hoje_brasil, key=f"filtro_d_fin_{menu_admin}")
             
                 texto_botao_atualizar = "🔄 Atualizar Preços de Venda" if not is_modo_pedido else "🔄 Atualizar Preços de Custo"
                 if st.button(texto_botao_atualizar, key=f"btn_atualizar_precos_{menu_admin}"):
@@ -1232,7 +1235,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.markdown("---")
                 st.markdown("### 🔍 Consultar e Editar por Data Específica")
                 
-                from datetime import datetime, timedelta
+                
 
                 # Descobre automaticamente a data mais recente cadastrada no banco de dados para sugerir no campo
                 data_sugerida = datetime.now().date()
