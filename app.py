@@ -1371,7 +1371,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             data_tabela.append([
                                 Paragraph(str(row['produto']), estilo_td_left),
                                 Paragraph(f"{row['quantidade']:.2f}", estilo_td_center),
-                                Paragraph(f"R$ {row['valor_venda']:.2f}", estilo_td_right),
+                                Paragraph(f"R$ {row['valor_unitario']:.2f}", estilo_td_right),
                                 Paragraph(f"R$ {row['valor_total']:.2f}", estilo_td_right)
                             ])
             
