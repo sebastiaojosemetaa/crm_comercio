@@ -1218,7 +1218,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 df_registros = carregar_dados(query_filt)
                 
                 df_dia = pd.DataFrame()
-                df_historico = pd.DataFrame()
                 
                 if not df_registros.empty:
                     df_registros.columns = [c.lower() for c in df_registros.columns]
@@ -1230,17 +1229,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     if cliente_sel != "TODOS" and 'cliente' in df_registros.columns:
                         df_registros = df_registros[df_registros['cliente'].astype(str).str.strip().str.upper() == str(cliente_sel).strip().upper()]
             
-                    data_hoje_str = datetime.now().strftime("%Y-%m-%d")
-                    
-                    if 'data_str' in df_registros.columns:
-                        df_dia = df_registros[df_registros['data_str'] == data_hoje_str]
-                        df_historico = df_registros[df_registros['data_str'] != data_hoje_str]
-                    else:
-                        df_historico = df_registros
+                    # Usamos os registros filtrados pelo período selecionado na tabela editável principal
+                    df_dia = df_registros
             
-                # SEÇÃO 1: Pedidos do Dia (Editáveis e com PDF do dia)
+                # Tabela principal editável com base no filtro de período
                 if not df_dia.empty:
-                    st.markdown("### 🟢 Pedidos do Dia (Editáveis)")
+                    st.markdown("### 🟢 Registros do Período (Editáveis)")
                     
                     if "Excluir" not in df_dia.columns:
                         df_dia.insert(0, "Excluir", False)
@@ -1258,13 +1252,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             "status": st.column_config.TextColumn("Status", disabled=True),
                         },
                         hide_index=True,
-                        key=f"tabela_pedidos_do_dia_{menu_admin}"
+                        key=f"tabela_pedidos_periodo_{menu_admin}"
                     )
                     
                     col_btn1, col_btn2 = st.columns(2)
                     
                     with col_btn1:
-                        if st.button("💾 Salvar Alterações", type="primary", key=f"btn_salvar_dia_{menu_admin}"):
+                        if st.button("💾 Salvar Alterações", type="primary", key=f"btn_salvar_periodo_{menu_admin}"):
                             try:
                                 cursor = conn.cursor()
                                 for index, row in df_editado.iterrows():
@@ -1275,14 +1269,14 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         WHERE id = ?
                                     """, (row['quantidade'], row['valor_venda'], novo_total, row['id']))
                                 conn.commit()
-                                st.success("Pedidos atualizados com sucesso!")
+                                st.success("Registros atualizados com sucesso!")
                                 st.rerun()
                             except Exception as ex:
                                 conn.rollback()
                                 st.error(f"Erro ao atualizar: {ex}")
                     
                     with col_btn2:
-                        if st.button("🗑️ Excluir Marcados", type="secondary", key=f"btn_excluir_dia_{menu_admin}"):
+                        if st.button("🗑️ Excluir Marcados", type="secondary", key=f"btn_excluir_periodo_{menu_admin}"):
                             try:
                                 cursor = conn.cursor()
                                 ids_para_excluir = df_editado[df_editado['Excluir'] == True]['id'].tolist()
@@ -1299,7 +1293,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 conn.rollback()
                                 st.error(f"Erro ao excluir: {ex}")
             
-                    # Geração do PDF do Dia
+                    # Geração do PDF do Período
                     try:
                         from reportlab.lib.pagesizes import letter
                         from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -1335,8 +1329,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         elements.append(Spacer(1, 4))
             
                         cliente_atual_pdf = cliente_sel if cliente_sel != "TODOS" else "Geral"
-                        elements.append(Paragraph("Relatório de Pedidos do Dia", estilo_titulo_rel))
-                        elements.append(Paragraph(f"<b>Cliente:</b> {cliente_atual_pdf} | <b>Gerado em:</b> {data_hora_str}", estilo_info_cli))
+                        elements.append(Paragraph("Relatório de Pedidos / Orçamentos", estilo_titulo_rel))
+                        elements.append(Paragraph(f"<b>Cliente:</b> {cliente_atual_pdf} | <b>Período:</b> {s_d1} até {s_d2}", estilo_info_cli))
                         elements.append(Spacer(1, 8))
             
                         data_tabela = [[
@@ -1380,16 +1374,16 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         pdf_bytes = buffer.getvalue()
             
                         st.download_button(
-                            label="📥 Baixar PDF do Dia",
+                            label="📥 Baixar PDF do Período",
                             data=pdf_bytes,
-                            file_name=f"relatorio_pedidos_dia_{cliente_atual_pdf}.pdf",
+                            file_name=f"relatorio_pedidos_{cliente_atual_pdf}.pdf",
                             mime="application/pdf",
-                            key=f"btn_pdf_dia_{menu_admin}"
+                            key=f"btn_pdf_periodo_{menu_admin}"
                         )
                     except Exception as ex:
-                        st.error(f"Erro ao gerar PDF do dia: {ex}")
+                        st.error(f"Erro ao gerar PDF: {ex}")
                 else:
-                    st.info("Nenhum pedido registrado hoje para edição.")
+                    st.warning("Nenhum registro encontrado para o filtro e período selecionados.")
             
                 # SEÇÃO 2: Histórico / Registros Anteriores do Período
                 if not df_historico.empty:
