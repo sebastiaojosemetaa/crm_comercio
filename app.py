@@ -1123,7 +1123,15 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.info("Nenhum item adicionado ao pedido ainda.")
         
             with aba_historico_compras:
-                st.subheader("Histórico e Gestão de Meus Pedidos")
+                st.subheader("📋 Histórico de Entradas de Estoque")
+                try:
+                    df_compras = carregar_dados("SELECT * FROM compras")
+                    if not df_compras.empty:
+                        st.dataframe(df_compras, use_container_width=True, hide_index=True)
+                    else:
+                        st.info("Nenhuma entrada de estoque registrada no histórico.")
+                except Exception as e:
+                    st.error(f"Erro ao carregar histórico de compras: {e}")
                 
                 try:
                     query_dia = """
