@@ -1218,7 +1218,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 # ... (código dos filtros de cliente, data inicial e final)
 
                 s_d1, s_d2 = d_inicio.strftime("%Y-%m-%d"), d_fin.strftime("%Y-%m-%d")
-                tabela_alvo_historico = 'vendas'
+                tabela_alvo_historico = 'pedidos'
                 
                 query_filt = f"SELECT * FROM {tabela_alvo_historico}"
                 df_registros = carregar_dados(query_filt)
