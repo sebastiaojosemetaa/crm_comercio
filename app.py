@@ -1229,6 +1229,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         df_dia = pd.DataFrame()
                         df_historico = df_registros
 
+                if not df_dia.empty:
                     st.subheader("📋 Pedidos do Dia (Consolidado / Edição Rápida)")
                     if not df_dia.empty:
                         df_dia.dropna(axis=1, how='all', inplace=True)
