@@ -1386,8 +1386,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.error(f"Erro ao gerar PDF dos pedidos do dia: {ex}")
                 else:
                     st.info("Nenhum pedido registrado hoje para edição.")
-            except Exception as e_hist:
-                st.error(f"Erro ao carregar histórico: {e_hist}")
+            
         elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
             st.title("👥 Cadastros Gerais")
             tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["👤 Clientes", "📦 Produtos", "🏢 Fornecedores", "🏷️ Grupos"])
