@@ -1220,6 +1220,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 s_d1, s_d2 = d_inicio.strftime("%Y-%m-%d"), d_fin.strftime("%Y-%m-%d")
                 df_vendas = carregar_dados("SELECT * FROM vendas")
                 df_pedidos = carregar_dados("SELECT * FROM pedidos")
+                
+                # Padroniza as colunas para que fiquem com o mesmo nome antes de juntar
+                if 'valor_unitario' in df_pedidos.columns and 'valor_venda' not in df_pedidos.columns:
+                    df_pedidos['valor_venda'] = df_pedidos['valor_unitario']
+                if 'valor_venda' in df_vendas.columns and 'valor_unitario' not in df_vendas.columns:
+                    df_vendas['valor_unitario'] = df_vendas['valor_venda']
+        
                 df_registros = pd.concat([df_vendas, df_pedidos], ignore_index=True)
                 
                 df_historico_periodo = pd.DataFrame()
