@@ -1016,42 +1016,44 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 quantidade = st.number_input("Quantidade", min_value=0.01, value=1.0, step=1.0, key="num_qtd_unico_correto")
                 preco_unitario = st.number_input("Preço Unitário (R$)", min_value=0.0, value=80.0, step=1.0, key="num_preco_unico_correto")
             
-                if st.button("Salvar PEDIDO"):
-                    try:
-                        cur_ins = conn.cursor()
-                        # Garante que a tabela pedidos existe antes de inserir
-                        cur_ins.execute("""
-                            CREATE TABLE IF NOT EXISTS pedidos (
-                                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                cliente TEXT,
-                                produto TEXT,
-                                fornecedor TEXT,
-                                quantidade REAL,
-                                valor_unitario REAL,
-                                valor_total REAL,
-                                status TEXT DEFAULT 'Pendente'
-                            )
-                        """)
-                        
-                        for col, tipo_sql in [('tipo', "TEXT DEFAULT 'PEDIDO'"), ('grupo', 'TEXT'), ('observacoes', 'TEXT'), ('codigo_pedido', 'TEXT'), ('data', 'TEXT')]:
-                            try:
-                                cur_ins.execute(f"ALTER TABLE pedidos ADD COLUMN {col} {tipo_sql}")
-                            except Exception:
-                                pass
-                        
-                        c_total = float(quantidade) * float(preco_unitario)
-                        c_tipo = 'PEDIDO'
-                        
-                        cur_ins.execute("""
-                            INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, tipo)
-                            VALUES (?, ?, ?, ?, ?, ?)
-                        """, (str(cliente), str(produto), float(quantidade), float(preco_unitario), c_total, c_tipo))
-                        
-                        conn.commit()
-                        st.success("Item salvo com sucesso!")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Erro ao salvar: {e}")
+                with st.form("form_novo_pedido"):
+                    # ... os selects e inputs de cliente, produto, quantidade, etc. ...
+                    
+                    submitted = st.form_submit_button("Salvar PEDIDO")
+                    if submitted:
+                        try:
+                            cur_ins = conn.cursor()
+                            cur_ins.execute("""
+                                CREATE TABLE IF NOT EXISTS pedidos (
+                                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                    cliente TEXT,
+                                    produto TEXT,
+                                    fornecedor TEXT,
+                                    quantidade REAL,
+                                    valor_unitario REAL,
+                                    valor_total REAL,
+                                    status TEXT DEFAULT 'Pendente'
+                                )
+                            """)
+                            for col, tipo_sql in [('tipo', "TEXT DEFAULT 'PEDIDO'"), ('grupo', 'TEXT'), ('observacoes', 'TEXT'), ('codigo_pedido', 'TEXT'), ('data', 'TEXT')]:
+                                try:
+                                    cur_ins.execute(f"ALTER TABLE pedidos ADD COLUMN {col} {tipo_sql}")
+                                except Exception:
+                                    pass
+                            
+                            c_total = float(quantidade) * float(preco_unitario)
+                            c_tipo = 'PEDIDO'
+                            
+                            cur_ins.execute("""
+                                INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, tipo)
+                                VALUES (?, ?, ?, ?, ?, ?)
+                            """, (str(cliente), str(produto), float(quantidade), float(preco_unitario), c_total, c_tipo))
+                            
+                            conn.commit()
+                            st.success("Item salvo com sucesso!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro detalhado ao salvar: {e}")
             
                 st.divider()
                 st.subheader("🛒 Itens já lançados neste Pedido (Hoje)")
