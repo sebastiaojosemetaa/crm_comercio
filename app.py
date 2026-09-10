@@ -1009,40 +1009,37 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             st.error("Digite o nome do produto.")
                     st.stop()
 
-                cliente = st.selectbox("Cliente", options=...) # mantenha o selectbox que você já tem
-                fornecedor = st.selectbox("Fornecedor", options=...)
-                grupo = st.selectbox("Grupo", options=...)
-                quantidade = st.number_input("Quantidade", value=1.0)
-                preco_unitario = st.number_input("Preço Unitário (R$)", value=0.0)
+                cliente = st.selectbox("Cliente", options=clientes_opt, key="sel_cli_pedido_unico")
+                fornecedor = st.selectbox("Fornecedor", options=fornecedores_opt, key="sel_forn_pedido_unico")
+                grupo = st.selectbox("Grupo", options=grupos_opt, key="sel_grupo_pedido_unico")
+                quantidade = st.number_input("Quantidade", value=1.0, key="num_qtd_pedido_unico")
+                preco_unitario = st.number_input("Preço Unitário (R$)", value=0.0, key="num_preco_pedido_unico")
             
-                if st.button("Salvar PEDIDO", type="primary"):
+                if st.button("Salvar PEDIDO", type="primary", key="btn_salvar_pedido_final"):
                     try:
                         cur_ins = conn.cursor()
                         cur_ins.execute("""
-                            CREATE TABLE IF NOT EXISTS pedidos (
+                            CREATE TABLE IF NOT EXISTS vendas (
                                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                                 cliente TEXT,
                                 produto TEXT,
                                 fornecedor TEXT,
                                 quantidade REAL,
-                                valor_unitario REAL,
+                                valor_venda REAL,
                                 valor_total REAL,
-                                status TEXT DEFAULT 'Pendente'
-                            )
+                                status TEXT DEFAULT 'Pendente',
+                                tipo TEXT DEFAULT 'PEDIDO',
+                                grupo TEXT,
+                                data TEXT
                         """)
-                        for col, tipo_sql in [('tipo', "TEXT DEFAULT 'PEDIDO'"), ('grupo', 'TEXT'), ('observacoes', 'TEXT'), ('codigo_pedido', 'TEXT'), ('data', 'TEXT')]:
-                            try:
-                                cur_ins.execute(f"ALTER TABLE pedidos ADD COLUMN {col} {tipo_sql}")
-                            except Exception:
-                                pass
                         
                         c_total = float(quantidade) * float(preco_unitario)
-                        c_tipo = 'PEDIDO'
+                        data_atual_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                         
                         cur_ins.execute("""
-                            INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, tipo)
-                            VALUES (?, ?, ?, ?, ?, ?)
-                        """, (str(cliente), str(produto), float(quantidade), float(preco_unitario), c_total, c_tipo))
+                            INSERT INTO vendas (cliente, produto, fornecedor, quantidade, valor_venda, valor_total, tipo, grupo, data)
+                            VALUES (?, ?, ?, ?, ?, ?, 'PEDIDO', ?, ?)
+                        """, (str(cliente), str(produto), str(fornecedor), float(quantidade), float(preco_unitario), c_total, str(grupo), data_atual_str))
                         
                         conn.commit()
                         st.success("Item salvo com sucesso!")
