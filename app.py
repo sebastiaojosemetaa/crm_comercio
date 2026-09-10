@@ -1320,7 +1320,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             except Exception as ex:
                                 conn.rollback()
                                 st.error(f"Erro ao excluir os itens: {ex}")
-    
+
                     try:
                         from reportlab.lib.pagesizes import letter
                         from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -1328,16 +1328,16 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         from reportlab.lib import colors
                         from datetime import timedelta
                         import io
-    
+
                         buffer = io.BytesIO()
                         doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=15, bottomMargin=30)
                         elements = []
                         styles = getSampleStyleSheet()
-    
+
                         fuso_brasil = timedelta(hours=3)
                         hora_local = datetime.now() - fuso_brasil
                         data_hora_str = hora_local.strftime('%Y-%m-%d %H:%M:%S')
-    
+
                         estilo_empresa = ParagraphStyle('Empresa', parent=styles['Heading1'], fontSize=14, textColor=colors.HexColor('#002060'), alignment=1, fontName='Helvetica-Bold', spaceAfter=0)
                         estilo_sub_empresa = ParagraphStyle('SubEmpresa', parent=styles['Normal'], fontSize=8, textColor=colors.black, alignment=1, leading=9, spaceAfter=0)
                         estilo_titulo_rel = ParagraphStyle('TituloRel', parent=styles['Heading2'], fontSize=10, textColor=colors.black, alignment=1, fontName='Helvetica-Bold', spaceBefore=4, spaceAfter=0)
@@ -1350,22 +1350,22 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         
                         estilo_total_label = ParagraphStyle('TotLabel', parent=styles['Normal'], fontSize=9, textColor=colors.white, alignment=0, fontName='Helvetica-Bold')
                         estilo_total_val = ParagraphStyle('TotVal', parent=styles['Normal'], fontSize=9, textColor=colors.white, alignment=2, fontName='Helvetica-Bold')
-    
+
                         elements.append(Paragraph("REY DA CEBOLA", estilo_empresa))
                         elements.append(Paragraph("CNPJ: 194.174.39/000-42 INSC.EST.: 12.426725-4<br/>CONTATO: (99) 98814-9722 OU (99) 98414-3943", estilo_sub_empresa))
                         elements.append(Spacer(1, 4))
-    
+
                         elements.append(Paragraph("Relatório de Pedidos / Orçamentos", estilo_titulo_rel))
                         elements.append(Paragraph(f"<b>Cliente:</b> {st.session_state.cliente_autenticado} | <b>Gerado em:</b> {data_hora_str}", estilo_info_cli))
                         elements.append(Spacer(1, 8))
-    
+
                         data_tabela = [[
                             Paragraph("Produto", estilo_th),
                             Paragraph("Qtd Total", estilo_th),
                             Paragraph("Preço Unitário (R$)", estilo_th),
                             Paragraph("Valor Total (R$)", estilo_th)
                         ]]
-    
+
                         for _, row in df_dia.iterrows():
                             data_tabela.append([
                                 Paragraph(str(row['produto']), estilo_td_left),
@@ -1373,16 +1373,16 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 Paragraph(f"R$ {row['valor_unitario']:.2f}", estilo_td_right),
                                 Paragraph(f"R$ {row['valor_total']:.2f}", estilo_td_right)
                             ])
-    
+
                         total_geral_dia = df_dia['valor_total'].sum()
-    
+
                         data_tabela.append([
                             Paragraph("VALOR TOTAL GERAL", estilo_total_label),
                             Paragraph("", estilo_total_val),
                             Paragraph("", estilo_total_val),
                             Paragraph(f"R$ {total_geral_dia:.2f}", estilo_total_val)
                         ])
-    
+
                         t = Table(data_tabela, colWidths=[220, 80, 110, 130])
                         t.setStyle(TableStyle([
                             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1F4E79')),
@@ -1398,7 +1398,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         elements.append(t)
                         doc.build(elements)
                         pdf_bytes = buffer.getvalue()
-    
+
                         st.download_button(
                             label="📥 Baixar PDF do Dia",
                             data=pdf_bytes,
