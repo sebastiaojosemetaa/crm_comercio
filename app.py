@@ -1022,18 +1022,24 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         con_ins = sqlite3.connect("vendas.db")
                         cur_ins = con_ins.cursor()
                         
-                        cur_ins.execute("""
-                            CREATE TABLE IF NOT EXISTS vendas (
+                        cursor.execute("""
+                            CREATE TABLE IF NOT EXISTS pedidos (
                                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                                 cliente TEXT,
                                 produto TEXT,
+                                fornecedor TEXT,
                                 quantidade REAL,
-                                valor_venda REAL,
+                                valor_unitario REAL,
                                 valor_total REAL,
-                                tipo TEXT,
-                                status TEXT
+                                status TEXT DEFAULT 'Pendente',
+                                observacoes TEXT,
+                                data TEXT,
+                                grupo TEXT,
+                                codigo_pedido TEXT,
+                                tipo TEXT DEFAULT 'PEDIDO'
                             )
                         """)
+                        conn.commit()
                         
                         c_total = float(quantidade) * float(preco_unitario)
                         c_tipo = 'ORÇAMENTO'
