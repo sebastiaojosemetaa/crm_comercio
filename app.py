@@ -26,22 +26,23 @@ def adequar_banco_e_migrar():
     cursor = conn.cursor()
     
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS vendas (
+        CREATE TABLE IF NOT EXISTS pedidos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             cliente TEXT,
             produto TEXT,
             fornecedor TEXT,
-            grupo TEXT,
             quantidade REAL,
-            valor_venda REAL,
+            valor_unitario REAL,
             valor_total REAL,
-            forma_pagamento TEXT,
-            valor_recebido TEXT,
-            tipo TEXT DEFAULT 'PEDIDO',
-            codigo TEXT DEFAULT 'PED',
-            data TEXT
+            status TEXT DEFAULT 'Pendente',
+            observacoes TEXT,
+            data TEXT,
+            grupo TEXT,
+            codigo_pedido TEXT,
+            tipo TEXT DEFAULT 'PEDIDO'
         )
     """)
+    conn.commit()
     
     cursor.execute("PRAGMA table_info(vendas)")
     colunas_vendas = [col[1] for col in cursor.fetchall()]
