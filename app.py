@@ -1271,49 +1271,69 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.markdown("---")
                 st.markdown("### 🔍 Consultar e Editar por Data Específica")
                 
+                # Define a data de hoje como padrão inicial
+                data_hoje = datetime.now().date()
+                data_sugerida = data_hoje
                 
-
-                # Descobre automaticamente a data mais recente cadastrada no banco de dados para sugerir no campo
-                data_sugerida = datetime.now().date()
                 if not df_registros.empty and 'data_str' in df_registros.columns:
-                    # Pega a maior (mais recente) data que existe nos dados
+                  # Verifica se existe algum registro com a data de hoje
+                  hoje_str = data_hoje.strftime("%Y-%m-%d")
+                  tem_hoje = not df_registros[df_registros['data_str'] == hoje_str].empty
+                
+                  if not tem_hoje:
+                    # Se não houver pedidos hoje, pega a maior (mais recente) data que existe nos dados
                     max_data_str = df_registros['data_str'].max()
                     if max_data_str and len(str(max_data_str)) >= 10:
-                        try:
-                            data_sugerida = datetime.strptime(str(max_data_str)[:10], "%Y-%m-%d").date()
-                        except:
-                            pass
-            
-                # Campo para você escolher/digitar a data (já vem preenchido com o dia do último pedido feito)
-                data_consulta_input = st.date_input("Escolha a data para gerenciar/editar os pedidos:", value=data_sugerida, key=f"input_data_especifica_{menu_admin}")
-                data_consulta_str = data_consulta_input.strftime("%Y-%m-%d")            
+                      try:
+                        data_sugerida = datetime.strptime(
+                            str(max_data_str)[:10], "%Y-%m-%d"
+                        ).date()
+                      except:
+                        pass
+                
+                # Campo para você escolher/digitar a data (agora focado em hoje se houver pedido hoje)
+                data_consulta_input = st.date_input(
+                    "Escolha a data para gerenciar/editar os pedidos:",
+                    value=data_sugerida,
+                    key=f"input_data_especifica_{menu_admin}",
+                )
+                data_consulta_str = data_consulta_input.strftime("%Y-%m-%d")
+                
                 # Filtra os dados da tabela superior com base na data escolhida no input acima
                 df_dia = pd.DataFrame()
                 if not df_registros.empty and 'data_str' in df_registros.columns:
-                    df_dia = df_registros[df_registros['data_str'] == data_consulta_str]
-            
+                  df_dia = df_registros[df_registros['data_str'] == data_consulta_str]
+                
                 # SEÇÃO 1: Tabela Superior Editável (Baseada na data escolhida no campo de data)
                 if not df_dia.empty:
-                    st.markdown(f"### 🟢 Pedidos da Data: {data_consulta_str} (Editáveis)")
-                    
-                    if "Excluir" not in df_dia.columns:
-                        df_dia.insert(0, "Excluir", False)
-                    
-                    df_editado = st.data_editor(
-                        df_dia,
-                        column_config={
-                            "Excluir": st.column_config.CheckboxColumn("❌ Excluir?", default=False),
-                            "id": st.column_config.NumberColumn("ID", disabled=True),
-                            "cliente": st.column_config.TextColumn("Cliente", disabled=True),
-                            "produto": st.column_config.TextColumn("Produto", disabled=True),
-                            "quantidade": st.column_config.NumberColumn("Quantidade", min_value=0.01, step=0.01, format="%.2f"),
-                            "valor_venda": st.column_config.NumberColumn("Preço Unitário (R$)", format="R$ %.2f"),
-                            "valor_total": st.column_config.NumberColumn("Total (R$)", disabled=True, format="R$ %.2f"),
-                            "status": st.column_config.TextColumn("Status", disabled=True),
-                        },
-                        hide_index=True,
-                        key=f"tabela_pedidos_data_esp_{menu_admin}"
-                    )
+                  st.markdown(f"### 🟢 Pedidos da Data: {data_consulta_str} (Editáveis)")
+                
+                  if "Excluir" not in df_dia.columns:
+                    df_dia.insert(0, "Excluir", False)
+                
+                  df_editado = st.data_editor(
+                      df_dia,
+                      column_config={
+                          "Excluir": st.column_config.CheckboxColumn(
+                              "❌ Excluir?", default=False
+                          ),
+                          "id": st.column_config.NumberColumn("ID", disabled=True),
+                          "cliente": st.column_config.TextColumn("Cliente", disabled=True),
+                          "produto": st.column_config.TextColumn("Produto", disabled=True),
+                          "quantidade": st.column_config.NumberColumn(
+                              "Quantidade", min_value=0.01, step=0.01, format="%.2f"
+                          ),
+                          "valor_venda": st.column_config.NumberColumn(
+                              "Preço Unitário (R$)", format="R$ %.2f"
+                          ),
+                          "valor_total": st.column_config.NumberColumn(
+                              "Total (R$)", disabled=True, format="R$ %.2f"
+                          ),
+                          "status": st.column_config.TextColumn("Status", disabled=True),
+                      },
+                      hide_index=True,
+                      key=f"tabela_pedidos_data_esp_{menu_admin}",
+                  )
                     
                     col_btn1, col_btn2 = st.columns(2)
                     
