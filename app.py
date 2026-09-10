@@ -1083,8 +1083,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 
                 try:
                     with sqlite3.connect("vendas.db") as conn:
-                        # Pega tudo do dia (independente se foi feito pelo Admin ou pelo Portal do Cliente)
-                        query_dia = f"SELECT * FROM pedidos WHERE tipo='PEDIDO' AND (data LIKE '{hoje_str}%' OR data_str = '{hoje_str}') ORDER BY id DESC"
+                        # Pega qualquer pedido onde a data contenha a string de hoje ('2026-09-10'), capturando o do portal e do admin sem falhas
+                        query_dia = f"SELECT * FROM pedidos WHERE tipo='PEDIDO' AND (data LIKE '%{hoje_str}%' OR data_str = '{hoje_str}') ORDER BY id DESC"
                         df_dia = pd.read_sql(query_dia, conn)
                         
                     if not df_dia.empty:
@@ -1143,8 +1143,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.subheader("📚 Pedidos Anteriores (Histórico)")
                 try:
                     with sqlite3.connect("vendas.db") as conn:
-                        # Pega tudo que não é de hoje para exibir no histórico geral
-                        query_ant = f"SELECT * FROM pedidos WHERE tipo='PEDIDO' AND NOT (data LIKE '{hoje_str}%' OR data_str = '{hoje_str}') ORDER BY id DESC"
+                        # O histórico pega tudo que NÃO contém a data de hoje
+                        query_ant = f"SELECT * FROM pedidos WHERE tipo='PEDIDO' AND NOT (data LIKE '%{hoje_str}%' OR data_str = '{hoje_str}') ORDER BY id DESC"
                         df_ant = pd.read_sql(query_ant, conn)
                     if not df_ant.empty:
                         st.dataframe(df_ant, use_container_width=True)
