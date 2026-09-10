@@ -1090,179 +1090,54 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
                     col_fin, col_del = st.columns([2, 1])
                     
-                    with col_fin:
-                        if st.button("Finalizar Pedido / Venda", type="primary", key="btn_finalizar_pedido_unico"):
+                    with col_b2:
+                        if st.button("💾 Finalizar e Enviar Pedido", type="primary", key="cli_finalizar_unique_v3"):
                             try:
-                                con_local = sqlite3.connect("vendas.db")
-                                cur = con_local.cursor()
-                                for id_item in edit_parcial['id'].tolist():
-                                    cur.execute("UPDATE vendas SET status = 'Finalizado', tipo = 'VENDA' WHERE id = ?", (int(id_item),))
-                                con_local.commit()
-                                con_local.close()
-                                st.success("Pedido finalizado com sucesso!")
-                                st.balloons()
+                                cursor = conn.cursor()
+                                data_hora_atual = datetime.now()
+                                codigo_pedido_gerado = f"PED-{data_hora_atual.strftime('%Y%m%d%H%M%S')}"
+                                data_str = data_hora_atual.strftime("%Y-%m-%d %H:%M:%S")
+                                
+                                for item in st.session_state.carrinho_cliente:
+                                    cursor.execute("""
+                                        INSERT INTO pedidos (
+                                            cliente, produto, quantidade, valor_unitario, valor_total, 
+                                            fornecedor, grupo, data, status, codigo_pedido
+                                        )
+                                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                    """, (
+                                        st.session_state.cliente_autenticado,
+                                        item["produto"],
+                                        item["quantidade"],
+                                        item["preco_unitario"],
+                                        item["valor_total"],
+                                        item.get("fornecedor", "BAHIA"),
+                                        item.get("grupo", "GERAL"),
+                                        data_str,
+                                        "Pendente",
+                                        codigo_pedido_gerado
+                                    ))
+                                
+                                conn.commit()
+                                st.session_state.carrinho_cliente = []
+                                st.success("Pedido finalizado e enviado com sucesso!")
                                 st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro ao finalizar: {e}")
-            
-                    with col_del:
-                        if st.button("Excluir Selecionados", key="btn_excluir_parcial_sel"):
-                            try:
-                                ids_a_excluir = []
-                                if 'Excluir' in edit_parcial.columns:
-                                    ids_a_excluir = edit_parcial[edit_parcial['Excluir'] == True]['id'].dropna().tolist()
-                                if ids_a_excluir:
-                                    con_local = sqlite3.connect("vendas.db")
-                                    cur = con_local.cursor()
-                                    for item_id in ids_a_excluir:
-                                        cur.execute("DELETE FROM vendas WHERE id = ?", (int(item_id),))
-                                    con_local.commit()
-                                    con_local.close()
-                                    st.success(f"{len(ids_a_excluir)} item(ns) excluído(s) com sucesso!")
-                                    st.rerun()
-                                else:
-                                    st.warning("Nenhum item marcado para exclusão.")
-                            except Exception as e:
-                                st.error(f"Erro ao excluir: {e}")
+                            except Exception as ex:
+                                conn.rollback()
+                                st.error(f"Erro ao finalizar pedido: {ex}")
                 else:
-                    st.info("Nenhum registro encontrado na tabela 'vendas'. Faça um lançamento acima para testar.")
-
-            if aba_baixa is not None:
-                with aba_baixa:
-                    st.subheader("💵 Baixa de Débitos & Lançamento de Haver")
-                    clientes_com_divida = carregar_coluna("vendas", "cliente") or []
-                    if clientes_com_divida:
-                        cliente_baixa = st.selectbox("Selecione o Cliente para Baixa:", clientes_com_divida, key="sel_cli_baixa")
-                        df_cli_vendas = carregar_dados(f"SELECT * FROM vendas WHERE TRIM(cliente) = TRIM('{cliente_baixa}')")
-                        
-                        if not df_cli_vendas.empty:
-                            tot_vendas = df_cli_vendas['valor_total'].sum()
-                            tot_recebido = pd.to_numeric(df_cli_vendas['valor_recebido'], errors='coerce').fillna(0.0).sum() if 'valor_recebido' in df_cli_vendas.columns else 0.0
-                            total_pendente = tot_vendas - tot_recebido
-                            
-                            col_m1, col_m2, col_m3 = st.columns(3)
-                            col_m1.metric("Total de Compras", f"R$ {tot_vendas:,.2f}")
-                            col_m2.metric("Total Já Pago", f"R$ {tot_recebido:,.2f}")
-                            col_m3.metric("Saldo Devedor Restante", f"R$ {total_pendente:,.2f}", delta_color="inverse")
-                            
-                            st.markdown("---")
-                            st.markdown(f"### 📋 Detalhamento das Vendas / Débitos de **{cliente_baixa}**")
-                            
-                            df_exibicao_cli = df_cli_vendas.copy()
-                            if 'valor_recebido' not in df_exibicao_cli.columns:
-                                df_exibicao_cli['valor_recebido'] = 0.0
-                            df_exibicao_cli['saldo_devedor'] = df_exibicao_cli['valor_total'] - pd.to_numeric(df_exibicao_cli['valor_recebido'], errors='coerce').fillna(0.0)
-                            
-                            cols_mostrar = [c for c in ['id', 'data', 'produto', 'quantidade', 'valor_total', 'valor_recebido', 'saldo_devedor', 'status'] if c in df_exibicao_cli.columns]
-                            st.dataframe(df_exibicao_cli[cols_mostrar], use_container_width=True)
-                            
-                            st.markdown("---")
-                            valor_haver = st.number_input("Valor do Haver / Pagamento Recebido (R$)", min_value=0.0, step=1.0, value=0.0, key="val_haver_input")
-                            forma_pgto_baixa = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito à Vista", "Cartão de Débito"], key="fp_haver_input")
-                            
-                            if st.button("Aplicar Haver"):
-                                if valor_haver > 0:
-                                    baixar_debito_cliente(cliente_baixa, valor_haver, forma_pagamento=forma_pgto_baixa)
-                                    st.success(f"Haver de R$ {valor_haver:,.2f} aplicado com sucesso!")
-                                    st.rerun()
-
-            # Correção sugerida na aba de listagem / edição (aba_list)
-            # O trecho original faz referência a 'pedidos' e 'valor_unitario', mas a tabela principal do sistema é 'vendas' 
-            # e armazena o preço unitário na coluna 'valor_venda'. Vamos alinhar a consulta e a geração do PDF.
-            
-            with aba_list:
-                st.subheader("🔍 Edição Direta na Tabela & Gestão por Cliente")
+                    st.info("Nenhum item adicionado ao pedido ainda.")
+        
+            with aba_historico:
+                st.subheader("Histórico e Gestão de Meus Pedidos")
                 
-                clientes_filtro = ["TODOS"] + (carregar_coluna("clientes", "nome") or carregar_coluna("vendas", "cliente") or [])
-                
-                col_f1, col_f2, col_f3 = st.columns(3)
-                with col_f1:
-                    cliente_sel = st.selectbox("Filtrar por Cliente:", clientes_filtro, key=f"filtro_cli_tabela_{menu_admin}")
-                with col_f2:
-                    d_inicio = st.date_input("Data Inicial do Filtro", value=date(2025, 1, 1), key=f"filtro_d_ini_{menu_admin}")
-                with col_f3:
-                    d_fin = st.date_input("Data Final do Filtro", value=data_hoje_brasil, key=f"filtro_d_fin_{menu_admin}")
-            
-                texto_botao_atualizar = "🔄 Atualizar Preços de Venda" if not is_modo_pedido else "🔄 Atualizar Preços de Custo"
-                if st.button(texto_botao_atualizar, key=f"btn_atualizar_precos_{menu_admin}"):
-                    cursor = conn.cursor()
-                    coluna_alvo_estoque = 'valor_venda' if not is_modo_pedido else 'valor_compra'
-                    
-                    cursor.execute(f"""
-                        UPDATE vendas 
-                        SET valor_venda = (
-                            SELECT {coluna_alvo_estoque} 
-                            FROM produtos 
-                            WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
-                        ),
-                        valor_total = quantidade * (
-                            SELECT {coluna_alvo_estoque} 
-                            FROM produtos 
-                            WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
-                        )
-                        WHERE TRIM(UPPER(produto)) IN (SELECT TRIM(UPPER(nome)) FROM produtos)
-                    """)
-                    linhas_afetadas = cursor.rowcount
-                    conn.commit()
-                    
-                    if linhas_afetadas > 0:
-                        st.success(f"Preços atualizados com sucesso! ({linhas_afetadas} itens modificados)")
-                    else:
-                        st.warning("Nenhum produto correspondente foi encontrado na tabela de estoque para atualizar.")
-                    
-                    st.rerun()
-                
-                st.markdown("---")
-                # ... (código anterior da aba_list até o filtro de datas)
-
-                # ... (código dos filtros de cliente, data inicial e final)
-
-                s_d1, s_d2 = d_inicio.strftime("%Y-%m-%d"), d_fin.strftime("%Y-%m-%d")
-                df_vendas = carregar_dados("SELECT * FROM vendas")
-                df_pedidos = carregar_dados("SELECT * FROM pedidos")
-                df_registros = pd.concat([df_vendas, df_pedidos], ignore_index=True)
-                
-                df_historico_periodo = pd.DataFrame()
-                
-                if not df_registros.empty:
-                    df_registros.columns = [c.lower() for c in df_registros.columns]
-                    
-                    if 'data' in df_registros.columns:
-                        df_registros['data_str'] = df_registros['data'].astype(str).str.slice(0, 10)
-                        df_historico_periodo = df_registros[(df_registros['data_str'] >= s_d1) & (df_registros['data_str'] <= s_d2)]
-                    
-                    if cliente_sel != "TODOS" and 'cliente' in df_historico_periodo.columns:
-                        df_historico_periodo = df_historico_periodo[df_historico_periodo['cliente'].astype(str).str.strip().str.upper() == str(cliente_sel).strip().upper()]
-            
-                st.markdown("---")
-                st.markdown("### 🔍 Consultar e Editar por Data Específica")
-                
-                
-
-                # Descobre automaticamente a data mais recente cadastrada no banco de dados para sugerir no campo
-                data_sugerida = datetime.now().date()
-                if not df_registros.empty and 'data_str' in df_registros.columns:
-                    # Pega a maior (mais recente) data que existe nos dados
-                    max_data_str = df_registros['data_str'].max()
-                    if max_data_str and len(str(max_data_str)) >= 10:
-                        try:
-                            data_sugerida = datetime.strptime(str(max_data_str)[:10], "%Y-%m-%d").date()
-                        except:
-                            pass
-            
-                # Campo para você escolher/digitar a data (já vem preenchido com o dia do último pedido feito)
-            
-                # Filtra os dados da tabela superior com base na data escolhida no input acima
-        with aba_historico:
-            st.subheader("Histórico e Gestão de Meus Pedidos")
-            
-            try:
-                query_dia = """
-                    SELECT id, cliente, produto, quantidade, valor_unitario, valor_total, fornecedor, grupo, data, status 
-                    FROM pedidos 
-                    WHERE DATE(data) = DATE('now') AND cliente = ?
-                """
-                df_dia = pd.read_sql_query(query_dia, conn, params=(st.session_state.cliente_autenticado,))
+                try:
+                    query_dia = """
+                        SELECT id, cliente, produto, quantidade, valor_unitario, valor_total, fornecedor, grupo, data, status 
+                        FROM pedidos 
+                        WHERE DATE(data) = DATE('now') AND cliente = ?
+                    """
+                    df_dia = pd.read_sql_query(query_dia, conn, params=(st.session_state.cliente_autenticado,))
             
                 # SEÇÃO 1: Tabela Superior Editável (Baseada na data escolhida no campo de data)
                 if not df_dia.empty: 
