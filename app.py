@@ -1266,7 +1266,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         df_dia = pd.read_sql_query(query_dia, conn, params=(st.session_state.cliente_autenticado,))
             
                 # SEÇÃO 1: Tabela Superior Editável (Baseada na data escolhida no campo de data)
-                if not df_dia.empty:
+                
                     st.markdown("### 🟢 Pedidos do Dia (Editáveis)")
                     
                     df_dia.insert(0, "Excluir", False)
