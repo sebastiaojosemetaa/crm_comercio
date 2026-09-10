@@ -1251,8 +1251,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             pass
             
                 # Campo para você escolher/digitar a data (já vem preenchido com o dia do último pedido feito)
-                data_consulta_input = st.date_input("Escolha a data para gerenciar/editar os pedidos:", value=data_sugerida, key=f"input_data_especifica_{menu_admin}")
-                data_consulta_str = data_consulta_input.strftime("%Y-%m-%d")            
+            
                 # Filtra os dados da tabela superior com base na data escolhida no input acima
                 with aba_historico:
                     st.subheader("Histórico e Gestão de Meus Pedidos")
