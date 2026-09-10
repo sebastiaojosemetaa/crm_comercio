@@ -1026,7 +1026,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     with sqlite3.connect("vendas.db") as conexao_segura:
                       cursor_seguro = conexao_segura.cursor()
                 
-                      # Garante que a tabela existe
+                      # Garante a estrutura base da tabela
                       cursor_seguro.execute("""
                                 CREATE TABLE IF NOT EXISTS vendas (
                                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1037,20 +1037,18 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     valor_total REAL,
                                     status TEXT DEFAULT 'Pendente',
                                     tipo TEXT DEFAULT 'PEDIDO',
-                                    grupo TEXT,
                                     data TEXT
                                 )
                             """)
                 
-                      # Adiciona a coluna fornecedor caso ela ainda não exista na tabela antiga
-                      try:
-                        cursor_seguro.execute(
-                            "ALTER TABLE vendas ADD COLUMN fornecedor TEXT"
-                        )
-                      except:
-                        pass  # Se a coluna já existir, ignora o erro e continua
+                      # Adiciona colunas extras se elas não existirem na tabela antiga
+                      for coluna in ["fornecedor TEXT", "grupo TEXT"]:
+                        try:
+                          cursor_seguro.execute(f"ALTER TABLE vendas ADD COLUMN {coluna}")
+                        except:
+                          pass
                 
-                      # Insere o pedido
+                      # Insere o pedido com todos os campos
                       cursor_seguro.execute(
                           """
                                 INSERT INTO vendas (cliente, produto, fornecedor, quantidade, valor_venda, valor_total, tipo, grupo, data)
