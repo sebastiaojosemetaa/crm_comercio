@@ -1080,8 +1080,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.error(f"Erro ao salvar: {e}")
                 
                 st.divider()
-                st.subheader("🛒 Itens já lançados neste Pedido (Hoje)")                
-                st.divider()
                 st.subheader("🛒 Itens já lançados neste Pedido (Hoje)")
                 
                 import sqlite3
