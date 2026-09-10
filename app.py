@@ -1256,8 +1256,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 with aba_historico:
                     st.subheader("Histórico e Gestão de Meus Pedidos")
                     
-                    
-                        query_dia = """
                             SELECT id, cliente, produto, quantidade, valor_unitario, valor_total, fornecedor, grupo, data, status 
                             FROM pedidos 
                             WHERE DATE(data) = DATE('now') AND cliente = ?
