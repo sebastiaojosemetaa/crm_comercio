@@ -1254,9 +1254,16 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 data_consulta_input = st.date_input("Escolha a data para gerenciar/editar os pedidos:", value=data_sugerida, key=f"input_data_especifica_{menu_admin}")
                 data_consulta_str = data_consulta_input.strftime("%Y-%m-%d")            
                 # Filtra os dados da tabela superior com base na data escolhida no input acima
-                df_dia = pd.DataFrame()
-                if not df_registros.empty and 'data_str' in df_registros.columns:
-                    df_dia = df_registros[df_registros['data_str'] == data_consulta_str]
+                with aba_historico:
+            st.subheader("Histórico e Gestão de Meus Pedidos")
+            
+            try:
+                query_dia = """
+                    SELECT id, cliente, produto, quantidade, valor_unitario, valor_total, fornecedor, grupo, data, status 
+                    FROM pedidos 
+                    WHERE DATE(data) = DATE('now') AND cliente = ?
+                """
+                df_dia = pd.read_sql_query(query_dia, conn, params=(st.session_state.cliente_autenticado,))
             
                 # SEÇÃO 1: Tabela Superior Editável (Baseada na data escolhida no campo de data)
                 if not df_dia.empty:
