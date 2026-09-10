@@ -1025,12 +1025,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 
                     with sqlite3.connect("vendas.db") as conexao_segura:
                       cursor_seguro = conexao_segura.cursor()
+                
+                      # Garante que a tabela existe
                       cursor_seguro.execute("""
                                 CREATE TABLE IF NOT EXISTS vendas (
                                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                                     cliente TEXT,
                                     produto TEXT,
-                                    fornecedor TEXT,
                                     quantidade REAL,
                                     valor_venda REAL,
                                     valor_total REAL,
@@ -1040,6 +1041,16 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     data TEXT
                                 )
                             """)
+                
+                      # Adiciona a coluna fornecedor caso ela ainda não exista na tabela antiga
+                      try:
+                        cursor_seguro.execute(
+                            "ALTER TABLE vendas ADD COLUMN fornecedor TEXT"
+                        )
+                      except:
+                        pass  # Se a coluna já existir, ignora o erro e continua
+                
+                      # Insere o pedido
                       cursor_seguro.execute(
                           """
                                 INSERT INTO vendas (cliente, produto, fornecedor, quantidade, valor_venda, valor_total, tipo, grupo, data)
@@ -1068,6 +1079,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                   except Exception as e:
                     st.error(f"Erro ao salvar: {e}")
                 
+                st.divider()
+                st.subheader("🛒 Itens já lançados neste Pedido (Hoje)")                
                 st.divider()
                 st.subheader("🛒 Itens já lançados neste Pedido (Hoje)")
                 
