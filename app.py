@@ -965,10 +965,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         elif "Pedido" in menu_admin or "Orçamento" in menu_admin:
             st.title("🛒 Pedidos / Orçamentos")
             
-            aba_cad, aba_list = st.tabs(["➕ Novo Pedido com Carrinho", "📝 Tabela de Pedidos"])
+            aba_cad, aba_list = st.tabs(["➕ Novo Pedido com Carrinho", "📝 Pedidos do Dia & Histórico"])
             
             with aba_cad:
-                st.subheader("Novo Pedido")
+                st.subheader("Novo Pedido Administrativo")
                 if "carrinho_admin" not in st.session_state:
                     st.session_state.carrinho_admin = []
                     
@@ -1071,17 +1071,80 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             st.error(f"Erro ao salvar: {ex}")
         
             with aba_list:
-                st.subheader("📝 Histórico de Pedidos")
+                st.subheader("🟢 Pedidos do Dia (Editáveis)")
                 import sqlite3, pandas as pd
+                from datetime import datetime
+                hoje_str = datetime.now().strftime("%Y-%m-%d")
+                
                 try:
                     with sqlite3.connect("vendas.db") as conn:
-                        df_hist = pd.read_sql("SELECT * FROM pedidos WHERE tipo='PEDIDO' ORDER BY id DESC", conn)
-                    if not df_hist.empty:
-                        st.dataframe(df_hist, use_container_width=True)
+                        query_dia = f"SELECT * FROM pedidos WHERE tipo='PEDIDO' AND (data LIKE '{hoje_str}%' OR data_str = '{hoje_str}') ORDER BY id DESC"
+                        df_dia = pd.read_sql(query_dia, conn)
+                        
+                    if not df_dia.empty:
+                        if 'Excluir' not in df_dia.columns:
+                            df_dia.insert(0, 'Excluir', False)
+                        
+                        edited_df = st.data_editor(
+                            df_dia,
+                            column_config={"Excluir": st.column_config.CheckboxColumn("Excluir?", default=False)},
+                            disabled=["id", "cliente", "data", "data_str", "status", "tipo"],
+                            hide_index=True,
+                            key="editor_pedidos_adm_dia"
+                        )
+                        
+                        col_ed1, col_ed2 = st.columns(2)
+                        with col_ed1:
+                            if st.button("💾 Salvar Alterações do Dia", type="primary", key="btn_salvar_alt_dia"):
+                                try:
+                                    with sqlite3.connect("vendas.db") as conn:
+                                        cursor = conn.cursor()
+                                        for index, row in edited_df.iterrows():
+                                            novo_qtd = float(row["quantidade"])
+                                            novo_val = float(row["valor_venda"])
+                                            novo_tot = novo_qtd * novo_val
+                                            cursor.execute("""
+                                                UPDATE pedidos SET quantidade = ?, valor_venda = ?, valor_total = ? WHERE id = ?
+                                            """, (novo_qtd, novo_val, novo_tot, int(row["id"])))
+                                        conn.commit()
+                                    st.success("Alterações salvas com sucesso!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Erro ao atualizar: {e}")
+                                    
+                        with col_ed2:
+                            if st.button("🗑️ Excluir Marcados", key="btn_excluir_marcados_dia"):
+                                ids_para_excluir = edited_df[edited_df["Excluir"] == True]["id"].tolist()
+                                if ids_para_excluir:
+                                    try:
+                                        with sqlite3.connect("vendas.db") as conn:
+                                            cursor = conn.cursor()
+                                            for pid in ids_para_excluir:
+                                                cursor.execute("DELETE FROM pedidos WHERE id = ?", (int(pid),))
+                                            conn.commit()
+                                        st.success("Itens excluídos com sucesso!")
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"Erro ao excluir: {e}")
+                                else:
+                                    st.warning("Nenhum item marcado para exclusão.")
                     else:
-                        st.info("Nenhum pedido encontrado.")
+                        st.info("Nenhum pedido registrado hoje.")
+                except Exception as ex:
+                    st.info("Ainda não há dados suficientes para exibir os pedidos do dia.")
+        
+                st.markdown("---")
+                st.subheader("📚 Pedidos Anteriores (Histórico)")
+                try:
+                    with sqlite3.connect("vendas.db") as conn:
+                        query_ant = f"SELECT * FROM pedidos WHERE tipo='PEDIDO' AND (data NOT LIKE '{hoje_str}%' AND (data_str IS NULL OR data_str != '{hoje_str}')) ORDER BY id DESC"
+                        df_ant = pd.read_sql(query_ant, conn)
+                    if not df_ant.empty:
+                        st.dataframe(df_ant, use_container_width=True)
+                    else:
+                        st.info("Nenhum pedido anterior no histórico.")
                 except Exception:
-                    st.info("A tabela ainda está vazia.")
+                    st.info("Nenhum registro anterior encontrado.")
         
         elif "Venda" in menu_admin:
             st.title("💳 Registrar Venda Direta")
