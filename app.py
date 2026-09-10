@@ -1027,7 +1027,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             with sqlite3.connect("vendas.db") as conexao_segura:
                                 cursor_seguro = conexao_segura.cursor()
                                 
-                                # Garante que a tabela 'pedidos' existe com todas as colunas
+                                # Cria a tabela se não existir
                                 cursor_seguro.execute("""
                                     CREATE TABLE IF NOT EXISTS pedidos (
                                         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1037,15 +1037,18 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         valor_venda REAL,
                                         valor_total REAL,
                                         status TEXT DEFAULT 'Pendente',
-                                        tipo TEXT DEFAULT 'PEDIDO',
-                                        fornecedor TEXT,
-                                        grupo TEXT,
-                                        data TEXT,
-                                        data_str TEXT
+                                        tipo TEXT DEFAULT 'PEDIDO'
                                     )
                                 """)
                                 
-                                # Insere o pedido de forma garantida
+                                # Adiciona colunas caso a tabela já exista e não as tenha
+                                for coluna_sql in ["fornecedor TEXT", "grupo TEXT", "data TEXT", "data_str TEXT"]:
+                                    try:
+                                        cursor_seguro.execute(f"ALTER TABLE pedidos ADD COLUMN {coluna_sql}")
+                                    except:
+                                        pass # A coluna já existe, segue o jogo
+                                
+                                # Insere o pedido com segurança
                                 cursor_seguro.execute("""
                                     INSERT INTO pedidos (cliente, produto, fornecedor, quantidade, valor_venda, valor_total, tipo, grupo, data, data_str)
                                     VALUES (?, ?, ?, ?, ?, ?, 'PEDIDO', ?, ?, ?)
