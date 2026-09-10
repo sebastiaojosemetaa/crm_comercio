@@ -1166,26 +1166,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     st.success(f"Haver de R$ {valor_haver:,.2f} aplicado com sucesso!")
                                     st.rerun()
 
-               # ... (código dos filtros de cliente, data inicial e final)
-
-                s_d1, s_d2 = d_inicio.strftime("%Y-%m-%d"), d_fin.strftime("%Y-%m-%d")
-                df_vendas = carregar_dados("SELECT * FROM vendas")
-                df_pedidos = carregar_dados("SELECT * FROM pedidos")
-                df_registros = pd.concat([df_vendas, df_pedidos], ignore_index=True)
-                
-                df_historico_periodo = pd.DataFrame()
-                
-                if not df_registros.empty:
-                    df_registros.columns = [c.lower() for c in df_registros.columns]
-                    
-                    if 'data' in df_registros.columns:
-                        df_registros['data_str'] = df_registros['data'].astype(str).str.slice(0, 10)
-                        df_historico_periodo = df_registros[(df_registros['data_str'] >= s_d1) & (df_registros['data_str'] <= s_d2)]
-                    
-                    if cliente_sel != "TODOS" and 'cliente' in df_historico_periodo.columns:
-                        df_historico_periodo = df_historico_periodo[df_historico_periodo['cliente'].astype(str).str.strip().str.upper() == str(cliente_sel).strip().upper()]
-            
-                with aba_list:
+               with aba_list:
                     st.subheader("🔍 Edição Direta na Tabela & Gestão por Cliente")
                     
                     clientes_filtro = ["TODOS"] + (carregar_coluna("clientes", "nome") or carregar_coluna("vendas", "cliente") or [])
@@ -1228,7 +1209,25 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.rerun()
                     
                     st.markdown("---")
-            
+                # ... (código dos filtros de cliente, data inicial e final)
+
+                s_d1, s_d2 = d_inicio.strftime("%Y-%m-%d"), d_fin.strftime("%Y-%m-%d")
+                df_vendas = carregar_dados("SELECT * FROM vendas")
+                df_pedidos = carregar_dados("SELECT * FROM pedidos")
+                df_registros = pd.concat([df_vendas, df_pedidos], ignore_index=True)
+                
+                df_historico_periodo = pd.DataFrame()
+                
+                if not df_registros.empty:
+                    df_registros.columns = [c.lower() for c in df_registros.columns]
+                    
+                    if 'data' in df_registros.columns:
+                        df_registros['data_str'] = df_registros['data'].astype(str).str.slice(0, 10)
+                        df_historico_periodo = df_registros[(df_registros['data_str'] >= s_d1) & (df_registros['data_str'] <= s_d2)]
+                    
+                    if cliente_sel != "TODOS" and 'cliente' in df_historico_periodo.columns:
+                        df_historico_periodo = df_historico_periodo[df_historico_periodo['cliente'].astype(str).str.strip().str.upper() == str(cliente_sel).strip().upper()]
+                                       
                 # SEÇÃO 1: Tabela Superior Editável (Baseada na data escolhida no campo de data)
                 if not df_dia.empty:
                     st.markdown(f"### 🟢 Pedidos da Data: {data_consulta_str} (Editáveis)")
