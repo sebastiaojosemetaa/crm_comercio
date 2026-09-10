@@ -961,7 +961,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             st.info("Nenhum registro encontrado para os filtros selecionados.")
                     else:
                         st.info("Nenhum dado cadastrado.")
-        #INICIO PEDIDOS/ORÇAMENTO#
+        # --- TRECHO DA PARTE ADMINISTRATIVA (Pedidos / Orçamentos) ---
         elif "Pedido" in menu_admin or "Orçamento" in menu_admin:
             st.title("🛒 Pedidos / Orçamentos")
             
@@ -1074,7 +1074,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             st.error(f"Erro ao salvar: {ex}")
         
             with aba_list:
-                st.subheader("🟢 Pedidos do Dia (Editáveis)")
+                st.subheader("🟢 Pedidos do Dia (Editáveis - Todos os Clientes)")
                 import sqlite3, pandas as pd
                 from datetime import datetime, timezone, timedelta
                 
@@ -1083,7 +1083,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 
                 try:
                     with sqlite3.connect("vendas.db") as conn:
-                        # Pega qualquer pedido onde a data contenha a string de hoje ('2026-09-10'), capturando o do portal e do admin sem falhas
+                        # ADMIN VÊ TUDO DO DIA (Sem filtro de cliente específico)
                         query_dia = f"SELECT * FROM pedidos WHERE tipo='PEDIDO' AND (data LIKE '%{hoje_str}%' OR data_str = '{hoje_str}') ORDER BY id DESC"
                         df_dia = pd.read_sql(query_dia, conn)
                         
@@ -1094,7 +1094,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         edited_df = st.data_editor(
                             df_dia,
                             column_config={"Excluir": st.column_config.CheckboxColumn("Excluir?", default=False)},
-                            disabled=["id", "cliente", "data", "data_str", "status", "tipo"],
+                            disabled=["id", "data", "data_str", "status", "tipo"],
                             hide_index=True,
                             key="editor_pedidos_adm_dia"
                         )
@@ -1140,10 +1140,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.info("Ainda não há dados suficientes para exibir os pedidos do dia.")
         
                 st.markdown("---")
-                st.subheader("📚 Pedidos Anteriores (Histórico)")
+                st.subheader("📚 Pedidos Anteriores (Histórico Geral)")
                 try:
                     with sqlite3.connect("vendas.db") as conn:
-                        # O histórico pega tudo que NÃO contém a data de hoje
                         query_ant = f"SELECT * FROM pedidos WHERE tipo='PEDIDO' AND NOT (data LIKE '%{hoje_str}%' OR data_str = '{hoje_str}') ORDER BY id DESC"
                         df_ant = pd.read_sql(query_ant, conn)
                     if not df_ant.empty:
