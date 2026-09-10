@@ -983,7 +983,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     produtos_base = df_p_admin[col_nome_p].dropna().astype(str).str.strip().unique().tolist()
                 else:
                     produtos_base = ["ABACATE", "BANANA", "LARANJA", "MAÇÃ"]
-                df_p_admin = pd.DataFrame()
 
                 produtos_opt = list(produtos_base) + ["➕ Cadastrar Novo Produto..."]
                 fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
@@ -1018,6 +1017,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 if st.button("Salvar PEDIDO", type="primary", key="btn_salvar_pedido_final"):
                     try:
                         cur_ins = conn.cursor()
+                        # CORRIGIDO: Adicionado o parêntese de fechamento do CREATE TABLE (...)
                         cur_ins.execute("""
                             CREATE TABLE IF NOT EXISTS vendas (
                                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1031,6 +1031,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 tipo TEXT DEFAULT 'PEDIDO',
                                 grupo TEXT,
                                 data TEXT
+                            )
                         """)
                         
                         c_total = float(quantidade) * float(preco_unitario)
