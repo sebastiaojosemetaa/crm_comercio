@@ -979,7 +979,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 df_p_admin = carregar_dados("SELECT * FROM produtos")
                 if not df_p_admin.empty:
                     df_p_admin.columns = [c.lower() for c in df_p_admin.columns]
-                    col_nome_p = 'produto' if 'produto' in df_p_admin.columns else ('nome' if 'nome' in df_p_admin.columns else df_p_admin.columns[1])
+                    col_nome_p = 'produto' if 'produto' in df_p_admin.columns else ('nome' in df_p_admin.columns and 'nome' or df_p_admin.columns[1])
                     produtos_base = df_p_admin[col_nome_p].dropna().astype(str).str.strip().unique().tolist()
                 else:
                     produtos_base = ["ABACATE", "BANANA", "LARANJA", "MAÇÃ"]
@@ -1016,9 +1016,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
                 if st.button("Salvar PEDIDO", type="primary", key="btn_salvar_pedido_final"):
                     try:
-                        cur_ins = conn.cursor()
-                        # CORRIGIDO: Adicionado o parêntese de fechamento do CREATE TABLE (...)
-                        cur_ins.execute("""
+                        import sqlite3
+                        # Abre uma nova conexão direta com o banco padrão do app para garantir escrita segura
+                        conexao_salvar = sqlite3.connect("banco.db") # Altere para o nome do seu arquivo .db se for diferente (ex: crm.db)
+                        cursor_salvar = conexao_salvar.cursor()
+                        
+                        cursor_salvar.execute("""
                             CREATE TABLE IF NOT EXISTS vendas (
                                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                                 cliente TEXT,
@@ -1037,13 +1040,16 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         c_total = float(quantidade) * float(preco_unitario)
                         data_atual_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                         
-                        cur_ins.execute("""
+                        cursor_salvar.execute("""
                             INSERT INTO vendas (cliente, produto, fornecedor, quantidade, valor_venda, valor_total, tipo, grupo, data)
                             VALUES (?, ?, ?, ?, ?, ?, 'PEDIDO', ?, ?)
                         """, (str(cliente), str(produto), str(fornecedor), float(quantidade), float(preco_unitario), c_total, str(grupo), data_atual_str))
                         
-                        conn.commit()
-                        st.success("Item salvo com sucesso!")
+                        conexao_salvar.commit()
+                        conexao_salvar.close()
+                        
+                        st.success("Item salvo com sucesso no banco de dados!")
+                        st.balloons()
                         st.rerun()
                     except Exception as e:
                         st.error(f"Erro detalhado ao salvar: {e}")
