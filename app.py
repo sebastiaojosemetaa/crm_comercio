@@ -1008,47 +1008,96 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             st.error("Digite o nome do produto.")
                     st.stop()
 
+                # Inicializa o carrinho da administração se não existir
+                if "carrinho_admin" not in st.session_state:
+                    st.session_state.carrinho_admin = []
+                
+                # Campos idênticos ao Portal do Cliente
                 cliente = st.selectbox("Cliente", options=clientes_opt, key="sel_cli_unico_correto")
                 fornecedor = st.selectbox("Fornecedor", options=fornecedores_opt, key="sel_forn_unico_correto")
                 grupo = st.selectbox("Grupo", options=grupos_opt, key="sel_grp_unico_correto")
                 
                 quantidade = st.number_input("Quantidade", min_value=0.01, value=1.0, step=1.0, key="num_qtd_unico_correto")
                 preco_unitario = st.number_input("Preço Unitário (R$)", min_value=0.0, value=80.0, step=1.0, key="num_preco_unico_correto")
-            
-                if st.button("Salvar PEDIDO", type="primary", key="btn_salvar_pedido_unico_definitivo"):
-                    try:
-                        import sqlite3
-                        con_ins = sqlite3.connect("vendas.db")
-                        cur_ins = con_ins.cursor()
-                        
-                        cur_ins.execute("""
-                            CREATE TABLE IF NOT EXISTS vendas (
-                                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                cliente TEXT,
-                                produto TEXT,
-                                quantidade REAL,
-                                valor_venda REAL,
-                                valor_total REAL,
-                                tipo TEXT,
-                                status TEXT
-                            )
-                        """)
-                        
-                        c_total = float(quantidade) * float(preco_unitario)
-                        c_tipo = 'ORÇAMENTO'
-                        
-                        cur_ins.execute("""
-                            INSERT INTO vendas (cliente, produto, quantidade, valor_venda, valor_total, tipo)
-                            VALUES (?, ?, ?, ?, ?, ?)
-                        """, (str(cliente), str(produto), float(quantidade), float(preco_unitario), c_total, c_tipo))
-                        
-                        con_ins.commit()
-                        con_ins.close()
-                        
-                        st.success("Item salvo com sucesso!")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Erro ao salvar: {e}")
+                
+                total_item = quantidade * preco_unitario
+                st.markdown(f"<div style='padding: 10px; background-color: #1e293b; border-radius: 5px; margin-bottom: 10px;'><b>Valor Total do Item:</b> R$ {total_item:.2f}</div>", unsafe_allow_html=True)
+                
+                if st.button("➕ Incluir Produto no Pedido", type="primary", key="btn_inc_adm_novo"):
+                    st.session_state.carrinho_admin.append({
+                        "cliente": cliente,
+                        "produto": produto if 'produto' in locals() else "PRODUTO",
+                        "fornecedor": fornecedor,
+                        "grupo": grupo,
+                        "quantidade": quantidade,
+                        "valor_unitario": preco_unitario,
+                        "valor_total": total_item
+                    })
+                    st.success("Item adicionado ao carrinho!")
+                    st.rerun()
+                
+                if st.session_state.carrinho_admin:
+                    st.markdown("### 📋 Itens Atuais no Pedido")
+                    import pandas as pd
+                    df_carrinho = pd.DataFrame(st.session_state.carrinho_admin)
+                    st.dataframe(df_carrinho, use_container_width=True)
+                    
+                    col_b1, col_b2 = st.columns(2)
+                    with col_b1:
+                        if st.button("🗑️ Limpar Carrinho", key="btn_limpar_adm_novo"):
+                            st.session_state.carrinho_admin = []
+                            st.rerun()
+                    with col_b2:
+                        if st.button("💾 Finalizar e Enviar Pedido", type="primary", key="btn_finalizar_adm_novo"):
+                            try:
+                                import sqlite3
+                                from datetime import datetime
+                                data_atual_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                data_str_simples = datetime.now().strftime("%Y-%m-%d")
+                                
+                                with sqlite3.connect("vendas.db") as conexao:
+                                    cursor = conexao.cursor()
+                                    cursor.execute("""
+                                        CREATE TABLE IF NOT EXISTS pedidos (
+                                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                            cliente TEXT,
+                                            produto TEXT,
+                                            quantidade REAL,
+                                            valor_venda REAL,
+                                            valor_total REAL,
+                                            status TEXT DEFAULT 'Pendente',
+                                            tipo TEXT DEFAULT 'PEDIDO',
+                                            fornecedor TEXT,
+                                            grupo TEXT,
+                                            data TEXT,
+                                            data_str TEXT
+                                        )
+                                    """)
+                                    for item in st.session_state.carrinho_admin:
+                                        cursor.execute("""
+                                            INSERT INTO pedidos (cliente, produto, fornecedor, quantidade, valor_venda, valor_total, tipo, grupo, data, data_str)
+                                            VALUES (?, ?, ?, ?, ?, ?, 'PEDIDO', ?, ?, ?)
+                                        """, (
+                                            str(item["cliente"]),
+                                            str(item["produto"]),
+                                            str(item["fornecedor"]),
+                                            float(item["quantidade"]),
+                                            float(item["valor_unitario"]),
+                                            float(item["valor_total"]),
+                                            str(item["grupo"]),
+                                            data_atual_str,
+                                            data_str_simples
+                                        ))
+                                    conexao.commit()
+                                
+                                st.session_state.carrinho_admin = []
+                                st.success("🎉 Pedido finalizado e gravado na tabela pedidos com sucesso!")
+                                st.balloons()
+                                import time
+                                time.sleep(1)
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao salvar: {e}")
             
                 st.divider()
                 st.subheader("🛒 Itens já lançados neste Pedido (Hoje)")
