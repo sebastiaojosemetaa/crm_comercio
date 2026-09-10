@@ -1227,12 +1227,14 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 if 'valor_venda' in df_vendas.columns and 'valor_unitario' not in df_vendas.columns:
                     df_vendas['valor_unitario'] = df_vendas['valor_venda']
         
-                df_registros = pd.concat([df_vendas, df_pedidos], ignore_index=True)
+                df_registros = carregar_dados("SELECT * FROM pedidos")
                 
                 df_historico_periodo = pd.DataFrame()
                 
                 if not df_registros.empty:
                     df_registros.columns = [c.lower() for c in df_registros.columns]
+                    if 'status' not in df_registros.columns:
+                        df_registros['status'] = 'Pendente'
                     
                     if 'data' in df_registros.columns:
                         df_registros['data_str'] = df_registros['data'].astype(str).str.slice(0, 10)
@@ -1298,9 +1300,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     novo_total = float(row['quantidade']) * float(row['valor_unitario'])
                                     cursor.execute("""
                                         UPDATE pedidos
-                                        SET quantidade = ?, valor_unitario = ?, valor_total = ?
+                                        SET quantidade = ?, valor_unitario = ?, valor_total = ?, status = ?
                                         WHERE id = ?
-                                    """, (row['quantidade'], row['valor_unitario'], novo_total, row['id']))
+                                    """, (row['quantidade'], row['valor_unitario'], novo_total, row.get('status', 'Pendente'), row['id']))
                                 conn.commit()
                                 st.success("Registros atualizados com sucesso!")
                                 st.rerun()
