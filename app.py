@@ -1253,11 +1253,16 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 # Campo para você escolher/digitar a data (já vem preenchido com o dia do último pedido feito)
             
                 # Filtra os dados da tabela superior com base na data escolhida no input acima
-                with aba_historico:
-                    st.subheader("Histórico e Gestão de Meus Pedidos")
-                    
-                            
-                    df_dia = pd.read_sql_query(query_dia, conn, params=(st.session_state.cliente_autenticado,))
+        with aba_historico:
+            st.subheader("Histórico e Gestão de Meus Pedidos")
+            
+            try:
+                query_dia = """
+                    SELECT id, cliente, produto, quantidade, valor_unitario, valor_total, fornecedor, grupo, data, status 
+                    FROM pedidos 
+                    WHERE DATE(data) = DATE('now') AND cliente = ?
+                """
+                df_dia = pd.read_sql_query(query_dia, conn, params=(st.session_state.cliente_autenticado,))
             
                 # SEÇÃO 1: Tabela Superior Editável (Baseada na data escolhida no campo de data)
                 if not df_dia.empty: 
