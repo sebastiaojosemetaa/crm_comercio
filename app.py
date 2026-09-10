@@ -988,18 +988,18 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
                 grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
 
-                produto = st.selectbox("Selecione o Produto", options=produtos_opt, key="sel_prod_unico_correto_v2")
+                produto = st.selectbox("Selecione o Produto", options=produtos_opt, key="sel_prod_unico_correto_v3")
 
                 if produto == "➕ Cadastrar Novo Produto...":
                     st.warning("⚠️ Preencha os dados abaixo para cadastrar o novo produto:")
-                    novo_nome_prod = st.text_input("Nome do Novo Produto", key="txt_novo_prod_v2").strip().upper()
-                    c_f_r = st.selectbox("Fornecedor", fornecedores_opt, key="cad_f_rapido_v2")
-                    c_g_r = st.selectbox("Grupo", grupos_opt, key="cad_g_rapido_v2")
-                    c_qtd_r = st.number_input("Qtd Inicial em Estoque", min_value=0.0, value=0.0, key="cad_q_rapido_v2")
-                    c_custo_r = st.number_input("Preço de Custo (R$)", min_value=0.0, value=0.0, key="cad_c_rapido_v2")
-                    c_venda_r = st.number_input("Preço de Venda (R$)", min_value=0.0, value=0.0, key="cad_v_rapido_v2")
+                    novo_nome_prod = st.text_input("Nome do Novo Produto", key="txt_novo_prod_v3").strip().upper()
+                    c_f_r = st.selectbox("Fornecedor", fornecedores_opt, key="cad_f_rapido_v3")
+                    c_g_r = st.selectbox("Grupo", grupos_opt, key="cad_g_rapido_v3")
+                    c_qtd_r = st.number_input("Qtd Inicial em Estoque", min_value=0.0, value=0.0, key="cad_q_rapido_v3")
+                    c_custo_r = st.number_input("Preço de Custo (R$)", min_value=0.0, value=0.0, key="cad_c_rapido_v3")
+                    c_venda_r = st.number_input("Preço de Venda (R$)", min_value=0.0, value=0.0, key="cad_v_rapido_v3")
                     
-                    if st.button("Salvar e Selecionar Produto", key="btn_salvar_prod_rapido_v2"):
+                    if st.button("Salvar e Selecionar Produto", key="btn_salvar_prod_rapido_v3"):
                         if novo_nome_prod:
                             salvar_produto_completo(novo_nome_prod, c_f_r, c_g_r, c_custo_r, c_venda_r, c_qtd_r)
                             st.success(f"Produto '{novo_nome_prod}' cadastrado com sucesso!")
@@ -1008,18 +1008,17 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             st.error("Digite o nome do produto.")
                     st.stop()
 
-                cliente = st.selectbox("Cliente", options=clientes_opt, key="sel_cli_pedido_unico_v2")
-                fornecedor = st.selectbox("Fornecedor", options=fornecedores_opt, key="sel_forn_pedido_unico_v2")
-                grupo = st.selectbox("Grupo", options=grupos_opt, key="sel_grupo_pedido_unico_v2")
-                quantidade = st.number_input("Quantidade", value=1.0, key="num_qtd_pedido_unico_v2")
-                preco_unitario = st.number_input("Preço Unitário (R$)", value=0.0, key="num_preco_pedido_unico_v2")
+                cliente = st.selectbox("Cliente", options=clientes_opt, key="sel_cli_pedido_unico_v3")
+                fornecedor = st.selectbox("Fornecedor", options=fornecedores_opt, key="sel_forn_pedido_unico_v3")
+                grupo = st.selectbox("Grupo", options=grupos_opt, key="sel_grupo_pedido_unico_v3")
+                quantidade = st.number_input("Quantidade", value=1.0, key="num_qtd_pedido_unico_v3")
+                preco_unitario = st.number_input("Preço Unitário (R$)", value=0.0, key="num_preco_pedido_unico_v3")
             
-                # Usando um botão simples e direto sem conflito de chave
-                if st.button("💾 Salvar PEDIDO Agora", type="primary", key="btn_salvar_pedido_master_final"):
+                if st.button("💾 Salvar PEDIDO Agora", type="primary", key="btn_salvar_pedido_master_v3"):
                     try:
-                        # Tenta usar a conexão global 'conn' se existir, senão abre o sqlite3 padrão
-                        global conn
-                        conexao_ativa = conn if 'conn' in globals() and conn is not None else sqlite3.connect("banco.db")
+                        import sqlite3
+                        # Conecta diretamente no banco de dados SQLite padrão do projeto
+                        conexao_ativa = sqlite3.connect("banco.db")
                         cursor_ativa = conexao_ativa.cursor()
                         
                         cursor_ativa.execute("""
@@ -1047,9 +1046,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         """, (str(cliente), str(produto), str(fornecedor), float(quantidade), float(preco_unitario), c_total, str(grupo), data_atual_str))
                         
                         conexao_ativa.commit()
-                        if 'conn' not in globals() or conn is None:
-                            conexao_ativa.close()
-                            
+                        conexao_ativa.close()
+                        
                         st.success("🎉 Pedido salvo e gravado com sucesso no banco!")
                         st.balloons()
                         st.rerun()
