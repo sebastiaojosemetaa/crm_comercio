@@ -1334,26 +1334,43 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                       hide_index=True,
                       key=f"tabela_pedidos_data_esp_{menu_admin}",
                   )
-                    
-                    col_btn1, col_btn2 = st.columns(2)
-                    
-                    with col_btn1:
-                        if st.button("💾 Salvar Alterações", type="primary", key=f"btn_salvar_data_esp_{menu_admin}"):
-                            try:
-                                cursor = conn.cursor()
-                                for index, row in df_editado.iterrows():
-                                    novo_total = float(row['quantidade']) * float(row['valor_unitario'])
-                                    cursor.execute("""
-                                        UPDATE pedidos
-                                        SET quantidade = ?, valor_unitario = ?, valor_total = ?, status = ?
-                                        WHERE id = ?
-                                    """, (row['quantidade'], row['valor_unitario'], novo_total, row.get('status', 'Pendente'), row['id']))
-                                conn.commit()
-                                st.success("Registros atualizados com sucesso!")
-                                st.rerun()
-                            except Exception as ex:
-                                conn.rollback()
-                                st.error(f"Erro ao atualizar: {ex}")
+                
+                  col_btn1, col_btn2 = st.columns(2)
+                
+                  with col_btn1:
+                    if st.button(
+                        "💾 Salvar Alterações",
+                        type="primary",
+                        key=f"btn_salvar_data_esp_{menu_admin}",
+                    ):
+                      try:
+                        import sqlite3
+                
+                        with sqlite3.connect("vendas.db") as conexao_up:
+                          cursor = conexao_up.cursor()
+                          for index, row in df_editado.iterrows():
+                            # Usa valor_venda no lugar de valor_unitario para bater com a tabela vendas
+                            v_unit = float(row.get("valor_venda", 0))
+                            novo_total = float(row["quantidade"]) * v_unit
+                            cursor.execute(
+                                """
+                                            UPDATE vendas
+                                            SET quantidade = ?, valor_venda = ?, valor_total = ?, status = ?
+                                            WHERE id = ?
+                                        """,
+                                (
+                                    row["quantidade"],
+                                    v_unit,
+                                    novo_total,
+                                    row.get("status", "Pendente"),
+                                    row["id"],
+                                ),
+                            )
+                          conexao_up.commit()
+                        st.success("Registros atualizados com sucesso!")
+                        st.rerun()
+                      except Exception as ex:
+                        st.error(f"Erro ao atualizar: {ex}")
                     
                     with col_btn2:
                         if st.button("🗑️ Excluir Marcados", type="secondary", key=f"btn_excluir_data_esp_{menu_admin}"):
