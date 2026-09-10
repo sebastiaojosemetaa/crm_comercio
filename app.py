@@ -1166,56 +1166,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     st.success(f"Haver de R$ {valor_haver:,.2f} aplicado com sucesso!")
                                     st.rerun()
 
-            # Correção sugerida na aba de listagem / edição (aba_list)
-            # O trecho original faz referência a 'pedidos' e 'valor_unitario', mas a tabela principal do sistema é 'vendas' 
-            # e armazena o preço unitário na coluna 'valor_venda'. Vamos alinhar a consulta e a geração do PDF.
-            
-            with aba_list:
-                st.subheader("🔍 Edição Direta na Tabela & Gestão por Cliente")
-                
-                clientes_filtro = ["TODOS"] + (carregar_coluna("clientes", "nome") or carregar_coluna("vendas", "cliente") or [])
-                
-                col_f1, col_f2, col_f3 = st.columns(3)
-                with col_f1:
-                    cliente_sel = st.selectbox("Filtrar por Cliente:", clientes_filtro, key=f"filtro_cli_tabela_{menu_admin}")
-                with col_f2:
-                    d_inicio = st.date_input("Data Inicial do Filtro", value=date(2025, 1, 1), key=f"filtro_d_ini_{menu_admin}")
-                with col_f3:
-                    d_fin = st.date_input("Data Final do Filtro", value=data_hoje_brasil, key=f"filtro_d_fin_{menu_admin}")
-            
-                texto_botao_atualizar = "🔄 Atualizar Preços de Venda" if not is_modo_pedido else "🔄 Atualizar Preços de Custo"
-                if st.button(texto_botao_atualizar, key=f"btn_atualizar_precos_{menu_admin}"):
-                    cursor = conn.cursor()
-                    coluna_alvo_estoque = 'valor_venda' if not is_modo_pedido else 'valor_compra'
-                    
-                    cursor.execute(f"""
-                        UPDATE vendas 
-                        SET valor_venda = (
-                            SELECT {coluna_alvo_estoque} 
-                            FROM produtos 
-                            WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
-                        ),
-                        valor_total = quantidade * (
-                            SELECT {coluna_alvo_estoque} 
-                            FROM produtos 
-                            WHERE TRIM(UPPER(produtos.nome)) = TRIM(UPPER(vendas.produto))
-                        )
-                        WHERE TRIM(UPPER(produto)) IN (SELECT TRIM(UPPER(nome)) FROM produtos)
-                    """)
-                    linhas_afetadas = cursor.rowcount
-                    conn.commit()
-                    
-                    if linhas_afetadas > 0:
-                        st.success(f"Preços atualizados com sucesso! ({linhas_afetadas} itens modificados)")
-                    else:
-                        st.warning("Nenhum produto correspondente foi encontrado na tabela de estoque para atualizar.")
-                    
-                    st.rerun()
-                
-                st.markdown("---")
-                # ... (código anterior da aba_list até o filtro de datas)
-
-                # ... (código dos filtros de cliente, data inicial e final)
+               # ... (código dos filtros de cliente, data inicial e final)
 
                 s_d1, s_d2 = d_inicio.strftime("%Y-%m-%d"), d_fin.strftime("%Y-%m-%d")
                 df_vendas = carregar_dados("SELECT * FROM vendas")
