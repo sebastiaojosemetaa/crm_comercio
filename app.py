@@ -1023,7 +1023,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                   try:
                     import sqlite3
                 
-                    # CORRIGIDO: mudado de "banco.db" para "vendas.db" para unificar com o resto do app
                     with sqlite3.connect("vendas.db") as conexao_segura:
                       cursor_seguro = conexao_segura.cursor()
                       cursor_seguro.execute("""
@@ -1043,8 +1042,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             """)
                       cursor_seguro.execute(
                           """
-                                INSERT INTO vendas (cliente, produto, fornecedor, quantidade,"
-                          " valor_venda, valor_total, tipo, grupo, data)
+                                INSERT INTO vendas (cliente, produto, fornecedor, quantidade, valor_venda, valor_total, tipo, grupo, data)
                                 VALUES (?, ?, ?, ?, ?, ?, 'PEDIDO', ?, ?)
                             """,
                           (
