@@ -1016,13 +1016,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 quantidade = st.number_input("Quantidade", min_value=0.01, value=1.0, step=1.0, key="num_qtd_unico_correto")
                 preco_unitario = st.number_input("Preço Unitário (R$)", min_value=0.0, value=80.0, step=1.0, key="num_preco_unico_correto")
             
-                if st.button("Salvar PEDIDO", type="primary", key="btn_salvar_pedido_unico_definitivo"):
+                if st.button("Salvar PEDIDO"):
                     try:
-                        import sqlite3
-                        con_ins = sqlite3.connect("vendas.db")
-                        cur_ins = con_ins.cursor()
-                        
-                        cursor.execute("""
+                        cur_ins = conn.cursor()
+                        # Garante que a tabela pedidos existe antes de inserir
+                        cur_ins.execute("""
                             CREATE TABLE IF NOT EXISTS pedidos (
                                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                                 cliente TEXT,
@@ -1039,19 +1037,16 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 tipo TEXT DEFAULT 'PEDIDO'
                             )
                         """)
-                        conn.commit()
                         
                         c_total = float(quantidade) * float(preco_unitario)
-                        c_tipo = 'ORÇAMENTO'
+                        c_tipo = 'PEDIDO'
                         
                         cur_ins.execute("""
                             INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, tipo)
                             VALUES (?, ?, ?, ?, ?, ?)
                         """, (str(cliente), str(produto), float(quantidade), float(preco_unitario), c_total, c_tipo))
                         
-                        con_ins.commit()
-                        con_ins.close()
-                        
+                        conn.commit()
                         st.success("Item salvo com sucesso!")
                         st.rerun()
                     except Exception as e:
