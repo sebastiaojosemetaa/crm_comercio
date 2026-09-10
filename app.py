@@ -963,15 +963,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.info("Nenhum dado cadastrado.")
         #INICIO PEDIDOS/ORÇAMENTO#
         elif menu_admin in ["Pedidos / Orçamentos", " Registrar Venda"]:
-            is_modo_pedido = (menu_admin == "Pedidos / Orçamentos")
             st.title(f"🛒 {menu_admin.strip()}")
             
-            if not is_modo_pedido:
-                aba_cad, aba_baixaa, aba_list = st.tabs(["➕ Novo Registro", "💳 Baixa de Débito / Haver", "📝 Tabela Editável"])
-                aba_baixa = aba_baixaa
-            else:
-                aba_cad, aba_list = st.tabs(["➕ Novo Registro / Pedido", "📝 Tabela Editável & Histórico"])
-                aba_baixa = None
+            aba_cad, aba_list = st.tabs(["➕ Novo Registro / Pedido", "📝 Tabela Editável & Histórico"])
         
             with aba_cad:
                 st.markdown("### Registrar Novo Pedido com Carrinho")
@@ -988,26 +982,26 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         
                 col_p1, col_p2 = st.columns(2)
                 with col_p1:
-                    cliente_adm = st.selectbox("Selecione o Cliente", options=clientes_opt, key="adm_cli_carrinho")
+                    cliente_adm = st.selectbox("Selecione o Cliente", options=clientes_opt, key="adm_cli_carrinho_novo")
                 with col_p2:
-                    grupo_adm = st.selectbox("Selecione o Grupo", options=grupos_opt, key="adm_grp_carrinho")
+                    grupo_adm = st.selectbox("Selecione o Grupo", options=grupos_opt, key="adm_grp_carrinho_novo")
                     
                 col_p3, col_p4 = st.columns(2)
                 with col_p3:
-                    produto_adm = st.selectbox("Selecione o Produto", options=produtos_opt, key="adm_prod_carrinho")
+                    produto_adm = st.selectbox("Selecione o Produto", options=produtos_opt, key="adm_prod_carrinho_novo")
                 with col_p4:
-                    fornecedor_adm = st.selectbox("Selecione o Fornecedor", options=fornecedores_opt, key="adm_forn_carrinho")
+                    fornecedor_adm = st.selectbox("Selecione o Fornecedor", options=fornecedores_opt, key="adm_forn_carrinho_novo")
                     
                 col_p5, col_p6 = st.columns(2)
                 with col_p5:
-                    qtd_adm = st.number_input("Quantidade", min_value=0.01, value=1.0, step=1.0, key="adm_qtd_carrinho")
+                    qtd_adm = st.number_input("Quantidade", min_value=0.01, value=1.0, step=1.0, key="adm_qtd_carrinho_novo")
                 with col_p6:
-                    preco_adm = st.number_input("Preço Unitário (R$)", min_value=0.0, value=80.0, step=1.0, key="adm_preco_carrinho")
+                    preco_adm = st.number_input("Preço Unitário (R$)", min_value=0.0, value=80.0, step=1.0, key="adm_preco_carrinho_novo")
                     
                 total_item_adm = qtd_adm * preco_adm
                 st.markdown(f"<div style='padding: 10px; background-color: #1e293b; border-radius: 5px; margin-bottom: 10px;'><b>Valor Total do Item:</b> R$ {total_item_adm:.2f}</div>", unsafe_allow_html=True)
                 
-                if st.button("➕ Incluir Produto no Pedido", type="primary", key="btn_incluir_adm_carrinho"):
+                if st.button("➕ Incluir Produto no Pedido", type="primary", key="btn_incluir_adm_carrinho_novo"):
                     st.session_state.carrinho_admin.append({
                         "cliente": cliente_adm,
                         "produto": produto_adm,
@@ -1028,11 +1022,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     
                     col_b1, col_b2 = st.columns(2)
                     with col_b1:
-                        if st.button("🗑️ Limpar Carrinho", key="btn_limpar_adm_carrinho"):
+                        if st.button("🗑️ Limpar Carrinho", key="btn_limpar_adm_carrinho_novo"):
                             st.session_state.carrinho_admin = []
                             st.rerun()
                     with col_b2:
-                        if st.button("💾 Finalizar e Enviar Pedido", type="primary", key="btn_finalizar_adm_carrinho"):
+                        if st.button("💾 Finalizar e Enviar Pedido", type="primary", key="btn_finalizar_adm_carrinho_novo"):
                             try:
                                 import sqlite3
                                 from datetime import datetime
