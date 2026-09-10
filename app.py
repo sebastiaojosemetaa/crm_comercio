@@ -962,8 +962,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     else:
                         st.info("Nenhum dado cadastrado.")
         #INICIO PEDIDOS/ORÇAMENTO#
-        elif menu_admin in ["Pedidos / Orçamentos", "Registrar Venda"]:
-            st.title(f"🛒 {menu_admin}")
+        elif "Pedido" in menu_admin or "Venda" in menu_admin:
+            st.title("🛒 Gestão de Pedidos e Vendas")
             
             aba_cad, aba_list = st.tabs(["➕ Novo Registro", "📝 Tabela de Pedidos"])
             
@@ -1028,7 +1028,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             st.rerun()
                         except Exception as ex:
                             st.error(f"Erro ao salvar: {ex}")
-    
+        
             with aba_list:
                 st.subheader("Histórico de Pedidos")
                 import sqlite3, pandas as pd
