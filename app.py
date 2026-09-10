@@ -1095,8 +1095,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                   conn_direto = sqlite3.connect("vendas.db")
                   df_parcial = pd.read_sql(
                       "SELECT id, cliente, produto, quantidade, valor_venda AS valor_unitario,"
-                      " valor_total, tipo, status FROM pedidos WHERE status IS NULL OR status !="
-                      " 'Finalizado'",
+                      " valor_total, tipo, status FROM pedidos WHERE (status IS NULL OR status !="
+                      " 'Finalizado') AND valor_venda > 0",
                       conn_direto,
                   )
                   conn_direto.close()
