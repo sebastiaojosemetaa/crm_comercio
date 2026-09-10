@@ -962,40 +962,47 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     else:
                         st.info("Nenhum dado cadastrado.")
         #INICIO PEDIDOS/ORÇAMENTO#
-        elif "Pedido" in menu_admin or "Venda" in menu_admin:
-            st.title(f"🛒 Gestão de Pedidos e Vendas")
+        elif menu_admin == "Pedidos / Orçamentos":
+            st.title("🛒 Pedidos / Orçamentos")
             
-            aba_cad, aba_list = st.tabs(["➕ Novo Registro", "📝 Tabela de Pedidos"])
+            aba_cad, aba_list = st.tabs(["➕ Novo Pedido com Carrinho", "📝 Tabela de Pedidos"])
             
             with aba_cad:
-                st.subheader("Novo Lançamento de Pedido")
-                
+                st.subheader("Novo Pedido")
                 if "carrinho_admin" not in st.session_state:
                     st.session_state.carrinho_admin = []
                     
                 col1, col2 = st.columns(2)
                 with col1:
-                    cli_input = st.text_input("Nome do Cliente", value="Carlos Alberto", key="seg_cli")
+                    cli_input = st.text_input("Nome do Cliente", value="Carlos Alberto", key="ped_cli")
                 with col2:
-                    prod_input = st.text_input("Nome do Produto", value="ABACATE", key="seg_prod")
+                    prod_input = st.text_input("Nome do Produto", value="ABACATE", key="ped_prod")
                     
+                col_f1, col_f2 = st.columns(2)
+                with col_f1:
+                    forn_input = st.selectbox("Fornecedor", options=["BAHIA", "GERAL"], key="ped_forn")
+                with col_f2:
+                    grupo_input = st.selectbox("Grupo", options=["FRUTAS", "GERAL"], key="ped_grupo")
+        
                 col3, col4 = st.columns(2)
                 with col3:
-                    qtd_input = st.number_input("Quantidade", min_value=0.01, value=1.0, step=1.0, key="seg_qtd")
+                    qtd_input = st.number_input("Quantidade", min_value=0.01, value=1.0, step=1.0, key="ped_qtd")
                 with col4:
-                    preco_input = st.number_input("Preço Unitário (R$)", min_value=0.0, value=80.0, step=1.0, key="seg_preco")
+                    preco_input = st.number_input("Preço Unitário (R$)", min_value=0.0, value=80.0, step=1.0, key="ped_preco")
                     
                 total_item = qtd_input * preco_input
                 st.markdown(f"<div style='padding: 10px; background-color: #1e293b; border-radius: 5px; margin-bottom: 15px;'><b>Valor Total do Item:</b> R$ {total_item:.2f}</div>", unsafe_allow_html=True)
                 
                 col_btn1, col_btn2 = st.columns(2)
                 with col_btn1:
-                    if st.button("➕ Adicionar ao Carrinho", type="secondary", key="seg_btn_add"):
+                    if st.button("➕ Adicionar ao Carrinho", type="secondary", key="btn_add_ped"):
                         st.session_state.carrinho_admin.append({
                             "cliente": cli_input,
                             "produto": prod_input,
+                            "fornecedor": forn_input,
+                            "grupo": grupo_input,
                             "quantidade": qtd_input,
-                            "valor_unitario": preco_input,
+                            "valor_venda": preco_input,
                             "valor_total": total_item
                         })
                         st.success("Item adicionado ao carrinho!")
@@ -1003,7 +1010,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         
                 with col_btn2:
                     if st.session_state.carrinho_admin:
-                        if st.button("🗑️ Limpar Carrinho", key="seg_btn_limpar"):
+                        if st.button("🗑️ Limpar Carrinho", key="btn_limpar_ped"):
                             st.session_state.carrinho_admin = []
                             st.rerun()
                     
@@ -1012,11 +1019,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     import pandas as pd
                     st.dataframe(pd.DataFrame(st.session_state.carrinho_admin), use_container_width=True)
                     
-                    if st.button("💾 Salvar Pedido no Banco (Enviar para Tabela)", type="primary", key="seg_btn_salvar"):
+                    if st.button("💾 Salvar Pedido no Banco", type="primary", key="btn_salvar_ped"):
                         try:
                             import sqlite3
                             from datetime import datetime
                             data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            data_simples = datetime.now().strftime("%Y-%m-%d")
                             
                             with sqlite3.connect("vendas.db") as conn:
                                 cursor = conn.cursor()
@@ -1029,44 +1037,83 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         valor_venda REAL,
                                         valor_total REAL,
                                         status TEXT DEFAULT 'Pendente',
-                                        data TEXT
+                                        tipo TEXT DEFAULT 'PEDIDO',
+                                        fornecedor TEXT,
+                                        grupo TEXT,
+                                        data TEXT,
+                                        data_str TEXT
                                     )
                                 """)
                                 for item in st.session_state.carrinho_admin:
                                     cursor.execute("""
-                                        INSERT INTO pedidos (cliente, produto, quantidade, valor_venda, valor_total, status, data)
-                                        VALUES (?, ?, ?, ?, ?, 'Pendente', ?)
+                                        INSERT INTO pedidos (cliente, produto, quantidade, valor_venda, valor_total, status, tipo, fornecedor, grupo, data, data_str)
+                                        VALUES (?, ?, ?, ?, ?, 'Pendente', 'PEDIDO', ?, ?, ?, ?)
                                     """, (
                                         str(item["cliente"]),
                                         str(item["produto"]),
                                         float(item["quantidade"]),
-                                        float(item["valor_unitario"]),
+                                        float(item["valor_venda"]),
                                         float(item["valor_total"]),
-                                        data_atual
+                                        str(item["fornecedor"]),
+                                        str(item["grupo"]),
+                                        data_atual,
+                                        data_simples
                                     ))
                                 conn.commit()
                                 
                             st.session_state.carrinho_admin = []
-                            st.success("🎉 Pedido salvo e enviado para a Tabela de Pedidos com sucesso!")
+                            st.success("🎉 Pedido salvo com sucesso!")
                             st.balloons()
                             import time
                             time.sleep(1)
                             st.rerun()
                         except Exception as ex:
-                            st.error(f"Erro ao salvar no banco: {ex}")
+                            st.error(f"Erro ao salvar: {ex}")
         
             with aba_list:
-                st.subheader("📝 Histórico Geral de Pedidos")
+                st.subheader("📝 Histórico de Pedidos")
                 import sqlite3, pandas as pd
                 try:
                     with sqlite3.connect("vendas.db") as conn:
-                        df_hist = pd.read_sql("SELECT * FROM pedidos ORDER BY id DESC", conn)
+                        df_hist = pd.read_sql("SELECT * FROM pedidos WHERE tipo='PEDIDO' ORDER BY id DESC", conn)
                     if not df_hist.empty:
                         st.dataframe(df_hist, use_container_width=True)
                     else:
-                        st.info("Nenhum pedido registrado na tabela ainda.")
+                        st.info("Nenhum pedido encontrado.")
                 except Exception:
-                    st.info("A tabela de pedidos ainda está vazia.")
+                    st.info("A tabela ainda está vazia.")
+        
+        elif menu_admin == "Registrar Venda":
+            st.title("💳 Registrar Venda Direta")
+            
+            st.subheader("Lançamento de Venda Rápida")
+            cli_venda = st.text_input("Cliente", value="Carlos Alberto", key="venda_cli")
+            prod_venda = st.text_input("Produto", value="CEBOLA", key="venda_prod")
+            qtd_venda = st.number_input("Quantidade", min_value=0.01, value=1.0, key="venda_qtd")
+            preco_venda = st.number_input("Preço Unitário (R$)", min_value=0.0, value=50.0, key="venda_preco")
+            total_venda = qtd_venda * preco_venda
+            
+            st.info(f"Total da Venda: R$ {total_venda:.2f}")
+            
+            if st.button("💾 Finalizar e Registrar Venda", type="primary", key="btn_salvar_venda"):
+                try:
+                    import sqlite3
+                    from datetime import datetime
+                    data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    data_simples = datetime.now().strftime("%Y-%m-%d")
+                    
+                    with sqlite3.connect("vendas.db") as conn:
+                        cursor = conn.cursor()
+                        cursor.execute("""
+                            INSERT INTO pedidos (cliente, produto, quantidade, valor_venda, valor_total, status, tipo, data, data_str)
+                            VALUES (?, ?, ?, ?, ?, 'Finalizada', 'VENDA', ?, ?)
+                        """, (cli_venda, prod_venda, qtd_venda, preco_venda, total_venda, data_atual, data_simples))
+                        conn.commit()
+                        
+                    st.success("🎉 Venda registrada com sucesso!")
+                    st.rerun()
+                except Exception as ex:
+                    st.error(f"Erro ao registrar venda: {ex}")
             
                 # SEÇÃO 2: Histórico de Registros do Período (Abaixo dos pedidos do dia)
                             
