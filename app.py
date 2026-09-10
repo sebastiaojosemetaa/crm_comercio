@@ -962,93 +962,78 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     else:
                         st.info("Nenhum dado cadastrado.")
         #INICIO PEDIDOS/ORÇAMENTO#
-        elif menu_admin in ["📋 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
-            is_modo_pedido = (menu_admin == "📋 Pedidos / Orçamentos")
-            st.title(f"🛒 {menu_admin}")
-
+        elif menu_admin in ["Pedidos / Orçamentos", " Registrar Venda"]:
+            is_modo_pedido = (menu_admin == "Pedidos / Orçamentos")
+            st.title(f"🛒 {menu_admin.strip()}")
+            
             if not is_modo_pedido:
-                aba_cad, aba_baixa, aba_list = st.tabs(["+ Novo Registro", "📋 Baixa de Débito / Haver", "🔧 Tabela Editável"])
+                aba_cad, aba_baixaa, aba_list = st.tabs(["➕ Novo Registro", "💳 Baixa de Débito / Haver", "📝 Tabela Editável"])
+                aba_baixa = aba_baixaa
             else:
-                aba_cad, aba_list = st.tabs(["+ Novo Registro / Pedido", "🔧 Tabela Editável"])
+                aba_cad, aba_list = st.tabs(["➕ Novo Registro / Pedido", "📝 Tabela Editável"])
                 aba_baixa = None
-
+        
             with aba_cad:
-                clientes_opt = carregar_coluna("clientes", "nome") or ["Carlos Alberto"]
+                st.markdown("### Registrar Novo Pedido com Carrinho")
                 
-                df_p_admin = carregar_dados("SELECT * FROM produtos")
-                if not df_p_admin.empty:
-                    df_p_admin.columns = [c.lower() for c in df_p_admin.columns]
-                    col_nome_p = 'produto' if 'produto' in df_p_admin.columns else ('nome' if 'nome' in df_p_admin.columns else df_p_admin.columns[1])
-                    produtos_base = df_p_admin[col_nome_p].dropna().astype(str).str.strip().unique().tolist()
-                else:
-                    produtos_base = ["ABACATE", "BANANA", "LARANJA", "MAÇÃ"]
-                df_p_admin = pd.DataFrame()
-
-                produtos_opt = list(produtos_base) + ["➕ Cadastrar Novo Produto..."]
-                fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
-                grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
-
-                produto = st.selectbox("Selecione o Produto", options=produtos_opt, key="sel_prod_unico_correto")
-
-                if produto == "➕ Cadastrar Novo Produto...":
-                    st.warning("⚠️ Preencha os dados abaixo para cadastrar o novo produto:")
-                    novo_nome_prod = st.text_input("Nome do Novo Produto").strip().upper()
-                    c_f_r = st.selectbox("Fornecedor", fornecedores_opt, key="cad_f_rapido")
-                    c_g_r = st.selectbox("Grupo", grupos_opt, key="cad_g_rapido")
-                    c_qtd_r = st.number_input("Qtd Inicial em Estoque", min_value=0.0, value=0.0, key="cad_q_rapido")
-                    c_custo_r = st.number_input("Preço de Custo (R$)", min_value=0.0, value=0.0, key="cad_c_rapido")
-                    c_venda_r = st.number_input("Preço de Venda (R$)", min_value=0.0, value=0.0, key="cad_v_rapido")
-                    
-                    if st.button("Salvar e Selecionar Produto"):
-                        if novo_nome_prod:
-                            salvar_produto_completo(novo_nome_prod, c_f_r, c_g_r, c_custo_r, c_venda_r, c_qtd_r)
-                            st.success(f"Produto '{novo_nome_prod}' cadastrado com sucesso!")
-                            st.rerun()
-                        else:
-                            st.error("Digite o nome do produto.")
-                    st.stop()
-
-                # Inicializa o carrinho da administração se não existir
                 if "carrinho_admin" not in st.session_state:
                     st.session_state.carrinho_admin = []
+                    
+                clientes_opt = carregar_coluna("clientes", "nome") or ["Carlos Alberto"]
+                fornecedores_opt = carregar_coluna("fornecedores", "nome") or ["BAHIA"]
+                grupos_opt = carregar_coluna("grupos", "nome") or ["GERAL", "FRUTAS"]
                 
-                # Campos idênticos ao Portal do Cliente
-                cliente = st.selectbox("Cliente", options=clientes_opt, key="sel_cli_unico_correto")
-                fornecedor = st.selectbox("Fornecedor", options=fornecedores_opt, key="sel_forn_unico_correto")
-                grupo = st.selectbox("Grupo", options=grupos_opt, key="sel_grp_unico_correto")
+                # Carrega produtos da tabela
+                df_prods = carregar_dados("SELECT * FROM produtos")
+                produtos_opt = df_prods["produto"].tolist() if not df_prods.empty and "produto" in df_prods.columns else ["ABACATE", "CEBOLA"]
+        
+                col_p1, col_p2 = st.columns(2)
+                with col_p1:
+                    cliente_adm = st.selectbox("Selecione o Cliente", options=clientes_opt, key="adm_cli_carrinho")
+                with col_p2:
+                    grupo_adm = st.selectbox("Selecione o Grupo", options=grupos_opt, key="adm_grp_carrinho")
+                    
+                col_p3, col_p4 = st.columns(2)
+                with col_p3:
+                    produto_adm = st.selectbox("Selecione o Produto", options=produtos_opt, key="adm_prod_carrinho")
+                with col_p4:
+                    fornecedor_adm = st.selectbox("Selecione o Fornecedor", options=fornecedores_opt, key="adm_forn_carrinho")
+                    
+                col_p5, col_p6 = st.columns(2)
+                with col_p5:
+                    qtd_adm = st.number_input("Quantidade", min_value=0.01, value=1.0, step=1.0, key="adm_qtd_carrinho")
+                with col_p6:
+                    preco_adm = st.number_input("Preço Unitário (R$)", min_value=0.0, value=80.0, step=1.0, key="adm_preco_carrinho")
+                    
+                total_item_adm = qtd_adm * preco_adm
+                st.markdown(f"<div style='padding: 10px; background-color: #1e293b; border-radius: 5px; margin-bottom: 10px;'><b>Valor Total do Item:</b> R$ {total_item_adm:.2f}</div>", unsafe_allow_html=True)
                 
-                quantidade = st.number_input("Quantidade", min_value=0.01, value=1.0, step=1.0, key="num_qtd_unico_correto")
-                preco_unitario = st.number_input("Preço Unitário (R$)", min_value=0.0, value=80.0, step=1.0, key="num_preco_unico_correto")
-                
-                total_item = quantidade * preco_unitario
-                st.markdown(f"<div style='padding: 10px; background-color: #1e293b; border-radius: 5px; margin-bottom: 10px;'><b>Valor Total do Item:</b> R$ {total_item:.2f}</div>", unsafe_allow_html=True)
-                
-                if st.button("➕ Incluir Produto no Pedido", type="primary", key="btn_inc_adm_novo"):
+                if st.button("➕ Incluir Produto no Pedido", type="primary", key="btn_incluir_adm_carrinho"):
                     st.session_state.carrinho_admin.append({
-                        "cliente": cliente,
-                        "produto": produto if 'produto' in locals() else "PRODUTO",
-                        "fornecedor": fornecedor,
-                        "grupo": grupo,
-                        "quantidade": quantidade,
-                        "valor_unitario": preco_unitario,
-                        "valor_total": total_item
+                        "cliente": cliente_adm,
+                        "produto": produto_adm,
+                        "fornecedor": fornecedor_adm,
+                        "grupo": grupo_adm,
+                        "quantidade": qtd_adm,
+                        "valor_unitario": preco_adm,
+                        "valor_total": total_item_adm
                     })
                     st.success("Item adicionado ao carrinho!")
                     st.rerun()
-                
+                    
                 if st.session_state.carrinho_admin:
                     st.markdown("### 📋 Itens Atuais no Pedido")
                     import pandas as pd
-                    df_carrinho = pd.DataFrame(st.session_state.carrinho_admin)
-                    st.dataframe(df_carrinho, use_container_width=True)
+                    df_carrinho_adm = pd.DataFrame(st.session_state.carrinho_admin)
+                    st.dataframe(df_carrinho_adm, use_container_width=True)
                     
                     col_b1, col_b2 = st.columns(2)
                     with col_b1:
-                        if st.button("🗑️ Limpar Carrinho", key="btn_limpar_adm_novo"):
+                        if st.button("🗑️ Limpar Carrinho", key="btn_limpar_adm_carrinho"):
                             st.session_state.carrinho_admin = []
                             st.rerun()
                     with col_b2:
-                        if st.button("💾 Finalizar e Enviar Pedido", type="primary", key="btn_finalizar_adm_novo"):
+                        if st.button("💾 Finalizar e Enviar Pedido", type="primary", key="btn_finalizar_adm_carrinho"):
                             try:
                                 import sqlite3
                                 from datetime import datetime
@@ -1089,15 +1074,15 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                             data_str_simples
                                         ))
                                     conexao.commit()
-                                
+                                    
                                 st.session_state.carrinho_admin = []
-                                st.success("🎉 Pedido finalizado e gravado na tabela pedidos com sucesso!")
+                                st.success("🎉 Pedido finalizado e gravado com sucesso na tabela pedidos!")
                                 st.balloons()
                                 import time
                                 time.sleep(1)
                                 st.rerun()
                             except Exception as e:
-                                st.error(f"Erro ao salvar: {e}")
+                                st.error(f"Erro ao salvar pedido: {e}")
             
                 st.divider()
                 st.subheader("🛒 Itens já lançados neste Pedido (Hoje)")
