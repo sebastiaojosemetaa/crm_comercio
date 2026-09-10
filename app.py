@@ -1014,67 +1014,61 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 quantidade = st.number_input("Quantidade", value=1.0, key="num_qtd_pedido_unico_v5")
                 preco_unitario = st.number_input("Preço Unitário (R$)", value=0.0, key="num_preco_pedido_unico_v5")
             
-                if st.button(
-                    "💾 Salvar PEDIDO Agora", type="primary", key="btn_salvar_pedido_master_v5"
-                ):
-                  c_total = float(quantidade) * float(preco_unitario)
-                  data_atual_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                
-                  try:
-                    import sqlite3
-                
-                    with sqlite3.connect("vendas.db") as conexao_segura:
-                      cursor_seguro = conexao_segura.cursor()
-                
-                      # Cria a tabela correta 'pedidos' se não existir
-                      cursor_seguro.execute("""
-                                CREATE TABLE IF NOT EXISTS pedidos (
-                                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                    cliente TEXT,
-                                    produto TEXT,
-                                    quantidade REAL,
-                                    valor_venda REAL,
-                                    valor_total REAL,
-                                    status TEXT DEFAULT 'Pendente',
-                                    tipo TEXT DEFAULT 'PEDIDO'
-                                )
-                            """)
-                
-                      # Adiciona colunas extras se necessário
-                      for coluna in ["fornecedor TEXT", "grupo TEXT", "data TEXT"]:
+                if st.button("💾 Salvar PEDIDO Agora", type="primary", key="btn_salvar_pedido_master_v5"):
+                    if not produto or float(preco_unitario) <= 0:
+                        st.warning("⚠️ Preencha o Produto e informe um Preço Unitário maior que zero para salvar.")
+                    else:
+                        c_total = float(quantidade) * float(preco_unitario)
+                        data_atual_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        data_str_simples = datetime.now().strftime("%Y-%m-%d")
+                        
                         try:
-                          cursor_seguro.execute(f"ALTER TABLE pedidos ADD COLUMN {coluna}")
-                        except:
-                          pass
-                
-                      # Insere na tabela 'pedidos'
-                      cursor_seguro.execute(
-                          """
-                                INSERT INTO pedidos (cliente, produto, fornecedor, quantidade, valor_venda, valor_total, tipo, grupo, data)
-                                VALUES (?, ?, ?, ?, ?, ?, 'PEDIDO', ?, ?)
-                            """,
-                          (
-                              str(cliente),
-                              str(produto),
-                              str(fornecedor),
-                              float(quantidade),
-                              float(preco_unitario),
-                              c_total,
-                              str(grupo),
-                              data_atual_str,
-                          ),
-                      )
-                      conexao_segura.commit()
-                
-                    st.toast("🎉 Pedido salvo com sucesso!", icon="✅")
-                    st.success("🎉 Pedido salvo com sucesso! Atualizando...")
-                    st.balloons()
-                    import time
-                
-                    time.sleep(0.8)
-                    st.rerun()
-                  except Exception as e:
-                    st.error(f"Erro ao salvar: {e}")
+                            import sqlite3
+                            with sqlite3.connect("vendas.db") as conexao_segura:
+                                cursor_seguro = conexao_segura.cursor()
+                                
+                                # Garante que a tabela 'pedidos' existe com todas as colunas
+                                cursor_seguro.execute("""
+                                    CREATE TABLE IF NOT EXISTS pedidos (
+                                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                        cliente TEXT,
+                                        produto TEXT,
+                                        quantidade REAL,
+                                        valor_venda REAL,
+                                        valor_total REAL,
+                                        status TEXT DEFAULT 'Pendente',
+                                        tipo TEXT DEFAULT 'PEDIDO',
+                                        fornecedor TEXT,
+                                        grupo TEXT,
+                                        data TEXT,
+                                        data_str TEXT
+                                    )
+                                """)
+                                
+                                # Insere o pedido de forma garantida
+                                cursor_seguro.execute("""
+                                    INSERT INTO pedidos (cliente, produto, fornecedor, quantidade, valor_venda, valor_total, tipo, grupo, data, data_str)
+                                    VALUES (?, ?, ?, ?, ?, ?, 'PEDIDO', ?, ?, ?)
+                                """, (
+                                    str(cliente), 
+                                    str(produto), 
+                                    str(fornecedor), 
+                                    float(quantidade), 
+                                    float(preco_unitario), 
+                                    c_total, 
+                                    str(grupo), 
+                                    data_atual_str,
+                                    data_str_simples
+                                ))
+                                conexao_segura.commit()
+                                
+                            st.success("🎉 Pedido gravado com sucesso no banco de dados!")
+                            st.balloons()
+                            import time
+                            time.sleep(1)
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro crítico ao salvar no banco: {e}")
                 
                 st.divider()
                 st.subheader("🛒 Itens já lançados neste Pedido (Hoje)")                
