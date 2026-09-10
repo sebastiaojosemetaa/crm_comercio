@@ -1036,19 +1036,18 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     valor_venda REAL,
                                     valor_total REAL,
                                     status TEXT DEFAULT 'Pendente',
-                                    tipo TEXT DEFAULT 'PEDIDO',
-                                    data TEXT
+                                    tipo TEXT DEFAULT 'PEDIDO'
                                 )
                             """)
                 
-                      # Adiciona colunas extras se elas não existirem na tabela antiga
-                      for coluna in ["fornecedor TEXT", "grupo TEXT"]:
+                      # Adiciona automaticamente qualquer coluna que esteja faltando na tabela antiga
+                      for coluna in ["fornecedor TEXT", "grupo TEXT", "data TEXT"]:
                         try:
                           cursor_seguro.execute(f"ALTER TABLE vendas ADD COLUMN {coluna}")
                         except:
                           pass
                 
-                      # Insere o pedido com todos os campos
+                      # Insere o pedido com todos os campos atualizados
                       cursor_seguro.execute(
                           """
                                 INSERT INTO vendas (cliente, produto, fornecedor, quantidade, valor_venda, valor_total, tipo, grupo, data)
@@ -1078,8 +1077,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.error(f"Erro ao salvar: {e}")
                 
                 st.divider()
-                st.subheader("🛒 Itens já lançados neste Pedido (Hoje)")
-                
+                st.subheader("🛒 Itens já lançados neste Pedido (Hoje)")                
                 import sqlite3
                 try:
                     conn_direto = sqlite3.connect("vendas.db")
