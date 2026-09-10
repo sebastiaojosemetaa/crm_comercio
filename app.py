@@ -963,7 +963,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.info("Nenhum dado cadastrado.")
         #INICIO PEDIDOS/ORÇAMENTO#
         elif menu_admin in ["Pedidos / Orçamentos", " Registrar Venda"]:
-            st.title(f"🛒 {menu_admin.strip()}")
+            st.title("🛒 Pedidos / Orçamentos")
+            st.success("⚠️ Sistema em modo de reestruturação. O painel está carregando com segurança.")
             
             aba_cad, aba_list = st.tabs(["➕ Novo Registro / Pedido", "📝 Tabela Editável & Histórico"])
         
