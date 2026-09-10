@@ -963,20 +963,16 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.info("Nenhum dado cadastrado.")
         #INICIO PEDIDOS/ORÇAMENTO#
        elif menu_admin in ["Pedidos / Orçamentos", "Registrar Venda"]:
-            st.title("🛒 Gestão de Vendas e Pedidos")
-            st.write("Painel temporário em teste de exibição.")
+            st.title(f"🛒 {menu_admin}")
             
-            # Aba de navegação segura
             aba_cad, aba_list = st.tabs(["➕ Novo Registro", "📝 Tabela de Pedidos"])
             
             with aba_cad:
                 st.subheader("Novo Lançamento")
                 
-                # Inicializa o carrinho na sessão se não existir
                 if "carrinho_admin" not in st.session_state:
                     st.session_state.carrinho_admin = []
                     
-                # Entradas básicas seguras
                 cli_input = st.text_input("Nome do Cliente", value="Carlos Alberto", key="seg_cli")
                 prod_input = st.text_input("Nome do Produto", value="ABACATE", key="seg_prod")
                 qtd_input = st.number_input("Quantidade", min_value=0.01, value=1.0, key="seg_qtd")
@@ -1032,7 +1028,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             st.rerun()
                         except Exception as ex:
                             st.error(f"Erro ao salvar: {ex}")
-        
+    
             with aba_list:
                 st.subheader("Histórico de Pedidos")
                 import sqlite3, pandas as pd
