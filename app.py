@@ -1026,9 +1026,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     with sqlite3.connect("vendas.db") as conexao_segura:
                       cursor_seguro = conexao_segura.cursor()
                 
-                      # Garante a estrutura base da tabela
+                      # Cria a tabela correta 'pedidos' se não existir
                       cursor_seguro.execute("""
-                                CREATE TABLE IF NOT EXISTS vendas (
+                                CREATE TABLE IF NOT EXISTS pedidos (
                                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                                     cliente TEXT,
                                     produto TEXT,
@@ -1040,17 +1040,17 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 )
                             """)
                 
-                      # Adiciona automaticamente qualquer coluna que esteja faltando na tabela antiga
+                      # Adiciona colunas extras se necessário
                       for coluna in ["fornecedor TEXT", "grupo TEXT", "data TEXT"]:
                         try:
-                          cursor_seguro.execute(f"ALTER TABLE vendas ADD COLUMN {coluna}")
+                          cursor_seguro.execute(f"ALTER TABLE pedidos ADD COLUMN {coluna}")
                         except:
                           pass
                 
-                      # Insere o pedido com todos os campos atualizados
+                      # Insere na tabela 'pedidos'
                       cursor_seguro.execute(
                           """
-                                INSERT INTO vendas (cliente, produto, fornecedor, quantidade, valor_venda, valor_total, tipo, grupo, data)
+                                INSERT INTO pedidos (cliente, produto, fornecedor, quantidade, valor_venda, valor_total, tipo, grupo, data)
                                 VALUES (?, ?, ?, ?, ?, ?, 'PEDIDO', ?, ?)
                             """,
                           (
