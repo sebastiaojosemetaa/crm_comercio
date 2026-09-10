@@ -1256,11 +1256,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 with aba_historico:
                     st.subheader("Histórico e Gestão de Meus Pedidos")
                     
-                            SELECT id, cliente, produto, quantidade, valor_unitario, valor_total, fornecedor, grupo, data, status 
-                            FROM pedidos 
-                            WHERE DATE(data) = DATE('now') AND cliente = ?
-                        """
-                        df_dia = pd.read_sql_query(query_dia, conn, params=(st.session_state.cliente_autenticado,))
+                            
+                    df_dia = pd.read_sql_query(query_dia, conn, params=(st.session_state.cliente_autenticado,))
             
                 # SEÇÃO 1: Tabela Superior Editável (Baseada na data escolhida no campo de data)
                 if not df_dia.empty: 
