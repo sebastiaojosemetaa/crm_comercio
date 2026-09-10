@@ -558,7 +558,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                         key="tabela_pedidos_do_dia_unica"
                     )
         
-                    col_btn1, col_btn2 = st.columns(2)
+                        col_btn1, col_btn2 = st.columns(2)
         
                     with col_btn1:
                         if st.button("💾 Salvar Alterações", type="primary", key="btn_salvar_tabela_unica"):
