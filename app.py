@@ -1029,14 +1029,15 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 quantidade REAL,
                                 valor_unitario REAL,
                                 valor_total REAL,
-                                status TEXT DEFAULT 'Pendente',
-                                observacoes TEXT,
-                                data TEXT,
-                                grupo TEXT,
-                                codigo_pedido TEXT,
-                                tipo TEXT DEFAULT 'PEDIDO'
+                                status TEXT DEFAULT 'Pendente'
                             )
                         """)
+                        
+                        for col, tipo_sql in [('tipo', "TEXT DEFAULT 'PEDIDO'"), ('grupo', 'TEXT'), ('observacoes', 'TEXT'), ('codigo_pedido', 'TEXT'), ('data', 'TEXT')]:
+                            try:
+                                cur_ins.execute(f"ALTER TABLE pedidos ADD COLUMN {col} {tipo_sql}")
+                            except Exception:
+                                pass
                         
                         c_total = float(quantidade) * float(preco_unitario)
                         c_tipo = 'PEDIDO'
