@@ -1126,7 +1126,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 else:
                                     st.warning("Nenhum item marcado para exclusão.")
                             except Exception as e:
-                                st.error(f"Erro ao excluir: {e}")
+                                st.error(f"Erro detalhado ao salvar: {e}")
                 else:
                     st.info("Nenhum registro encontrado na tabela 'vendas'. Faça um lançamento acima para testar.")
 
