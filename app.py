@@ -1087,54 +1087,18 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.error(f"Erro ao salvar: {e}")
                 
                 # APAGUE ESTE BLOCO INTEIRO PARA REMOVER A TELA QUE NÃO DEVERIA ESTAR AÍ:
-                st.divider()
-                st.subheader("🛒 Itens já lançados neste Pedido (Hoje)")
-                import sqlite3
-                
-                try:
-                  conn_direto = sqlite3.connect("vendas.db")
-                  df_parcial = pd.read_sql(
-                      "SELECT id, cliente, produto, quantidade, valor_venda AS valor_unitario,"
-                      " valor_total, tipo, status FROM pedidos WHERE (status IS NULL OR status !="
-                      " 'Finalizado') AND valor_venda > 0",
-                      conn_direto,
-                  )
-                  conn_direto.close()
-                except Exception as e:
-                  df_parcial = pd.DataFrame()
-                
-                # ... (apague também a exibição do data_editor dessa tabela e o botão 'Finalizar Pedido / Venda' se ele pertencia a essa seção duplicada)
-                except Exception as e:
-                    df_parcial = pd.DataFrame()
-            
-                if not df_parcial.empty:
-                    df_parcial.dropna(axis=1, how='all', inplace=True)
-                    if 'excluir' in df_parcial.columns:
-                        df_parcial = df_parcial.rename(columns={'excluir': 'Excluir'})
-                    if 'Excluir' not in df_parcial.columns:
-                        df_parcial.insert(0, 'Excluir', False)
-                    else:
-                        df_parcial['Excluir'] = False
-
-                    cols_config_parcial = {
-                        "Excluir": st.column_config.CheckboxColumn("Excluir", default=False),
-                        "quantidade": st.column_config.NumberColumn("Qtd", min_value=0.0, format="%.2f"),
-                        "valor_compra": st.column_config.NumberColumn("Vlr Unit", format="R$ %.2f"),
-                        "valor_total": st.column_config.NumberColumn("Vlr Total", format="R$ %.2f")
-                    }
-
-                    edit_parcial = st.data_editor(
-                        df_parcial,
-                        column_config=cols_config_parcial,
-                        disabled=[c for c in df_parcial.columns if c != 'Excluir' and c != 'quantidade' and c != 'valor_compra'],
-                        key=f"editor_parcial_{menu_admin}",
-                        use_container_width=True
-                    )
-
-                    total_parcial = edit_parcial['valor_total'].sum() if 'valor_total' in edit_parcial.columns else 0.0
-                    st.markdown(f"### **Valor Total Acumulado: R$ {total_parcial:.2f}**")
-            
-                    col_fin, col_del = st.columns([2, 1])
+                st.markdown("---")
+                st.subheader("📋 Itens Atuais no Pedido")
+        
+                if len(st.session_state.get("carrinho_cliente", [])) > 0:
+                    df_carrinho_cli = pd.DataFrame(st.session_state.carrinho_cliente)
+                    st.dataframe(df_carrinho_cli, use_container_width=True, hide_index=True)
+        
+                    col_b1, col_b2 = st.columns(2)
+                    with col_b1:
+                        if st.button("🗑️ Limpar Carrinho", key="cli_limpar_unique_v3"):
+                            st.session_state.carrinho_cliente = []
+                            st.rerun()
                     
                     with col_fin:
                         if st.button("Finalizar Pedido / Venda", type="primary", key="btn_finalizar_pedido_unico"):
