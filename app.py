@@ -1073,17 +1073,24 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         except Exception as e:
                             st.error(f"Erro crítico ao salvar no banco: {e}")
                 
+                # APAGUE ESTE BLOCO INTEIRO PARA REMOVER A TELA QUE NÃO DEVERIA ESTAR AÍ:
                 st.divider()
-                st.subheader("🛒 Itens já lançados neste Pedido (Hoje)")                
+                st.subheader("🛒 Itens já lançados neste Pedido (Hoje)")
                 import sqlite3
+                
                 try:
-                    conn_direto = sqlite3.connect("vendas.db")
-                    df_parcial = pd.read_sql(
-                        "SELECT id, cliente, produto, quantidade, valor_venda AS valor_unitario,"
-                        " valor_total, tipo, status FROM pedidos WHERE status IS NULL OR status !="
-                        " 'Finalizado'",
-                        conn_direto,
-                    )
+                  conn_direto = sqlite3.connect("vendas.db")
+                  df_parcial = pd.read_sql(
+                      "SELECT id, cliente, produto, quantidade, valor_venda AS valor_unitario,"
+                      " valor_total, tipo, status FROM pedidos WHERE status IS NULL OR status !="
+                      " 'Finalizado'",
+                      conn_direto,
+                  )
+                  conn_direto.close()
+                except Exception as e:
+                  df_parcial = pd.DataFrame()
+                
+                # ... (apague também a exibição do data_editor dessa tabela e o botão 'Finalizar Pedido / Venda' se ele pertencia a essa seção duplicada)
                 except Exception as e:
                     df_parcial = pd.DataFrame()
             
