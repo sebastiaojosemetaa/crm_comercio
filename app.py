@@ -1078,8 +1078,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 
                 try:
                     with sqlite3.connect("vendas.db") as conn:
-                        # Pega estritamente o que foi criado hoje (pela data_str ou iniciando com a data de hoje no campo data)
-                        query_dia = f"SELECT * FROM pedidos WHERE tipo='PEDIDO' AND (data_str = '{hoje_str}' OR (data_str IS NULL AND data LIKE '{hoje_str}%')) ORDER BY id DESC"
+                        # Pega tudo cujo texto da data comece com a data de hoje (ex: '2026-09-10')
+                        query_dia = f"SELECT * FROM pedidos WHERE tipo='PEDIDO' AND (data LIKE '{hoje_str}%' OR data_str = '{hoje_str}') ORDER BY id DESC"
                         df_dia = pd.read_sql(query_dia, conn)
                         
                     if not df_dia.empty:
@@ -1138,8 +1138,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.subheader("📚 Pedidos Anteriores (Histórico)")
                 try:
                     with sqlite3.connect("vendas.db") as conn:
-                        # Pega tudo que NÃO é de hoje para o histórico
-                        query_ant = f"SELECT * FROM pedidos WHERE tipo='PEDIDO' AND NOT (data_str = '{hoje_str}' OR (data_str IS NULL AND data LIKE '{hoje_str}%')) ORDER BY id DESC"
+                        # O histórico pega tudo que NÃO começa com a data de hoje
+                        query_ant = f"SELECT * FROM pedidos WHERE tipo='PEDIDO' AND NOT (data LIKE '{hoje_str}%' OR data_str = '{hoje_str}') ORDER BY id DESC"
                         df_ant = pd.read_sql(query_ant, conn)
                     if not df_ant.empty:
                         st.dataframe(df_ant, use_container_width=True)
