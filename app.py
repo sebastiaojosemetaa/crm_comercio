@@ -1409,11 +1409,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     except Exception as ex:
                         st.error(f"Erro ao gerar PDF dos pedidos do dia: {ex}")
                 else:
-                    st.info("Nenhum pedido registrado hoje para edição.")
-                    
-            except Exception as e:
-                st.error(f"Erro ao carregar pedidos do dia: {e}")
-            
+                    st.info("Nenhum pedido registrado hoje para edição.")       
+                       
                 # SEÇÃO 2: Tabela Inferior de Histórico do Período
                 if not df_historico_periodo.empty:
                     st.markdown("---")
