@@ -1078,8 +1078,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 import sqlite3
                 try:
                     conn_direto = sqlite3.connect("vendas.db")
-                    df_parcial = pd.read_sql("SELECT id, cliente, produto, quantidade, valor_venda as valor_compra, valor_total, tipo, status FROM vendas WHERE status IS NULL OR status != 'Finalizado' ORDER BY id DESC LIMIT 20", conn_direto)
-                    conn_direto.close()
+                    df_parcial = pd.read_sql(
+                        "SELECT id, cliente, produto, quantidade, valor_venda as"
+                        " valor_compra, valor_total, tipo, status FROM pedidos WHERE status IS NULL"
+                        " OR status != 'Finalizado'",
+                        conn_direto,
+                    )
                 except Exception as e:
                     df_parcial = pd.DataFrame()
             
