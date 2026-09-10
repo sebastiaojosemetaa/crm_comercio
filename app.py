@@ -1024,7 +1024,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             import sqlite3
                             from datetime import datetime, timezone, timedelta
                             
-                            # Força o fuso horário do Brasil (UTC-3)
                             fuso_br = timezone(timedelta(hours=-3))
                             agora_br = datetime.now(fuso_br)
                             data_atual = agora_br.strftime("%Y-%m-%d %H:%M:%S")
@@ -1084,6 +1083,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 
                 try:
                     with sqlite3.connect("vendas.db") as conn:
+                        # Pega tudo do dia (independente se foi feito pelo Admin ou pelo Portal do Cliente)
                         query_dia = f"SELECT * FROM pedidos WHERE tipo='PEDIDO' AND (data LIKE '{hoje_str}%' OR data_str = '{hoje_str}') ORDER BY id DESC"
                         df_dia = pd.read_sql(query_dia, conn)
                         
@@ -1143,6 +1143,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.subheader("📚 Pedidos Anteriores (Histórico)")
                 try:
                     with sqlite3.connect("vendas.db") as conn:
+                        # Pega tudo que não é de hoje para exibir no histórico geral
                         query_ant = f"SELECT * FROM pedidos WHERE tipo='PEDIDO' AND NOT (data LIKE '{hoje_str}%' OR data_str = '{hoje_str}') ORDER BY id DESC"
                         df_ant = pd.read_sql(query_ant, conn)
                     if not df_ant.empty:
