@@ -1231,7 +1231,28 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     
                     if cliente_sel != "TODOS" and 'cliente' in df_historico_periodo.columns:
                         df_historico_periodo = df_historico_periodo[df_historico_periodo['cliente'].astype(str).str.strip().str.upper() == str(cliente_sel).strip().upper()]
-                                       
+
+                st.markdown("---")
+                st.markdown("### 🔍 Consultar e Editar por Data Específica")
+                
+                # Descobre automaticamente a data mais recente cadastrada no banco de dados para sugerir no campo
+                data_sugerida = datetime.now().date()
+                if not df_registros.empty and 'data_str' in df_registros.columns:
+                    # Pega a maior (mais recente) data que existe nos dados
+                    max_data_str = df_registros['data_str'].max()
+                    if max_data_str and len(str(max_data_str)) >= 10:
+                        try:
+                            data_sugerida = datetime.strptime(str(max_data_str)[:10], "%Y-%m-%d").date()
+                        except:
+                            pass
+            
+                # Campo para você escolher/digitar a data (já vem preenchido com o dia do último pedido feito)
+                data_consulta_input = st.date_input("Escolha a data para gerenciar/editar os pedidos:", value=data_sugerida, key=f"input_data_especifica_{menu_admin}")
+                data_consulta_str = data_consulta_input.strftime("%Y-%m-%d")            
+                # Filtra os dados da tabela superior com base na data escolhida no input acima
+                df_dia = pd.DataFrame()
+                if not df_registros.empty and 'data_str' in df_registros.columns:
+                    df_dia = df_registros[df_registros['data_str'] == data_consulta_str]
                 # SEÇÃO 1: Tabela Superior Editável (Baseada na data escolhida no campo de data)
                 if not df_dia.empty:
                     st.markdown(f"### 🟢 Pedidos da Data: {data_consulta_str} (Editáveis)")
