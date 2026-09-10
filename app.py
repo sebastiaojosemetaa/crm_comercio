@@ -1166,7 +1166,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     st.success(f"Haver de R$ {valor_haver:,.2f} aplicado com sucesso!")
                                     st.rerun()
 
-                       with aba_list:
+                        # Correção sugerida na aba de listagem / edição (aba_list)
+                        # O trecho original faz referência a 'pedidos' e 'valor_unitario', mas a tabela principal do sistema é 'vendas' 
+                        # e armazena o preço unitário na coluna 'valor_venda'. Vamos alinhar a consulta e a geração do PDF.
+                        
+                        with aba_list:
                             st.subheader("🔍 Edição Direta na Tabela & Gestão por Cliente")
                             
                             clientes_filtro = ["TODOS"] + (carregar_coluna("clientes", "nome") or carregar_coluna("vendas", "cliente") or [])
