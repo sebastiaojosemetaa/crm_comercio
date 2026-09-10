@@ -1022,9 +1022,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     if st.button("💾 Salvar Pedido no Banco", type="primary", key="btn_salvar_ped"):
                         try:
                             import sqlite3
-                            from datetime import datetime
-                            data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            data_simples = datetime.now().strftime("%Y-%m-%d")
+                            from datetime import datetime, timezone, timedelta
+                            
+                            # Força o fuso horário do Brasil (UTC-3)
+                            fuso_br = timezone(timedelta(hours=-3))
+                            agora_br = datetime.now(fuso_br)
+                            data_atual = agora_br.strftime("%Y-%m-%d %H:%M:%S")
+                            data_simples = agora_br.strftime("%Y-%m-%d")
                             
                             with sqlite3.connect("vendas.db") as conn:
                                 cursor = conn.cursor()
@@ -1073,12 +1077,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             with aba_list:
                 st.subheader("🟢 Pedidos do Dia (Editáveis)")
                 import sqlite3, pandas as pd
-                from datetime import datetime
-                hoje_str = datetime.now().strftime("%Y-%m-%d")
+                from datetime import datetime, timezone, timedelta
+                
+                fuso_br = timezone(timedelta(hours=-3))
+                hoje_str = datetime.now(fuso_br).strftime("%Y-%m-%d")
                 
                 try:
                     with sqlite3.connect("vendas.db") as conn:
-                        # Pega tudo cujo texto da data comece com a data de hoje (ex: '2026-09-10')
                         query_dia = f"SELECT * FROM pedidos WHERE tipo='PEDIDO' AND (data LIKE '{hoje_str}%' OR data_str = '{hoje_str}') ORDER BY id DESC"
                         df_dia = pd.read_sql(query_dia, conn)
                         
@@ -1138,7 +1143,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.subheader("📚 Pedidos Anteriores (Histórico)")
                 try:
                     with sqlite3.connect("vendas.db") as conn:
-                        # O histórico pega tudo que NÃO começa com a data de hoje
                         query_ant = f"SELECT * FROM pedidos WHERE tipo='PEDIDO' AND NOT (data LIKE '{hoje_str}%' OR data_str = '{hoje_str}') ORDER BY id DESC"
                         df_ant = pd.read_sql(query_ant, conn)
                     if not df_ant.empty:
