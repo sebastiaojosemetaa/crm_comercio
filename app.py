@@ -988,18 +988,18 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
                 grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
 
-                produto = st.selectbox("Selecione o Produto", options=produtos_opt, key="sel_prod_unico_correto_v4")
+                produto = st.selectbox("Selecione o Produto", options=produtos_opt, key="sel_prod_unico_correto_v5")
 
                 if produto == "➕ Cadastrar Novo Produto...":
                     st.warning("⚠️ Preencha os dados abaixo para cadastrar o novo produto:")
-                    novo_nome_prod = st.text_input("Nome do Novo Produto", key="txt_novo_prod_v4").strip().upper()
-                    c_f_r = st.selectbox("Fornecedor", fornecedores_opt, key="cad_f_rapido_v4")
-                    c_g_r = st.selectbox("Grupo", grupos_opt, key="cad_g_rapido_v4")
-                    c_qtd_r = st.number_input("Qtd Inicial em Estoque", min_value=0.0, value=0.0, key="cad_q_rapido_v4")
-                    c_custo_r = st.number_input("Preço de Custo (R$)", min_value=0.0, value=0.0, key="cad_c_rapido_v4")
-                    c_venda_r = st.number_input("Preço de Venda (R$)", min_value=0.0, value=0.0, key="cad_v_rapido_v4")
+                    novo_nome_prod = st.text_input("Nome do Novo Produto", key="txt_novo_prod_v5").strip().upper()
+                    c_f_r = st.selectbox("Fornecedor", fornecedores_opt, key="cad_f_rapido_v5")
+                    c_g_r = st.selectbox("Grupo", grupos_opt, key="cad_g_rapido_v5")
+                    c_qtd_r = st.number_input("Qtd Inicial em Estoque", min_value=0.0, value=0.0, key="cad_q_rapido_v5")
+                    c_custo_r = st.number_input("Preço de Custo (R$)", min_value=0.0, value=0.0, key="cad_c_rapido_v5")
+                    c_venda_r = st.number_input("Preço de Venda (R$)", min_value=0.0, value=0.0, key="cad_v_rapido_v5")
                     
-                    if st.button("Salvar e Selecionar Produto", key="btn_salvar_prod_rapido_v4"):
+                    if st.button("Salvar e Selecionar Produto", key="btn_salvar_prod_rapido_v5"):
                         if novo_nome_prod:
                             salvar_produto_completo(novo_nome_prod, c_f_r, c_g_r, c_custo_r, c_venda_r, c_qtd_r)
                             st.success(f"Produto '{novo_nome_prod}' cadastrado com sucesso!")
@@ -1008,26 +1008,22 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             st.error("Digite o nome do produto.")
                     st.stop()
 
-                cliente = st.selectbox("Cliente", options=clientes_opt, key="sel_cli_pedido_unico_v4")
-                fornecedor = st.selectbox("Fornecedor", options=fornecedores_opt, key="sel_forn_pedido_unico_v4")
-                grupo = st.selectbox("Grupo", options=grupos_opt, key="sel_grupo_pedido_unico_v4")
-                quantidade = st.number_input("Quantidade", value=1.0, key="num_qtd_pedido_unico_v4")
-                preco_unitario = st.number_input("Preço Unitário (R$)", value=0.0, key="num_preco_pedido_unico_v4")
+                cliente = st.selectbox("Cliente", options=clientes_opt, key="sel_cli_pedido_unico_v5")
+                fornecedor = st.selectbox("Fornecedor", options=fornecedores_opt, key="sel_forn_pedido_unico_v5")
+                grupo = st.selectbox("Grupo", options=grupos_opt, key="sel_grupo_pedido_unico_v5")
+                quantidade = st.number_input("Quantidade", value=1.0, key="num_qtd_pedido_unico_v5")
+                preco_unitario = st.number_input("Preço Unitário (R$)", value=0.0, key="num_preco_pedido_unico_v5")
             
-                if st.button("💾 Salvar PEDIDO Agora", type="primary", key="btn_salvar_pedido_master_v4"):
+                if st.button("💾 Salvar PEDIDO Agora", type="primary", key="btn_salvar_pedido_master_v5"):
                     c_total = float(quantidade) * float(preco_unitario)
                     data_atual_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     
-                    # Salva usando a conexão global ou função padrão do projeto para garantir compatibilidade com a tabela de baixo
-                    sucesso_salvar = False
-                    msg_erro = ""
-                    
                     try:
-                        # Tenta usar o objeto conn padrão do app se ele existir no escopo global
-                        global conn
-                        if 'conn' in globals() and conn is not None:
-                            cursor_c = conn.cursor()
-                            cursor_c.execute("""
+                        import sqlite3
+                        # Abre a conexão diretamente com o banco do app de forma segura e independente
+                        with sqlite3.connect("banco.db") as conexao_segura:
+                            cursor_seguro = conexao_segura.cursor()
+                            cursor_seguro.execute("""
                                 CREATE TABLE IF NOT EXISTS vendas (
                                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                                     cliente TEXT,
@@ -1042,51 +1038,20 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     data TEXT
                                 )
                             """)
-                            cursor_c.execute("""
+                            cursor_seguro.execute("""
                                 INSERT INTO vendas (cliente, produto, fornecedor, quantidade, valor_venda, valor_total, tipo, grupo, data)
                                 VALUES (?, ?, ?, ?, ?, ?, 'PEDIDO', ?, ?)
                             """, (str(cliente), str(produto), str(fornecedor), float(quantidade), float(preco_unitario), c_total, str(grupo), data_atual_str))
-                            conn.commit()
-                            sucesso_salvar = True
-                        else:
-                            import sqlite3
-                            with sqlite3.connect("banco.db") as conexao_padrao:
-                                cur_p = conexao_padrao.cursor()
-                                cur_p.execute("""
-                                    CREATE TABLE IF NOT EXISTS vendas (
-                                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                        cliente TEXT,
-                                        produto TEXT,
-                                        fornecedor TEXT,
-                                        quantidade REAL,
-                                        valor_venda REAL,
-                                        valor_total REAL,
-                                        status TEXT DEFAULT 'Pendente',
-                                        tipo TEXT DEFAULT 'PEDIDO',
-                                        grupo TEXT,
-                                        data TEXT
-                                    )
-                                """)
-                                cur_p.execute("""
-                                    INSERT INTO vendas (cliente, produto, fornecedor, quantidade, valor_venda, valor_total, tipo, grupo, data)
-                                    VALUES (?, ?, ?, ?, ?, ?, 'PEDIDO', ?, ?)
-                                """, (str(cliente), str(produto), str(fornecedor), float(quantidade), float(preco_unitario), c_total, str(grupo), data_atual_str))
-                                conexao_padrao.commit()
-                            sucesso_salvar = True
-                    except Exception as e:
-                        msg_erro = str(e)
-                        sucesso_salvar = False
-
-                    if sucesso_salvar:
-                        # Usamos st.toast para mostrar o sucesso sem que ele suma instantaneamente devido ao rerun
+                            conexao_segura.commit()
+                        
                         st.toast("🎉 Pedido salvo com sucesso!", icon="✅")
                         st.success("🎉 Pedido salvo com sucesso! Atualizando...")
                         st.balloons()
                         import time
-                        time.sleep(0.8) # Pausa breve para o usuário conseguir ler a mensagem antes de atualizar
+                        time.sleep(0.8)
                         st.rerun()
-                    else:
-                        st.error(f"Erro ao salvar: {msg_erro}")
+                    except Exception as e:
+                        st.error(f"Erro ao salvar: {e}")
             
                 st.divider()
                 st.subheader("🛒 Itens já lançados neste Pedido (Hoje)")
