@@ -962,7 +962,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     else:
                         st.info("Nenhum dado cadastrado.")
         #INICIO PEDIDOS/ORÇAMENTO#
-        elif menu_admin == "Pedidos / Orçamentos":
+        elif "Pedido" in menu_admin or "Orçamento" in menu_admin:
             st.title("🛒 Pedidos / Orçamentos")
             
             aba_cad, aba_list = st.tabs(["➕ Novo Pedido com Carrinho", "📝 Tabela de Pedidos"])
@@ -1083,16 +1083,21 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 except Exception:
                     st.info("A tabela ainda está vazia.")
         
-        elif menu_admin == "Registrar Venda":
+        elif "Venda" in menu_admin:
             st.title("💳 Registrar Venda Direta")
             
             st.subheader("Lançamento de Venda Rápida")
             cli_venda = st.text_input("Cliente", value="Carlos Alberto", key="venda_cli")
             prod_venda = st.text_input("Produto", value="CEBOLA", key="venda_prod")
             qtd_venda = st.number_input("Quantidade", min_value=0.01, value=1.0, key="venda_qtd")
-            preco_venda = st.number_input("Preço Unitário (R$)", min_value=0.0, value=50.0, key="venda_preco")
-            total_venda = qtd_venda * preco_venda
+            preco_venda = st.text_input("Preço Unitário (R$)", value="50.0", key="venda_preco")
             
+            try:
+                p_val = float(preco_venda)
+            except:
+                p_val = 0.0
+                
+            total_venda = qtd_venda * p_val
             st.info(f"Total da Venda: R$ {total_venda:.2f}")
             
             if st.button("💾 Finalizar e Registrar Venda", type="primary", key="btn_salvar_venda"):
@@ -1107,7 +1112,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         cursor.execute("""
                             INSERT INTO pedidos (cliente, produto, quantidade, valor_venda, valor_total, status, tipo, data, data_str)
                             VALUES (?, ?, ?, ?, ?, 'Finalizada', 'VENDA', ?, ?)
-                        """, (cli_venda, prod_venda, qtd_venda, preco_venda, total_venda, data_atual, data_simples))
+                        """, (cli_venda, prod_venda, qtd_venda, p_val, total_venda, data_atual, data_simples))
                         conn.commit()
                         
                     st.success("🎉 Venda registrada com sucesso!")
