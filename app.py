@@ -1074,12 +1074,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             st.error(f"Erro ao salvar: {ex}")
         
             with aba_list:
-                st.subheader("🟢 Pedidos Recentes / Pendentes (Todos os Clientes)")
+                st.subheader("🟢 Gestão Geral de Pedidos (Todos os Clientes)")
                 import sqlite3, pandas as pd
                 
                 try:
                     with sqlite3.connect("vendas.db") as conn:
-                        query_dia = "SELECT * FROM pedidos WHERE tipo='PEDIDO' ORDER BY id DESC LIMIT 30"
+                        # Puxa todos os pedidos ordenados por ID de forma decrescente (sem limite restrito)
+                        query_dia = "SELECT * FROM pedidos WHERE tipo='PEDIDO' OR tipo IS NULL OR tipo='' ORDER BY id DESC"
                         df_dia = pd.read_sql(query_dia, conn)
                         
                     if not df_dia.empty:
@@ -1130,7 +1131,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 else:
                                     st.warning("Nenhum item marcado para exclusão.")
                     else:
-                        st.info("Nenhum pedido registrado.")
+                        st.info("Nenhum pedido registrado no banco de dados.")
                 except Exception as ex:
                     st.info(f"Erro ao carregar pedidos: {ex}")
         
