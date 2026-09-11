@@ -975,11 +975,33 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.session_state.carrinho_admin = []
                     
                 col1, col2 = st.columns(2)
+                # Puxa a lista de clientes do banco de dados de forma segura
+                try:
+                    with sqlite3.connect("vendas.db") as conn_cli:
+                        df_cli = pd.read_sql("SELECT DISTINCT nome FROM clientes", conn_cli)
+                        if df_cli.empty:
+                            df_cli = pd.read_sql("SELECT DISTINCT cliente FROM clientes", conn_cli)
+                        opcoes_clientes = df_cli.iloc[:, 0].tolist() if not df_cli.empty else ["Carlos Alberto"]
+                except:
+                    opcoes_clientes = ["Carlos Alberto"]
+        
+                # Puxa a lista de produtos do estoque de forma segura
+                try:
+                    with sqlite3.connect("vendas.db") as conn_est:
+                        df_est = pd.read_sql("SELECT DISTINCT produto FROM estoque", conn_est)
+                        if df_est.empty:
+                            df_est = pd.read_sql("SELECT DISTINCT nome FROM estoque", conn_est)
+                        if df_est.empty:
+                            df_est = pd.read_sql("SELECT DISTINCT produto FROM produtos", conn_est)
+                        opcoes_produtos = df_est.iloc[:, 0].tolist() if not df_est.empty else ["Nenhum produto cadastrado"]
+                except:
+                    opcoes_produtos = ["Nenhum produto cadastrado"]
+        
+                col1, col2 = st.columns(2)
                 with col1:
-                    cli_input = st.text_input("Nome do Cliente", value="Carlos Alberto", key="ped_cli")
+                    cli_input = st.selectbox("Nome do Cliente", opcoes_clientes, key="ped_cli")
                 with col2:
-                    try:
-                        with sqlite3.connect("vendas.db") as conn_est:
+                    prod_input = st.selectbox("Nome do Produto", opcoes_produtos, key="ped_prod")
                             df_est = pd.read_sql("SELECT DISTINCT produto FROM estoque", conn_est)
                             opcoes_produtos = df_est["produto"].tolist() if not df_est.empty else ["Nenhum produto"]
                     except:
