@@ -978,7 +978,14 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 with col1:
                     cli_input = st.text_input("Nome do Cliente", value="Carlos Alberto", key="ped_cli")
                 with col2:
-                    prod_input = st.text_input("Nome do Produto", value="ABACATE", key="ped_prod")
+                    try:
+                        with sqlite3.connect("vendas.db") as conn_est:
+                            df_est = pd.read_sql("SELECT DISTINCT produto FROM estoque", conn_est)
+                            opcoes_produtos = df_est["produto"].tolist() if not df_est.empty else ["Nenhum produto"]
+                    except:
+                        opcoes_produtos = ["Nenhum produto"]
+            
+                    prod_input = st.selectbox("Nome do Produto", opcoes_produtos, key="ped_prod")
                     
                 col_f1, col_f2 = st.columns(2)
                 with col_f1:
