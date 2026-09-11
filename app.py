@@ -973,9 +973,46 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 if "carrinho_admin" not in st.session_state:
                     st.session_state.carrinho_admin = []
                     
-                col1, col2 = st.columns(2)
-                with col1:
-                    cli_input = st.text_input("Nome do Cliente", value="Carlos Alberto", key="ped_cli")
+                try:
+                    import sqlite3
+                    import pandas as pd
+                    with sqlite3.connect("vendas.db") as conn:
+                        cursor = conn.cursor()
+                        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+                        tabelas = [row[0] for row in cursor.fetchall()]
+                        
+                        # Pega todos os clientes cadastrados nas tabelas do banco
+                        opcoes_clientes = []
+                        for t in tabelas:
+                            try:
+                                df_t = pd.read_sql(f"SELECT * FROM {t}", conn)
+                                for col in df_t.columns:
+                                    if any(k in col.lower() for k in ["cliente", "nome", "razao"]):
+                                        opcoes_clientes.extend(df_t[col].dropna().astype(str).tolist())
+                            except:
+                                pass
+                        opcoes_clientes = sorted(list(set([c for c in opcoes_clientes if c.strip()])))
+                        if not opcoes_clientes:
+                            opcoes_clientes = ["Carlos Alberto"]
+        
+                        # Pega todos os produtos cadastrados nas tabelas do banco
+                        opcoes_produtos = []
+                        for t in tabelas:
+                            try:
+                                df_t = pd.read_sql(f"SELECT * FROM {t}", conn)
+                                for col in df_t.columns:
+                                    if any(k in col.lower() for k in ["produto", "item", "mercadoria", "nome"]):
+                                        opcoes_produtos.extend(df_t[col].dropna().astype(str).tolist())
+                            except:
+                                pass
+                        opcoes_produtos = sorted(list(set([p for p in opcoes_produtos if p.strip()])))
+                        if not opcoes_produtos:
+                            opcoes_produtos = ["Nenhum produto cadastrado"]
+        
+                except Exception as e:
+                    opcoes_clientes = ["Carlos Alberto"]
+                    opcoes_produtos = ["Nenhum produto cadastrado"]
+        
                 col1, col2 = st.columns(2)
                 with col1:
                     cli_input = st.selectbox("Nome do Cliente", opcoes_clientes, key="ped_cli")
