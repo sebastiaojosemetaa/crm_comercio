@@ -529,7 +529,6 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 query_dia = """
                     SELECT * FROM pedidos 
                     WHERE cliente = ? 
-                    AND (tipo='PEDIDO' OR tipo IS NULL OR tipo='') 
                     AND status NOT LIKE '%Concluído%' 
                     AND status NOT LIKE '%Convert%' 
                     ORDER BY id DESC
