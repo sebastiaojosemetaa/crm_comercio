@@ -1507,8 +1507,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     preco_venda = st.number_input("Preço de Venda Unitário (R$)", min_value=0.0, value=preco_cadastrado, format="%.2f", key="venda_entrada")
     
                 if st.button("💾 Confirmar Entrada no Estoque", type="primary", key="btn_conf_entrada"):
-                    if not produto_final:
-                        st.warning("Informe ou selecione o nome do produto.")
+                    with col1:
+                    if tipo_cadastro == "Produto Existente":
+                        produto_escolhido = st.selectbox("Selecione o Produto", produtos_opt, key="prod_entrada_estoque")
+                        produto_final = produto_escolhido
                     else:
                         try:
                             cursor = conn.cursor()
