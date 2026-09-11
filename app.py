@@ -1091,7 +1091,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         edited_df = st.data_editor(
                             df_dia,
                             column_config={"Excluir": st.column_config.CheckboxColumn("Excluir?", default=False)},
-                            disabled=["id", "data", "data_str", "status", "tipo"],
+                            disabled=["id", "data", "data_str", "tipo"],
                             hide_index=True,
                             key="editor_pedidos_adm_dia"
                         )
