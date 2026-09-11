@@ -1150,7 +1150,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 except Exception as e:
                     st.info("Nenhum registro anterior encontrado.")
             
-            elif "Venda" in menu_admin:
+        elif "Venda" in menu_admin:
             st.title("💳 Registrar Venda Direta")
             
             st.subheader("Lançamento de Venda Rápida")
