@@ -1139,14 +1139,18 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.markdown("---")
                 st.subheader("📚 Pedidos Anteriores (Histórico Geral)")
                 try:
-                    query_ant = "SELECT * FROM pedidos ORDER BY id DESC"
-                    df_ant = pd.read_sql(query_ant, conn)
+                    with sqlite3.connect("vendas.db") as conn:
+                        query_ant = "SELECT * FROM pedidos ORDER BY id DESC"
+                        df_ant = pd.read_sql(query_ant, conn)
+                        
                     if not df_ant.empty:
                         st.dataframe(df_ant, use_container_width=True)
                     else:
                         st.info("Nenhum pedido anterior no histórico.")
-        
-        elif "Venda" in menu_admin:
+                except Exception as e:
+                    st.info("Nenhum registro anterior encontrado.")
+            
+            elif "Venda" in menu_admin:
             st.title("💳 Registrar Venda Direta")
             
             st.subheader("Lançamento de Venda Rápida")
