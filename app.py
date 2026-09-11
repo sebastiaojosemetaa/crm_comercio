@@ -527,10 +527,9 @@ if perfil_selecionado == "👤 Portal do Cliente":
             
             try:
                 query_dia = """
-                    SELECT * FROM pedidos 
+                    SELECT id, cliente, produto, quantidade, valor_unitario, valor_total, fornecedor, grupo, data, status
+                    FROM pedidos 
                     WHERE cliente = ? 
-                    AND status NOT LIKE '%Concluído%' 
-                    AND status NOT LIKE '%Convert%' 
                     ORDER BY id DESC
                 """
                 df_dia = pd.read_sql(query_dia, conn, params=(st.session_state.cliente_autenticado,))
@@ -974,46 +973,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 if "carrinho_admin" not in st.session_state:
                     st.session_state.carrinho_admin = []
                     
-                try:
-                    import sqlite3
-                    import pandas as pd
-                    with sqlite3.connect("vendas.db") as conn:
-                        cursor = conn.cursor()
-                        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-                        tabelas = [row[0] for row in cursor.fetchall()]
-                        
-                        # Pega todos os clientes cadastrados nas tabelas do banco
-                        opcoes_clientes = []
-                        for t in tabelas:
-                            try:
-                                df_t = pd.read_sql(f"SELECT * FROM {t}", conn)
-                                for col in df_t.columns:
-                                    if any(k in col.lower() for k in ["cliente", "nome", "razao"]):
-                                        opcoes_clientes.extend(df_t[col].dropna().astype(str).tolist())
-                            except:
-                                pass
-                        opcoes_clientes = sorted(list(set([c for c in opcoes_clientes if c.strip()])))
-                        if not opcoes_clientes:
-                            opcoes_clientes = ["Carlos Alberto"]
-        
-                        # Pega todos os produtos cadastrados nas tabelas do banco
-                        opcoes_produtos = []
-                        for t in tabelas:
-                            try:
-                                df_t = pd.read_sql(f"SELECT * FROM {t}", conn)
-                                for col in df_t.columns:
-                                    if any(k in col.lower() for k in ["produto", "item", "mercadoria", "nome"]):
-                                        opcoes_produtos.extend(df_t[col].dropna().astype(str).tolist())
-                            except:
-                                pass
-                        opcoes_produtos = sorted(list(set([p for p in opcoes_produtos if p.strip()])))
-                        if not opcoes_produtos:
-                            opcoes_produtos = ["Nenhum produto cadastrado"]
-        
-                except Exception as e:
-                    opcoes_clientes = ["Carlos Alberto"]
-                    opcoes_produtos = ["Nenhum produto cadastrado"]
-        
                 col1, col2 = st.columns(2)
                 with col1:
                     cli_input = st.text_input("Nome do Cliente", value="Carlos Alberto", key="ped_cli")
@@ -1122,12 +1081,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 try:
                     with sqlite3.connect("vendas.db") as conn:
                         # Puxa todos os pedidos ordenados por ID de forma decrescente (sem limite restrito)
-                        query_dia = """
-                            SELECT * FROM pedidos 
-                            WHERE status NOT LIKE '%Concluído%' 
-                            AND status NOT LIKE '%Convert%' 
-                            ORDER BY id DESC
-                        """
+                        query_dia = "SELECT * FROM pedidos WHERE (tipo='PEDIDO' OR tipo IS NULL OR tipo='') AND status NOT LIKE '%Concluído%' AND status NOT LIKE '%Convertido%' ORDER BY id DESC"
                         df_dia = pd.read_sql(query_dia, conn)
                         
                     if not df_dia.empty:
@@ -1137,7 +1091,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         edited_df = st.data_editor(
                             df_dia,
                             column_config={"Excluir": st.column_config.CheckboxColumn("Excluir?", default=False)},
-                            disabled=["id", "data", "data_str", "tipo"],
+                            disabled=["id", "data", "data_str", "status", "tipo"],
                             hide_index=True,
                             key="editor_pedidos_adm_dia"
                         )
@@ -1152,12 +1106,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                             novo_qtd = float(row["quantidade"])
                                             novo_val = float(row["valor_venda"])
                                             novo_tot = novo_qtd * novo_val
-                                            novo_status = row["status"]
                                             cursor.execute("""
-                                                UPDATE pedidos 
-                                                SET quantidade = ?, valor_venda = ?, valor_total = ?, status = ? 
-                                                WHERE id = ?
-                                            """, (novo_qtd, novo_val, novo_tot, novo_status, int(row["id"])))
+                                                UPDATE pedidos SET quantidade = ?, valor_venda = ?, valor_total = ? WHERE id = ?
+                                            """, (novo_qtd, novo_val, novo_tot, int(row["id"])))
                                         conn.commit()
                                     st.success("Alterações salvas com sucesso!")
                                     st.rerun()
@@ -1189,7 +1140,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.subheader("📚 Pedidos Anteriores (Histórico Geral)")
                 try:
                     with sqlite3.connect("vendas.db") as conn:
-                        query_ant = "SELECT * FROM pedidos WHERE status LIKE '%Concluído%' OR status LIKE '%Convert%' ORDER BY id DESC"
+                        query_ant = "SELECT * FROM pedidos WHERE status LIKE '%Concluído%' OR status LIKE '%Convertido%' ORDER BY id DESC"
                         df_ant = pd.read_sql(query_ant, conn)
                         
                     if not df_ant.empty:
