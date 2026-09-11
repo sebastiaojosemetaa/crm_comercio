@@ -1084,8 +1084,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         # Puxa todos os pedidos ordenados por ID de forma decrescente (sem limite restrito)
                         query_dia = """
                             SELECT * FROM pedidos 
-                            WHERE LOWER(status) NOT LIKE '%conclu%' 
-                            AND LOWER(status) NOT LIKE '%convert%' 
+                            WHERE status NOT LIKE '%Concluído%' 
+                            AND status NOT LIKE '%Convert%' 
                             ORDER BY id DESC
                         """
                         df_dia = pd.read_sql(query_dia, conn)
@@ -1164,15 +1164,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
             st.subheader("Lançamento de Venda Rápida")
             cli_venda = st.text_input("Cliente", value="Carlos Alberto", key="venda_cli")
-            # Puxa os produtos cadastrados no estoque
-            try:
-                with sqlite3.connect("vendas.db") as conn_est:
-                    df_est = pd.read_sql("SELECT DISTINCT produto FROM estoque", conn_est)
-                    opcoes_produtos = df_est["produto"].tolist() if not df_est.empty else ["Nenhum produto"]
-            except:
-                opcoes_produtos = ["Nenhum produto"]
-    
-            prod_venda = st.selectbox("Produto", opcoes_produtos, key="venda_prod")
+            prod_venda = st.text_input("Produto", value="CEBOLA", key="venda_prod")
             qtd_venda = st.number_input("Quantidade", min_value=0.01, value=1.0, key="venda_qtd")
             preco_venda = st.text_input("Preço Unitário (R$)", value="50.0", key="venda_preco")
             
