@@ -1084,8 +1084,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         # Puxa todos os pedidos ordenados por ID de forma decrescente (sem limite restrito)
                         query_dia = """
                             SELECT * FROM pedidos 
-                            WHERE status NOT LIKE '%Concluído%' 
-                            AND status NOT LIKE '%Convert%' 
+                            WHERE LOWER(status) NOT LIKE '%conclu%' 
+                            AND LOWER(status) NOT LIKE '%convert%' 
                             ORDER BY id DESC
                         """
                         df_dia = pd.read_sql(query_dia, conn)
