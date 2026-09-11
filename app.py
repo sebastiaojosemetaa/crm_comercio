@@ -1107,9 +1107,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                             novo_qtd = float(row["quantidade"])
                                             novo_val = float(row["valor_venda"])
                                             novo_tot = novo_qtd * novo_val
+                                            novo_status = row["status"]
                                             cursor.execute("""
-                                                UPDATE pedidos SET quantidade = ?, valor_venda = ?, valor_total = ? WHERE id = ?
-                                            """, (novo_qtd, novo_val, novo_tot, int(row["id"])))
+                                                UPDATE pedidos 
+                                                SET quantidade = ?, valor_venda = ?, valor_total = ?, status = ? 
+                                                WHERE id = ?
+                                            """, (novo_qtd, novo_val, novo_tot, novo_status, int(row["id"])))
                                         conn.commit()
                                     st.success("Alterações salvas com sucesso!")
                                     st.rerun()
