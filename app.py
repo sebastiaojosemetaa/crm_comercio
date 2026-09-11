@@ -537,7 +537,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
         
                 if not df_dia.empty:
                     st.markdown("### 🟢 Pedidos do Dia (Editáveis)")
-        
+                    
                     df_dia.insert(0, "Excluir", False)
                     
                     df_editado = st.data_editor(
@@ -857,7 +857,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         for item in st.session_state.carrinho_pdv:
                             cursor.execute("""
                                 INSERT INTO pedidos (cliente, produto, quantidade, valor_total, status, data)
-                                VALUES (?, ?, ?, ?, 'Pendente', 'PEDIDO', ?)
+                                VALUES (?, ?, ?, ?, 'Concluído (Convertido)', ?)
                             """, (
                                 cliente_pdv,
                                 item['produto'],
@@ -1084,8 +1084,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         # Puxa todos os pedidos ordenados por ID de forma decrescente (sem limite restrito)
                         query_dia = """
                             SELECT * FROM pedidos 
-                            WHERE LOWER(status) NOT LIKE '%conclu%' 
-                            AND LOWER(status) NOT LIKE '%convert%' 
+                            WHERE status NOT LIKE '%Concluído%' 
+                            AND status NOT LIKE '%Convert%' 
                             ORDER BY id DESC
                         """
                         df_dia = pd.read_sql(query_dia, conn)
