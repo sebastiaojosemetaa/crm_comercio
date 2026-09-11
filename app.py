@@ -1074,17 +1074,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             st.error(f"Erro ao salvar: {ex}")
         
             with aba_list:
-                st.subheader("🟢 Pedidos do Dia (Editáveis - Todos os Clientes)")
+                st.subheader("🟢 Pedidos Recentes / Pendentes (Todos os Clientes)")
                 import sqlite3, pandas as pd
-                from datetime import datetime, timezone, timedelta
-                
-                fuso_br = timezone(timedelta(hours=-3))
-                hoje_str = datetime.now(fuso_br).strftime("%Y-%m-%d")
                 
                 try:
                     with sqlite3.connect("vendas.db") as conn:
-                        # Garante que puxa absolutamente tudo do dia (independente de quem cadastrou ou como foi gravado)
-                        query_dia = f"SELECT * FROM pedidos WHERE tipo='PEDIDO' AND (data LIKE '%{hoje_str}%' OR data_str = '{hoje_str}') ORDER BY id DESC"
+                        # Puxa os últimos pedidos cadastrados ordenados pelo ID (mais recente primeiro)
+                        query_dia = "SELECT * FROM pedidos WHERE tipo='PEDIDO' ORDER BY id DESC LIMIT 30"
                         df_dia = pd.read_sql(query_dia, conn)
                         
                     if not df_dia.empty:
@@ -1101,7 +1097,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         
                         col_ed1, col_ed2 = st.columns(2)
                         with col_ed1:
-                            if st.button("💾 Salvar Alterações do Dia", type="primary", key="btn_salvar_alt_dia"):
+                            if st.button("💾 Salvar Alterações", type="primary", key="btn_salvar_alt_dia"):
                                 try:
                                     with sqlite3.connect("vendas.db") as conn:
                                         cursor = conn.cursor()
@@ -1117,6 +1113,27 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     st.rerun()
                                 except Exception as e:
                                     st.error(f"Erro ao atualizar: {e}")
+                                    
+                        with col_ed2:
+                            if st.button("🗑️ Excluir Marcados", key="btn_excluir_marcados_dia"):
+                                ids_para_excluir = edited_df[edited_df["Excluir"] == True]["id"].tolist()
+                                if ids_para_excluir:
+                                    try:
+                                        with sqlite3.connect("vendas.db") as conn:
+                                            cursor = conn.cursor()
+                                            for pid in ids_para_excluir:
+                                                cursor.execute("DELETE FROM pedidos WHERE id = ?", (int(pid),))
+                                            conn.commit()
+                                        st.success("Itens excluídos com sucesso!")
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"Erro ao excluir: {e}")
+                                else:
+                                    st.warning("Nenhum item marcado para exclusão.")
+                    else:
+                        st.info("Nenhum pedido registrado.")
+                except Exception as ex:
+                    st.info(f"Erro ao carregar pedidos: {ex}")
                                     
                         with col_ed2:
                             if st.button("🗑️ Excluir Marcados", key="btn_excluir_marcados_dia"):
