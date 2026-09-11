@@ -1096,7 +1096,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 con_local = sqlite3.connect("vendas.db")
                                 cur = con_local.cursor()
                                 for id_item in edit_parcial['id'].tolist():
-                                    cur.execute("UPDATE vendas SET status = 'Pendente', tipo = 'VENDA' WHERE id = ?", (int(id_item),))
+                                    cur.execute("UPDATE vendas SET status = 'Pendente', tipo = '' WHERE id = ?", (int(id_item),))
                                 con_local.commit()
                                 con_local.close()
                                 st.success("Pedido finalizado com sucesso!")
