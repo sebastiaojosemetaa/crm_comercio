@@ -1083,7 +1083,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 
                 try:
                     with sqlite3.connect("vendas.db") as conn:
-                        # ADMIN VÊ TUDO DO DIA (Sem filtro de cliente específico)
+                        # Garante que puxa absolutamente tudo do dia (independente de quem cadastrou ou como foi gravado)
                         query_dia = f"SELECT * FROM pedidos WHERE tipo='PEDIDO' AND (data LIKE '%{hoje_str}%' OR data_str = '{hoje_str}') ORDER BY id DESC"
                         df_dia = pd.read_sql(query_dia, conn)
                         
@@ -1137,7 +1137,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     else:
                         st.info("Nenhum pedido registrado hoje.")
                 except Exception as ex:
-                    st.info("Ainda não há dados suficientes para exibir os pedidos do dia.")
+                    st.info(f"Erro ao carregar pedidos do dia: {ex}")
         
                 st.markdown("---")
                 st.subheader("📚 Pedidos Anteriores (Histórico Geral)")
