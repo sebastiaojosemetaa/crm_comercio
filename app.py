@@ -1143,8 +1143,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     df_ant = pd.read_sql(query_ant, conn)
                     if not df_ant.empty:
                         st.dataframe(df_ant, use_container_width=True)
-                else:
-                    st.info("Nenhum pedido anterior no histórico.")
+                    else:
+                        st.info("Nenhum pedido anterior no histórico.")
         
         elif "Venda" in menu_admin:
             st.title("💳 Registrar Venda Direta")
