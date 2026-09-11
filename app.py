@@ -976,8 +976,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 col1, col2 = st.columns(2)
                 with col1:
                     cli_input = st.text_input("Nome do Cliente", value="Carlos Alberto", key="ped_cli")
+                col1, col2 = st.columns(2)
+                with col1:
+                    cli_input = st.selectbox("Nome do Cliente", opcoes_clientes, key="ped_cli")
                 with col2:
-                    prod_input = st.text_input("Nome do Produto", value="ABACATE", key="ped_prod")
+                    prod_input = st.selectbox("Nome do Produto", opcoes_produtos, key="ped_prod")
                     
                 col_f1, col_f2 = st.columns(2)
                 with col_f1:
