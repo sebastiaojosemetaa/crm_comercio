@@ -975,23 +975,40 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.session_state.carrinho_admin = []
                     
                 try:
-                    with sqlite3.connect("vendas.db") as conn_cli:
-                        df_cli = pd.read_sql("SELECT DISTINCT nome FROM clientes", conn_cli)
-                        if df_cli.empty:
-                            df_cli = pd.read_sql("SELECT DISTINCT cliente FROM clientes", conn_cli)
-                        opcoes_clientes = df_cli.iloc[:, 0].tolist() if not df_cli.empty else ["Carlos Alberto"]
-                except:
-                    opcoes_clientes = ["Carlos Alberto"]
+                    import sqlite3
+                    import pandas as pd
+                    with sqlite3.connect("vendas.db") as conn:
+                        cursor = conn.cursor()
+                        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+                        tabelas = [row[0] for row in cursor.fetchall()]
+                        
+                        # Busca dinâmica de clientes
+                        opcoes_clientes = []
+                        for t in tabelas:
+                            if any(k in t.lower() for k in ["cliente", "pessoa", "cadastro"]):
+                                try:
+                                    df_t = pd.read_sql(f"SELECT * FROM {t}", conn)
+                                    for col in df_t.columns:
+                                        if any(c in col.lower() for c in ["nome", "cliente", "razao"]):
+                                            opcoes_clientes.extend(df_t[col].dropna().astype(str).tolist())
+                                except:
+                                    pass
+                        opcoes_clientes = sorted(list(set([c for c in opcoes_clientes if c.strip()]))) if opcoes_clientes else ["Carlos Alberto"]
         
-                try:
-                    with sqlite3.connect("vendas.db") as conn_est:
-                        df_est = pd.read_sql("SELECT DISTINCT produto FROM estoque", conn_est)
-                        if df_est.empty:
-                            df_est = pd.read_sql("SELECT DISTINCT nome FROM estoque", conn_est)
-                        if df_est.empty:
-                            df_est = pd.read_sql("SELECT DISTINCT produto FROM produtos", conn_est)
-                        opcoes_produtos = df_est.iloc[:, 0].tolist() if not df_est.empty else ["Nenhum produto cadastrado"]
-                except:
+                        # Busca dinâmica de produtos
+                        opcoes_produtos = []
+                        for t in tabelas:
+                            if any(k in t.lower() for k in ["estoque", "produto", "item", "mercadoria"]):
+                                try:
+                                    df_t = pd.read_sql(f"SELECT * FROM {t}", conn)
+                                    for col in df_t.columns:
+                                        if any(c in col.lower() for c in ["produto", "nome", "descricao", "item"]):
+                                            opcoes_produtos.extend(df_t[col].dropna().astype(str).tolist())
+                                except:
+                                    pass
+                        opcoes_produtos = sorted(list(set([p for p in opcoes_produtos if p.strip()]))) if opcoes_produtos else ["Nenhum produto cadastrado"]
+                except Exception as e:
+                    opcoes_clientes = ["Carlos Alberto"]
                     opcoes_produtos = ["Nenhum produto cadastrado"]
         
                 col1, col2 = st.columns(2)
