@@ -849,7 +849,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         for item in st.session_state.carrinho_pdv:
                             cursor.execute("""
                                 INSERT INTO pedidos (cliente, produto, quantidade, valor_total, status, data)
-                                VALUES (?, ?, ?, ?, 'PEDIDO', ?)
+                                VALUES (?, ?, ?, ?, 'Concluído (Convertido)', ?)
                             """, (
                                 cliente_pdv,
                                 item['produto'],
