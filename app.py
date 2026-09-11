@@ -2,14 +2,17 @@ menu_admin = None
 import streamlit as st
 import sqlite3
 import pandas as pd
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import io
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
-# -----------------------------------------------------------------------------
+# Fuso horário do Brasil (UTC-3) para padronizar as datas em todo o app
+fuso_brasil = timedelta(hours=3)
+data_hoje_brasil = (datetime.now() - fuso_brasil).date()
+
 # 1. CONFIGURAÇÃO E CONEXÃO COM O BANCO DE DADOS
 # -----------------------------------------------------------------------------
 st.set_page_config(page_title="CRM Comércio - Rey da Cebola", layout="wide")
@@ -162,7 +165,10 @@ adequar_banco_e_migrar()
 
 def carregar_dados(query):
     try:
-        return pd.read_sql_query(query, conn)
+        temp_conn = get_connection()
+        df = pd.read_sql_query(query, temp_conn)
+        temp_conn.close()
+        return df
     except Exception:
         return pd.DataFrame()
 
@@ -486,7 +492,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                             codigo_pedido_gerado = f"PED-{data_hora_atual.strftime('%Y%m%d%H%M%S')}"
                             data_str = data_hora_atual.strftime("%Y-%m-%d %H:%M:%S")
                             
-                            for item in st.session_state.carrinho_selecionado:
+                            for item in st.session_state.carrinho_cliente:
                                 cursor.execute("""
                                     INSERT INTO pedidos (
                                         cliente, produto, quantidade, valor_unitario, valor_total, 
@@ -1029,7 +1035,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         """)
                         
                         c_total = float(quantidade) * float(preco_unitario)
-                        c_tipo = 'PEDIDO'
+                        c_tipo = 'ORÇAMENTO'
                         
                         cur_ins.execute("""
                             INSERT INTO vendas (cliente, produto, quantidade, valor_venda, valor_total, tipo)
@@ -1175,7 +1181,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 with col_f2:
                     d_inicio = st.date_input("Data Inicial do Filtro", value=date(2025, 1, 1), key=f"filtro_d_ini_{menu_admin}")
                 with col_f3:
-                    d_fin = st.date_input("Data Final do Filtro", value=date.today(), key=f"filtro_d_fim_{menu_admin}")
+                    d_fin = st.date_input("Data Final do Filtro", value=data_hoje_brasil, key=f"filtro_d_fin_{menu_admin}")
             
                 texto_botao_atualizar = "🔄 Atualizar Preços de Venda" if not is_modo_pedido else "🔄 Atualizar Preços de Custo"
                 if st.button(texto_botao_atualizar, key=f"btn_atualizar_precos_{menu_admin}"):
@@ -1212,10 +1218,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 # ... (código dos filtros de cliente, data inicial e final)
 
                 s_d1, s_d2 = d_inicio.strftime("%Y-%m-%d"), d_fin.strftime("%Y-%m-%d")
-                tabela_alvo_historico = 'vendas'
-                
-                query_filt = f"SELECT * FROM {tabela_alvo_historico}"
-                df_registros = carregar_dados(query_filt)
+                df_vendas = carregar_dados("SELECT * FROM vendas")
+                df_pedidos = carregar_dados("SELECT * FROM pedidos")
+                df_registros = pd.concat([df_vendas, df_pedidos], ignore_index=True)
                 
                 df_historico_periodo = pd.DataFrame()
                 
@@ -1232,7 +1237,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.markdown("---")
                 st.markdown("### 🔍 Consultar e Editar por Data Específica")
                 
-                from datetime import datetime, timedelta
+                
 
                 # Descobre automaticamente a data mais recente cadastrada no banco de dados para sugerir no campo
                 data_sugerida = datetime.now().date()
@@ -1250,8 +1255,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 data_consulta_str = data_consulta_input.strftime("%Y-%m-%d")            
                 # Filtra os dados da tabela superior com base na data escolhida no input acima
                 df_dia = pd.DataFrame()
-                if not df_historico_periodo.empty and 'data_str' in df_historico_periodo.columns:
-                    df_dia = df_historico_periodo[df_historico_periodo['data_str'] == data_consulta_str]
+                if not df_registros.empty and 'data_str' in df_registros.columns:
+                    df_dia = df_registros[df_registros['data_str'] == data_consulta_str]
             
                 # SEÇÃO 1: Tabela Superior Editável (Baseada na data escolhida no campo de data)
                 if not df_dia.empty:
@@ -1283,12 +1288,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             try:
                                 cursor = conn.cursor()
                                 for index, row in df_editado.iterrows():
-                                    novo_total = float(row['quantidade']) * float(row['valor_venda'])
+                                    novo_total = float(row['quantidade']) * float(row['valor_unitario'])
                                     cursor.execute("""
-                                        UPDATE vendas 
-                                        SET quantidade = ?, valor_venda = ?, valor_total = ? 
+                                        UPDATE pedidos
+                                        SET quantidade = ?, valor_unitario = ?, valor_total = ?
                                         WHERE id = ?
-                                    """, (row['quantidade'], row['valor_venda'], novo_total, row['id']))
+                                    """, (row['quantidade'], row['valor_unitario'], novo_total, row['id']))
                                 conn.commit()
                                 st.success("Registros atualizados com sucesso!")
                                 st.rerun()
@@ -1365,7 +1370,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             data_tabela.append([
                                 Paragraph(str(row['produto']), estilo_td_left),
                                 Paragraph(f"{row['quantidade']:.2f}", estilo_td_center),
-                                Paragraph(f"R$ {row['valor_venda']:.2f}", estilo_td_right),
+                                Paragraph(f"R$ {row['valor_unitario']:.2f}", estilo_td_right),
                                 Paragraph(f"R$ {row['valor_total']:.2f}", estilo_td_right)
                             ])
             
