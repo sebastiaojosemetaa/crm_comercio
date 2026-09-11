@@ -537,7 +537,9 @@ if perfil_selecionado == "👤 Portal do Cliente":
         
                 if not df_dia.empty:
                     st.markdown("### 🟢 Pedidos do Dia (Editáveis)")
-                    
+                with aba_list:
+                    st.subheader("🟢 Gestão Geral de Pedidos (Todos os Clientes)")
+                    import sqlite3, pandas as pd
                     df_dia.insert(0, "Excluir", False)
                     
                     df_editado = st.data_editor(
