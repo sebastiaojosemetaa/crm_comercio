@@ -1082,7 +1082,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 try:
                     with sqlite3.connect("vendas.db") as conn:
                         # Puxa todos os pedidos ordenados por ID de forma decrescente (sem limite restrito)
-                        query_dia = "SELECT * FROM pedidos WHERE (tipo='PEDIDO' OR tipo IS NULL OR tipo='') AND status NOT LIKE '%Concluído%' AND status NOT LIKE '%Convertido%' ORDER BY id DESC"
+                        query_dia = """
+                            SELECT * FROM pedidos 
+                            WHERE status NOT LIKE '%Concluído%' 
+                            AND status NOT LIKE '%Convert%' 
+                            ORDER BY id DESC
+                        """
                         df_dia = pd.read_sql(query_dia, conn)
                         
                     if not df_dia.empty:
