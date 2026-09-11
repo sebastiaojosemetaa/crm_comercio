@@ -978,12 +978,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     import sqlite3
                     import pandas as pd
                     with sqlite3.connect("vendas.db") as conn:
-                        # Vamos listar todas as tabelas do banco para conferir
                         cursor = conn.cursor()
                         cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
                         tabelas = [row[0] for row in cursor.fetchall()]
                         
-                        # Pega clientes de qualquer tabela disponível
+                        # Pega todos os clientes cadastrados nas tabelas do banco
                         opcoes_clientes = []
                         for t in tabelas:
                             try:
@@ -997,7 +996,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         if not opcoes_clientes:
                             opcoes_clientes = ["Carlos Alberto"]
         
-                        # Pega produtos de qualquer tabela disponível
+                        # Pega todos os produtos cadastrados nas tabelas do banco
                         opcoes_produtos = []
                         for t in tabelas:
                             try:
