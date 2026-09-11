@@ -974,24 +974,30 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 if "carrinho_admin" not in st.session_state:
                     st.session_state.carrinho_admin = []
                     
+                try:
+                    with sqlite3.connect("vendas.db") as conn_cli:
+                        df_cli = pd.read_sql("SELECT DISTINCT nome FROM clientes", conn_cli)
+                        if df_cli.empty:
+                            df_cli = pd.read_sql("SELECT DISTINCT cliente FROM clientes", conn_cli)
+                        opcoes_clientes = df_cli.iloc[:, 0].tolist() if not df_cli.empty else ["Carlos Alberto"]
+                except:
+                    opcoes_clientes = ["Carlos Alberto"]
+        
+                try:
+                    with sqlite3.connect("vendas.db") as conn_est:
+                        df_est = pd.read_sql("SELECT DISTINCT produto FROM estoque", conn_est)
+                        if df_est.empty:
+                            df_est = pd.read_sql("SELECT DISTINCT nome FROM estoque", conn_est)
+                        if df_est.empty:
+                            df_est = pd.read_sql("SELECT DISTINCT produto FROM produtos", conn_est)
+                        opcoes_produtos = df_est.iloc[:, 0].tolist() if not df_est.empty else ["Nenhum produto cadastrado"]
+                except:
+                    opcoes_produtos = ["Nenhum produto cadastrado"]
+        
                 col1, col2 = st.columns(2)
-try:
-            with sqlite3.connect("vendas.db") as conn_est:
-                df_est = pd.read_sql("SELECT DISTINCT produto FROM estoque", conn_est)
-                if df_est.empty:
-                    df_est = pd.read_sql("SELECT DISTINCT nome FROM estoque", conn_est)
-                if df_est.empty:
-                    df_est = pd.read_sql("SELECT DISTINCT produto FROM produtos", conn_est)
-                opcoes_produtos = df_est.iloc[:, 0].tolist() if not df_est.empty else ["Nenhum produto cadastrado"]
-        except:
-            opcoes_produtos = ["Nenhum produto cadastrado"]
-
-        col1, col2 = st.columns(2)
-        with col1:
-            cli_input = st.selectbox("Nome do Cliente", opcoes_clientes, key="ped_cli")
-        with col2:
-            prod_input = st.selectbox("Nome do Produto", opcoes_produtos, key="ped_prod")
-            
+                with col1:
+                    cli_input = st.selectbox("Nome do Cliente", opcoes_clientes, key="ped_cli")
+                with col2:
                     prod_input = st.selectbox("Nome do Produto", opcoes_produtos, key="ped_prod")
                     
                 col_f1, col_f2 = st.columns(2)
