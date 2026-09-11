@@ -978,35 +978,39 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     import sqlite3
                     import pandas as pd
                     with sqlite3.connect("vendas.db") as conn:
+                        # Vamos listar todas as tabelas do banco para conferir
                         cursor = conn.cursor()
                         cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
                         tabelas = [row[0] for row in cursor.fetchall()]
                         
-                        # Busca dinâmica de clientes
+                        # Pega clientes de qualquer tabela disponível
                         opcoes_clientes = []
                         for t in tabelas:
-                            if any(k in t.lower() for k in ["cliente", "pessoa", "cadastro"]):
-                                try:
-                                    df_t = pd.read_sql(f"SELECT * FROM {t}", conn)
-                                    for col in df_t.columns:
-                                        if any(c in col.lower() for c in ["nome", "cliente", "razao"]):
-                                            opcoes_clientes.extend(df_t[col].dropna().astype(str).tolist())
-                                except:
-                                    pass
-                        opcoes_clientes = sorted(list(set([c for c in opcoes_clientes if c.strip()]))) if opcoes_clientes else ["Carlos Alberto"]
+                            try:
+                                df_t = pd.read_sql(f"SELECT * FROM {t}", conn)
+                                for col in df_t.columns:
+                                    if any(k in col.lower() for k in ["cliente", "nome", "razao"]):
+                                        opcoes_clientes.extend(df_t[col].dropna().astype(str).tolist())
+                            except:
+                                pass
+                        opcoes_clientes = sorted(list(set([c for c in opcoes_clientes if c.strip()])))
+                        if not opcoes_clientes:
+                            opcoes_clientes = ["Carlos Alberto"]
         
-                        # Busca dinâmica de produtos
+                        # Pega produtos de qualquer tabela disponível
                         opcoes_produtos = []
                         for t in tabelas:
-                            if any(k in t.lower() for k in ["estoque", "produto", "item", "mercadoria"]):
-                                try:
-                                    df_t = pd.read_sql(f"SELECT * FROM {t}", conn)
-                                    for col in df_t.columns:
-                                        if any(c in col.lower() for c in ["produto", "nome", "descricao", "item"]):
-                                            opcoes_produtos.extend(df_t[col].dropna().astype(str).tolist())
-                                except:
-                                    pass
-                        opcoes_produtos = sorted(list(set([p for p in opcoes_produtos if p.strip()]))) if opcoes_produtos else ["Nenhum produto cadastrado"]
+                            try:
+                                df_t = pd.read_sql(f"SELECT * FROM {t}", conn)
+                                for col in df_t.columns:
+                                    if any(k in col.lower() for k in ["produto", "item", "mercadoria", "nome"]):
+                                        opcoes_produtos.extend(df_t[col].dropna().astype(str).tolist())
+                            except:
+                                pass
+                        opcoes_produtos = sorted(list(set([p for p in opcoes_produtos if p.strip()])))
+                        if not opcoes_produtos:
+                            opcoes_produtos = ["Nenhum produto cadastrado"]
+        
                 except Exception as e:
                     opcoes_clientes = ["Carlos Alberto"]
                     opcoes_produtos = ["Nenhum produto cadastrado"]
