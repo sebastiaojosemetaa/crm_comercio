@@ -527,11 +527,12 @@ if perfil_selecionado == "👤 Portal do Cliente":
             
             try:
                 query_dia = """
-                    SELECT id, cliente, produto, quantidade, valor_unitario, valor_total, fornecedor, grupo, data, status 
+                    SELECT id, cliente, produto, quantidade, valor_unitario, valor_total, fornecedor, grupo, data, status
                     FROM pedidos 
-                    WHERE DATE(data) = DATE('now') AND cliente = ?
+                    WHERE cliente = ? 
+                    ORDER BY id DESC
                 """
-                df_dia = pd.read_sql_query(query_dia, conn, params=(st.session_state.cliente_autenticado,))
+                df_dia = pd.read_sql(query_dia, conn, params=(st.session_state.cliente_autenticado,))
         
                 if not df_dia.empty:
                     st.markdown("### 🟢 Pedidos do Dia (Editáveis)")
