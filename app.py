@@ -527,9 +527,11 @@ if perfil_selecionado == "👤 Portal do Cliente":
             
             try:
                 query_dia = """
-                    SELECT id, cliente, produto, quantidade, valor_unitario, valor_total, fornecedor, grupo, data, status
-                    FROM pedidos 
+                    SELECT * FROM pedidos 
                     WHERE cliente = ? 
+                    AND (tipo='PEDIDO' OR tipo IS NULL OR tipo='') 
+                    AND status NOT LIKE '%Concluído%' 
+                    AND status NOT LIKE '%Convert%' 
                     ORDER BY id DESC
                 """
                 df_dia = pd.read_sql(query_dia, conn, params=(st.session_state.cliente_autenticado,))
@@ -1140,7 +1142,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.subheader("📚 Pedidos Anteriores (Histórico Geral)")
                 try:
                     with sqlite3.connect("vendas.db") as conn:
-                        query_ant = "SELECT * FROM pedidos WHERE status LIKE '%Concluído%' OR status LIKE '%Convertido%' ORDER BY id DESC"
+                        query_ant = "SELECT * FROM pedidos WHERE status LIKE '%Concluído%' OR status LIKE '%Convert%' ORDER BY id DESC"
                         df_ant = pd.read_sql(query_ant, conn)
                         
                     if not df_ant.empty:
