@@ -1142,7 +1142,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     query_ant = "SELECT * FROM pedidos ORDER BY id DESC"
                     df_ant = pd.read_sql(query_ant, conn)
                     if not df_ant.empty:
-                    st.dataframe(df_ant, use_container_width=True)
+                        st.dataframe(df_ant, use_container_width=True)
                 else:
                     st.info("Nenhum pedido anterior no histórico.")
         
