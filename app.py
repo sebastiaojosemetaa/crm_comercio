@@ -1140,11 +1140,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.subheader("📚 Pedidos Anteriores (Histórico Geral)")
                 try:
                     with sqlite3.connect("vendas.db") as conn:
-                        query_ant = "SELECT * FROM pedidos ORDER BY id DESC"
+                        query_ant = "SELECT * FROM pedidos WHERE status LIKE '%Concluído%' OR status LIKE '%Convertido%' ORDER BY id DESC"
                         df_ant = pd.read_sql(query_ant, conn)
                         
                     if not df_ant.empty:
-                        st.dataframe(df_ant, use_container_width=True)
+                        st.dataframe(df_ant, use_container_width=True, hide_index=True)
                     else:
                         st.info("Nenhum pedido anterior no histórico.")
                 except Exception as e:
