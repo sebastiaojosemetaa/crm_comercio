@@ -486,7 +486,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                             codigo_pedido_gerado = f"PED-{data_hora_atual.strftime('%Y%m%d%H%M%S')}"
                             data_str = data_hora_atual.strftime("%Y-%m-%d %H:%M:%S")
                             
-                            for item in st.session_state.carrinho_cliente:
+                            for item in st.session_state.carrinho_selecionado:
                                 cursor.execute("""
                                     INSERT INTO pedidos (
                                         cliente, produto, quantidade, valor_unitario, valor_total, 
@@ -849,7 +849,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         for item in st.session_state.carrinho_pdv:
                             cursor.execute("""
                                 INSERT INTO pedidos (cliente, produto, quantidade, valor_total, status, data)
-                                VALUES (?, ?, ?, ?, 'Concluído (Convertido)', ?)
+                                VALUES (?, ?, ?, ?, 'PEDIDO', ?)
                             """, (
                                 cliente_pdv,
                                 item['produto'],
@@ -1029,7 +1029,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         """)
                         
                         c_total = float(quantidade) * float(preco_unitario)
-                        c_tipo = 'ORÇAMENTO'
+                        c_tipo = 'PEDIDO'
                         
                         cur_ins.execute("""
                             INSERT INTO vendas (cliente, produto, quantidade, valor_venda, valor_total, tipo)
