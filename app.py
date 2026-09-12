@@ -1084,7 +1084,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
                     col_fin, col_del = st.columns([2, 1])
                     
-                    with col_fin:
+                    with col_b2:
                         if st.button("💾 Finalizar e Enviar Pedido", type="primary", key="cli_finalizar_unique_v3"):
                             try:
                                 cursor = conn.cursor()
