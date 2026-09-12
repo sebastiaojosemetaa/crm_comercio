@@ -1115,18 +1115,20 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         except Exception as ex:
                             st.error(f"Erro ao salvar: {ex}")
         
-                with aba_historico:
-                    st.subheader("Histórico e Gestão de Meus Pedidos")
-                    
-                    try:
+            with aba_list:
+                st.subheader("🟢 Gestão Geral de Pedidos (Todos os Clientes)")
+                import sqlite3, pandas as pd
+                
+                try:
+                    with sqlite3.connect("vendas.db") as conn:
+                        # Puxa todos os pedidos ordenados por ID de forma decrescente (sem limite restrito)
                         query_dia = """
                             SELECT * FROM pedidos 
-                            WHERE cliente = ? 
-                            AND status NOT LIKE '%Concluído%' 
+                            WHERE status NOT LIKE '%Concluído%' 
                             AND status NOT LIKE '%Convert%' 
                             ORDER BY id DESC
                         """
-                        df_dia = pd.read_sql(query_dia, conn, params=(st.session_state.cliente_autenticado,))
+                        df_dia = pd.read_sql(query_dia, conn)
                         
                     if not df_dia.empty:
                         if 'Excluir' not in df_dia.columns:
