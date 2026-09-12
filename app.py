@@ -542,19 +542,16 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 st.info("Nenhum item adicionado ao pedido ainda.")
     
         with aba_historico:
-            st.subheader("🟢 Gestão Geral de Pedidos (Todos os Clientes)")
-                import sqlite3, pandas as pd
-                
-                try:
-                    with sqlite3.connect("vendas.db") as conn:
-                        # Puxa todos os pedidos ordenados por ID de forma decrescente (sem limite restrito)
-                        query_dia = """
-                            SELECT * FROM pedidos 
-                            WHERE status NOT LIKE '%Concluído%' 
-                            AND status NOT LIKE '%Convert%' 
-                            ORDER BY id DESC
-                        """
-
+            st.subheader("Histórico e Gestão de Meus Pedidos")
+            
+            try:
+                query_dia = """
+                    SELECT * FROM pedidos 
+                    WHERE cliente = ? 
+                    AND status NOT LIKE '%Concluído%' 
+                    AND status NOT LIKE '%Convert%' 
+                    ORDER BY id DESC
+                """
                 df_dia = pd.read_sql(query_dia, conn, params=(st.session_state.cliente_autenticado,))
         
                 if not df_dia.empty:
