@@ -1032,7 +1032,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         c_tipo = 'ORÇAMENTO'
                         
                         cur_ins.execute("""
-                            INSERT INTO vendas (cliente, produto, quantidade, valor_venda, valor_total,)
+                            INSERT INTO vendas (cliente, produto, quantidade, valor_venda, valor_total, tipo)
                             VALUES (?, ?, ?, ?, ?, ?)
                         """, (str(cliente), str(produto), float(quantidade), float(preco_unitario), c_total, c_tipo))
                         
