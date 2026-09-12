@@ -1115,18 +1115,18 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         except Exception as ex:
                             st.error(f"Erro ao salvar: {ex}")
         
-            with aba_historico:
-                st.subheader("Histórico e Gestão de Meus Pedidos")
-                
-                try:
-                    query_dia = """
-                        SELECT * FROM pedidos 
-                        WHERE cliente = ? 
-                        AND status NOT LIKE '%Concluído%' 
-                        AND status NOT LIKE '%Convert%' 
-                        ORDER BY id DESC
-                    """
-                    df_dia = pd.read_sql(query_dia, conn, params=(st.session_state.cliente_autenticado,))
+                with aba_historico:
+                    st.subheader("Histórico e Gestão de Meus Pedidos")
+                    
+                    try:
+                        query_dia = """
+                            SELECT * FROM pedidos 
+                            WHERE cliente = ? 
+                            AND status NOT LIKE '%Concluído%' 
+                            AND status NOT LIKE '%Convert%' 
+                            ORDER BY id DESC
+                        """
+                        df_dia = pd.read_sql(query_dia, conn, params=(st.session_state.cliente_autenticado,))
                         
                     if not df_dia.empty:
                         if 'Excluir' not in df_dia.columns:
