@@ -435,7 +435,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
     
             col1, col2 = st.columns(2)
             with col1:
-                prod = st.selectbox("Selecione o Produto", produtos_opt, key="cli_prod_unique_v3")
+                prod = st.selectbox("", produtos_opt, key="cli_prod_unique_v3")
                 forn_cli = st.selectbox("Selecione o Fornecedor", fornecedores_opt, key="cli_forn_unique_v3")
                 
                 preco_sugerido = 0.0
@@ -1508,7 +1508,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
     
                 if st.button("💾 Confirmar Entrada no Estoque", type="primary", key="btn_conf_entrada"):
                     if tipo_cadastro == "Produto Existente":
-                        produto_escolhido = st.selectbox("Selecione o Produto", produtos_opt, key="prod_entrada_estoque")
+                        produto_escolhido = st.selectbox("Nome do Produto", produtos_opt, key="prod_entrada_estoque")
                         produto_final = produto_escolhido
                     else:
                         try:
