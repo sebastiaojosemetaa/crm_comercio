@@ -485,59 +485,40 @@ if perfil_selecionado == "👤 Portal do Cliente":
                         st.rerun()
     
                 with col_b2:
-                    if st.button("💾 Salvar Pedido no Banco", type="primary", key="btn_salvar_ped"):
+                    if st.button("💾 Finalizar e Enviar Pedido", type="primary", key="cli_finalizar_unique_v3"):
                         try:
-                            import sqlite3
-                            from datetime import datetime, timezone, timedelta
+                            cursor = conn.cursor()
+                            data_hora_atual = datetime.now()
+                            codigo_pedido_gerado = f"PED-{data_hora_atual.strftime('%Y%m%d%H%M%S')}"
+                            data_str = data_hora_atual.strftime("%Y-%m-%d %H:%M:%S")
                             
-                            fuso_br = timezone(timedelta(hours=-3))
-                            agora_br = datetime.now(fuso_br)
-                            data_atual = agora_br.strftime("%Y-%m-%d %H:%M:%S")
-                            data_simples = agora_br.strftime("%Y-%m-%d")
-                            
-                            with sqlite3.connect("vendas.db") as conn:
-                                cursor = conn.cursor()
+                            for item in st.session_state.carrinho_cliente:
                                 cursor.execute("""
-                                    CREATE TABLE IF NOT EXISTS pedidos (
-                                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                        cliente TEXT,
-                                        produto TEXT,
-                                        quantidade REAL,
-                                        valor_venda REAL,
-                                        valor_total REAL,
-                                        status TEXT DEFAULT 'Pendente',
-                                        tipo TEXT DEFAULT 'PEDIDO',
-                                        fornecedor TEXT,
-                                        grupo TEXT,
-                                        data TEXT,
-                                        data_str TEXT
+                                    INSERT INTO pedidos (
+                                        cliente, produto, quantidade, valor_unitario, valor_total, 
+                                        fornecedor, grupo, data, status, codigo_pedido
                                     )
-                                """)
-                                for item in st.session_state.carrinho_admin:
-                                    cursor.execute("""
-                                        INSERT INTO pedidos (cliente, produto, quantidade, valor_venda, valor_total, status, tipo, fornecedor, grupo, data, data_str)
-                                        VALUES (?, ?, ?, ?, ?, 'Pendente', 'PEDIDO', ?, ?, ?, ?)
-                                    """, (
-                                        str(item["cliente"]),
-                                        str(item["produto"]),
-                                        float(item["quantidade"]),
-                                        float(item["valor_venda"]),
-                                        float(item["valor_total"]),
-                                        str(item["fornecedor"]),
-                                        str(item["grupo"]),
-                                        data_atual,
-                                        data_simples
-                                    ))
-                                conn.commit()
-                                
-                            st.session_state.carrinho_admin = []
-                            st.success("🎉 Pedido salvo com sucesso!")
-                            st.balloons()
-                            import time
-                            time.sleep(1)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                """, (
+                                    st.session_state.cliente_autenticado,
+                                    item["produto"],
+                                    item["quantidade"],
+                                    item["preco_unitario"],
+                                    item["valor_total"],
+                                    item.get("fornecedor", "BAHIA"),
+                                    item.get("grupo", "GERAL"),
+                                    data_str,
+                                    "Pendente",
+                                    codigo_pedido_gerado
+                                ))
+                            
+                            conn.commit()
+                            st.session_state.carrinho_cliente = []
+                            st.success("Pedido finalizado e enviado com sucesso!")
                             st.rerun()
                         except Exception as ex:
-                            st.error(f"Erro ao salvar: {ex}")
+                            conn.rollback()
+                            st.error(f"Erro ao finalizar pedido: {ex}")
             else:
                 st.info("Nenhum item adicionado ao pedido ainda.")
     
