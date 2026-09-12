@@ -1085,40 +1085,19 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     col_fin, col_del = st.columns([2, 1])
                     
                     with col_fin:
-                        if st.button("💾 Finalizar e Enviar Pedido", type="primary", key="cli_finalizar_unique_v3"):
+                        if st.button("Finalizar Pedido / Venda", type="primary", key="btn_finalizar_pedido_unico"):
                             try:
-                                cursor = conn.cursor()
-                                data_hora_atual = datetime.now()
-                                codigo_pedido_gerado = f"PED-{data_hora_atual.strftime('%Y%m%d%H%M%S')}"
-                                data_str = data_hora_atual.strftime("%Y-%m-%d %H:%M:%S")
-                                
-                                for item in st.session_state.carrinho_cliente:
-                                    cursor.execute("""
-                                        INSERT INTO pedidos (
-                                            cliente, produto, quantidade, valor_unitario, valor_total, 
-                                            fornecedor, grupo, data, status, codigo_pedido
-                                        )
-                                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                                    """, (
-                                        st.session_state.cliente_autenticado,
-                                        item["produto"],
-                                        item["quantidade"],
-                                        item["preco_unitario"],
-                                        item["valor_total"],
-                                        item.get("fornecedor", "BAHIA"),
-                                        item.get("grupo", "GERAL"),
-                                        data_str,
-                                        "Pendente",
-                                        codigo_pedido_gerado
-                                    ))
-                                
-                                conn.commit()
-                                st.session_state.carrinho_cliente = []
-                                st.success("Pedido finalizado e enviado com sucesso!")
+                                con_local = sqlite3.connect("vendas.db")
+                                cur = con_local.cursor()
+                                for id_item in edit_parcial['id'].tolist():
+                                    cur.execute("UPDATE vendas SET status = 'Finalizado', tipo = 'VENDA' WHERE id = ?", (int(id_item),))
+                                con_local.commit()
+                                con_local.close()
+                                st.success("Pedido finalizado com sucesso!")
+                                st.balloons()
                                 st.rerun()
-                            except Exception as ex:
-                                conn.rollback()
-                                st.error(f"Erro ao finalizar pedido: {ex}")
+                            except Exception as e:
+                                st.error(f"Erro ao finalizar: {e}")
             
                     with col_del:
                         if st.button("Excluir Selecionados", key="btn_excluir_parcial_sel"):
@@ -1276,7 +1255,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
                 # SEÇÃO 1: Tabela Superior Editável (Baseada na data escolhida no campo de data)
                 if not df_dia.empty:
-                    st.markdown(f"### 🟢 Pedidos do Dia (Editáveis)")
+                    st.markdown("### 🟢 Pedidos do Dia (Editáveis)")
                     
                     df_dia.insert(0, "Excluir", False)
                     
@@ -1298,36 +1277,36 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         hide_index=True,
                         key="tabela_pedidos_do_dia_unica"
                     )
-                    
+        
                     col_btn1, col_btn2 = st.columns(2)
-                    
+        
                     with col_btn1:
-                        if st.button("💾 Salvar Alterações", type="primary", key=f"btn_salvar_data_esp_{menu_admin}"):
+                        if st.button("💾 Salvar Alterações", type="primary", key="btn_salvar_tabela_unica"):
                             try:
                                 cursor = conn.cursor()
                                 for index, row in df_editado.iterrows():
-                                    novo_total = float(row['quantidade']) * float(row['valor_venda'])
+                                    novo_total = float(row['quantidade']) * float(row['valor_unitario'])
                                     cursor.execute("""
-                                        UPDATE vendas 
-                                        SET quantidade = ?, valor_venda = ?, valor_total = ? 
+                                        UPDATE pedidos 
+                                        SET quantidade = ?, valor_total = ? 
                                         WHERE id = ?
-                                    """, (row['quantidade'], row['valor_venda'], novo_total, row['id']))
+                                    """, (row['quantidade'], novo_total, row['id']))
                                 conn.commit()
-                                st.success("Registros atualizados com sucesso!")
+                                st.success("Pedidos atualizados com sucesso!")
                                 st.rerun()
                             except Exception as ex:
                                 conn.rollback()
-                                st.error(f"Erro ao atualizar: {ex}")
-                    
+                                st.error(f"Erro ao atualizar os pedidos: {ex}")
+        
                     with col_btn2:
-                        if st.button("🗑️ Excluir Marcados", type="secondary", key=f"btn_excluir_data_esp_{menu_admin}"):
+                        if st.button("🗑️ Excluir Marcados", type="secondary", key="btn_excluir_selecionados"):
                             try:
                                 cursor = conn.cursor()
                                 ids_para_excluir = df_editado[df_editado['Excluir'] == True]['id'].tolist()
                                 
                                 if ids_para_excluir:
                                     for id_pedido in ids_para_excluir:
-                                        cursor.execute("DELETE FROM vendas WHERE id = ?", (id_pedido,))
+                                        cursor.execute("DELETE FROM pedidos WHERE id = ?", (id_pedido,))
                                     conn.commit()
                                     st.warning("Itens selecionados excluídos com sucesso!")
                                     st.rerun()
@@ -1335,9 +1314,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     st.info("Nenhum item foi marcado para exclusão.")
                             except Exception as ex:
                                 conn.rollback()
-                                st.error(f"Erro ao excluir: {ex}")
-            
-                    # Geração do PDF da data consultada
+                                st.error(f"Erro ao excluir os itens: {ex}")
+
                     try:
                         from reportlab.lib.pagesizes import letter
                         from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -1345,16 +1323,16 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         from reportlab.lib import colors
                         from datetime import timedelta
                         import io
-            
+
                         buffer = io.BytesIO()
                         doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=15, bottomMargin=30)
                         elements = []
                         styles = getSampleStyleSheet()
-            
+
                         fuso_brasil = timedelta(hours=3)
                         hora_local = datetime.now() - fuso_brasil
                         data_hora_str = hora_local.strftime('%Y-%m-%d %H:%M:%S')
-            
+
                         estilo_empresa = ParagraphStyle('Empresa', parent=styles['Heading1'], fontSize=14, textColor=colors.HexColor('#002060'), alignment=1, fontName='Helvetica-Bold', spaceAfter=0)
                         estilo_sub_empresa = ParagraphStyle('SubEmpresa', parent=styles['Normal'], fontSize=8, textColor=colors.black, alignment=1, leading=9, spaceAfter=0)
                         estilo_titulo_rel = ParagraphStyle('TituloRel', parent=styles['Heading2'], fontSize=10, textColor=colors.black, alignment=1, fontName='Helvetica-Bold', spaceBefore=4, spaceAfter=0)
@@ -1367,40 +1345,39 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         
                         estilo_total_label = ParagraphStyle('TotLabel', parent=styles['Normal'], fontSize=9, textColor=colors.white, alignment=0, fontName='Helvetica-Bold')
                         estilo_total_val = ParagraphStyle('TotVal', parent=styles['Normal'], fontSize=9, textColor=colors.white, alignment=2, fontName='Helvetica-Bold')
-            
+
                         elements.append(Paragraph("REY DA CEBOLA", estilo_empresa))
                         elements.append(Paragraph("CNPJ: 194.174.39/000-42 INSC.EST.: 12.426725-4<br/>CONTATO: (99) 98814-9722 OU (99) 98414-3943", estilo_sub_empresa))
                         elements.append(Spacer(1, 4))
-            
-                        cliente_atual_pdf = cliente_sel if cliente_sel != "TODOS" else "Geral"
-                        elements.append(Paragraph(f"Relatório de Pedidos - Data: {data_consulta_str}", estilo_titulo_rel))
-                        elements.append(Paragraph(f"<b>Cliente:</b> {cliente_atual_pdf} | <b>Gerado em:</b> {data_hora_str}", estilo_info_cli))
+
+                        elements.append(Paragraph("Relatório de Pedidos / Orçamentos", estilo_titulo_rel))
+                        elements.append(Paragraph(f"<b>Cliente:</b> {st.session_state.cliente_autenticado} | <b>Gerado em:</b> {data_hora_str}", estilo_info_cli))
                         elements.append(Spacer(1, 8))
-            
+
                         data_tabela = [[
                             Paragraph("Produto", estilo_th),
                             Paragraph("Qtd Total", estilo_th),
                             Paragraph("Preço Unitário (R$)", estilo_th),
                             Paragraph("Valor Total (R$)", estilo_th)
                         ]]
-            
+
                         for _, row in df_dia.iterrows():
                             data_tabela.append([
                                 Paragraph(str(row['produto']), estilo_td_left),
                                 Paragraph(f"{row['quantidade']:.2f}", estilo_td_center),
-                                Paragraph(f"R$ {row['valor_venda']:.2f}", estilo_td_right),
+                                Paragraph(f"R$ {row['valor_unitario']:.2f}", estilo_td_right),
                                 Paragraph(f"R$ {row['valor_total']:.2f}", estilo_td_right)
                             ])
-            
+
                         total_geral_dia = df_dia['valor_total'].sum()
-            
+
                         data_tabela.append([
                             Paragraph("VALOR TOTAL GERAL", estilo_total_label),
                             Paragraph("", estilo_total_val),
                             Paragraph("", estilo_total_val),
                             Paragraph(f"R$ {total_geral_dia:.2f}", estilo_total_val)
                         ])
-            
+
                         t = Table(data_tabela, colWidths=[220, 80, 110, 130])
                         t.setStyle(TableStyle([
                             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1F4E79')),
@@ -1416,26 +1393,40 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         elements.append(t)
                         doc.build(elements)
                         pdf_bytes = buffer.getvalue()
-            
+
                         st.download_button(
-                            label="📥 Baixar PDF da Data Escolhida",
+                            label="📥 Baixar PDF do Dia",
                             data=pdf_bytes,
-                            file_name=f"relatorio_pedidos_{data_consulta_str}_{cliente_atual_pdf}.pdf",
+                            file_name=f"relatorio_pedidos_dia_{st.session_state.cliente_autenticado}.pdf",
                             mime="application/pdf",
-                            key=f"btn_pdf_data_esp_{menu_admin}"
+                            key="btn_pdf_portal_dia"
                         )
                     except Exception as ex:
-                        st.error(f"Erro ao gerar PDF: {ex}")
+                        st.error(f"Erro ao gerar PDF dos pedidos do dia: {ex}")
                 else:
-                    st.info(f"ℹ️ Nenhum pedido encontrado para a data {data_consulta_str}. Selecione outra data no campo acima para editar.")
-            
-                # SEÇÃO 2: Tabela Inferior de Histórico do Período
-                if not df_historico_periodo.empty:
-                    st.markdown("---")
-                    st.markdown("### 📚 Histórico de Registros do Período")
-                    st.dataframe(df_historico_periodo, hide_index=True, use_container_width=True)
+                    st.info("Nenhum pedido registrado hoje para edição.")
+                    
+            except Exception as e:
+                st.error(f"Erro ao carregar pedidos do dia: {e}")
+                        
+            # ==========================================
+            # Seção de Histórico de Pedidos do Cliente
+            # ==========================================
+            st.markdown("---")
+            st.subheader("📚 Pedidos Anteriores (Histórico)")
+            try:
+                query_hist_cliente = """
+                    SELECT id, produto, quantidade, valor_unitario, valor_total, status, data, fornecedor, grupo, codigo_pedido
+                    FROM pedidos
+                    WHERE DATE(data) != DATE('now') AND cliente = ?
+                """
+                df_hist_cli = pd.read_sql_query(query_hist_cliente, conn, params=(st.session_state.cliente_autenticado,))
+                if not df_hist_cli.empty:
+                    st.dataframe(df_hist_cli, use_container_width=True, hide_index=True)
                 else:
-                    st.warning("Nenhum registro encontrado no histórico para o período selecionado.")
+                    st.info("Nenhum pedido anterior encontrado.")
+            except Exception as e_hist:
+                st.error(f"Erro ao carregar histórico: {e_hist}")
             
                 # SEÇÃO 2: Histórico de Registros do Período (Abaixo dos pedidos do dia)
                             
