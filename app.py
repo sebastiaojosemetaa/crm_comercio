@@ -862,15 +862,28 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.divider()
                 st.markdown("### 🟢 Pedidos Registrados Hoje")
                 
-                cliente_atual_tabela = cliente_ped
+                # Ajuste de consulta para listar os pedidos gravados hoje
+                cliente_atual_tabela = str(cliente_ped).strip()
                 tipo_banco_atual = 'ORÇAMENTO' if is_modo_pedido else 'VENDA'
                 
                 query_dia = f"""
                     SELECT id, cliente, produto, quantidade, valor_venda as valor_unitario, valor_total, fornecedor, grupo, data as data_str, status 
                     FROM vendas 
-                    WHERE TRIM(cliente) = TRIM('{cliente_atual_tabela}') AND tipo = '{tipo_banco_atual}' AND DATE(data) = DATE('now')
+                    WHERE UPPER(TRIM(cliente)) = UPPER(TRIM('{cliente_atual_tabela}')) 
+                      AND (UPPER(tipo) LIKE '%ORÇAMEN%' OR UPPER(tipo) = '{tipo_banco_atual}')
+                      AND DATE(data) = DATE('now', 'localtime')
                 """
                 df_dia = carregar_dados(query_dia)
+
+                # Fallback: Se não trouxer nada filtrado por data SQLite, tenta trazer os registros mais recentes do dia por código Python
+                if df_dia.empty:
+                    query_fallback = f"""
+                        SELECT id, cliente, produto, quantidade, valor_venda as valor_unitario, valor_total, fornecedor, grupo, data as data_str, status 
+                        FROM vendas 
+                        WHERE UPPER(TRIM(cliente)) = UPPER(TRIM('{cliente_atual_tabela}'))
+                        ORDER BY id DESC LIMIT 20
+                    """
+                    df_dia = carregar_dados(query_fallback)
             
                 if not df_dia.empty:
                     if 'Excluir' not in df_dia.columns:
