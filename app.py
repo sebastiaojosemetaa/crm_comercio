@@ -18,6 +18,14 @@ def get_connection():
 
 conn = get_connection()
 
+# Adicione este bloco aqui:
+try:
+    cursor = conn.cursor()
+    cursor.execute("ALTER TABLE vendas ADD COLUMN status TEXT DEFAULT 'Pendente'")
+    conn.commit()
+except Exception:
+    pass
+
 def adequar_banco_e_migrar():
     cursor = conn.cursor()
     
