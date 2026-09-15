@@ -7,7 +7,44 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+    story = []
+    
+    styles = getSampleStyleSheet()
+    title_style = styles['Heading1']
+    title_style.alignment = 1
+    
+    story.append(Paragraph(f"<b>Relatório de Pedidos - {cliente_nome}</b>", title_style))
+    story.append(Spacer(1, 15))
+    
+    cols_pdf = [c for c in ['id', 'cliente', 'produto', 'quantidade', 'Valor Unitário (R$)', 'Total (R$)', 'status'] if c in df_dados.columns]
+    if not cols_pdf:
+        cols_pdf = list(df_dados.columns)[:6]
 
+    table_data = [cols_pdf]
+    for _, row in df_dados.iterrows():
+        linha = [str(row[c]) for c in cols_pdf]
+        table_data.append(linha)
+
+    t = Table(table_data, hAlign='LEFT')
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E293B')),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,0), 10),
+        ('BOTTOMPADDING', (0,0), (-1,0), 8),
+        ('BACKGROUND', (0,1), (-1,-1), colors.HexColor('#F8FAFC')),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
+        ('FONTSIZE', (0,1), (-1,-1), 9),
+    ]))
+    
+    story.append(t)
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
 # -----------------------------------------------------------------------------
 # 1. CONFIGURAÇÃO E CONEXÃO COM O BANCO DE DADOS
 # -----------------------------------------------------------------------------
