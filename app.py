@@ -860,98 +860,94 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.info("Nenhum item adicionado ao carrinho ainda.")
 
                 st.divider()
-                st.markdown("### 🟢 Pedidos Registrados Hoje")
-                
-                # Ajuste de consulta para listar os pedidos gravados hoje
+                st.markdown("### 🟢 Pedidos do Dia (Editáveis)")
+
                 cliente_atual_tabela = str(cliente_ped).strip()
                 tipo_banco_atual = 'ORÇAMENTO' if is_modo_pedido else 'VENDA'
-                
+
+                # Busca flexível que lê a data atual e ignora diferenças de maiúsculas/minúsculas
                 query_dia = f"""
-                    SELECT id, cliente, produto, quantidade, valor_venda as valor_unitario, valor_total, fornecedor, grupo, data as data_str, status 
+                    SELECT id, cliente, produto, quantidade, 
+                           valor_venda as valor_unitario, valor_total, 
+                           fornecedor, grupo, data, status 
                     FROM vendas 
                     WHERE UPPER(TRIM(cliente)) = UPPER(TRIM('{cliente_atual_tabela}')) 
-                      AND (UPPER(tipo) LIKE '%ORÇAMEN%' OR UPPER(tipo) = '{tipo_banco_atual}')
                       AND DATE(data) = DATE('now', 'localtime')
+                    ORDER BY id DESC
                 """
                 df_dia = carregar_dados(query_dia)
 
-                # Fallback: Se não trouxer nada filtrado por data SQLite, tenta trazer os registros mais recentes do dia por código Python
-                if df_dia.empty:
-                    query_fallback = f"""
-                        SELECT id, cliente, produto, quantidade, valor_venda as valor_unitario, valor_total, fornecedor, grupo, data as data_str, status 
-                        FROM vendas 
-                        WHERE UPPER(TRIM(cliente)) = UPPER(TRIM('{cliente_atual_tabela}'))
-                        ORDER BY id DESC LIMIT 20
-                    """
-                    df_dia = carregar_dados(query_fallback)
-            
                 if not df_dia.empty:
-                    if 'Excluir' not in df_dia.columns:
-                        df_dia.insert(0, 'Excluir', False)
-                        
-                    df_editado = st.data_editor(df_dia, key=f"editor_dia_comp_{cliente_atual_tabela}", use_container_width=True, hide_index=True)
+                    # Formata as colunas idênticas às da tela Portal do Cliente
+                    df_exibir = df_dia.copy()
                     
-                    col_b1, col_b2, col_b3, col_b4 = st.columns(4)
+                    if 'Excluir' not in df_exibir.columns:
+                        df_exibir.insert(0, 'Excluir', False)
+
+                    # Ajuste de formatação visual dos valores R$
+                    if 'valor_unitario' in df_exibir.columns:
+                        df_exibir['Valor Unitário (R$)'] = df_exibir['valor_unitario'].apply(lambda x: f"R$ {float(x):.2f}" if pd.notnull(x) else "R$ 0.00")
+                    if 'valor_total' in df_exibir.columns:
+                        df_exibir['Total (R$)'] = df_exibir['valor_total'].apply(lambda x: f"R$ {float(x):.2f}" if pd.notnull(x) else "R$ 0.00")
+
+                    # Mantém apenas as colunas exatamente iguais à segunda imagem
+                    cols_visiveis = ['Excluir', 'id', 'cliente', 'produto', 'quantidade', 'Valor Unitário (R$)', 'Total (R$)', 'fornecedor', 'grupo', 'data', 'status']
+                    cols_finais = [c for c in cols_visiveis if c in df_exibir.columns]
+
+                    # Tabela editável interativa igual à tela do cliente
+                    df_editado = st.data_editor(
+                        df_exibir[cols_finais], 
+                        key=f"editor_admin_dia_{cliente_atual_tabela}", 
+                        use_container_width=True, 
+                        hide_index=True,
+                        disabled=['id', 'cliente', 'Valor Unitário (R$)', 'Total (R$)', 'data']
+                    )
+
+                    col_b1, col_b2 = st.columns([1, 4])
                     
                     with col_b1:
-                        if st.button("💾 Salvar Alterações", type="primary", key="btn_salvar_dia_comp"):
+                        if st.button("💾 Salvar Alterações", type="primary", key="btn_salvar_alteracoes_admin"):
                             try:
                                 cursor = conn.cursor()
                                 for index, row in df_editado.iterrows():
-                                    if row.get('Excluir', False):
-                                        cursor.execute("DELETE FROM vendas WHERE id = ?", (row['id'],))
-                                    else:
-                                        qtd = float(row.get('quantidade', 0) or 0)
-                                        val_unit = float(row.get('valor_unitario', 0) or 0)
-                                        novo_total = qtd * val_unit
-                                        
-                                        cursor.execute("""
-                                            UPDATE vendas 
-                                            SET produto = ?, quantidade = ?, valor_venda = ?, valor_total = ?, fornecedor = ?, grupo = ?, status = ?
-                                            WHERE id = ?
-                                        """, (
-                                            row.get('produto'), qtd, val_unit, novo_total, 
-                                            row.get('fornecedor'), row.get('grupo'), row.get('status', 'Pendente'), row['id']
-                                        ))
+                                    qtd = float(row.get('quantidade', 1))
+                                    # Pega o valor unitário original para recalcular
+                                    v_orig = df_dia.loc[df_dia['id'] == row['id'], 'valor_unitario'].values[0]
+                                    v_tot = qtd * float(v_orig)
+
+                                    cursor.execute("""
+                                        UPDATE vendas 
+                                        SET produto = ?, quantidade = ?, valor_total = ?, fornecedor = ?, grupo = ?, status = ?
+                                        WHERE id = ?
+                                    """, (
+                                        row.get('produto'), qtd, v_tot, 
+                                        row.get('fornecedor'), row.get('grupo'), row.get('status', 'Pendente'), row['id']
+                                    ))
                                 conn.commit()
                                 st.success("Alterações salvas com sucesso!")
                                 st.rerun()
                             except Exception as e:
-                                st.error(f"Erro ao atualizar: {e}")
-                    
+                                st.error(f"Erro ao salvar: {e}")
+
                     with col_b2:
-                        if st.button("✅ Finalizar Pedido", key="btn_finalizar_dia_comp"):
+                        if st.button("🗑️ Excluir Marcados", key="btn_excluir_marcados_admin"):
                             try:
                                 cursor = conn.cursor()
-                                for index, row in df_editado.iterrows():
-                                    cursor.execute("""
-                                        UPDATE vendas 
-                                        SET status = 'Finalizado'
-                                        WHERE id = ?
-                                    """, (row['id'],))
-                                conn.commit()
-                                st.success("Pedido finalizado com sucesso!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro ao finalizar pedido: {e}")
-                    
-                    with col_b3:
-                        if st.button("🗑️ Excluir Marcados", key="btn_excluir_dia_comp"):
-                            try:
-                                cursor = conn.cursor()
-                                removidos = 0
+                                deletados = 0
                                 for index, row in df_editado.iterrows():
                                     if row.get('Excluir', False):
                                         cursor.execute("DELETE FROM vendas WHERE id = ?", (row['id'],))
-                                        removidos += 1
+                                        deletados += 1
                                 conn.commit()
-                                if removidos > 0:
-                                    st.success(f"{removidos} item(ns) excluído(s) com sucesso!")
+                                if deletados > 0:
+                                    st.success(f"{deletados} item(ns) removido(s)!")
                                     st.rerun()
                                 else:
-                                    st.warning("Nenhum item marcado para exclusão.")
+                                    st.warning("Marque a caixa 'Excluir' da linha que deseja remover.")
                             except Exception as e:
                                 st.error(f"Erro ao excluir: {e}")
+                else:
+                    st.info("Nenhum item lançado para este cliente hoje.")
 
                     with col_b4:
                         try:
