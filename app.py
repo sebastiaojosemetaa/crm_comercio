@@ -1236,7 +1236,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         })
                     # Seção 1: Pedidos do Dia (Editáveis)
                     if not df_dia.empty:
-                       st.markdown("### 🟢 Pedidos do Dia (Editáveis)")
+                        st.markdown("### 🟢 Pedidos do Dia (Editáveis)")
                         if 'Excluir' not in df_dia.columns:
                             df_dia.insert(0, 'Excluir', False)
                             
@@ -1280,7 +1280,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     st.rerun()
                                 except Exception as e:
                                     st.error(f"Erro ao finalizar pedido: {e}")
-
+                
                         with col_b3:
                             if st.button("🗑️ Excluir Marcados", key="btn_excluir_marcados_admin"):
                                 try:
@@ -1298,7 +1298,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         st.warning("Nenhum item foi marcado para exclusão.")
                                 except Exception as e:
                                     st.error(f"Erro ao excluir: {e}")
-
+                
                         with col_b4:
                             try:
                                 from fpdf import FPDF
@@ -1327,7 +1327,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     clientes_unicos = df_editado['cliente'].unique()
                                     if len(clientes_unicos) == 1:
                                         nome_cliente_filtro = str(clientes_unicos[0])
-            
+                
                                 pdf.set_font("Arial", "B", 10)
                                 pdf.cell(190, 6, txt=f"Cliente: {nome_cliente_filtro}", ln=True, align="C")
                                 
