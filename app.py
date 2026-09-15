@@ -961,26 +961,108 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.info("Nenhum registro encontrado.")
     
             with aba_list:
-                st.subheader("Todas as Vendas / Pedidos")
-                df_todas_vendas = carregar_dados("SELECT * FROM vendas ORDER BY id DESC")
-                if not df_todas_vendas.empty:
-                    st.dataframe(df_todas_vendas, use_container_width=True, hide_index=True)
-                else:
-                    st.info("Nenhum registro encontrado.")
-
+                st.subheader("🟢 Pedidos do Dia (Editáveis)")
+    
+                query_edit_admin = """
+                    SELECT id, cliente, produto, quantidade, 
+                           valor_venda, valor_total, 
+                           fornecedor, grupo, data, status 
+                    FROM vendas 
+                    WHERE DATE(data) = DATE('now', 'localtime')
+                    ORDER BY id DESC
+                """
+                df_dia = carregar_dados(query_edit_admin)
+    
+                if not df_dia.empty:
+                    df_exibir = df_dia.copy()
+                    
+                    if 'Excluir' not in df_exibir.columns:
+                        df_exibir.insert(0, 'Excluir', False)
+    
+                    df_exibir['Valor Unitário (R$)'] = df_exibir['valor_venda'].apply(lambda x: f"R$ {float(x):.2f}" if pd.notnull(x) else "R$ 0.00")
+                    df_exibir['Total (R$)'] = df_exibir['valor_total'].apply(lambda x: f"R$ {float(x):.2f}" if pd.notnull(x) else "R$ 0.00")
+    
+                    cols_vis = ['Excluir', 'id', 'cliente', 'produto', 'quantidade', 'Valor Unitário (R$)', 'Total (R$)', 'fornecedor', 'grupo', 'data', 'status']
+                    cols_finais = [c for c in cols_vis if c in df_exibir.columns]
+    
+                    df_editado = st.data_editor(
+                        df_exibir[cols_finais], 
+                        key="editor_global_admin_dia", 
+                        use_container_width=True, 
+                        hide_index=True,
+                        disabled=['id', 'Valor Unitário (R$)', 'Total (R$)', 'data']
+                    )
+    
+                    col_b1, col_b2, col_b3, col_b4 = st.columns([1, 1, 1, 2])
+                    
+                    with col_b1:
+                        if st.button("💾 Salvar Alterações", type="primary", key="btn_salvar_edit_admin_global"):
+                            try:
+                                cursor = conn.cursor()
+                                for index, row in df_editado.iterrows():
+                                    row_id = int(row['id'])
+                                    nova_qtd = float(row.get('quantidade', 1))
+                                    novo_prod = str(row.get('produto', '')).strip()
+                                    novo_cli = str(row.get('cliente', '')).strip()
+                                    novo_fornec = str(row.get('fornecedor', '')).strip()
+                                    novo_grupo = str(row.get('grupo', '')).strip()
+                                    novo_status = str(row.get('status', 'Pendente')).strip()
+    
+                                    v_unit_orig = float(df_dia.loc[df_dia['id'] == row_id, 'valor_venda'].values[0])
+                                    novo_total = nova_qtd * v_unit_orig
+    
+                                    cursor.execute("""
+                                        UPDATE vendas 
+                                        SET cliente = ?, produto = ?, quantidade = ?, valor_total = ?, fornecedor = ?, grupo = ?, status = ?
+                                        WHERE id = ?
+                                    """, (novo_cli, novo_prod, nova_qtd, novo_total, novo_fornec, novo_grupo, novo_status, row_id))
+                                    
+                                conn.commit()
+                                st.toast("✅ Alterações salvas com sucesso!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao salvar alterações: {e}")
+    
+                    with col_b2:
+                        if st.button("🗑️ Excluir Marcados", key="btn_excluir_edit_admin_global"):
+                            try:
+                                cursor = conn.cursor()
+                                deletados = 0
+                                for index, row in df_editado.iterrows():
+                                    if row.get('Excluir', False):
+                                        cursor.execute("DELETE FROM vendas WHERE id = ?", (row['id'],))
+                                        deletados += 1
+                                conn.commit()
+                                if deletados > 0:
+                                    st.toast(f"🗑️ {deletados} item(ns) excluído(s)!")
+                                    st.rerun()
+                                else:
+                                    st.warning("Marque a caixa 'Excluir'.")
+                            except Exception as e:
+                                st.error(f"Erro ao excluir: {e}")
+    
                     with col_b4:
                         try:
-                            pdf_buf = gerar_pdf_tabela_pedidos(df_editado, cliente_nome=cliente_atual_tabela)
+                            pdf_buf = gerar_pdf_tabela_pedidos(df_editado, cliente_nome="Geral_Dia")
                             st.download_button(
                                 label="📄 Baixar PDF do Dia",
                                 data=pdf_buf,
-                                file_name=f"pedidos_dia_{cliente_atual_tabela}.pdf",
+                                file_name="pedidos_dia.pdf",
                                 mime="application/pdf",
                                 key="btn_pdf_dia_completo"
                             )
                         except Exception as e:
                             st.error(f"Erro ao gerar PDF: {e}")
-
+                else:
+                    st.info("Nenhum pedido cadastrado hoje.")
+    
+                st.divider()
+                st.subheader("📚 Pedidos Anteriores / Histórico Geral")
+                df_todas_vendas = carregar_dados("SELECT * FROM vendas ORDER BY id DESC")
+                if not df_todas_vendas.empty:
+                    st.dataframe(df_todas_vendas, use_container_width=True, hide_index=True)
+                else:
+                    st.info("Nenhum registro encontrado.")
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
             
