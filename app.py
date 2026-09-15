@@ -1026,7 +1026,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
                     grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
         
-                    # Tratativa para cadastro rápido de produto fora do form principal para não quebrar fluxo
                     prod_item = st.selectbox("Selecione o Produto", produtos_opt, key="ped_select_produto")
         
                     if prod_item == "➕ Cadastrar Novo Produto...":
@@ -1047,7 +1046,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 st.error("Digite o nome do produto.")
                         st.stop()
                     
-                    # Identifica valores sugeridos com base no produto escolhido
                     preco_sugerido_admin = 0.0
                     forn_sugerido_admin = fornecedores_opt[0]
                     grupo_sugerido_admin = grupos_opt[0]
@@ -1089,7 +1087,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     tipo_reg = "PEDIDO" if is_modo_pedido else "VENDA"
                     label_preco_input = "Preço de Custo Unitário (R$)" if is_modo_pedido else "Preço de Venda Unitário (R$)"
         
-                    # ABRINDO O FORMULÁRIO ENVOLVENDO OS CAMPOS DE ENTRADA E O BOTÃO
                     form_key = f"form_pedido_completo_{is_modo_pedido}"
                     with st.form(key=form_key, clear_on_submit=False):
                         st.markdown(f"### Lançamento de {tipo_reg}")
@@ -1114,7 +1111,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 fornec_salvar = str(fornec_ped)
                                 grupo_salvar = str(grupo_ped)
                     
-                                # Verifica se já existe o item hoje
                                 cursor.execute("""
                                     SELECT id, quantidade FROM vendas 
                                     WHERE TRIM(cliente) = TRIM(?) AND TRIM(produto) = TRIM(?) AND tipo = ? 
@@ -1143,7 +1139,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.divider()
                     st.markdown("### 🟢 Pedidos do Dia (Editáveis)")
                     
-                    # Captura o cliente atual selecionado fora do form para exibir a tabela correspondente abaixo
                     cliente_atual_tabela = st.session_state.get("ped_cli_ind", clientes_opt[0])
                     tipo_banco_atual = 'ORÇAMENTO' if is_modo_pedido else 'VENDA'
                     
@@ -1160,7 +1155,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             
                         df_editado = st.data_editor(df_dia, key=f"editor_dia_completo_{cliente_atual_tabela}", use_container_width=True, hide_index=True)
                         
-                        # Botões de ação alinhados diretamente sem uso de colunas complexas
                         if st.button("💾 Salvar Alterações", type="primary", key="btn_salvar_dia_comp"):
                             try:
                                 cursor = conn.cursor()
