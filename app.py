@@ -728,7 +728,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             is_modo_pedido = (menu_admin == "📋 Pedidos / Orçamentos")
             st.title(f"🛒 {menu_admin}")
             
-            # Inicializa carrinho do admin na sessão
             if "carrinho_admin" not in st.session_state:
                 st.session_state.carrinho_admin = []
     
@@ -837,8 +836,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 
                                 for item in st.session_state.carrinho_admin:
                                     cursor.execute("""
-                                        INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, tipo, data)
-                                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))
+                                        INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, tipo, status, data)
+                                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Pendente', datetime('now', 'localtime'))
                                     """, (
                                         cliente_ped,
                                         item["produto"],
@@ -852,7 +851,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 
                                 conn.commit()
                                 st.session_state.carrinho_admin = []
-                                st.success("Pedido salvo e registrado no banco de dados com sucesso!")
+                                st.success("Pedido salvo com sucesso!")
                                 st.rerun()
                             except Exception as err:
                                 st.error(f"Erro ao salvar pedido: {err}")
@@ -863,7 +862,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.markdown("### 🟢 Pedidos do Dia (Editáveis)")
 
                 cliente_atual_tabela = str(cliente_ped).strip()
-                tipo_banco_atual = 'ORÇAMENTO' if is_modo_pedido else 'VENDA'
 
                 query_dia = f"""
                     SELECT id, cliente, produto, quantidade, 
@@ -942,6 +940,14 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 st.error(f"Erro ao excluir: {e}")
                 else:
                     st.info("Nenhum item lançado para este cliente hoje.")
+
+            with aba_list:
+                st.subheader("Todas as Vendas / Pedidos")
+                df_todas_vendas = carregar_dados("SELECT * FROM vendas")
+                if not df_todas_vendas.empty:
+                    st.dataframe(df_todas_vendas, use_container_width=True, hide_index=True)
+                else:
+                    st.info("Nenhum registro encontrado.")
 
                     with col_b4:
                         try:
