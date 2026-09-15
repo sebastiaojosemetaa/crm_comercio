@@ -953,7 +953,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 else:
                     st.info("Nenhum item lançado para este cliente hoje.")
     
-            # ABA 2: APENAS UMA RENDERIZAÇÃO DA TABELA EDITÁVEL GERAL
             with aba_list:
                 st.subheader("Todas as Vendas / Pedidos")
                 df_todas_vendas = carregar_dados("SELECT * FROM vendas ORDER BY id DESC")
