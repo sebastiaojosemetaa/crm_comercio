@@ -963,9 +963,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     """, (novo_cli, novo_prod, nova_qtd, novo_total, novo_fornec, novo_grupo, novo_status, row_id))
                                     
                                 conn.commit()
-                                st.cache_data.clear()  # <-- Adicione esta linha aqui
+                                st.cache_data.clear()
                                 st.toast("✅ Alterações salvas com sucesso!")
                                 st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao salvar alterações: {e}")
         
                     with col_b2:
                         if st.button("🗑️ Excluir Marcados", key="btn_excluir_edit_admin_global"):
