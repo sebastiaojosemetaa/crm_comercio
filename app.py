@@ -975,14 +975,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         except Exception as e:
                             st.error(f"Erro ao gerar PDF: {e}")
 
-            with aba_list:
-                st.subheader("Todas as Vendas / Pedidos")
-                df_todas_vendas = carregar_dados("SELECT * FROM vendas")
-                if not df_todas_vendas.empty:
-                    st.dataframe(df_todas_vendas, use_container_width=True, hide_index=True)
-                else:
-                    st.info("Nenhum registro encontrado.")
-
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
             
