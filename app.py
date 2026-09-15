@@ -865,7 +865,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 cliente_atual_tabela = str(cliente_ped).strip()
                 tipo_banco_atual = 'ORÇAMENTO' if is_modo_pedido else 'VENDA'
 
-                # Busca flexível que lê a data atual e ignora diferenças de maiúsculas/minúsculas
                 query_dia = f"""
                     SELECT id, cliente, produto, quantidade, 
                            valor_venda as valor_unitario, valor_total, 
@@ -878,23 +877,19 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 df_dia = carregar_dados(query_dia)
 
                 if not df_dia.empty:
-                    # Formata as colunas idênticas às da tela Portal do Cliente
                     df_exibir = df_dia.copy()
                     
                     if 'Excluir' not in df_exibir.columns:
                         df_exibir.insert(0, 'Excluir', False)
 
-                    # Ajuste de formatação visual dos valores R$
                     if 'valor_unitario' in df_exibir.columns:
                         df_exibir['Valor Unitário (R$)'] = df_exibir['valor_unitario'].apply(lambda x: f"R$ {float(x):.2f}" if pd.notnull(x) else "R$ 0.00")
                     if 'valor_total' in df_exibir.columns:
                         df_exibir['Total (R$)'] = df_exibir['valor_total'].apply(lambda x: f"R$ {float(x):.2f}" if pd.notnull(x) else "R$ 0.00")
 
-                    # Mantém apenas as colunas exatamente iguais à segunda imagem
                     cols_visiveis = ['Excluir', 'id', 'cliente', 'produto', 'quantidade', 'Valor Unitário (R$)', 'Total (R$)', 'fornecedor', 'grupo', 'data', 'status']
                     cols_finais = [c for c in cols_visiveis if c in df_exibir.columns]
 
-                    # Tabela editável interativa igual à tela do cliente
                     df_editado = st.data_editor(
                         df_exibir[cols_finais], 
                         key=f"editor_admin_dia_{cliente_atual_tabela}", 
@@ -911,7 +906,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 cursor = conn.cursor()
                                 for index, row in df_editado.iterrows():
                                     qtd = float(row.get('quantidade', 1))
-                                    # Pega o valor unitário original para recalcular
                                     v_orig = df_dia.loc[df_dia['id'] == row['id'], 'valor_unitario'].values[0]
                                     v_tot = qtd * float(v_orig)
 
