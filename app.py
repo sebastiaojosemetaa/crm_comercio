@@ -1098,12 +1098,16 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     cursor = conn.cursor()
                     tipo_banco = 'ORÇAMENTO' if is_modo_pedido else 'VENDA'
                     
+                    # Pega o valor do produto da tela atual de forma segura
+                    # (caso sua variável do produto tenha outro nome, ajuste aqui)
+                    produto_atual = locals().get('prod_item', locals().get('produto', 'Produto Genérico'))
+                    
                     # Verifica se o produto já existe para este cliente hoje para somar a quantidade
                     cursor.execute("""
                         SELECT id, quantidade FROM vendas 
                         WHERE TRIM(cliente) = TRIM(?) AND TRIM(produto) = TRIM(?) AND tipo = ? 
                         AND DATE(data) = DATE('now')
-                    """, (cliente_ped, prod_item, tipo_banco))
+                    """, (cliente_ped, str(produto_atual), tipo_banco))
                     item_existente = cursor.fetchone()
                     
                     if item_existente:
@@ -1116,7 +1120,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         cursor.execute("""
                             INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, tipo, data)
                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))
-                        """, (cliente_ped, prod_item, fornec_ped, grupo_ped, float(qtd_ped), float(v_venda_ped), float(qtd_ped) * float(v_venda_ped), tipo_banco))
+                        """, (cliente_ped, str(produto_atual), fornec_ped, grupo_ped, float(qtd_ped), float(v_venda_ped), float(qtd_ped) * float(v_venda_ped), tipo_banco))
                         
                     conn.commit()
                     st.success(f"{tipo_reg} atualizado com sucesso!")
