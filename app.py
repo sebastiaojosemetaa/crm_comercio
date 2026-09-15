@@ -1160,7 +1160,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             
                         df_editado = st.data_editor(df_dia, key=f"editor_dia_completo_{cliente_atual_tabela}", use_container_width=True, hide_index=True)
                         
-                        col_b1, col_b2, col_b3, col_b4 = st.columns([1, 1, 1, 2])
+                        col_b1, col_b2, col_b3 = st.columns([1, 1, 1])
                         with col_b1:
                             if st.button("💾 Salvar Alterações", type="primary", key="btn_salvar_dia_comp"):
                                 try:
