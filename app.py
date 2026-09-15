@@ -1094,7 +1094,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 v_venda_ped = st.number_input(label_preco_input, min_value=0.0, step=1.0, key="ped_v_ind")
                 
                 tipo_reg = "PEDIDO" if is_modo_pedido else "VENDA"
-                if st.button(f"Salvar {tipo_reg}", type="primary"):
+                if st.form_submit_button(f"Salvar {tipo_reg}", type="primary"):
                     try:
                         cursor = conn.cursor()
                         tipo_banco = 'ORÇAMENTO' if is_modo_pedido else 'VENDA'
@@ -1102,7 +1102,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         # Pega o produto da tela com segurança
                         produto_atual = locals().get('prod_item', locals().get('produto', ''))
                         if not produto_atual:
-                            # Tenta buscar nas variáveis globais ou do Streamlit session_state se existir
                             for key in st.session_state:
                                 if 'prod' in key.lower():
                                     produto_atual = st.session_state[key]
