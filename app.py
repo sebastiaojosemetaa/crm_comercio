@@ -1122,35 +1122,42 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.rerun()
 
                 st.divider()
-                st.subheader("🛒 Itens já lançados neste Pedido (Hoje)")
+                st.markdown("### 🟢 Pedidos do Dia (Editáveis)")
+                
                 tipo_banco_atual = 'ORÇAMENTO' if is_modo_pedido else 'VENDA'
-                df_parcial = carregar_dados(f"SELECT id, produto, quantidade, valor_venda as valor_compra, valor_total FROM vendas WHERE TRIM(cliente) = TRIM('{cliente_ped}') AND tipo = '{tipo_banco_atual}' AND DATE(data) = DATE('now')")
+                query_dia = f"""
+                    SELECT id, cliente, produto, quantidade, valor_venda as valor_unitario, valor_total, fornecedor, grupo, data as data_str, status 
+                    FROM vendas 
+                    WHERE TRIM(cliente) = TRIM('{cliente_ped}') AND tipo = '{tipo_banco_atual}' AND DATE(data) = DATE('now')
+                """
+                df_dia = carregar_dados(query_dia)
         
-                if not df_parcial.empty:
-                    if 'Excluir' not in df_parcial.columns:
-                        df_parcial.insert(0, 'Excluir', False)
+                if not df_dia.empty:
+                    if 'Excluir' not in df_dia.columns:
+                        df_dia.insert(0, 'Excluir', False)
                         
-                    df_editado = st.data_editor(df_parcial, key=f"editor_parcial_{cliente_ped}", use_container_width=True, hide_index=True)
-                    
-                    total_parcial = df_editado['valor_total'].sum()
-                    st.markdown(f"### **Valor Total Acumulado: R$ {total_parcial:.2f}**")
+                    df_editado = st.data_editor(df_dia, key=f"editor_dia_completo_{cliente_ped}", use_container_width=True, hide_index=True)
                     
                     col_b1, col_b2, col_b3, col_b4 = st.columns([1, 1, 1, 2])
                     with col_b1:
-                        if st.button("💾 Salvar Alterações", type="primary", key="btn_salvar_parcial"):
+                        if st.button("💾 Salvar Alterações", type="primary", key="btn_salvar_dia_comp"):
                             try:
                                 cursor = conn.cursor()
                                 for index, row in df_editado.iterrows():
                                     if row.get('Excluir', False):
                                         cursor.execute("DELETE FROM vendas WHERE id = ?", (row['id'],))
                                     else:
+                                        qtd = float(row.get('quantidade', 0) or 0)
+                                        val_unit = float(row.get('valor_unitario', 0) or 0)
+                                        novo_total = qtd * val_unit
+                                        
                                         cursor.execute("""
                                             UPDATE vendas 
-                                            SET produto = ?, quantidade = ?, valor_venda = ?, valor_total = ?
+                                            SET produto = ?, quantidade = ?, valor_venda = ?, valor_total = ?, fornecedor = ?, grupo = ?, status = ?
                                             WHERE id = ?
                                         """, (
-                                            row['produto'], row['quantidade'], row['valor_compra'], 
-                                            row['valor_total'], row['id']
+                                            row.get('produto'), qtd, val_unit, novo_total, 
+                                            row.get('fornecedor'), row.get('grupo'), row.get('status', 'Pendente'), row['id']
                                         ))
                                 conn.commit()
                                 st.success("Alterações salvas com sucesso!")
@@ -1159,13 +1166,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 st.error(f"Erro ao atualizar: {e}")
                     
                     with col_b2:
-                        if st.button("✅ Finalizar Pedido", type="secondary", key="btn_finalizar_parcial"):
+                        if st.button("✅ Finalizar Pedido", type="secondary", key="btn_finalizar_dia_comp"):
                             try:
                                 cursor = conn.cursor()
                                 for index, row in df_editado.iterrows():
                                     cursor.execute("""
                                         UPDATE vendas 
-                                        SET tipo = 'VENDA_FINALIZADA'
+                                        SET status = 'Finalizado'
                                         WHERE id = ?
                                     """, (row['id'],))
                                 conn.commit()
@@ -1175,7 +1182,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 st.error(f"Erro ao finalizar pedido: {e}")
         
                     with col_b3:
-                        if st.button("🗑️ Excluir Marcados", key="btn_excluir_parcial"):
+                        if st.button("🗑️ Excluir Marcados", key="btn_excluir_dia_comp"):
                             try:
                                 cursor = conn.cursor()
                                 removidos = 0
@@ -1197,51 +1204,62 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             from fpdf import FPDF
                             pdf = FPDF()
                             pdf.add_page()
+                            
                             pdf.set_font("Arial", "B", 14)
                             pdf.cell(190, 8, txt="REY DA CEBOLA", ln=True, align="C")
                             pdf.set_font("Arial", size=9)
                             pdf.cell(190, 5, txt="CNPJ: 194.174.39/000-42 INSC.EST.: 12.426725-4", ln=True, align="C")
                             pdf.cell(190, 5, txt="CONTATO: (99) 98814-9722 OU (99) 98414-3943", ln=True, align="C")
                             pdf.ln(4)
+                            
                             pdf.set_font("Arial", "B", 11)
-                            pdf.cell(190, 6, txt=f"Relatório do Cliente: {cliente_ped}", ln=True, align="C")
+                            pdf.cell(190, 6, txt=f"Relatório de Pedidos - Cliente: {cliente_ped}", ln=True, align="C")
                             pdf.ln(6)
                             
-                            pdf.set_font("Arial", "B", 10)
+                            pdf.set_font("Arial", "B", 9)
                             pdf.set_fill_color(31, 78, 121) 
                             pdf.set_text_color(255, 255, 255) 
-                            pdf.cell(70, 8, txt="Produto", border=1, fill=True, align="C")
-                            pdf.cell(30, 8, txt="Qtd", border=1, fill=True, align="C")
-                            pdf.cell(45, 8, txt="Preço Unit. (R$)", border=1, fill=True, align="C")
-                            pdf.cell(45, 8, txt="Total (R$)", border=1, fill=True, align="C")
+                            
+                            pdf.cell(65, 8, txt="Produto", border=1, fill=True, align="C")
+                            pdf.cell(20, 8, txt="Qtd", border=1, fill=True, align="C")
+                            pdf.cell(35, 8, txt="Preço Unit. (R$)", border=1, fill=True, align="C")
+                            pdf.cell(35, 8, txt="Total (R$)", border=1, fill=True, align="C")
+                            pdf.cell(35, 8, txt="Status", border=1, fill=True, align="C")
                             pdf.ln()
                             
-                            pdf.set_font("Arial", size=9)
+                            pdf.set_font("Arial", size=8)
                             pdf.set_text_color(0, 0, 0) 
+                            
+                            valor_geral = 0.0
                             for index, row in df_editado.iterrows():
-                                pdf.cell(70, 7, txt=str(row.get('produto', '')), border=1, align="L")
-                                pdf.cell(30, 7, txt=f"{float(row.get('quantidade', 0)):.2f}", border=1, align="C")
-                                pdf.cell(45, 7, txt=f"R$ {float(row.get('valor_compra', 0)):.2f}", border=1, align="R")
-                                pdf.cell(45, 7, txt=f"R$ {float(row.get('valor_total', 0)):.2f}", border=1, align="R")
+                                val_tot = float(row.get('valor_total', 0) or 0)
+                                valor_geral += val_tot
+                                
+                                pdf.cell(65, 7, txt=str(row.get('produto', '')), border=1, align="L")
+                                pdf.cell(20, 7, txt=f"{float(row.get('quantidade', 0) or 0):.2f}", border=1, align="C")
+                                pdf.cell(35, 7, txt=f"R$ {float(row.get('valor_unitario', 0) or 0):.2f}", border=1, align="R")
+                                pdf.cell(35, 7, txt=f"R$ {val_tot:.2f}", border=1, align="R")
+                                pdf.cell(35, 7, txt=str(row.get('status', 'Pendente')), border=1, align="C")
                                 pdf.ln()
                                 
-                            pdf.set_font("Arial", "B", 10)
-                            pdf.cell(145, 8, txt="VALOR TOTAL GERAL", border=1, align="L")
-                            pdf.cell(45, 8, txt=f"R$ {total_parcial:.2f}", border=1, align="R")
+                            pdf.set_font("Arial", "B", 9)
+                            pdf.cell(120, 8, txt="VALOR TOTAL GERAL", border=1, align="L")
+                            pdf.cell(70, 8, txt=f"R$ {valor_geral:.2f}", border=1, align="R")
                             pdf.ln()
                             
                             pdf_bytes = pdf.output(dest='S').encode('latin1')
                             st.download_button(
-                                label="📄 Baixar PDF do Pedido",
+                                label="📄 Baixar PDF do Dia",
                                 data=pdf_bytes,
-                                file_name=f"pedido_{cliente_ped}.pdf",
+                                file_name=f"pedidos_dia_{cliente_ped}.pdf",
                                 mime="application/pdf",
-                                key="btn_pdf_parcial"
+                                key="btn_pdf_dia_completo"
                             )
                         except Exception as e:
                             st.error(f"Erro ao gerar PDF: {e}")
                 else:
                     st.info("Nenhum item lançado para este cliente hoje.")
+                st.markdown("---")
                 
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
