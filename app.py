@@ -434,9 +434,9 @@ if perfil_selecionado == "👤 Portal do Cliente":
             
             try:
                 query_dia = """
-                    SELECT id, cliente, produto, quantidade, valor_unitario, valor_total, fornecedor, grupo, data, status 
-                    FROM pedidos 
-                    WHERE DATE(data) = DATE('now') AND cliente = ?
+                    SELECT id, cliente, produto, quantidade, valor_venda AS valor_unitario, valor_total, fornecedor, grupo, data, status
+                    FROM vendas
+                    WHERE DATE(data) = DATE('now', 'localtime') AND cliente = ?
                 """
                 df_dia = pd.read_sql_query(query_dia, conn, params=(st.session_state.cliente_autenticado,))
         
