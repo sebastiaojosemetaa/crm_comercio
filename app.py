@@ -1266,7 +1266,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     st.error(f"Erro ao atualizar: {e}")
                         
                         with col_b2:
-                            # 🚀 NOVO BOTÃO DE FINALIZAR PEDIDO
                             if st.button("✅ Finalizar Pedido", type="secondary", key="btn_finalizar_pedido_admin"):
                                 try:
                                     cursor = conn.cursor()
