@@ -1098,10 +1098,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     cursor = conn.cursor()
                     tipo_banco = 'ORÇAMENTO' if is_modo_pedido else 'VENDA'
                     
+                    # Verifica se o produto já existe para este cliente hoje para somar a quantidade
                     cursor.execute("""
                         SELECT id, quantidade FROM vendas 
                         WHERE TRIM(cliente) = TRIM(?) AND TRIM(produto) = TRIM(?) AND tipo = ? 
-                        AND substr(data, 1, 10) = date('now')
+                        AND DATE(data) = DATE('now')
                     """, (cliente_ped, prod_item, tipo_banco))
                     item_existente = cursor.fetchone()
                     
@@ -1116,11 +1117,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, tipo, data)
                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))
                         """, (cliente_ped, prod_item, fornec_ped, grupo_ped, float(qtd_ped), float(v_venda_ped), float(qtd_ped) * float(v_venda_ped), tipo_banco))
-                    
+                        
                     conn.commit()
                     st.success(f"{tipo_reg} atualizado com sucesso!")
                     st.rerun()
-
+            
                 st.divider()
                 st.markdown("### 🟢 Pedidos do Dia (Editáveis)")
                 
@@ -1131,7 +1132,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     WHERE TRIM(cliente) = TRIM('{cliente_ped}') AND tipo = '{tipo_banco_atual}' AND DATE(data) = DATE('now')
                 """
                 df_dia = carregar_dados(query_dia)
-        
+            
                 if not df_dia.empty:
                     if 'Excluir' not in df_dia.columns:
                         df_dia.insert(0, 'Excluir', False)
@@ -1180,7 +1181,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Erro ao finalizar pedido: {e}")
-        
+            
                     with col_b3:
                         if st.button("🗑️ Excluir Marcados", key="btn_excluir_dia_comp"):
                             try:
@@ -1198,7 +1199,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     st.warning("Nenhum item marcado para exclusão.")
                             except Exception as e:
                                 st.error(f"Erro ao excluir: {e}")
-        
+            
                     with col_b4:
                         try:
                             from fpdf import FPDF
