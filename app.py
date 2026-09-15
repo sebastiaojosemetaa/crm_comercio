@@ -971,9 +971,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             str_d1 = data_inicio.strftime("%Y-%m-%d")
             str_d2 = data_fim.strftime("%Y-%m-%d")
             
-            # Puxa os dados da tabela de pedidos onde ficam as vendas e o PDV
-            query_fin = "SELECT * FROM pedidos WHERE date(data) BETWEEN ? AND ?"
-            df_todas = carregar_dados_param(query_fin, [str_d1, str_d2])
+            # Puxa os dados utilizando a função padrão carregar_dados do seu projeto
+            query_fin = f"SELECT * FROM pedidos WHERE date(data) BETWEEN '{str_d1}' AND '{str_d2}'"
+            df_todas = carregar_dados(query_fin)
     
             if not df_todas.empty:
                 df_todas['status_str'] = df_todas['status'].fillna('').astype(str).str.strip().str.upper() if 'status' in df_todas.columns else ''
