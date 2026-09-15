@@ -865,6 +865,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 st.error(f"Erro ao salvar pedido: {err}")
                 # ... final do bloco do carrinho ...
 
+                else:
+                        st.info("Nenhum item adicionado ao carrinho ainda.")
+            
         # AQUI COMEÇA A SEGUNDA ABA (Tabela Editável)
         with aba_list:
             st.subheader("🟢 Pedidos do Dia (Editáveis)")
