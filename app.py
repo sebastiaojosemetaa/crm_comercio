@@ -873,7 +873,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
                 query_dia = f"""
                     SELECT id, cliente, produto, quantidade, 
-                           valor_venda as valor_unitario, valor_total, 
+                           valor_venda, valor_total, 
                            fornecedor, grupo, data, status 
                     FROM vendas 
                     WHERE UPPER(TRIM(cliente)) = UPPER(TRIM('{cliente_atual_tabela}')) 
@@ -888,14 +888,14 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     if 'Excluir' not in df_exibir.columns:
                         df_exibir.insert(0, 'Excluir', False)
 
-                    if 'valor_unitario' in df_exibir.columns:
-                        df_exibir['Valor Unitário (R$)'] = df_exibir['valor_unitario'].apply(lambda x: f"R$ {float(x):.2f}" if pd.notnull(x) else "R$ 0.00")
-                    if 'valor_total' in df_exibir.columns:
-                        df_exibir['Total (R$)'] = df_exibir['valor_total'].apply(lambda x: f"R$ {float(x):.2f}" if pd.notnull(x) else "R$ 0.00")
+                    # Criação das colunas visíveis formatadas
+                    df_exibir['Valor Unitário (R$)'] = df_exibir['valor_venda'].apply(lambda x: f"R$ {float(x):.2f}" if pd.notnull(x) else "R$ 0.00")
+                    df_exibir['Total (R$)'] = df_exibir['valor_total'].apply(lambda x: f"R$ {float(x):.2f}" if pd.notnull(x) else "R$ 0.00")
 
                     cols_visiveis = ['Excluir', 'id', 'cliente', 'produto', 'quantidade', 'Valor Unitário (R$)', 'Total (R$)', 'fornecedor', 'grupo', 'data', 'status']
                     cols_finais = [c for c in cols_visiveis if c in df_exibir.columns]
 
+                    # Configuração da tabela interativa
                     df_editado = st.data_editor(
                         df_exibir[cols_finais], 
                         key=f"editor_admin_dia_{cliente_atual_tabela}", 
@@ -911,23 +911,31 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             try:
                                 cursor = conn.cursor()
                                 for index, row in df_editado.iterrows():
-                                    qtd = float(row.get('quantidade', 1))
-                                    v_orig = df_dia.loc[df_dia['id'] == row['id'], 'valor_unitario'].values[0]
-                                    v_tot = qtd * float(v_orig)
+                                    row_id = row['id']
+                                    nova_qtd = float(row.get('quantidade', 1))
+                                    
+                                    # Pega o valor unitário original do banco para recalcular o total
+                                    v_unit_orig = float(df_dia.loc[df_dia['id'] == row_id, 'valor_venda'].values[0])
+                                    novo_total = nova_qtd * v_unit_orig
 
                                     cursor.execute("""
                                         UPDATE vendas 
                                         SET produto = ?, quantidade = ?, valor_total = ?, fornecedor = ?, grupo = ?, status = ?
                                         WHERE id = ?
                                     """, (
-                                        row.get('produto'), qtd, v_tot, 
-                                        row.get('fornecedor'), row.get('grupo'), row.get('status', 'Pendente'), row['id']
+                                        row.get('produto'), 
+                                        nova_qtd, 
+                                        novo_total, 
+                                        row.get('fornecedor'), 
+                                        row.get('grupo'), 
+                                        row.get('status', 'Pendente'), 
+                                        row_id
                                     ))
                                 conn.commit()
-                                st.success("Alterações salvas com sucesso!")
+                                st.toast("✅ Alterações salvas com sucesso!")
                                 st.rerun()
                             except Exception as e:
-                                st.error(f"Erro ao salvar: {e}")
+                                st.error(f"Erro ao salvar alterações: {e}")
 
                     with col_b2:
                         if st.button("🗑️ Excluir Marcados", key="btn_excluir_marcados_admin"):
@@ -940,10 +948,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         deletados += 1
                                 conn.commit()
                                 if deletados > 0:
-                                    st.success(f"{deletados} item(ns) removido(s)!")
+                                    st.toast(f"🗑️ {deletados} item(ns) excluído(s)!")
                                     st.rerun()
                                 else:
-                                    st.warning("Marque a caixa 'Excluir' da linha que deseja remover.")
+                                    st.warning("Marque a caixa na coluna 'Excluir' para remover a linha.")
                             except Exception as e:
                                 st.error(f"Erro ao excluir: {e}")
                 else:
