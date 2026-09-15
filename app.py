@@ -1094,51 +1094,60 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 v_venda_ped = st.number_input(label_preco_input, min_value=0.0, step=1.0, key="ped_v_ind")
                 
                 tipo_reg = "PEDIDO" if is_modo_pedido else "VENDA"
-                if st.button(f"Salvar {tipo_reg}", type="primary"):
-                    try:
-                        cursor = conn.cursor()
-                        tipo_banco = 'ORÇAMENTO' if is_modo_pedido else 'VENDA'
-                        
-                        # Pega o produto da tela com segurança
-                        produto_atual = locals().get('prod_item', locals().get('produto', ''))
-                        if not produto_atual:
-                            for key in st.session_state:
-                                if 'prod' in key.lower():
-                                    produto_atual = st.session_state[key]
-                                    break
-                        if not produto_atual:
-                            produto_atual = "Produto Genérico"
-            
-                        qtd_salvar = float(locals().get('qtd_ped', 1.0))
-                        val_salvar = float(locals().get('v_venda_ped', 0.0))
-                        fornec_salvar = locals().get('fornec_ped', 'GERAL')
-                        grupo_salvar = locals().get('grupo_ped', 'GERAL')
-            
-                        # Verifica se já existe o item hoje
-                        cursor.execute("""
-                            SELECT id, quantidade FROM vendas 
-                            WHERE TRIM(cliente) = TRIM(?) AND TRIM(produto) = TRIM(?) AND tipo = ? 
-                            AND DATE(data) = DATE('now')
-                        """, (cliente_ped, str(produto_atual), tipo_banco))
-                        item_existente = cursor.fetchone()
-                        
-                        if item_existente:
-                            novo_qtd = float(item_existente[1]) + qtd_salvar
-                            novo_total = novo_qtd * val_salvar
-                            cursor.execute("""
-                                UPDATE vendas SET quantidade = ?, valor_total = ? WHERE id = ?
-                            """, (novo_qtd, novo_total, item_existente[0]))
-                        else:
-                            cursor.execute("""
-                                INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, tipo, data)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))
-                            """, (cliente_ped, str(produto_atual), fornec_salvar, grupo_salvar, qtd_salvar, val_salvar, qtd_salvar * val_salvar, tipo_banco))
+    
+                # Abre o formulário corretamente para o botão funcionar
+                with st.form(key=f"form_pedido_{cliente_ped}", clear_on_submit=False):
+                    st.markdown(f"### Lançamento de {tipo_reg}")
+                    
+                    # (Seus campos de seleção já existentes continuam aqui na tela)
+                    # O botão do formulário abaixo:
+                    submitted = st.form_submit_button(f"Salvar {tipo_reg}", type="primary")
+                    
+                    if submitted:
+                        try:
+                            cursor = conn.cursor()
+                            tipo_banco = 'ORÇAMENTO' if is_modo_pedido else 'VENDA'
                             
-                        conn.commit()
-                        st.success(f"{tipo_reg} salvo com sucesso!")
-                        st.rerun()
-                    except Exception as err:
-                        st.error(f"Erro detalhado ao salvar: {err}")
+                            # Pega o produto da tela com segurança
+                            produto_atual = locals().get('prod_item', locals().get('produto', ''))
+                            if not produto_atual:
+                                for key in st.session_state:
+                                    if 'prod' in key.lower():
+                                        produto_atual = st.session_state[key]
+                                        break
+                            if not produto_atual:
+                                produto_atual = "Produto Genérico"
+            
+                            qtd_salvar = float(locals().get('qtd_ped', 1.0))
+                            val_salvar = float(locals().get('v_venda_ped', 0.0))
+                            fornec_salvar = locals().get('fornec_ped', 'GERAL')
+                            grupo_salvar = locals().get('grupo_ped', 'GERAL')
+            
+                            # Verifica se já existe o item hoje
+                            cursor.execute("""
+                                SELECT id, quantidade FROM vendas 
+                                WHERE TRIM(cliente) = TRIM(?) AND TRIM(produto) = TRIM(?) AND tipo = ? 
+                                AND DATE(data) = DATE('now')
+                            """, (cliente_ped, str(produto_atual), tipo_banco))
+                            item_existente = cursor.fetchone()
+                            
+                            if item_existente:
+                                novo_qtd = float(item_existente[1]) + qtd_salvar
+                                novo_total = novo_qtd * val_salvar
+                                cursor.execute("""
+                                    UPDATE vendas SET quantidade = ?, valor_total = ? WHERE id = ?
+                                """, (novo_qtd, novo_total, item_existente[0]))
+                            else:
+                                cursor.execute("""
+                                    INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, tipo, data)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))
+                                """, (cliente_ped, str(produto_atual), fornec_salvar, grupo_salvar, qtd_salvar, val_salvar, qtd_salvar * val_salvar, tipo_banco))
+                                
+                            conn.commit()
+                            st.success(f"{tipo_reg} salvo com sucesso!")
+                            st.rerun()
+                        except Exception as err:
+                            st.error(f"Erro detalhado ao salvar: {err}")
             
                 st.divider()
                 st.markdown("### 🟢 Pedidos do Dia (Editáveis)")
@@ -1278,8 +1287,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             st.error(f"Erro ao gerar PDF: {e}")
                 else:
                     st.info("Nenhum item lançado para este cliente hoje.")
-                st.markdown("---")
-                
+                st.markdown("---")                
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
             
