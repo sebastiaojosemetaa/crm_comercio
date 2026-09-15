@@ -987,17 +987,16 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         
                     with col_b4:
                         try:
-                            # Gera os dados em formato CSV para download simples
-                            csv_dados = df_editado.to_csv(index=False).encode('utf-8')
+                            pdf_buf = gerar_pdf_tabela_pedidos(df_editado, cliente_nome="Geral_Dia")
                             st.download_button(
-                                label="📄 Baixar Relatório do Dia (CSV)",
-                                data=csv_dados,
-                                file_name="pedidos_do_dia.csv",
-                                mime="text/csv",
+                                label="📄 Baixar PDF do Dia",
+                                data=pdf_buf,
+                                file_name="pedidos_dia.pdf",
+                                mime="application/pdf",
                                 key="btn_pdf_dia_completo"
                             )
                         except Exception as e:
-                            st.error(f"Erro ao gerar relatório: {e}")
+                            st.error(f"Erro ao gerar PDF: {e}")
                 else:
                     st.info("Nenhum pedido cadastrado hoje.")
         
