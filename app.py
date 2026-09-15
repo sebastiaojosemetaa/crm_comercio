@@ -950,14 +950,17 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         
                     with col_b4:
                         try:
-                            pdf_buf = gerar_pdf_tabela_pedidos(df_editado, cliente_nome="Geral_Dia")
-                            st.download_button(
-                                label="📄 Baixar PDF do Dia",
-                                data=pdf_buf,
-                                file_name="pedidos_dia.pdf",
-                                mime="application/pdf",
-                                key="btn_pdf_dia_completo"
-                            )
+                            if 'gerar_pdf_tabela_pedidos' in globals():
+                                pdf_buf = gerar_pdf_tabela_pedidos(df_editado, cliente_nome="Geral_Dia")
+                                st.download_button(
+                                    label="📄 Baixar PDF do Dia",
+                                    data=pdf_buf,
+                                    file_name="pedidos_dia.pdf",
+                                    mime="application/pdf",
+                                    key="btn_pdf_dia_completo"
+                                )
+                            else:
+                                st.warning("⚠️ Função de PDF não definida no topo do arquivo.")
                         except Exception as e:
                             st.error(f"Erro ao gerar PDF: {e}")
                 else:
