@@ -1107,13 +1107,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         except Exception as ex:
                             st.error(f"Erro ao salvar: {ex}")
             
-                # SEÇÃO 2: Tabela Inferior de Histórico do Período
-                if not df_historico_periodo.empty:
-                    st.markdown("---")
-                    st.markdown("### 📚 Histórico de Registros do Período")
-                    st.dataframe(df_historico_periodo, hide_index=True, use_container_width=True)
-                else:
-                    st.warning("Nenhum registro encontrado no histórico para o período selecionado.")
+                    # SEÇÃO 2: Tabela Inferior de Histórico do Período
+                    if not df_historico_periodo.empty:
+                        st.markdown("---")
+                        st.markdown("### 📚 Histórico de Registros do Período")
+                        st.dataframe(df_historico_periodo, hide_index=True, use_container_width=True)
+                    else:
+                        st.warning("Nenhum registro encontrado no histórico para o período selecionado.")
             
                 # SEÇÃO 2: Histórico de Registros do Período (Abaixo dos pedidos do dia)
                             
