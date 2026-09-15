@@ -908,9 +908,16 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         if st.button("💾 Salvar Alterações", type="primary", key="btn_salvar_alteracoes_admin"):
                             try:
                                 cursor = conn.cursor()
+                                # Percorre as linhas editadas no data_editor
                                 for index, row in df_editado.iterrows():
-                                    row_id = row['id']
+                                    row_id = int(row['id'])
                                     nova_qtd = float(row.get('quantidade', 1))
+                                    novo_prod = str(row.get('produto', '')).strip()
+                                    novo_fornec = str(row.get('fornecedor', '')).strip()
+                                    novo_grupo = str(row.get('grupo', '')).strip()
+                                    novo_status = str(row.get('status', 'Pendente')).strip()
+    
+                                    # Pega o valor unitario cadastrado para recalcular o total da linha
                                     v_unit_orig = float(df_dia.loc[df_dia['id'] == row_id, 'valor_venda'].values[0])
                                     novo_total = nova_qtd * v_unit_orig
     
@@ -918,15 +925,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         UPDATE vendas 
                                         SET produto = ?, quantidade = ?, valor_total = ?, fornecedor = ?, grupo = ?, status = ?
                                         WHERE id = ?
-                                    """, (
-                                        row.get('produto'), 
-                                        nova_qtd, 
-                                        novo_total, 
-                                        row.get('fornecedor'), 
-                                        row.get('grupo'), 
-                                        row.get('status', 'Pendente'), 
-                                        row_id
-                                    ))
+                                    """, (novo_prod, nova_qtd, novo_total, novo_fornec, novo_grupo, novo_status, row_id))
+                                    
                                 conn.commit()
                                 st.toast("✅ Alterações salvas com sucesso!")
                                 st.rerun()
