@@ -1095,36 +1095,51 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 
                 tipo_reg = "PEDIDO" if is_modo_pedido else "VENDA"
                 if st.button(f"Salvar {tipo_reg}", type="primary"):
-                    cursor = conn.cursor()
-                    tipo_banco = 'ORÇAMENTO' if is_modo_pedido else 'VENDA'
-                    
-                    # Pega o valor do produto da tela atual de forma segura
-                    # (caso sua variável do produto tenha outro nome, ajuste aqui)
-                    produto_atual = locals().get('prod_item', locals().get('produto', 'Produto Genérico'))
-                    
-                    # Verifica se o produto já existe para este cliente hoje para somar a quantidade
-                    cursor.execute("""
-                        SELECT id, quantidade FROM vendas 
-                        WHERE TRIM(cliente) = TRIM(?) AND TRIM(produto) = TRIM(?) AND tipo = ? 
-                        AND DATE(data) = DATE('now')
-                    """, (cliente_ped, str(produto_atual), tipo_banco))
-                    item_existente = cursor.fetchone()
-                    
-                    if item_existente:
-                        novo_qtd = float(item_existente[1]) + float(qtd_ped)
-                        novo_total = novo_qtd * float(v_venda_ped)
-                        cursor.execute("""
-                            UPDATE vendas SET quantidade = ?, valor_total = ? WHERE id = ?
-                        """, (novo_qtd, novo_total, item_existente[0]))
-                    else:
-                        cursor.execute("""
-                            INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, tipo, data)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))
-                        """, (cliente_ped, str(produto_atual), fornec_ped, grupo_ped, float(qtd_ped), float(v_venda_ped), float(qtd_ped) * float(v_venda_ped), tipo_banco))
+                    try:
+                        cursor = conn.cursor()
+                        tipo_banco = 'ORÇAMENTO' if is_modo_pedido else 'VENDA'
                         
-                    conn.commit()
-                    st.success(f"{tipo_reg} atualizado com sucesso!")
-                    st.rerun()
+                        # Pega o produto da tela com segurança
+                        produto_atual = locals().get('prod_item', locals().get('produto', ''))
+                        if not produto_atual:
+                            # Tenta buscar nas variáveis globais ou do Streamlit session_state se existir
+                            for key in st.session_state:
+                                if 'prod' in key.lower():
+                                    produto_atual = st.session_state[key]
+                                    break
+                        if not produto_atual:
+                            produto_atual = "Produto Genérico"
+            
+                        qtd_salvar = float(locals().get('qtd_ped', 1.0))
+                        val_salvar = float(locals().get('v_venda_ped', 0.0))
+                        fornec_salvar = locals().get('fornec_ped', 'GERAL')
+                        grupo_salvar = locals().get('grupo_ped', 'GERAL')
+            
+                        # Verifica se já existe o item hoje
+                        cursor.execute("""
+                            SELECT id, quantidade FROM vendas 
+                            WHERE TRIM(cliente) = TRIM(?) AND TRIM(produto) = TRIM(?) AND tipo = ? 
+                            AND DATE(data) = DATE('now')
+                        """, (cliente_ped, str(produto_atual), tipo_banco))
+                        item_existente = cursor.fetchone()
+                        
+                        if item_existente:
+                            novo_qtd = float(item_existente[1]) + qtd_salvar
+                            novo_total = novo_qtd * val_salvar
+                            cursor.execute("""
+                                UPDATE vendas SET quantidade = ?, valor_total = ? WHERE id = ?
+                            """, (novo_qtd, novo_total, item_existente[0]))
+                        else:
+                            cursor.execute("""
+                                INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, tipo, data)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))
+                            """, (cliente_ped, str(produto_atual), fornec_salvar, grupo_salvar, qtd_salvar, val_salvar, qtd_salvar * val_salvar, tipo_banco))
+                            
+                        conn.commit()
+                        st.success(f"{tipo_reg} salvo com sucesso!")
+                        st.rerun()
+                    except Exception as err:
+                        st.error(f"Erro detalhado ao salvar: {err}")
             
                 st.divider()
                 st.markdown("### 🟢 Pedidos do Dia (Editáveis)")
