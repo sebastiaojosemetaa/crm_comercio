@@ -1160,66 +1160,63 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             
                         df_editado = st.data_editor(df_dia, key=f"editor_dia_completo_{cliente_atual_tabela}", use_container_width=True, hide_index=True)
                         
-                        col_b1, col_b2, col_b3 = st.columns([1, 1, 1])
-                        with col_b1:
-                            if st.button("💾 Salvar Alterações", type="primary", key="btn_salvar_dia_comp"):
-                                try:
-                                    cursor = conn.cursor()
-                                    for index, row in df_editado.iterrows():
-                                        if row.get('Excluir', False):
-                                            cursor.execute("DELETE FROM vendas WHERE id = ?", (row['id'],))
-                                        else:
-                                            qtd = float(row.get('quantidade', 0) or 0)
-                                            val_unit = float(row.get('valor_unitario', 0) or 0)
-                                            novo_total = qtd * val_unit
-                                            
-                                            cursor.execute("""
-                                                UPDATE vendas 
-                                                SET produto = ?, quantidade = ?, valor_venda = ?, valor_total = ?, fornecedor = ?, grupo = ?, status = ?
-                                                WHERE id = ?
-                                            """, (
-                                                row.get('produto'), qtd, val_unit, novo_total, 
-                                                row.get('fornecedor'), row.get('grupo'), row.get('status', 'Pendente'), row['id']
-                                            ))
-                                    conn.commit()
-                                    st.success("Alterações salvas com sucesso!")
-                                    st.rerun()
-                                except Exception as e:
-                                    st.error(f"Erro ao atualizar: {e}")
-                        
-                        with col_b2:
-                            if st.button("✅ Finalizar Pedido", type="secondary", key="btn_finalizar_dia_comp"):
-                                try:
-                                    cursor = conn.cursor()
-                                    for index, row in df_editado.iterrows():
+                        # Botões de ação alinhados diretamente sem uso de colunas complexas
+                        if st.button("💾 Salvar Alterações", type="primary", key="btn_salvar_dia_comp"):
+                            try:
+                                cursor = conn.cursor()
+                                for index, row in df_editado.iterrows():
+                                    if row.get('Excluir', False):
+                                        cursor.execute("DELETE FROM vendas WHERE id = ?", (row['id'],))
+                                    else:
+                                        qtd = float(row.get('quantidade', 0) or 0)
+                                        val_unit = float(row.get('valor_unitario', 0) or 0)
+                                        novo_total = qtd * val_unit
+                                        
                                         cursor.execute("""
                                             UPDATE vendas 
-                                            SET status = 'Finalizado'
+                                            SET produto = ?, quantidade = ?, valor_venda = ?, valor_total = ?, fornecedor = ?, grupo = ?, status = ?
                                             WHERE id = ?
-                                        """, (row['id'],))
-                                    conn.commit()
-                                    st.success("Pedido finalizado com sucesso!")
-                                    st.rerun()
-                                except Exception as e:
-                                    st.error(f"Erro ao finalizar pedido: {e}")
+                                        """, (
+                                            row.get('produto'), qtd, val_unit, novo_total, 
+                                            row.get('fornecedor'), row.get('grupo'), row.get('status', 'Pendente'), row['id']
+                                        ))
+                                conn.commit()
+                                st.success("Alterações salvas com sucesso!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao atualizar: {e}")
                         
-                        with col_b3:
-                            if st.button("🗑️ Excluir Marcados", key="btn_excluir_dia_comp"):
-                                try:
-                                    cursor = conn.cursor()
-                                    removidos = 0
-                                    for index, row in df_editado.iterrows():
-                                        if row.get('Excluir', False):
-                                            cursor.execute("DELETE FROM vendas WHERE id = ?", (row['id'],))
-                                            removidos += 1
-                                    conn.commit()
-                                    if removidos > 0:
-                                        st.success(f"{removidos} item(ns) excluído(s) com sucesso!")
-                                        st.rerun()
-                                    else:
-                                        st.warning("Nenhum item marcado para exclusão.")
-                                except Exception as e:
-                                    st.error(f"Erro ao excluir: {e}")
+                        if st.button("✅ Finalizar Pedido", key="btn_finalizar_dia_comp"):
+                            try:
+                                cursor = conn.cursor()
+                                for index, row in df_editado.iterrows():
+                                    cursor.execute("""
+                                        UPDATE vendas 
+                                        SET status = 'Finalizado'
+                                        WHERE id = ?
+                                    """, (row['id'],))
+                                conn.commit()
+                                st.success("Pedido finalizado com sucesso!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao finalizar pedido: {e}")
+                        
+                        if st.button("🗑️ Excluir Marcados", key="btn_excluir_dia_comp"):
+                            try:
+                                cursor = conn.cursor()
+                                removidos = 0
+                                for index, row in df_editado.iterrows():
+                                    if row.get('Excluir', False):
+                                        cursor.execute("DELETE FROM vendas WHERE id = ?", (row['id'],))
+                                        removidos += 1
+                                conn.commit()
+                                if removidos > 0:
+                                    st.success(f"{removidos} item(ns) excluído(s) com sucesso!")
+                                    st.rerun()
+                                else:
+                                    st.warning("Nenhum item marcado para exclusão.")
+                            except Exception as e:
+                                st.error(f"Erro ao excluir: {e}")
                     else:
                         st.info("Nenhum item lançado para este cliente hoje.")
             
