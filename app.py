@@ -961,8 +961,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             )
                         except Exception as e:
                             st.error(f"Erro ao gerar PDF: {e}")
-                else:
-                    st.info("Nenhum item salvo no banco para este cliente hoje.")
 
             with aba_list:
                 st.subheader("Todas as Vendas / Pedidos")
