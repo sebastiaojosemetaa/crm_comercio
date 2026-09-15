@@ -1281,8 +1281,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             )
                         except Exception as e:
                             st.error(f"Erro ao gerar PDF: {e}")
-                else:
-                    st.info("Nenhum item lançado para este cliente hoje.")
+               
                 st.markdown("---")                
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
