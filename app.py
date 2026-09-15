@@ -758,11 +758,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
     
                 cliente_ped = st.selectbox("Cliente", clientes_opt, key="ped_cli_ind")
-
+    
                 col_a1, col_a2 = st.columns(2)
                 with col_a1:
                     prod_item = st.selectbox("Selecione o Produto", produtos_opt, key="ped_select_produto")
-
+    
                     if prod_item == "➕ Cadastrar Novo Produto...":
                         st.warning("⚠️ Preencha os dados abaixo para cadastrar o novo produto:")
                         novo_nome_prod = st.text_input("Nome do Novo Produto").strip().upper()
@@ -780,9 +780,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             else:
                                 st.error("Digite o nome do produto.")
                         st.stop()
-
+    
                     fornec_ped = st.selectbox("Fornecedor", fornecedores_opt, key="ped_forn_ind")
-
+    
                 with col_a2:
                     grupo_ped = st.selectbox("Grupo", grupos_opt, key="ped_grupo_ind")
                     
@@ -804,13 +804,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                             break
                                     except:
                                         pass
-
+    
                     qtd_ped = st.number_input("Quantidade", min_value=0.01, step=1.0, value=1.0, key="ped_qtd_ind")
                     v_venda_ped = st.number_input("Preço Unitário (R$)", min_value=0.0, value=float(preco_sugerido_admin), key="ped_v_ind")
-
+    
                 valor_total_item = qtd_ped * v_venda_ped
                 st.info(f"Valor Total do Item: R$ {valor_total_item:.2f}")
-
+    
                 if st.button("➕ Incluir Produto no Pedido", type="primary", key="btn_add_carrinho_admin"):
                     st.session_state.carrinho_admin.append({
                         "produto": prod_item,
@@ -822,20 +822,20 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     })
                     st.success(f"Item '{prod_item}' adicionado ao pedido!")
                     st.rerun()
-
+    
                 st.markdown("---")
                 st.subheader("📋 Itens Atuais no Pedido")
-
+    
                 if len(st.session_state.carrinho_admin) > 0:
                     df_carrinho_adm = pd.DataFrame(st.session_state.carrinho_admin)
                     st.dataframe(df_carrinho_adm, use_container_width=True, hide_index=True)
-
+    
                     col_c1, col_c2 = st.columns(2)
                     with col_c1:
                         if st.button("🗑️ Limpar Carrinho", key="btn_limpar_carrinho_admin"):
                             st.session_state.carrinho_admin = []
                             st.rerun()
-
+    
                     with col_c2:
                         if st.button("💾 Finalizar e Salvar Pedido", type="primary", key="btn_salvar_bd_admin"):
                             try:
@@ -865,12 +865,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 st.error(f"Erro ao salvar pedido: {err}")
                 else:
                     st.info("Nenhum item adicionado ao carrinho ainda.")
-
+    
                 st.divider()
                 st.markdown("### 🟢 Pedidos do Dia (Editáveis)")
-
+    
                 cliente_atual_tabela = str(cliente_ped).strip()
-
+    
                 query_dia = f"""
                     SELECT id, cliente, produto, quantidade, 
                            valor_venda, valor_total, 
@@ -881,21 +881,19 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     ORDER BY id DESC
                 """
                 df_dia = carregar_dados(query_dia)
-
+    
                 if not df_dia.empty:
                     df_exibir = df_dia.copy()
                     
                     if 'Excluir' not in df_exibir.columns:
                         df_exibir.insert(0, 'Excluir', False)
-
-                    # Criação das colunas visíveis formatadas
+    
                     df_exibir['Valor Unitário (R$)'] = df_exibir['valor_venda'].apply(lambda x: f"R$ {float(x):.2f}" if pd.notnull(x) else "R$ 0.00")
                     df_exibir['Total (R$)'] = df_exibir['valor_total'].apply(lambda x: f"R$ {float(x):.2f}" if pd.notnull(x) else "R$ 0.00")
-
+    
                     cols_visiveis = ['Excluir', 'id', 'cliente', 'produto', 'quantidade', 'Valor Unitário (R$)', 'Total (R$)', 'fornecedor', 'grupo', 'data', 'status']
                     cols_finais = [c for c in cols_visiveis if c in df_exibir.columns]
-
-                    # Configuração da tabela interativa
+    
                     df_editado = st.data_editor(
                         df_exibir[cols_finais], 
                         key=f"editor_admin_dia_{cliente_atual_tabela}", 
@@ -903,7 +901,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         hide_index=True,
                         disabled=['id', 'cliente', 'Valor Unitário (R$)', 'Total (R$)', 'data']
                     )
-
+    
                     col_b1, col_b2 = st.columns([1, 4])
                     
                     with col_b1:
@@ -913,11 +911,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 for index, row in df_editado.iterrows():
                                     row_id = row['id']
                                     nova_qtd = float(row.get('quantidade', 1))
-                                    
-                                    # Pega o valor unitário original do banco para recalcular o total
                                     v_unit_orig = float(df_dia.loc[df_dia['id'] == row_id, 'valor_venda'].values[0])
                                     novo_total = nova_qtd * v_unit_orig
-
+    
                                     cursor.execute("""
                                         UPDATE vendas 
                                         SET produto = ?, quantidade = ?, valor_total = ?, fornecedor = ?, grupo = ?, status = ?
@@ -936,7 +932,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Erro ao salvar alterações: {e}")
-
+    
                     with col_b2:
                         if st.button("🗑️ Excluir Marcados", key="btn_excluir_marcados_admin"):
                             try:
@@ -956,10 +952,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 st.error(f"Erro ao excluir: {e}")
                 else:
                     st.info("Nenhum item lançado para este cliente hoje.")
-
+    
+            # ABA 2: APENAS UMA RENDERIZAÇÃO DA TABELA EDITÁVEL GERAL
             with aba_list:
                 st.subheader("Todas as Vendas / Pedidos")
-                df_todas_vendas = carregar_dados("SELECT * FROM vendas")
+                df_todas_vendas = carregar_dados("SELECT * FROM vendas ORDER BY id DESC")
                 if not df_todas_vendas.empty:
                     st.dataframe(df_todas_vendas, use_container_width=True, hide_index=True)
                 else:
