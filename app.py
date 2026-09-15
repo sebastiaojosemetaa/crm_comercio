@@ -403,11 +403,11 @@ if perfil_selecionado == "👤 Portal do Cliente":
                             
                             for item in st.session_state.carrinho_cliente:
                                 cursor.execute("""
-                                    INSERT INTO pedidos (
-                                        cliente, produto, quantidade, valor_unitario, valor_total, 
-                                        fornecedor, grupo, data, status, codigo_pedido
+                                    INSERT INTO vendas (
+                                        cliente, produto, quantidade, valor_venda, valor_total,
+                                        fornecedor, grupo, data, status, codigo_venda, tipo
                                     )
-                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ORÇAMENTO')
                                 """, (
                                     st.session_state.cliente_autenticado,
                                     item["produto"],
@@ -420,7 +420,9 @@ if perfil_selecionado == "👤 Portal do Cliente":
                                     "Pendente",
                                     codigo_pedido_gerado
                                 ))
+                    
                             conn.commit()
+                            st.cache_data.clear()
                             st.session_state.carrinho_cliente = []
                             st.success("Pedido finalizado e enviado com sucesso!")
                             st.rerun()
