@@ -1279,53 +1279,25 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         
                     if st.button("✅ Confirmar Recebimento / Abatimento", type="primary", key="btn_quitar_pedidos"):
                         try:
-                            # Permite valor 0 apenas se a forma de pagamento for Crediário / Fiado
-                            if valor_recebido <= 0 and forma_pagamento != "Crediário / Fiado":
-                                st.error("Informe um valor recebido/haver maior que zero para pagamentos à vista.")
-                            else:
-                                valor_restante_a_abater = valor_recebido
-                                
-                                # Abate o valor recebido item por item nos pedidos pendentes
-                                for _, row in df_pedidos_cli.iterrows():
-                                    item_id = row['id']
-                                    item_pago_atual = float(row['valor_pago'])
-                                    item_devedor_atual = float(row['saldo_devedor'])
-                                    
-                                    if valor_restante_a_abater <= 0:
-                                        break
-                                        
-                                    if valor_restante_a_abater >= item_devedor_atual:
-                                        # Abate este item por completo
-                                        novo_pago = item_pago_atual + item_devedor_atual
-                                        novo_restante = 0.0
-                                        item_status = 'Concluído (Convertido)'
-                                        valor_restante_a_abater -= item_devedor_atual
-                                    else:
-                                        # Abate parcial neste item
-                                        novo_pago = item_pago_atual + valor_restante_a_abater
-                                        novo_restante = item_devedor_atual - valor_restante_a_abater
-                                        item_status = 'Pendente'
-                                        valor_restante_a_abater = 0.0
-                                    
-                                    cursor.execute("""
-                                        UPDATE vendas 
-                                        SET status = ?, 
-                                            forma_pagamento = ?, 
-                                            valor_recebido = ?, 
-                                            troco = ?, 
-                                            restante = ?
-                                        WHERE id = ?
-                                    """, (item_status, forma_pgto, novo_pago, troco if item_status == 'Concluído (Convertido)' else 0.0, novo_restante, item_id))
-                                
-                                conn.commit()
-                                st.cache_data.clear()
-                                
-                                if restante_calculado == 0:
-                                    st.success(f"Pagamento total de {cliente_sel} registrado com sucesso!")
-                                else:
-                                    st.warning(f"Abatimento (Haver) de R$ {valor_recebido:.2f} registrado! Restante pendente: R$ {restante_calculado:.2f}")
-                                    
-                                st.rerun()
+                            cursor = conn.cursor()
+                
+                            # 1. Atualiza os pedidos pendentes do cliente para Concluídos
+                            cursor.execute("""
+                                UPDATE pedidos 
+                                SET status = 'Concluído (Convertido)' 
+                                WHERE cliente = ? AND status != 'Concluído (Convertido)'
+                            """, (cliente_sel,))
+                
+                            # 2. Registra no Contas a Receber (Venda Crediário / Fiado)
+                            cursor.execute("""
+                                INSERT INTO contas_receber (cliente, valor_total, valor_pago, saldo_devedor, forma_pagamento, parcelas, data_vencimento, status, data)
+                                VALUES (?, ?, ?, ?, 'Crediário / Fiado', ?, ?, 'Em Aberto', datetime('now', 'localtime'))
+                            """, (cliente_sel, debito_total, valor_recebido, saldo_restante, n_parcelas, data_venc))
+                
+                            conn.commit()
+                            st.cache_data.clear()
+                            st.success(f"Venda registrada no Fiado para {cliente_sel}! Vencimento: {data_venc}")
+                            st.rerun()
                         except Exception as e:
                             st.error(f"Erro ao registrar pagamento: {e}")
                 else:
