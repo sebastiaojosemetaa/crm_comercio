@@ -592,9 +592,20 @@ if perfil_selecionado == "👤 Portal do Cliente":
                             try:
                                 cursor = conn.cursor()
                                 ids_para_excluir = df_editado[df_editado['Excluir'] == True]['id'].tolist()
+                                
                                 if ids_para_excluir:
                                     for id_pedido in ids_para_excluir:
+                                        # 1. Pega o codigo_pedido do item antes de excluir (para limpar duplicados/histórico se houver)
+                                        cursor.execute("SELECT codigo_pedido FROM pedidos WHERE id = ?", (id_pedido,))
+                                        row = cursor.fetchone()
+                                        
+                                        # 2. Exclui pelo ID exato
                                         cursor.execute("DELETE FROM pedidos WHERE id = ?", (id_pedido,))
+                                        
+                                        # 3. Se tiver codigo_pedido associado, exclui outros registros atrelados a esse mesmo item
+                                        if row and row[0]:
+                                            cursor.execute("DELETE FROM pedidos WHERE codigo_pedido = ? AND status = 'Concluído (Convertido)'", (row[0],))
+                                    
                                     conn.commit()
                                     st.warning("Itens selecionados excluídos com sucesso!")
                                     st.rerun()
