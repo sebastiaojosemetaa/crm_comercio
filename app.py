@@ -37,12 +37,32 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
 
     # Agrupamento dos produtos
     if not df_dados.empty:
-        # Garante a existência das colunas necessárias
-        col_qtd = 'quantidade' if 'quantidade' in df_dados.columns else df_dados.columns[3]
-        col_unit = 'valor_venda' if 'valor_venda' in df_dados.columns else ('Valor Unitário (R$)' if 'Valor Unitário (R$)' in df_dados.columns else df_dados.columns[4])
-        col_tot = 'valor_total' if 'valor_total' in df_dados.columns else ('Total (R$)' if 'Total (R$)' in df_dados.columns else df_dados.columns[5])
+        df_proc = df_dados.copy()
 
-        df_agrupado = df_dados.groupby('produto', as_index=False).agg({
+        # Identifica as colunas dinamicamente
+        col_qtd = 'quantidade' if 'quantidade' in df_proc.columns else df_proc.columns[3]
+        col_unit = 'valor_venda' if 'valor_venda' in df_proc.columns else ('Valor Unitário (R$)' if 'Valor Unitário (R$)' in df_proc.columns else df_proc.columns[4])
+        col_tot = 'valor_total' if 'valor_total' in df_proc.columns else ('Total (R$)' if 'Total (R$)' in df_proc.columns else df_proc.columns[5])
+
+        # Função de limpeza para converter texto de moeda (R$) em números float
+        def limpar_valor(val):
+            if pd.isna(val):
+                return 0.0
+            if isinstance(val, (int, float)):
+                return float(val)
+            s = str(val).replace('R$', '').replace(' ', '').replace('.', '').replace(',', '.')
+            try:
+                return float(s)
+            except:
+                return 0.0
+
+        # Converte as colunas financeiras e de quantidade para número
+        df_proc[col_qtd] = df_proc[col_qtd].apply(limpar_valor)
+        df_proc[col_unit] = df_proc[col_unit].apply(limpar_valor)
+        df_proc[col_tot] = df_proc[col_tot].apply(limpar_valor)
+
+        # Agrupa com valores numéricos válidos
+        df_agrupado = df_proc.groupby('produto', as_index=False).agg({
             col_qtd: 'sum',
             col_unit: 'mean',
             col_tot: 'sum'
