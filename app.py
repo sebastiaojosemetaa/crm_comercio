@@ -1028,29 +1028,50 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     with col_p1:
                         forma_pgto = st.selectbox("Forma de Pagamento:", ["Dinheiro", "Pix", "Cartão de Crédito", "Cartão de Débito", "Crediário / Fiado"], key="fp_baixa")
                     with col_p2:
-                        valor_recebido = st.number_input("Valor Recebido (R$):", min_value=0.0, value=total_pendente, step=0.50, key="vr_baixa")
+                        valor_recebido = st.number_input("Valor Recebido / Haver (R$):", min_value=0.0, value=total_pendente, step=0.50, key="vr_baixa")
                     with col_p3:
+                        restante_calculado = max(0.0, total_pendente - valor_recebido)
                         troco = max(0.0, valor_recebido - total_pendente)
-                        st.metric("Troco", f"R$ {troco:.2f}")
+                        if forma_pgto == "Crediário / Fiado":
+                            st.metric("Saldo Restante (Fiado)", f"R$ {restante_calculado:.2f}")
+                        else:
+                            st.metric("Troco", f"R$ {troco:.2f}")
         
-                    if st.button("✅ Confirmar Recebimento e Quitar Pedido(s)", type="primary", key="btn_quitar_pedidos"):
+                    # Campos para Crediário / Fiado
+                    num_parcelas = 1
+                    data_vencimento = None
+                    if forma_pgto == "Crediário / Fiado":
+                        col_c1, col_c2 = st.columns(2)
+                        with col_c1:
+                            num_parcelas = st.number_input("Nº de Parcelas:", min_value=1, max_value=24, value=1, step=1, key="num_parc_baixa")
+                        with col_c2:
+                            data_vencimento = st.date_input("Data do 1º Vencimento:", key="dt_venc_baixa")
+        
+                    if st.button("✅ Confirmar Recebimento / Abatimento", type="primary", key="btn_quitar_pedidos"):
                         try:
                             ids_para_quitar = df_pedidos_cli['id'].tolist()
                             ids_str = ",".join(map(str, ids_para_quitar))
                             
+                            novo_status = 'Concluído (Convertido)' if valor_recebido >= total_pendente else 'Pendente'
+                            
                             cursor.execute(f"""
                                 UPDATE vendas 
-                                SET status = 'Concluído (Convertido)', 
+                                SET status = ?, 
                                     forma_pagamento = ?, 
-                                    valor_recebido = ?, 
+                                    valor_recebido = COALESCE(valor_recebido, 0) + ?, 
                                     troco = ?, 
-                                    restante = 0
+                                    restante = ?
                                 WHERE id IN ({ids_str})
-                            """, (forma_pgto, valor_recebido, troco))
+                            """, (novo_status, forma_pgto, valor_recebido, troco, restante_calculado))
                             
                             conn.commit()
                             st.cache_data.clear()
-                            st.success(f"Pagamento de {cliente_sel} registrado com sucesso!")
+                            
+                            if novo_status == 'Concluído (Convertido)':
+                                st.success(f"Pagamento total de {cliente_sel} registrado com sucesso!")
+                            else:
+                                st.warning(f"Abatimento (Haver) de R$ {valor_recebido:.2f} registrado! Restante pendente: R$ {restante_calculado:.2f}")
+                                
                             st.rerun()
                         except Exception as e:
                             st.error(f"Erro ao registrar pagamento: {e}")
