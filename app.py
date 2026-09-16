@@ -9,9 +9,10 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
 import io
 
+from datetime import datetime, timedelta
+
 def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
     buffer = io.BytesIO()
-    # Margem superior reduzida de 30 para 15
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=15, bottomMargin=30)
     story = []
 
@@ -61,7 +62,8 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
     story.append(Paragraph("REY DA CEBOLA", style_empresa))
     story.append(Paragraph("CNPJ: 194.174.39/000-42 INSC.EST.: 12.426725-4<br/>CONTATO: (99) 98814-9722 OU (99) 98414-3943", style_sub))
 
-    data_atual = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    # Ajuste do Horário Oficial do Brasil (UTC -3)
+    data_atual = (datetime.utcnow() - timedelta(hours=3)).strftime('%Y-%m-%d %H:%M:%S')
 
     # Validação do título
     if cliente_nome != "Todos" and cliente_nome != "Geral" and cliente_nome != "":
