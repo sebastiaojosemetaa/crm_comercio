@@ -1017,19 +1017,30 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 if clientes_pendentes:
                     cliente_sel = st.selectbox("Selecione o Cliente:", clientes_pendentes, key="sel_cli_baixa")
                     
-                    # Busca pedidos pendentes do cliente
+                    # Busca pedidos pendentes exibindo exatamente o valor devedor atualizado
                     df_pedidos_cli = pd.read_sql_query("""
                         SELECT id, produto, quantidade, valor_venda AS valor_unitario, valor_total,
                                COALESCE(valor_recebido, 0) AS valor_pago,
-                               COALESCE(restante, valor_total) AS saldo_devedor,
+                               COALESCE(restante, valor_total) AS valor_devedor,
                                data 
                         FROM vendas 
                         WHERE status = 'Pendente' AND cliente = ?
                     """, conn, params=(cliente_sel,))
                     
-                    st.dataframe(df_pedidos_cli, use_container_width=True, hide_index=True)
+                    # Formatação visual para garantir que as colunas fiquem organizadas
+                    st.dataframe(
+                        df_pedidos_cli, 
+                        use_container_width=True, 
+                        hide_index=True,
+                        column_config={
+                            "valor_unitario": st.column_config.NumberColumn("Valor Unitário (R$)", format="R$ %.2f"),
+                            "valor_total": st.column_config.NumberColumn("Valor Total (R$)", format="R$ %.2f"),
+                            "valor_pago": st.column_config.NumberColumn("Valor Já Pago (R$)", format="R$ %.2f"),
+                            "valor_devedor": st.column_config.NumberColumn("Valor Devedor (R$)", format="R$ %.2f"),
+                        }
+                    )
                     
-                    total_pendente = float(df_pedidos_cli['saldo_devedor'].sum())
+                    total_pendente = float(df_pedidos_cli['valor_devedor'].sum())
                     st.warning(f"💳 **Débito Total Atual de {cliente_sel}: R$ {total_pendente:.2f}**")
                     
                     col_p1, col_p2, col_p3 = st.columns(3)
