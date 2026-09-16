@@ -915,7 +915,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                            valor_venda, valor_total, 
                            fornecedor, grupo, data, status 
                     FROM vendas 
-                    WHERE DATE(data) = DATE('now', 'localtime')
+                    WHERE status = 'Pendente'
                     ORDER BY id DESC
                 """
                 df_dia = carregar_dados(query_edit_admin)
