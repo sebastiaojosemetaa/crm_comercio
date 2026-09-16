@@ -909,22 +909,51 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             # AQUI COMEÇA A SEGUNDA ABA (Tabela Editável)
             with aba_list:
                 st.subheader("🟢 Pedidos do Dia (Editáveis)")
-        
-                query_edit_admin = """
-                    SELECT id, cliente, produto, quantidade, 
-                           valor_venda, valor_total, 
-                           fornecedor, grupo, data, status 
-                    FROM vendas 
-                    WHERE status = 'Pendente'
-                    ORDER BY id DESC
-                """
-                df_dia = carregar_dados(query_edit_admin)
-        
-                if not df_dia.empty:
-                    df_exibir = df_dia.copy()
-                    
-                    if 'Excluir' not in df_exibir.columns:
-                        df_exibir.insert(0, 'Excluir', False)
+
+            # --- BARRA DE FILTROS ---
+            df_todos_pedidos = pd.read_sql_query("SELECT * FROM vendas", conn)
+    
+            if not df_todos_pedidos.empty:
+                col_f1, col_f2, col_f3, col_f4 = st.columns(4)
+    
+                lista_clientes = ["Todos"] + sorted(list(df_todos_pedidos['cliente'].dropna().unique()))
+                lista_fornecedores = ["Todos"] + sorted(list(df_todos_pedidos['fornecedor'].dropna().unique()))
+                lista_grupos = ["Todos"] + sorted(list(df_todos_pedidos['grupo'].dropna().unique()))
+    
+                with col_f1:
+                    filtro_cliente = st.selectbox("Filtrar por Cliente:", lista_clientes, key="f_cli_pedidos")
+                with col_f2:
+                    filtro_fornecedor = st.selectbox("Filtrar por Fornecedor:", lista_fornecedores, key="f_forn_pedidos")
+                with col_f3:
+                    filtro_grupo = st.selectbox("Filtrar por Grupo:", lista_grupos, key="f_grp_pedidos")
+                with col_f4:
+                    filtro_data = st.date_input("Filtrar por Data:", value=None, key="f_dt_pedidos")
+    
+                query_base = "SELECT id, cliente, produto, quantidade, valor_venda, valor_total, fornecedor, grupo, data, status FROM vendas WHERE 1=1"
+                params_filtro = []
+    
+                if filtro_cliente != "Todos":
+                    query_base += " AND cliente = ?"
+                    params_filtro.append(filtro_cliente)
+                if filtro_fornecedor != "Todos":
+                    query_base += " AND fornecedor = ?"
+                    params_filtro.append(filtro_fornecedor)
+                if filtro_grupo != "Todos":
+                    query_base += " AND grupo = ?"
+                    params_filtro.append(filtro_grupo)
+                if filtro_data is not None:
+                    query_base += " AND DATE(data) = ?"
+                    params_filtro.append(str(filtro_data))
+    
+                query_base += " ORDER BY id DESC"
+                df_dia = pd.read_sql_query(query_base, conn, params=params_filtro)
+            else:
+                df_dia = pd.DataFrame()
+    
+            if not df_dia.empty:
+                df_exibir = df_dia.copy()
+                if 'Excluir' not in df_exibir.columns:
+                    df_exibir.insert(0, 'Excluir', False)
         
                     df_exibir['Valor Unitário (R$)'] = df_exibir['valor_venda'].apply(lambda x: f"R$ {float(x):.2f}" if pd.notnull(x) else "R$ 0.00")
                     df_exibir['Total (R$)'] = df_exibir['valor_total'].apply(lambda x: f"R$ {float(x):.2f}" if pd.notnull(x) else "R$ 0.00")
