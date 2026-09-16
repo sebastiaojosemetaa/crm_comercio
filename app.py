@@ -591,23 +591,27 @@ if perfil_selecionado == "👤 Portal do Cliente":
                         if st.button("🗑️ Excluir Marcados", type="secondary", key="btn_excluir_selecionados"):
                             try:
                                 cursor = conn.cursor()
-                                ids_para_excluir = df_editado[df_editado['Excluir'] == True]['id'].tolist()
+                                # Filtra os itens marcados no editor de tabela
+                                itens_para_excluir = df_editado[df_editado['Excluir'] == True]
                                 
-                                if ids_para_excluir:
-                                    for id_pedido in ids_para_excluir:
-                                        # 1. Pega o codigo_pedido do item antes de excluir (para limpar duplicados/histórico se houver)
-                                        cursor.execute("SELECT codigo_pedido FROM pedidos WHERE id = ?", (id_pedido,))
-                                        row = cursor.fetchone()
+                                if not itens_para_excluir.empty:
+                                    for _, row in itens_para_excluir.iterrows():
+                                        id_item = row['id']
+                                        cliente_item = row.get('cliente', '')
+                                        produto_item = row.get('produto', '')
                                         
-                                        # 2. Exclui pelo ID exato
-                                        cursor.execute("DELETE FROM pedidos WHERE id = ?", (id_pedido,))
+                                        # 1. Deleta o registro específico selecionado pelo ID
+                                        cursor.execute("DELETE FROM pedidos WHERE id = ?", (id_item,))
                                         
-                                        # 3. Se tiver codigo_pedido associado, exclui outros registros atrelados a esse mesmo item
-                                        if row and row[0]:
-                                            cursor.execute("DELETE FROM pedidos WHERE codigo_pedido = ? AND status = 'Concluído (Convertido)'", (row[0],))
+                                        # 2. Deleta qualquer registro correspondente desse cliente/produto (limpa histórico antigo)
+                                        if cliente_item and produto_item:
+                                            cursor.execute(
+                                                "DELETE FROM pedidos WHERE cliente = ? AND produto = ?", 
+                                                (cliente_item, produto_item)
+                                            )
                                     
                                     conn.commit()
-                                    st.warning("Itens selecionados excluídos com sucesso!")
+                                    st.warning("Itens excluídos com sucesso do Administrador e do Portal do Cliente!")
                                     st.rerun()
                                 else:
                                     st.info("Nenhum item foi marcado para exclusão.")
