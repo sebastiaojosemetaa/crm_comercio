@@ -1013,10 +1013,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 if clientes_pendentes:
                     cliente_sel = st.selectbox("Selecione o Cliente:", clientes_pendentes, key="sel_cli_baixa")
                     
+                    # Busca pedidos pendentes do cliente
                     df_pedidos_cli = pd.read_sql_query("""
                         SELECT id, produto, quantidade, valor_venda AS valor_unitario, valor_total,
                                COALESCE(valor_recebido, 0) AS valor_pago,
-                               CASE WHEN restante IS NULL THEN valor_total ELSE restante END AS saldo_devedor,
+                               COALESCE(restante, valor_total) AS saldo_devedor,
                                data 
                         FROM vendas 
                         WHERE status = 'Pendente' AND cliente = ?
@@ -1031,7 +1032,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     with col_p1:
                         forma_pgto = st.selectbox("Forma de Pagamento:", ["Dinheiro", "Pix", "Cartão de Crédito", "Cartão de Débito", "Crediário / Fiado"], key="fp_baixa")
                     with col_p2:
-                        valor_recebido = st.number_input("Valor Recebido / Haver (R$):", min_value=0.0, value=total_pendente, step=0.50, key="vr_baixa")
+                        # Inicia sempre zerado conforme solicitado
+                        valor_recebido = st.number_input("Valor Recebido / Haver (R$):", min_value=0.0, value=0.0, step=0.50, key="vr_baixa")
                     with col_p3:
                         restante_calculado = max(0.0, total_pendente - valor_recebido)
                         troco = max(0.0, valor_recebido - total_pendente)
@@ -1052,30 +1054,52 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         
                     if st.button("✅ Confirmar Recebimento / Abatimento", type="primary", key="btn_quitar_pedidos"):
                         try:
-                            ids_para_quitar = df_pedidos_cli['id'].tolist()
-                            ids_str = ",".join(map(str, ids_para_quitar))
-                            
-                            novo_status = 'Concluído (Convertido)' if valor_recebido >= total_pendente else 'Pendente'
-                            
-                            cursor.execute(f"""
-                                UPDATE vendas 
-                                SET status = ?, 
-                                    forma_pagamento = ?, 
-                                    valor_recebido = COALESCE(valor_recebido, 0) + ?, 
-                                    troco = ?, 
-                                    restante = ?
-                                WHERE id IN ({ids_str})
-                            """, (novo_status, forma_pgto, valor_recebido, troco, restante_calculado))
-                            
-                            conn.commit()
-                            st.cache_data.clear()
-                            
-                            if novo_status == 'Concluído (Convertido)':
-                                st.success(f"Pagamento total de {cliente_sel} registrado com sucesso!")
+                            if valor_recebido <= 0:
+                                st.error("Informe um valor recebido/haver maior que zero.")
                             else:
-                                st.warning(f"Abatimento (Haver) de R$ {valor_recebido:.2f} registrado! Restante pendente: R$ {restante_calculado:.2f}")
+                                valor_restante_a_abater = valor_recebido
                                 
-                            st.rerun()
+                                # Abate o valor recebido item por item nos pedidos pendentes
+                                for _, row in df_pedidos_cli.iterrows():
+                                    item_id = row['id']
+                                    item_pago_atual = float(row['valor_pago'])
+                                    item_devedor_atual = float(row['saldo_devedor'])
+                                    
+                                    if valor_restante_a_abater <= 0:
+                                        break
+                                        
+                                    if valor_restante_a_abater >= item_devedor_atual:
+                                        # Abate este item por completo
+                                        novo_pago = item_pago_atual + item_devedor_atual
+                                        novo_restante = 0.0
+                                        item_status = 'Concluído (Convertido)'
+                                        valor_restante_a_abater -= item_devedor_atual
+                                    else:
+                                        # Abate parcial neste item
+                                        novo_pago = item_pago_atual + valor_restante_a_abater
+                                        novo_restante = item_devedor_atual - valor_restante_a_abater
+                                        item_status = 'Pendente'
+                                        valor_restante_a_abater = 0.0
+                                    
+                                    cursor.execute("""
+                                        UPDATE vendas 
+                                        SET status = ?, 
+                                            forma_pagamento = ?, 
+                                            valor_recebido = ?, 
+                                            troco = ?, 
+                                            restante = ?
+                                        WHERE id = ?
+                                    """, (item_status, forma_pgto, novo_pago, troco if item_status == 'Concluído (Convertido)' else 0.0, novo_restante, item_id))
+                                
+                                conn.commit()
+                                st.cache_data.clear()
+                                
+                                if restante_calculado == 0:
+                                    st.success(f"Pagamento total de {cliente_sel} registrado com sucesso!")
+                                else:
+                                    st.warning(f"Abatimento (Haver) de R$ {valor_recebido:.2f} registrado! Restante pendente: R$ {restante_calculado:.2f}")
+                                    
+                                st.rerun()
                         except Exception as e:
                             st.error(f"Erro ao registrar pagamento: {e}")
                 else:
