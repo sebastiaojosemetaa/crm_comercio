@@ -1006,8 +1006,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.divider()
                 st.subheader("💳 Confirmar Recebimento / Dar Baixa no Pedido")
         
-                cursor = conn.cursor()
-                cursor.execute("SELECT DISTINCT cliente FROM vendas WHERE status = 'Pendente'")
+                cursor.execute("""
+                    SELECT DISTINCT cliente 
+                    FROM vendas 
+                    WHERE status = 'Pendente' 
+                      AND (restante IS NULL OR restante > 0)
+                """)
                 clientes_pendentes = [row[0] for row in cursor.fetchall() if row[0]]
         
                 if clientes_pendentes:
