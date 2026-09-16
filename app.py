@@ -1000,8 +1000,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             try:
                                 cursor = conn.cursor()
                                 tipo_banco = 'ORÇAMENTO' if is_modo_pedido else 'VENDA'
-                                
+                    
                                 for item in st.session_state.carrinho_admin:
+                                    # 1. Salva na tabela do Administrador (vendas)
                                     cursor.execute("""
                                         INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, tipo, status, data)
                                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Pendente', datetime('now', 'localtime'))
@@ -1015,13 +1016,28 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         item["valor_total"],
                                         tipo_banco
                                     ))
-                                
+                    
+                                    # 2. Salva na tabela do Portal do Cliente (pedidos)
+                                    cursor.execute("""
+                                        INSERT INTO pedidos (cliente, produto, fornecedor, grupo, quantidade, valor_unitario, valor_total, status, data)
+                                        VALUES (?, ?, ?, ?, ?, ?, ?, 'Pendente', datetime('now', 'localtime'))
+                                    """, (
+                                        cliente_ped,
+                                        item["produto"],
+                                        item["fornecedor"],
+                                        item["grupo"],
+                                        item["quantidade"],
+                                        item["valor_unitario"],
+                                        item["valor_total"]
+                                    ))
+                    
                                 conn.commit()
+                                st.cache_data.clear()  # Limpa a memória para aparecer na mesma hora pro cliente
                                 st.session_state.carrinho_admin = []
                                 st.success("Pedido salvo com sucesso!")
                                 st.rerun()
-                            except Exception as err:
-                                st.error(f"Erro ao salvar pedido: {err}")
+                            except Exception as e:
+                                st.error(f"Erro ao salvar pedido: {e}")
                 else:
                     st.info("Nenhum item adicionado ao carrinho ainda.")
         
