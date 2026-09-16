@@ -7,9 +7,11 @@ from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
+import io
+
 def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
-    pdf_filename = f"relatorio_pedidos_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-    doc = SimpleDocTemplate(pdf_filename, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
     story = []
 
     styles = getSampleStyleSheet()
@@ -27,7 +29,7 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
 
     data_atual = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-    # Validação do título (Cliente vs Geral)
+    # Validação do título
     if cliente_nome != "Todos" and cliente_nome != "Geral" and cliente_nome != "":
         story.append(Paragraph("Relatório de Pedidos / Orçamentos", style_titulo))
         story.append(Paragraph(f"<b>Cliente:</b> {cliente_nome} | <b>Gerado em:</b> {data_atual}", style_info))
@@ -35,33 +37,34 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
         story.append(Paragraph("Relatório de Pedidos / Orçamentos - Geral", style_titulo))
         story.append(Paragraph(f"<b>Gerado em:</b> {data_atual}", style_info))
 
-    # Agrupamento dos produtos
+    # Tratamento dos dados
     if not df_dados.empty:
         df_proc = df_dados.copy()
 
-        # Identifica as colunas dinamicamente
+        # Localização dinâmica das colunas
         col_qtd = 'quantidade' if 'quantidade' in df_proc.columns else df_proc.columns[3]
         col_unit = 'valor_venda' if 'valor_venda' in df_proc.columns else ('Valor Unitário (R$)' if 'Valor Unitário (R$)' in df_proc.columns else df_proc.columns[4])
         col_tot = 'valor_total' if 'valor_total' in df_proc.columns else ('Total (R$)' if 'Total (R$)' in df_proc.columns else df_proc.columns[5])
 
-        # Função de limpeza para converter texto de moeda (R$) em números float
-        def limpar_valor(val):
-            if pd.isna(val):
+        def tratar_num(val):
+            if pd.isna(val) or val == '':
                 return 0.0
             if isinstance(val, (int, float)):
                 return float(val)
-            s = str(val).replace('R$', '').replace(' ', '').replace('.', '').replace(',', '.')
+            s = str(val).replace('R$', '').strip()
+            if ',' in s and '.' in s:
+                s = s.replace('.', '').replace(',', '.')
+            elif ',' in s:
+                s = s.replace(',', '.')
             try:
                 return float(s)
             except:
                 return 0.0
 
-        # Converte as colunas financeiras e de quantidade para número
-        df_proc[col_qtd] = df_proc[col_qtd].apply(limpar_valor)
-        df_proc[col_unit] = df_proc[col_unit].apply(limpar_valor)
-        df_proc[col_tot] = df_proc[col_tot].apply(limpar_valor)
+        df_proc[col_qtd] = df_proc[col_qtd].apply(tratar_num)
+        df_proc[col_unit] = df_proc[col_unit].apply(tratar_num)
+        df_proc[col_tot] = df_proc[col_tot].apply(tratar_num)
 
-        # Agrupa com valores numéricos válidos
         df_agrupado = df_proc.groupby('produto', as_index=False).agg({
             col_qtd: 'sum',
             col_unit: 'mean',
@@ -70,7 +73,7 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
     else:
         df_agrupado = pd.DataFrame(columns=['produto', 'quantidade', 'valor_venda', 'valor_total'])
 
-    # Tabela do PDF
+    # Montagem da tabela
     table_data = [["Produto", "Qtd Total", "Preço Unitário (R$)", "Valor Total (R$)"]]
     total_geral = 0.0
 
@@ -108,7 +111,8 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
 
     story.append(tabela)
     doc.build(story)
-    return pdf_filename
+    buffer.seek(0)
+    return buffer
     # -----------------------------------------------------------------------------
 # 1. CONFIGURAÇÃO E CONEXÃO COM O BANCO DE DADOS
 # -----------------------------------------------------------------------------
