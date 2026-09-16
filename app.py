@@ -1091,6 +1091,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     col_b1, col_b2, col_b3, col_b4 = st.columns([1, 1, 1, 2])
                     
                     with col_b1:
+                        # 1. Botão Salvar Alterações
                         if st.button("💾 Salvar Alterações", type="primary", key="btn_salvar_edit_admin_global"):
                             try:
                                 cursor = conn.cursor()
@@ -1102,57 +1103,79 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     novo_fornec = str(row.get('fornecedor', '')).strip()
                                     novo_grupo = str(row.get('grupo', '')).strip()
                                     novo_status = str(row.get('status', 'Pendente')).strip()
-        
+                                    
                                     v_unit_orig = float(df_dia.loc[df_dia['id'] == row_id, 'valor_venda'].values[0])
                                     novo_total = nova_qtd * v_unit_orig
-        
+                                    
                                     cursor.execute("""
                                         UPDATE vendas 
-                                        SET cliente = ?, produto = ?, quantidade = ?, valor_total = ?, fornecedor = ?, grupo = ?, status = ?
+                                        SET quantidade = ?, produto = ?, cliente = ?, fornecedor = ?, grupo = ?, status = ?, valor_total = ?
                                         WHERE id = ?
-                                    """, (novo_cli, novo_prod, nova_qtd, novo_total, novo_fornec, novo_grupo, novo_status, row_id))
-                                    
+                                    """, (nova_qtd, novo_prod, novo_cli, novo_fornec, novo_grupo, novo_status, novo_total, row_id))
                                 conn.commit()
                                 st.cache_data.clear()
-                                st.toast("✅ Alterações salvas com sucesso!")
+                                st.toast("✅ Pedidos atualizados com sucesso!")
                                 st.rerun()
                             except Exception as e:
-                                st.error(f"Erro ao salvar alterações: {e}")
-        
-                    with col_b2:
-                        if st.button("🗑️ Excluir Marcados", key="btn_excluir_edit_admin_global"):
-                            try:
-                                cursor = conn.cursor()
-                                deletados = 0
-                                for index, row in df_editado.iterrows():
-                                    if row.get('Excluir', False):
-                                        cursor.execute("DELETE FROM vendas WHERE id = ?", (row['id'],))
-                                        deletados += 1
-                                conn.commit()
-                                if deletados > 0:
-                                    st.toast(f"🗑️ {deletados} item(ns) excluído(s)!")
+                                st.error(f"Erro ao atualizar: {e}")
+                
+                        st.write("---")
+                
+                        # 2. Três Botões de Ação Lado a Lado
+                        col_b1, col_b2, col_b3 = st.columns([1, 1, 1])
+                
+                        with col_b1:
+                            if st.button("🗑️ Excluir Marcados", type="secondary", key="btn_excluir_admin_v2"):
+                                try:
+                                    cursor = conn.cursor()
+                                    deletados = 0
+                                    for index, row in df_editado.iterrows():
+                                        if row.get('Excluir', False):
+                                            cursor.execute("DELETE FROM vendas WHERE id = ?", (row['id'],))
+                                            deletados += 1
+                                    conn.commit()
+                                    if deletados > 0:
+                                        st.toast(f"🗑️ {deletados} item(ns) excluído(s)!")
+                                        st.rerun()
+                                    else:
+                                        st.warning("Marque a caixa 'Excluir'.")
+                                except Exception as e:
+                                    st.error(f"Erro ao excluir: {e}")
+                
+                        with col_b2:
+                            # Identifica o cliente no filtro
+                            label_limpar = f"🧹 Limpar Histórico ({filtro_cliente})" if filtro_cliente != "Todos" else "🧹 Limpar Histórico Geral"
+                            if st.button(label_limpar, type="secondary", key="btn_limpar_hist_admin_v2"):
+                                try:
+                                    cursor = conn.cursor()
+                                    if filtro_cliente != "Todos":
+                                        cursor.execute(
+                                            "DELETE FROM pedidos WHERE cliente = ? AND status = 'Concluído (Convertido)'", 
+                                            (filtro_cliente,)
+                                        )
+                                        st.success(f"Histórico de {filtro_cliente} limpo!")
+                                    else:
+                                        cursor.execute("DELETE FROM pedidos WHERE status = 'Concluído (Convertido)'")
+                                        st.success("Todo o histórico antigo do Portal do Cliente foi limpo!")
+                                    conn.commit()
                                     st.rerun()
-                                else:
-                                    st.warning("Marque a caixa 'Excluir'.")
+                                except Exception as e_limpar:
+                                    st.error(f"Erro ao limpar histórico: {e_limpar}")
+                
+                        with col_b3:
+                            try:
+                                pdf_buf = gerar_pdf_tabela_pedidos(df_dia, cliente_nome=filtro_cliente)
+                                nome_arq = f"relatorio_pedidos_{filtro_cliente.lower().replace(' ', '_')}.pdf" if filtro_cliente != "Todos" else "relatorio_pedidos_geral.pdf"
+                
+                                st.download_button(
+                                    label="📄 Baixar PDF do Dia",
+                                    data=pdf_buf.getvalue(),
+                                    file_name=nome_arq,
+                                    mime="application/pdf",
+                                    key="btn_pdf_dia_admin_v2"
+                                )
                             except Exception as e:
-                                st.error(f"Erro ao excluir: {e}")
-        
-                    with col_b4:
-                        try:
-                            # Gera o buffer do PDF
-                            pdf_buf = gerar_pdf_tabela_pedidos(df_dia, cliente_nome=filtro_cliente)
-                            
-                            nome_arq = f"relatorio_pedidos_{filtro_cliente.lower().replace(' ', '_')}.pdf" if filtro_cliente != "Todos" else "relatorio_pedidos_geral.pdf"
-            
-                            st.download_button(
-                                label="📄 Baixar PDF do Dia",
-                                data=pdf_buf.getvalue(),  # <--- O .getvalue() resolve o erro de arquivo danificado!
-                                file_name=nome_arq,
-                                mime="application/pdf",
-                                key="btn_pdf_dia_completo"
-                            )
-                        except Exception as e:
-                            st.error(f"Erro ao gerar PDF: {e}")
+                                st.error(f"Erro ao gerar PDF: {e}")
                 else:
                     st.info("Nenhum pedido cadastrado hoje.")
                 st.divider()
