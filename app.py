@@ -1194,14 +1194,33 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             st.metric("Troco", f"R$ {troco:.2f}")
         
                     # Campos para Crediário / Fiado
+                    datas_vencimento = []
                     num_parcelas = 1
-                    data_vencimento = None
+                
                     if forma_pgto == "Crediário / Fiado":
-                        col_c1, col_c2 = st.columns(2)
-                        with col_c1:
+                        col_parc1, col_parc2 = st.columns([1, 3])
+                        
+                        with col_parc1:
                             num_parcelas = st.number_input("Nº de Parcelas:", min_value=1, max_value=24, value=1, step=1, key="num_parc_baixa")
-                        with col_c2:
-                            data_vencimento = st.date_input("Data do 1º Vencimento:", key="dt_venc_baixa")
+                        
+                        with col_parc2:
+                            if num_parcelas == 1:
+                                dt_venc = st.date_input("Data do Vencimento:", value=datetime.today(), key="venc_unica_baixa")
+                                datas_vencimento.append(dt_venc)
+                            else:
+                                st.caption("📅 Você pode alterar a data de cada parcela abaixo:")
+                                cols_venc = st.columns(min(int(num_parcelas), 3))
+                                
+                                for i in range(int(num_parcelas)):
+                                    col_target = cols_venc[i % 3]
+                                    with col_target:
+                                        data_sugerida = datetime.today() + timedelta(days=30 * i)
+                                        dt = st.date_input(
+                                            label=f"Venc. {i+1}ª Parcela:",
+                                            value=data_sugerida,
+                                            key=f"venc_parc_{i}"
+                                        )
+                                        datas_vencimento.append(dt)
         
                     if st.button("✅ Confirmar Recebimento / Abatimento", type="primary", key="btn_quitar_pedidos"):
                         try:
