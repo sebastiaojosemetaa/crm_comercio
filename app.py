@@ -2,50 +2,94 @@ import streamlit as st
 import sqlite3
 import pandas as pd
 from datetime import datetime, date
-import io
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+
 def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+    pdf_filename = f"relatorio_pedidos_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    doc = SimpleDocTemplate(pdf_filename, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
     story = []
-    
+
     styles = getSampleStyleSheet()
-    title_style = styles['Heading1']
-    title_style.alignment = 1
-    
-    story.append(Paragraph(f"<b>Relatório de Pedidos - {cliente_nome}</b>", title_style))
-    story.append(Spacer(1, 15))
-    
-    cols_pdf = [c for c in ['id', 'cliente', 'produto', 'quantidade', 'Valor Unitário (R$)', 'Total (R$)', 'status'] if c in df_dados.columns]
-    if not cols_pdf:
-        cols_pdf = list(df_dados.columns)[:6]
 
-    table_data = [cols_pdf]
-    for _, row in df_dados.iterrows():
-        linha = [str(row[c]) for c in cols_pdf]
-        table_data.append(linha)
+    # Estilos de texto
+    style_empresa = ParagraphStyle('Empresa', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=16, alignment=1, textColor=colors.HexColor("#0f2a4a"))
+    style_sub = ParagraphStyle('Sub', parent=styles['Normal'], fontName='Helvetica', fontSize=9, alignment=1)
+    style_titulo = ParagraphStyle('Titulo', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=12, alignment=1, textColor=colors.HexColor("#0f2a4a"), spaceAfter=4)
+    style_info = ParagraphStyle('Info', parent=styles['Normal'], fontName='Helvetica', fontSize=9, alignment=1, spaceAfter=15)
 
-    t = Table(table_data, hAlign='LEFT')
-    t.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E293B')),
-        ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
-        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0,0), (-1,0), 10),
-        ('BOTTOMPADDING', (0,0), (-1,0), 8),
-        ('BACKGROUND', (0,1), (-1,-1), colors.HexColor('#F8FAFC')),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
-        ('FONTSIZE', (0,1), (-1,-1), 9),
+    # Cabeçalho da Empresa
+    story.append(Paragraph("REY DA CEBOLA", style_empresa))
+    story.append(Paragraph("CNPJ: 194.174.39/000-42 INSC.EST.: 12.426725-4<br/>CONTATO: (99) 98814-9722 OU (99) 98414-3943", style_sub))
+    story.append(Spacer(1, 10))
+
+    data_atual = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+    # Validação do título (Cliente vs Geral)
+    if cliente_nome != "Todos" and cliente_nome != "Geral" and cliente_nome != "":
+        story.append(Paragraph("Relatório de Pedidos / Orçamentos", style_titulo))
+        story.append(Paragraph(f"<b>Cliente:</b> {cliente_nome} | <b>Gerado em:</b> {data_atual}", style_info))
+    else:
+        story.append(Paragraph("Relatório de Pedidos / Orçamentos - Geral", style_titulo))
+        story.append(Paragraph(f"<b>Gerado em:</b> {data_atual}", style_info))
+
+    # Agrupamento dos produtos
+    if not df_dados.empty:
+        # Garante a existência das colunas necessárias
+        col_qtd = 'quantidade' if 'quantidade' in df_dados.columns else df_dados.columns[3]
+        col_unit = 'valor_venda' if 'valor_venda' in df_dados.columns else ('Valor Unitário (R$)' if 'Valor Unitário (R$)' in df_dados.columns else df_dados.columns[4])
+        col_tot = 'valor_total' if 'valor_total' in df_dados.columns else ('Total (R$)' if 'Total (R$)' in df_dados.columns else df_dados.columns[5])
+
+        df_agrupado = df_dados.groupby('produto', as_index=False).agg({
+            col_qtd: 'sum',
+            col_unit: 'mean',
+            col_tot: 'sum'
+        })
+    else:
+        df_agrupado = pd.DataFrame(columns=['produto', 'quantidade', 'valor_venda', 'valor_total'])
+
+    # Tabela do PDF
+    table_data = [["Produto", "Qtd Total", "Preço Unitário (R$)", "Valor Total (R$)"]]
+    total_geral = 0.0
+
+    for _, row in df_agrupado.iterrows():
+        qtd = float(row[col_qtd])
+        unit = float(row[col_unit])
+        tot = float(row[col_tot])
+        total_geral += tot
+
+        table_data.append([
+            str(row['produto']),
+            f"{qtd:.2f}",
+            f"R$ {unit:.2f}",
+            f"R$ {tot:.2f}"
+        ])
+
+    table_data.append(["VALOR TOTAL GERAL", "", "", f"R$ {total_geral:.2f}"])
+
+    tabela = Table(table_data, colWidths=[240, 80, 110, 120])
+    tabela.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#1f4e8c")),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('ALIGN', (1, 0), (-1, -1), 'CENTER'),
+        ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+        ('GRID', (0, 0), (-1, -2), 0.5, colors.HexColor("#d3d3d3")),
+        ('SPAN', (0, -1), (2, -1)),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor("#0d1b2a")),
+        ('TEXTCOLOR', (0, -1), (-1, -1), colors.white),
+        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ('ALIGN', (0, -1), (0, -1), 'LEFT'),
+        ('ALIGN', (-1, -1), (-1, -1), 'RIGHT'),
     ]))
-    
-    story.append(t)
+
+    story.append(tabela)
     doc.build(story)
-    buffer.seek(0)
-    return buffer
-# -----------------------------------------------------------------------------
+    return pdf_filename
+    # -----------------------------------------------------------------------------
 # 1. CONFIGURAÇÃO E CONEXÃO COM O BANCO DE DADOS
 # -----------------------------------------------------------------------------
 st.set_page_config(page_title="CRM Comércio - Rey da Cebola", layout="wide")
