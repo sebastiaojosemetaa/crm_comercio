@@ -11,21 +11,55 @@ import io
 
 def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+    # Margem superior reduzida de 30 para 15
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=15, bottomMargin=30)
     story = []
 
     styles = getSampleStyleSheet()
 
-    # Estilos de texto
-    style_empresa = ParagraphStyle('Empresa', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=16, alignment=1, textColor=colors.HexColor("#0f2a4a"))
-    style_sub = ParagraphStyle('Sub', parent=styles['Normal'], fontName='Helvetica', fontSize=9, alignment=1)
-    style_titulo = ParagraphStyle('Titulo', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=12, alignment=1, textColor=colors.HexColor("#0f2a4a"), spaceAfter=4)
-    style_info = ParagraphStyle('Info', parent=styles['Normal'], fontName='Helvetica', fontSize=9, alignment=1, spaceAfter=15)
+    # Estilos com leading ajustado para evitar sobreposição de linhas
+    style_empresa = ParagraphStyle(
+        'Empresa', 
+        parent=styles['Normal'], 
+        fontName='Helvetica-Bold', 
+        fontSize=16, 
+        leading=20, 
+        alignment=1, 
+        textColor=colors.HexColor("#0f2a4a"),
+        spaceAfter=4
+    )
+    style_sub = ParagraphStyle(
+        'Sub', 
+        parent=styles['Normal'], 
+        fontName='Helvetica', 
+        fontSize=9, 
+        leading=12, 
+        alignment=1,
+        spaceAfter=10
+    )
+    style_titulo = ParagraphStyle(
+        'Titulo', 
+        parent=styles['Normal'], 
+        fontName='Helvetica-Bold', 
+        fontSize=12, 
+        leading=15, 
+        alignment=1, 
+        textColor=colors.HexColor("#0f2a4a"), 
+        spaceAfter=4
+    )
+    style_info = ParagraphStyle(
+        'Info', 
+        parent=styles['Normal'], 
+        fontName='Helvetica', 
+        fontSize=9, 
+        leading=12, 
+        alignment=1, 
+        spaceAfter=15
+    )
 
     # Cabeçalho da Empresa
     story.append(Paragraph("REY DA CEBOLA", style_empresa))
     story.append(Paragraph("CNPJ: 194.174.39/000-42 INSC.EST.: 12.426725-4<br/>CONTATO: (99) 98814-9722 OU (99) 98414-3943", style_sub))
-    story.append(Spacer(1, 10))
 
     data_atual = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
@@ -41,7 +75,6 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
     if not df_dados.empty:
         df_proc = df_dados.copy()
 
-        # Localização dinâmica das colunas
         col_qtd = 'quantidade' if 'quantidade' in df_proc.columns else df_proc.columns[3]
         col_unit = 'valor_venda' if 'valor_venda' in df_proc.columns else ('Valor Unitário (R$)' if 'Valor Unitário (R$)' in df_proc.columns else df_proc.columns[4])
         col_tot = 'valor_total' if 'valor_total' in df_proc.columns else ('Total (R$)' if 'Total (R$)' in df_proc.columns else df_proc.columns[5])
