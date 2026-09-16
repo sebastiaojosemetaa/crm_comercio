@@ -1277,29 +1277,32 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         )
                                         datas_vencimento.append(dt)
         
-                    if st.button("✅ Confirmar Recebimento / Abatimento", type="primary", key="btn_quitar_pedidos"):
+                    if st.button("🔄 Converter Pedido em Venda (Fiado)", type="primary", key="btn_quitar_pedidos"):
                         try:
                             cursor = conn.cursor()
-                
-                            # 1. Atualiza os pedidos pendentes do cliente para Concluídos
+                            
+                            # 1. Calcula o valor total pendente do cliente selecionado
+                            total_pedido = float(df_pedidos_cli['valor_devedor'].sum()) if 'valor_devedor' in df_pedidos_cli.columns else float(df_pedidos_cli['valor_total'].sum())
+            
+                            # 2. Atualiza o status dos pedidos para Concluído
                             cursor.execute("""
                                 UPDATE pedidos 
                                 SET status = 'Concluído (Convertido)' 
                                 WHERE cliente = ? AND status != 'Concluído (Convertido)'
                             """, (cliente_sel,))
-                
-                            # 2. Registra no Contas a Receber (Venda Crediário / Fiado)
+            
+                            # 3. Registra no Contas a Receber
                             cursor.execute("""
                                 INSERT INTO contas_receber (cliente, valor_total, valor_pago, saldo_devedor, forma_pagamento, parcelas, data_vencimento, status, data)
                                 VALUES (?, ?, ?, ?, 'Crediário / Fiado', ?, ?, 'Em Aberto', datetime('now', 'localtime'))
-                            """, (cliente_sel, debito_total, valor_recebido, saldo_restante, n_parcelas, data_venc))
-                
+                            """, (cliente_sel, total_pedido, valor_recebido, total_pedido - valor_recebido, n_parcelas, data_venc))
+            
                             conn.commit()
                             st.cache_data.clear()
-                            st.success(f"Venda registrada no Fiado para {cliente_sel}! Vencimento: {data_venc}")
+                            st.success(f"✅ Pedido convertido em Venda Fiado para {cliente_sel}! Vencimento: {data_venc}")
                             st.rerun()
                         except Exception as e:
-                            st.error(f"Erro ao registrar pagamento: {e}")
+                            st.error(f"Erro ao converter pedido: {e}")
                 else:
                     st.success("🎉 Nenhum pedido pendente para recebimento no momento!")        
                     st.divider()
