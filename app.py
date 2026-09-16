@@ -1292,23 +1292,29 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.success("🎉 Nenhum pedido pendente para recebimento no momento!")        
                     st.divider()
                     st.subheader("📚 Pedidos Anteriores / Histórico Geral")
-    
-            # Botão para limpar todo o histórico do Portal do Cliente / Pedidos Concluídos
-            if st.button("🧹 Limpar Histórico do Portal do Cliente", type="secondary", key="btn_limpar_hist_geral"):
-                try:
-                    cursor = conn.cursor()
-                    cursor.execute("DELETE FROM pedidos WHERE status = 'Concluído (Convertido)'")
-                    conn.commit()
-                    st.success("Histórico antigo do Portal do Cliente foi limpo com sucesso!")
-                    st.rerun()
-                except Exception as e_limpar:
-                    st.error(f"Erro ao limpar histórico: {e_limpar}")
-    
-            df_todas_vendas = carregar_dados("SELECT * FROM vendas ORDER BY id DESC")
-            if not df_todas_vendas.empty:
-                st.dataframe(df_todas_vendas, use_container_width=True, hide_index=True)
-            else:
-                st.info("Nenhum registro encontrado.")
+
+                    # Botão para limpar o histórico SOMENTE do cliente filtrado
+                    if cliente_sel and cliente_sel != "Todos":
+                        if st.button(f"🧹 Limpar Histórico do Cliente: {cliente_sel}", type="secondary", key="btn_limpar_hist_cli"):
+                            try:
+                                cursor = conn.cursor()
+                                cursor.execute(
+                                    "DELETE FROM pedidos WHERE cliente = ? AND status = 'Concluído (Convertido)'", 
+                                    (cliente_sel,)
+                                )
+                                conn.commit()
+                                st.success(f"Histórico antigo de {cliente_sel} foi limpo com sucesso!")
+                                st.rerun()
+                            except Exception as e_limpar:
+                                st.error(f"Erro ao limpar histórico do cliente: {e_limpar}")
+                    else:
+                        st.info("💡 Selecione um cliente no filtro acima caso deseje limpar o histórico específico dele.")
+            
+                    df_todas_vendas = carregar_dados("SELECT * FROM vendas ORDER BY id DESC")
+                    if not df_todas_vendas.empty:
+                        st.dataframe(df_todas_vendas, use_container_width=True, hide_index=True)
+                    else:
+                        st.info("Nenhum registro encontrado.")
             
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
