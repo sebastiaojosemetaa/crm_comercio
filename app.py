@@ -1283,16 +1283,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             if valor_recebido <= 0 and forma_pagamento != "Crediário / Fiado":
                                 st.error("Informe um valor recebido/haver maior que zero para pagamentos à vista.")
                             else:
-                                # Código para registrar a venda/crediário no banco de dados
-                                cursor.execute("""
-                                    INSERT INTO contas_receber (cliente, valor_total, valor_pago, saldo_devedor, forma_pagamento, parcelas, data_vencimento, status)
-                                    VALUES (?, ?, ?, ?, ?, ?, ?, 'Em Aberto')
-                                """, (cliente_sel, valor_total, valor_recebido, saldo_restante, forma_pagamento, parcelas, data_vencimento))
-                                
-                                conn.commit()
-                                st.success("Venda a prazo/fiado registrada com sucesso!")
-                                st.rerun()
-                            else:
                                 valor_restante_a_abater = valor_recebido
                                 
                                 # Abate o valor recebido item por item nos pedidos pendentes
