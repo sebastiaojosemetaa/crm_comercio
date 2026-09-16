@@ -1084,11 +1084,15 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         
                     with col_b4:
                         try:
-                            pdf_buf = gerar_pdf_tabela_pedidos(df_editado, cliente_nome="Geral_Dia")
+                            # Gera o buffer do PDF
+                            pdf_buf = gerar_pdf_tabela_pedidos(df_dia, cliente_nome=filtro_cliente)
+                            
+                            nome_arq = f"relatorio_pedidos_{filtro_cliente.lower().replace(' ', '_')}.pdf" if filtro_cliente != "Todos" else "relatorio_pedidos_geral.pdf"
+            
                             st.download_button(
                                 label="📄 Baixar PDF do Dia",
-                                data=pdf_buf,
-                                file_name="pedidos_dia.pdf",
+                                data=pdf_buf.getvalue(),  # <--- O .getvalue() resolve o erro de arquivo danificado!
+                                file_name=nome_arq,
                                 mime="application/pdf",
                                 key="btn_pdf_dia_completo"
                             )
