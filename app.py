@@ -1014,15 +1014,18 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     cliente_sel = st.selectbox("Selecione o Cliente:", clientes_pendentes, key="sel_cli_baixa")
                     
                     df_pedidos_cli = pd.read_sql_query("""
-                        SELECT id, produto, quantidade, valor_venda AS valor_unitario, valor_total, data 
+                        SELECT id, produto, quantidade, valor_venda AS valor_unitario, valor_total,
+                               COALESCE(valor_recebido, 0) AS valor_pago,
+                               CASE WHEN restante IS NULL THEN valor_total ELSE restante END AS saldo_devedor,
+                               data 
                         FROM vendas 
                         WHERE status = 'Pendente' AND cliente = ?
                     """, conn, params=(cliente_sel,))
                     
                     st.dataframe(df_pedidos_cli, use_container_width=True, hide_index=True)
                     
-                    total_pendente = float(df_pedidos_cli['valor_total'].sum())
-                    st.info(f"💰 Total pendente para **{cliente_sel}**: **R$ {total_pendente:.2f}**")
+                    total_pendente = float(df_pedidos_cli['saldo_devedor'].sum())
+                    st.warning(f"💳 **Débito Total Atual de {cliente_sel}: R$ {total_pendente:.2f}**")
                     
                     col_p1, col_p2, col_p3 = st.columns(3)
                     with col_p1:
