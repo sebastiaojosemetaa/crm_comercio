@@ -1003,7 +1003,59 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             st.error(f"Erro ao gerar PDF: {e}")
                 else:
                     st.info("Nenhum pedido cadastrado hoje.")
+                st.divider()
+                st.subheader("💳 Confirmar Recebimento / Dar Baixa no Pedido")
         
+                cursor = conn.cursor()
+                cursor.execute("SELECT DISTINCT cliente FROM vendas WHERE status = 'Pendente'")
+                clientes_pendentes = [row[0] for row in cursor.fetchall() if row[0]]
+        
+                if clientes_pendentes:
+                    cliente_sel = st.selectbox("Selecione o Cliente:", clientes_pendentes, key="sel_cli_baixa")
+                    
+                    df_pedidos_cli = pd.read_sql_query("""
+                        SELECT id, produto, quantidade, valor_venda AS valor_unitario, valor_total, data 
+                        FROM vendas 
+                        WHERE status = 'Pendente' AND cliente = ?
+                    """, conn, params=(cliente_sel,))
+                    
+                    st.dataframe(df_pedidos_cli, use_container_width=True, hide_index=True)
+                    
+                    total_pendente = float(df_pedidos_cli['valor_total'].sum())
+                    st.info(f"💰 Total pendente para **{cliente_sel}**: **R$ {total_pendente:.2f}**")
+                    
+                    col_p1, col_p2, col_p3 = st.columns(3)
+                    with col_p1:
+                        forma_pgto = st.selectbox("Forma de Pagamento:", ["Dinheiro", "Pix", "Cartão de Crédito", "Cartão de Débito", "Crediário / Fiado"], key="fp_baixa")
+                    with col_p2:
+                        valor_recebido = st.number_input("Valor Recebido (R$):", min_value=0.0, value=total_pendente, step=0.50, key="vr_baixa")
+                    with col_p3:
+                        troco = max(0.0, valor_recebido - total_pendente)
+                        st.metric("Troco", f"R$ {troco:.2f}")
+        
+                    if st.button("✅ Confirmar Recebimento e Quitar Pedido(s)", type="primary", key="btn_quitar_pedidos"):
+                        try:
+                            ids_para_quitar = df_pedidos_cli['id'].tolist()
+                            ids_str = ",".join(map(str, ids_para_quitar))
+                            
+                            cursor.execute(f"""
+                                UPDATE vendas 
+                                SET status = 'Concluído (Convertido)', 
+                                    forma_pagamento = ?, 
+                                    valor_recebido = ?, 
+                                    troco = ?, 
+                                    restante = 0
+                                WHERE id IN ({ids_str})
+                            """, (forma_pgto, valor_recebido, troco))
+                            
+                            conn.commit()
+                            st.cache_data.clear()
+                            st.success(f"Pagamento de {cliente_sel} registrado com sucesso!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro ao registrar pagamento: {e}")
+                else:
+                    st.success("🎉 Nenhum pedido pendente para recebimento no momento!")        
                 st.divider()
                 st.subheader("📚 Pedidos Anteriores / Histórico Geral")
                 df_todas_vendas = carregar_dados("SELECT * FROM vendas ORDER BY id DESC")
