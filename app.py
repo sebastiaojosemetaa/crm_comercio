@@ -1290,25 +1290,25 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             st.error(f"Erro ao registrar pagamento: {e}")
                 else:
                     st.success("🎉 Nenhum pedido pendente para recebimento no momento!")        
-                st.divider()
-                st.subheader("📚 Pedidos Anteriores / Histórico Geral")
-
-        # Botão para limpar todo o histórico do Portal do Cliente / Pedidos Concluídos
-        if st.button("🧹 Limpar Histórico do Portal do Cliente", type="secondary", key="btn_limpar_hist_geral"):
-            try:
-                cursor = conn.cursor()
-                cursor.execute("DELETE FROM pedidos WHERE status = 'Concluído (Convertido)'")
-                conn.commit()
-                st.success("Histórico antigo do Portal do Cliente foi limpo com sucesso!")
-                st.rerun()
-            except Exception as e_limpar:
-                st.error(f"Erro ao limpar histórico: {e_limpar}")
-
-        df_todas_vendas = carregar_dados("SELECT * FROM vendas ORDER BY id DESC")
-        if not df_todas_vendas.empty:
-            st.dataframe(df_todas_vendas, use_container_width=True, hide_index=True)
-        else:
-            st.info("Nenhum registro encontrado.")
+                    st.divider()
+                    st.subheader("📚 Pedidos Anteriores / Histórico Geral")
+    
+            # Botão para limpar todo o histórico do Portal do Cliente / Pedidos Concluídos
+            if st.button("🧹 Limpar Histórico do Portal do Cliente", type="secondary", key="btn_limpar_hist_geral"):
+                try:
+                    cursor = conn.cursor()
+                    cursor.execute("DELETE FROM pedidos WHERE status = 'Concluído (Convertido)'")
+                    conn.commit()
+                    st.success("Histórico antigo do Portal do Cliente foi limpo com sucesso!")
+                    st.rerun()
+                except Exception as e_limpar:
+                    st.error(f"Erro ao limpar histórico: {e_limpar}")
+    
+            df_todas_vendas = carregar_dados("SELECT * FROM vendas ORDER BY id DESC")
+            if not df_todas_vendas.empty:
+                st.dataframe(df_todas_vendas, use_container_width=True, hide_index=True)
+            else:
+                st.info("Nenhum registro encontrado.")
             
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
