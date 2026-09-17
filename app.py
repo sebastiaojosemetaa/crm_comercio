@@ -833,6 +833,20 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             # --- MÓDULO DE RECEBIMENTO DE PARCELAS / FIADO ---
             st.subheader("💳 Contas a Receber (Parcelas / Fiado)")
             
+            # 1. Garante que a tabela exista antes de tentar ler
+            with conn:
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS contas_a_receber (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        cliente TEXT,
+                        parcela TEXT,
+                        valor REAL,
+                        vencimento TEXT,
+                        status TEXT
+                    )
+                """)
+        
+            # 2. Faz a consulta com a certeza de que a tabela existe
             df_contas = pd.read_sql_query(
                 "SELECT id, cliente, parcela, valor, vencimento, status FROM contas_a_receber WHERE status = 'A Vencer'", 
                 conn
@@ -868,7 +882,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             else:
                 st.info("Nenhuma parcela pendente de recebimento no momento.")
         
-            st.divider()        
+            st.divider()
             col_d1, col_d2, col_d3 = st.columns(3)
             with col_d1:
                 data_inicio = st.date_input("Data Inicial", value=date(2025, 1, 1))
