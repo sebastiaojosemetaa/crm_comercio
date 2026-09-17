@@ -1688,31 +1688,47 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 preco_compra = st.number_input("Preço de compra Unitário (R$)", min_value=0.0, value=preco_cadastrado, format="%.2f", key="compra_entrada")
                 preco_venda = st.number_input("Preço de Venda Unitário (R$)", min_value=0.0, format="%.2f", key="venda_entrada")
 
-            if st.button("💾 Confirmar Entrada no Estoque", type="primary", key="btn_conf_entrada"):
-                if not produto_final:
-                    st.warning("Informe ou selecione o nome do produto.")
+            if st.button("📥 Confirmar Entrada no Estoque", type="primary"):
+                if not nome_prod_input:
+                    st.error("Por favor, informe o nome do produto.")
                 else:
                     try:
-                        cursor = conn.cursor()
-                        cursor.execute("SELECT id FROM produtos WHERE produto = ? OR nome = ?", (produto_final, produto_final))
-                        existe = cursor.fetchone()
-                        
-                        if existe:
+                        with conn:
+                            cursor = conn.cursor()
+                            
+                            # Garante que a tabela 'produtos' exista com os nomes corretos de colunas
                             cursor.execute("""
-                                UPDATE produtos 
-                                SET quantidade = quantidade + ?, valor_compra = ?, valor_venda = ?, grupo = ?, fornecedor = ?
-                                WHERE produto = ? OR nome = ?
-                            """, (quantidade_entrada, preco_compra, preco_venda, grupo_escolhido, fornecedor_escolhido, produto_final, produto_final))
-                        else:
-                            cursor.execute("""
-                                INSERT INTO produtos (produto, nome, quantidade, estoque_atual, valor_compra, valor_venda, grupo, fornecedor)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                            """, (produto_final, produto_final, quantidade_entrada, quantidade_entrada, preco_compra, preco_venda, grupo_escolhido, fornecedor_escolhido))
-                        
-                        registrar_compra(produto_final, fornecedor_escolhido, grupo_escolhido, quantidade_entrada, preco_compra, preco_venda)
-                        
-                        conn.commit()
-                        st.success(f"Estoque atualizado/produto '{produto_final}' cadastrado com sucesso!")
+                                CREATE TABLE IF NOT EXISTS produtos (
+                                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                    produto TEXT,
+                                    grupo TEXT,
+                                    fornecedor TEXT,
+                                    quantidade REAL DEFAULT 0,
+                                    valor_compra REAL DEFAULT 0,
+                                    valor_venda REAL DEFAULT 0
+                                )
+                            """)
+            
+                            if opcao_prod == "Novo Produto":
+                                # Cadastra o produto novo usando 'produto' em vez de 'nome'
+                                cursor.execute("""
+                                    INSERT INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda)
+                                    VALUES (?, ?, ?, ?, ?, ?)
+                                """, (nome_prod_input, grupo_sel, forn_sel, qtd_input, preco_compra_input, preco_venda_input))
+                                st.success(f"✅ Novo produto '{nome_prod_input}' cadastrado com sucesso!")
+                            
+                            else:
+                                # Se for produto existente, atualiza o estoque e os preços
+                                cursor.execute("""
+                                    UPDATE produtos 
+                                    SET quantidade = quantidade + ?, 
+                                        valor_compra = ?, 
+                                        valor_venda = ?
+                                    WHERE produto = ?
+                                """, (qtd_input, preco_compra_input, preco_venda_input, nome_prod_input))
+                                st.success(f"✅ Estoque de '{nome_prod_input}' atualizado com sucesso!")
+            
+                        st.cache_data.clear()
                         st.rerun()
                     except Exception as e:
                         st.error(f"Erro ao registrar entrada: {e}")
