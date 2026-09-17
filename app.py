@@ -1689,14 +1689,17 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 preco_venda = st.number_input("Preço de Venda Unitário (R$)", min_value=0.0, format="%.2f", key="venda_entrada")
 
             if st.button("📥 Confirmar Entrada no Estoque", type="primary"):
-                if not nome_prod_input:
-                    st.error("Por favor, informe o nome do produto.")
+                # Identifica se é novo produto ou existente
+                nome_prod = novo_produto if tipo_cadastro == "Novo Produto" and 'novo_produto' in locals() else (produto_escolhido if 'produto_escolhido' in locals() else "")
+                
+                if not nome_prod:
+                    st.error("Por favor, informe ou selecione o nome do produto.")
                 else:
                     try:
                         with conn:
                             cursor = conn.cursor()
                             
-                            # Garante que a tabela 'produtos' exista com os nomes corretos de colunas
+                            # 1. Garante que a tabela exista com as colunas corretas
                             cursor.execute("""
                                 CREATE TABLE IF NOT EXISTS produtos (
                                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1708,26 +1711,28 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     valor_venda REAL DEFAULT 0
                                 )
                             """)
-            
-                            if opcao_prod == "Novo Produto":
-                                # Cadastra o produto novo usando 'produto' em vez de 'nome'
+        
+                            # Captura fornecedor, grupo e quantidade das variáveis locais
+                            forn_val = fornecedor_escolhido if 'fornecedor_escolhido' in locals() else 'GERAL'
+                            grupo_val = grupo_escolhido if 'grupo_escolhido' in locals() else 'GERAL'
+                            qtd_val = quantidade if 'quantidade' in locals() else 1.0
+        
+                            if tipo_cadastro == "Novo Produto":
+                                # 2. Insere usando a coluna 'produto' (corrigindo o erro 'no such column: nome')
                                 cursor.execute("""
                                     INSERT INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda)
                                     VALUES (?, ?, ?, ?, ?, ?)
-                                """, (nome_prod_input, grupo_sel, forn_sel, qtd_input, preco_compra_input, preco_venda_input))
-                                st.success(f"✅ Novo produto '{nome_prod_input}' cadastrado com sucesso!")
-                            
+                                """, (nome_prod, grupo_val, forn_val, qtd_val, preco_compra, preco_venda))
+                                st.success(f"✅ Novo produto '{nome_prod}' cadastrado com sucesso!")
                             else:
-                                # Se for produto existente, atualiza o estoque e os preços
+                                # 3. Atualiza produto existente
                                 cursor.execute("""
                                     UPDATE produtos 
-                                    SET quantidade = quantidade + ?, 
-                                        valor_compra = ?, 
-                                        valor_venda = ?
+                                    SET quantidade = quantidade + ?, valor_compra = ?, valor_venda = ?
                                     WHERE produto = ?
-                                """, (qtd_input, preco_compra_input, preco_venda_input, nome_prod_input))
-                                st.success(f"✅ Estoque de '{nome_prod_input}' atualizado com sucesso!")
-            
+                                """, (qtd_val, preco_compra, preco_venda, nome_prod))
+                                st.success(f"✅ Estoque de '{nome_prod}' atualizado com sucesso!")
+        
                         st.cache_data.clear()
                         st.rerun()
                     except Exception as e:
