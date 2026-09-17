@@ -948,30 +948,42 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
         
                 cliente_ped = st.selectbox("Cliente", clientes_opt, key="ped_cli_ind")
-        
+
+                # Adiciona a opção de novo cadastro no topo do selectbox
+                opcoes_produtos_com_novo = ["+ Cadastrar Novo Produto..."] + list(produtos_opt)
+                
                 col_a1, col_a2 = st.columns(2)
                 with col_a1:
-                    prod_item = st.selectbox("Selecione o Produto", produtos_opt, key="ped_select_produto")
-        
-                    if prod_item == "➕ Cadastrar Novo Produto...":
+                    prod_item = st.selectbox("Selecione o Produto", opcoes_produtos_com_novo, key="ped_select_produto")
+                
+                    if prod_item == "+ Cadastrar Novo Produto...":
                         st.warning("⚠️ Preencha os dados abaixo para cadastrar o novo produto:")
-                        novo_nome_prod = st.text_input("Nome do Novo Produto").strip().upper()
+                        novo_nome_prod = st.text_input("Nome do Novo Produto", key="cad_novo_nome_ped").strip().upper()
                         c_f_r = st.selectbox("Fornecedor", fornecedores_opt, key="cad_f_rapido")
                         c_g_r = st.selectbox("Grupo", grupos_opt, key="cad_g_rapido")
                         c_qtd_r = st.number_input("Qtd Inicial em Estoque", min_value=0.0, value=0.0, key="cad_q_rapido")
                         c_compra_r = st.number_input("Preço de Compra (R$)", min_value=0.0, value=0.0, key="cad_c_rapido")
                         c_venda_r = st.number_input("Preço de Venda (R$)", min_value=0.0, value=0.0, key="cad_v_rapido")
-                        
-                        if st.button("Salvar e Selecionar Produto"):
+                
+                        if st.button("💾 Salvar e Selecionar Produto", key="btn_salvar_novo_prod_ped"):
                             if novo_nome_prod:
-                                salvar_produto_completo(novo_nome_prod, c_f_r, c_g_r, c_compra_r, c_venda_r, c_qtd_r)
-                                st.success(f"Produto '{novo_nome_prod}' cadastrado com sucesso!")
-                                st.rerun()
+                                try:
+                                    with conn:
+                                        cursor = conn.cursor()
+                                        cursor.execute("""
+                                            INSERT INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda)
+                                            VALUES (?, ?, ?, ?, ?, ?)
+                                        """, (novo_nome_prod, c_g_r, c_f_r, c_qtd_r, c_compra_r, c_venda_r))
+                                    st.success(f"✅ Produto '{novo_nome_prod}' cadastrado com sucesso!")
+                                    st.cache_data.clear()
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Erro ao cadastrar produto: {e}")
                             else:
                                 st.error("Digite o nome do produto.")
-                        st.stop()
-        
-                    fornec_ped = st.selectbox("Fornecedor", fornecedores_opt, key="ped_forn_ind")
+                            st.stop()
+                
+                fornec_ped = st.selectbox("Fornecedor", fornecedores_opt, key="ped_forn_ind")
         
                 with col_a2:
                     grupo_ped = st.selectbox("Grupo", grupos_opt, key="ped_grupo_ind")
