@@ -1334,7 +1334,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             st.error(f"Erro ao salvar: {e}")
     
                 with col_atualizar:
-                    if st.button("🔄 Atualizar Preços de Custos"):
+                    if st.button("🔄 Atualizar Preços de Compra"):
                         try:
                             cursor = conn.cursor()
                             cursor.execute("""
@@ -1353,7 +1353,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             st.success("Preços de custo atualizados com sucesso!")
                             st.rerun()
                         except Exception as e:
-                            st.error(f"Erro ao atualizar custos: {e}")
+                            st.error(f"Erro ao atualizar preço: {e}")
             else:
                 st.info("Nenhum produto cadastrado no estoque.")
         
