@@ -1668,81 +1668,119 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     
         elif menu_admin == "📥 Entrada de Estoque (Compras)":
             st.title("📥 Entrada de Estoque (Compras)")
-            
+            st.subheader("Registrar Entrada de Estoque")
+        
+            # Memory / Carrinho temporário na sessão do Streamlit
+            if "carrinho_compras" not in st.session_state:
+                st.session_state.carrinho_compras = []
+        
             produtos_opt = carregar_coluna("produtos", "produto") or ["AMEIXA IMPORTADA", "ABACATE"]
             fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
             grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
-            
-            st.subheader("Registrar Entrada de Estoque")
-            
+        
             tipo_cadastro = st.radio("Escolha a opção:", ["Produto Existente", "Novo Produto"], horizontal=True, key="radio_tipo_prod")
-            
+        
             col1, col2 = st.columns(2)
             with col1:
                 if tipo_cadastro == "Produto Existente":
                     produto_escolhido = st.selectbox("Selecione o Produto", produtos_opt, key="prod_entrada_estoque")
                     produto_final = produto_escolhido
                 else:
-                    produto_final = st.text_input("Digite o Nome do NOVO Produto").strip().upper()
-                    
+                    produto_final = st.text_input("Digite o Nome do NOVO Produto", key="input_novo_produto_compras").strip().upper()
+        
                 fornecedor_escolhido = st.selectbox("Fornecedor", fornecedores_opt, key="forn_entrada")
-                quantidade_entrada = st.number_input("Quantidade", min_value=0.0, format="%.2f", key="qtd_entrada")
-
+                quantidade_entrada = st.number_input("Quantidade", min_value=0.01, value=1.0, step=1.0, key="qtd_entrada")
+        
             with col2:
                 grupo_escolhido = st.selectbox("Grupo / Categoria", grupos_opt, key="grupo_entrada")
-                
-                preco_cadastrado = 0.0
-                if tipo_cadastro == "Produto Existente" and 'produto_escolhido' in locals() and produto_escolhido:
-                    try:
-                        cursor = conn.cursor()
-                        cursor.execute("SELECT valor_compra FROM produtos WHERE produto = ? OR nome = ?", (produto_escolhido, produto_escolhido))
-                        resultado = cursor.fetchone()
-                        if resultado and resultado[0] is not None:
-                            preco_cadastrado = float(resultado[0])
-                    except Exception:
-                        pass
-
-                preco_compra = st.number_input("Preço de compra Unitário (R$)", min_value=0.0, value=preco_cadastrado, format="%.2f", key="compra_entrada")
+                preco_compra = st.number_input("Preço de compra Unitário (R$)", min_value=0.0, format="%.2f", key="compra_entrada")
                 preco_venda = st.number_input("Preço de Venda Unitário (R$)", min_value=0.0, format="%.2f", key="venda_entrada")
-
-            if st.button("📥 Confirmar Entrada no Estoque", type="primary"):
-                if not produto_final or str(produto_final).strip() == "":
-                    st.error("Por favor, informe ou selecione o nome do produto.")
+        
+            # 🛒 BOTÃO 1: Adiciona ao carrinho temporário
+            if st.button("🛒 Adicionar ao Carrinho", type="primary"):
+                if not produto_final:
+                    st.error("Por favor, informe ou selecione o produto.")
+                elif quantidade_entrada <= 0:
+                    st.error("A quantidade deve ser maior que zero.")
                 else:
-                    try:
-                        with conn:
-                            cursor = conn.cursor()
-                            
-                            # 1. Garante a estrutura correta da tabela no banco
-                            cursor.execute("""
-                                CREATE TABLE IF NOT EXISTS produtos (
-                                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                    produto TEXT,
-                                    grupo TEXT,
-                                    fornecedor TEXT,
-                                    quantidade REAL DEFAULT 0,
-                                    valor_compra REAL DEFAULT 0,
-                                    valor_venda REAL DEFAULT 0
-                                )
-                            """)
+                    st.session_state.carrinho_compras.append({
+                        "produto": produto_final,
+                        "grupo": grupo_escolhido,
+                        "fornecedor": fornecedor_escolhido,
+                        "quantidade": quantidade_entrada,
+                        "valor_compra": preco_compra,
+                        "valor_venda": preco_venda
+                    })
+                    st.success(f"✅ '{produto_final}' adicionado ao carrinho!")
+                    st.rerun()
         
-                            if tipo_cadastro == "Novo Produto":
-                                # 2. Cadastro de Novo Produto usando a coluna 'produto'
-                                cursor.execute("""
-                                    INSERT INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda)
-                                    VALUES (?, ?, ?, ?, ?, ?)
-                                """, (produto_final, grupo_escolhido, fornecedor_escolhido, quantidade_entrada, preco_compra, preco_venda))
-                                st.success(f"✅ Novo produto '{produto_final}' cadastrado com sucesso!")
-                            else:
-                                # 3. Atualização de Produto Existente
-                                cursor.execute("""
-                                    UPDATE produtos 
-                                    SET quantidade = quantidade + ?, valor_compra = ?, valor_venda = ?
-                                    WHERE produto = ?
-                                """, (quantidade_entrada, preco_compra, preco_venda, produto_final))
-                                st.success(f"✅ Estoque de '{produto_final}' atualizado com sucesso!")
+            # --- SEÇÃO DO CARRINHO DE COMPRAS ---
+            if st.session_state.carrinho_compras:
+                st.divider()
+                st.subheader("📋 Itens no Carrinho de Entrada")
+                st.caption("💡 **Dica**: Você pode editar os campos direto na tabela ou selecionar a linha e apertar `Delete` para excluir.")
         
-                        st.cache_data.clear()
+                # Converte a lista em DataFrame para exibição interativa
+                df_carrinho = pd.DataFrame(st.session_state.carrinho_compras)
+        
+                # Tabela editável: permite alterar valores diretamente e excluir linhas
+                df_carrinho_editado = st.data_editor(
+                    df_carrinho,
+                    use_container_width=True,
+                    num_rows="dynamic",
+                    key="editor_carrinho_compras"
+                )
+        
+                col_salvar_tudo, col_limpar = st.columns([2, 1])
+        
+                # 💾 BOTÃO 2: Salva tudo de uma vez no banco SQLite
+                with col_salvar_tudo:
+                    if st.button("💾 Finalizar e Salvar Todas as Entradas", type="primary", key="btn_salvar_carrinho_db"):
+                        try:
+                            with conn:
+                                cursor = conn.cursor()
+                                cursor.execute("""
+                                    CREATE TABLE IF NOT EXISTS produtos (
+                                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                        produto TEXT,
+                                        grupo TEXT,
+                                        fornecedor TEXT,
+                                        quantidade REAL DEFAULT 0,
+                                        valor_compra REAL DEFAULT 0,
+                                        valor_venda REAL DEFAULT 0
+                                    )
+                                """)
+        
+                                # Percorre todas as linhas que ficaram no carrinho
+                                for index, item in df_carrinho_editado.iterrows():
+                                    cursor.execute("SELECT id FROM produtos WHERE produto = ?", (item['produto'],))
+                                    existe = cursor.fetchone()
+        
+                                    if existe:
+                                        cursor.execute("""
+                                            UPDATE produtos 
+                                            SET quantidade = quantidade + ?, 
+                                                valor_compra = ?, 
+                                                valor_venda = ?, 
+                                                grupo = ?, 
+                                                fornecedor = ?
+                                            WHERE produto = ?
+                                        """, (item['quantidade'], item['valor_compra'], item['valor_venda'], item['grupo'], item['fornecedor'], item['produto']))
+                                    else:
+                                        cursor.execute("""
+                                            INSERT INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda)
+                                            VALUES (?, ?, ?, ?, ?, ?)
+                                        """, (item['produto'], item['grupo'], item['fornecedor'], item['quantidade'], item['valor_compra'], item['valor_venda']))
+        
+                            # Limpa o carrinho após gravar no banco
+                            st.session_state.carrinho_compras = []
+                            st.cache_data.clear()
+                            st.success("✅ Todas as entradas foram registradas com sucesso no banco de dados!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro ao salvar compras no banco: {e}")
+        
+                with col_limpar:
+                    if st.button("🗑️ Esvaziar Carrinho"):
+                        st.session_state.carrinho_compras = []
                         st.rerun()
-                    except Exception as e:
-                        st.error(f"Erro ao registrar entrada: {e}")
