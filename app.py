@@ -1220,18 +1220,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         try:
                             cursor = conn.cursor()
                             
-                            cursor.execute("""
-                                UPDATE pedidos 
-                                SET status = 'Concluído (Convertido)' 
-                                WHERE cliente = ? AND status != 'Concluído (Convertido)'
-                            """, (cliente_sel,))
-            
+                            # 1. Insere as novas parcelas no fiado
                             total_para_parcelar = restante_calculado
                             qtd_parc = int(num_parcelas)
                             valor_por_parcela = total_para_parcelar / qtd_parc if qtd_parc > 0 else total_para_parcelar
-            
                             lista_datas = datas_vencimento if len(datas_vencimento) == qtd_parc else [datetime.now().strftime('%Y-%m-%d')] * qtd_parc
-            
+                    
                             for i, dt_venc in enumerate(lista_datas):
                                 cursor.execute("""
                                     INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, tipo, status, data)
@@ -1244,16 +1238,14 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     f"A Vencer ({dt_venc})",
                                     datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                                 ))
-            
-                            cursor.execute("""
-                                UPDATE vendas 
-                                SET status = 'Concluído', restante = 0, valor_recebido = valor_total 
-                                WHERE cliente = ? AND status = 'Pendente'
-                            """, (cliente_sel,))
-
+                    
+                            # 2. EXCLUI os pedidos pendentes antigos do cliente (Evita a duplicação)
+                            cursor.execute("DELETE FROM vendas WHERE cliente = ? AND status = 'Pendente'", (cliente_sel,))
+                            cursor.execute("DELETE FROM pedidos WHERE cliente = ? AND status = 'Pendente'", (cliente_sel,))
+                    
                             conn.commit()
                             st.cache_data.clear()
-                            st.success(f"✅ Pedido convertido/baixado para {cliente_sel} com sucesso!")
+                            st.success(f"✅ Pedido convertido em fiado e registro antigo removido com sucesso!")
                             st.rerun()
                         except Exception as e:
                             st.error(f"Erro ao converter pedido: {e}")
