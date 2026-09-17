@@ -1082,7 +1082,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     with col_f4:
                         filtro_data = st.date_input("Filtrar por Data:", value=None, key="f_dt_pedidos")
         
-                    query_base = "SELECT id, cliente, produto, quantidade, valor_venda, valor_total, fornecedor, grupo, data, status FROM vendas WHERE 1=1"
+                    # Filtra os dados de acordo com o menu ativo
+                    if is_modo_pedido:
+                        # Em "Pedidos / Orçamentos": mostra apenas registros Pendentes
+                        query_base = "SELECT id, cliente, produto, quantidade, valor_venda, valor_total, fornecedor, grupo, data, status FROM vendas WHERE status = 'Pendente'"
+                    else:
+                        # Em "Registrar Venda": mostra apenas registros Concluídos
+                        query_base = "SELECT id, cliente, produto, quantidade, valor_venda, valor_total, fornecedor, grupo, data, status FROM vendas WHERE status = 'Concluído'"
                     params_filtro = []
         
                     if filtro_cliente != "Todos":
@@ -1189,7 +1195,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.info("Nenhum pedido cadastrado com os filtros selecionados.")
 
                 st.divider()
-                st.subheader("💳 Confirmar Recebimento / Dar Baixa no Pedido")
+                # Exibe a área de Dar Baixa APENAS na tela de Pedidos/Orçamentos
+                if is_modo_pedido:
+                    st.divider()
+                    st.subheader("💳 Confirmar Recebimento / Dar Baixa no Pedido")
+                    
+                    # (Mantenha todo o código de seleção de cliente, débito e botão de baixa aqui dentro)
         
                 cursor = conn.cursor()
                 cursor.execute("""
