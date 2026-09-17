@@ -981,11 +981,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         df_p_admin['_nome_limpo'] = df_p_admin[col_nome_p].astype(str).str.strip().str.upper()
                         target_nome = str(prod_item).strip().upper()
                         df_filtrado_admin = df_p_admin[df_p_admin['_nome_limpo'] == target_nome]
-                        
+                
                         if not df_filtrado_admin.empty:
                             row_adm = df_filtrado_admin.iloc[0]
-                            col_alvo_preco = 'valor_compra' if is_modo_pedido else 'valor_venda'
-                            for col_v in [col_alvo_preco, 'valor_venda', 'preco_venda', 'valor_compra', 'preco_compra', 'custo', 'venda']:
+                            # Busca sempre o valor de venda para Pedidos/Orçamentos
+                            col_alvo_preco = 'valor_venda'
+                            for col_v in [col_alvo_preco, 'preco_venda', 'venda', 'valor_compra']:
                                 if col_v in df_p_admin.columns:
                                     try:
                                         val_aux = float(row_adm[col_v])
@@ -994,9 +995,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                             break
                                     except:
                                         pass
-        
+                
                     qtd_ped = st.number_input("Quantidade", min_value=0.01, step=1.0, value=1.0, key="ped_qtd_ind")
-                    v_venda_ped = st.number_input("Preço Unitário (R$)", min_value=0.0, value=float(preco_sugerido_admin), key="ped_v_ind")
+                    # A key dinâmica força o Streamlit a atualizar o preço sempre que trocar o produto
+                    v_venda_ped = st.number_input("Preço Unitário (R$)", min_value=0.0, value=float(preco_sugerido_admin), key=f"ped_v_ind_{prod_item}")
         
                 valor_total_item = qtd_ped * v_venda_ped
                 st.info(f"Valor Total do Item: R$ {valor_total_item:.2f}")
