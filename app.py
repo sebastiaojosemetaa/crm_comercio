@@ -1243,8 +1243,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.rerun()
                     except Exception as e:
                         st.error(f"Erro ao converter pedido: {e}")
-                else:
-                    st.success("🎉 Nenhum pedido pendente para recebimento no momento!")        
+                        
 
                 st.divider()
                 st.subheader("📚 Pedidos Anteriores / Histórico Geral")
