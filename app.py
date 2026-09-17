@@ -1218,29 +1218,41 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         
                     # Substitua o trecho onde está o seu st.button atual por este:
                     if st.button("🔄 Converter Pedido em Venda (Fiado / Baixa)", type="primary"):
-                        with conn:
-                            cursor = conn.cursor()
-                            
-                            # 1. Atualiza os itens mantendo o histórico de produtos
+                    with conn:
+                        cursor = conn.cursor()
+            
+                        # 1. Garante que a tabela exista
+                        cursor.execute("""
+                            CREATE TABLE IF NOT EXISTS contas_a_receber (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                cliente TEXT,
+                                parcela TEXT,
+                                valor REAL,
+                                vencimento TEXT,
+                                status TEXT
+                            )
+                        """)
+            
+                        # 2. Atualiza os itens no banco
+                        cursor.execute("""
+                            UPDATE vendas 
+                            SET status = 'Concluído', forma_pagamento = ?
+                            WHERE cliente = ? AND status = 'Pendente'
+                        """, (forma_pgto, cliente_sel))
+            
+                        # 3. Insere as parcelas (loop necessário para usar 'i' e 'dt_venc')
+                        qtd_parc = int(num_parcelas)
+                        valor_por_parcela = restante_calculado / qtd_parc if qtd_parc > 0 else restante_calculado
+            
+                        for i, dt_venc in enumerate(datas_vencimento):
                             cursor.execute("""
-                                UPDATE vendas 
-                                SET status = 'Concluído', forma_pagamento = ?
-                                WHERE cliente = ? AND status = 'Pendente'
-                            """, (forma_pgto, cliente_sel))
-                    
-                            # 2. Registra o parcelamento do fiado
-                            qtd_parc = int(num_parcelas)
-                            valor_por_parcela = restante_calculado / qtd_parc if qtd_parc > 0 else restante_calculado
-                            
-                            for i, dt_venc in enumerate(datas_vencimento):
-                                cursor.execute("""
-                                    INSERT INTO contas_a_receber (cliente, parcela, valor, vencimento, status)
-                                    VALUES (?, ?, ?, ?, 'A Vencer')
-                                """, (cliente_sel, f"{i+1}/{qtd_parc}", valor_por_parcela, str(dt_venc)))
-                    
-                        st.cache_data.clear()
-                        st.success("✅ Pedido baixado com sucesso!")
-                        st.rerun()
+                                INSERT INTO contas_a_receber (cliente, parcela, valor, vencimento, status)
+                                VALUES (?, ?, ?, ?, 'A Vencer')
+                            """, (cliente_sel, f"{i+1}/{qtd_parc}", valor_por_parcela, str(dt_venc)))
+            
+                    st.cache_data.clear()
+                    st.success("✅ Pedido baixado e parcelas registradas com sucesso!")
+                    st.rerun()
 
                 st.divider()
                 st.subheader("📚 Pedidos Anteriores / Histórico Geral")
