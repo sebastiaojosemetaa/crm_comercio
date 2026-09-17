@@ -830,7 +830,45 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
         elif menu_admin == "📊 Fechamento & Financeiro":
             st.title("📊 Painel Financeiro & Fechamento por Data")
+            # --- MÓDULO DE RECEBIMENTO DE PARCELAS / FIADO ---
+            st.subheader("💳 Contas a Receber (Parcelas / Fiado)")
             
+            df_contas = pd.read_sql_query(
+                "SELECT id, cliente, parcela, valor, vencimento, status FROM contas_a_receber WHERE status = 'A Vencer'", 
+                conn
+            )
+        
+            if not df_contas.empty:
+                st.dataframe(
+                    df_contas,
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "valor": st.column_config.NumberColumn("Valor (R$)", format="R$ %.2f"),
+                        "vencimento": "Vencimento",
+                        "parcela": "Parcela",
+                        "cliente": "Cliente",
+                        "status": "Status"
+                    }
+                )
+                
+                col_sel, col_btn = st.columns([2, 1])
+                with col_sel:
+                    parcela_id = st.selectbox("Selecione o ID da parcela que deseja quitar:", df_contas['id'], key="sel_parcela_quitar")
+                
+                with col_btn:
+                    st.write("")
+                    if st.button("💵 Confirmar Recebimento", type="primary", key="btn_quitar_parcela"):
+                        with conn:
+                            cursor = conn.cursor()
+                            cursor.execute("UPDATE contas_a_receber SET status = 'Pago' WHERE id = ?", (parcela_id,))
+                        st.cache_data.clear()
+                        st.success(f"✅ Parcela ID {parcela_id} quitada com sucesso!")
+                        st.rerun()
+            else:
+                st.info("Nenhuma parcela pendente de recebimento no momento.")
+        
+            st.divider()        
             col_d1, col_d2, col_d3 = st.columns(3)
             with col_d1:
                 data_inicio = st.date_input("Data Inicial", value=date(2025, 1, 1))
