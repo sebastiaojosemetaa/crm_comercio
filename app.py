@@ -1281,28 +1281,38 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         try:
                             cursor = conn.cursor()
                             
-                            # 1. Calcula o valor total pendente
-                            total_pedido = float(df_pedidos_cli['valor_devedor'].sum()) if 'valor_devedor' in df_pedidos_cli.columns else float(df_pedidos_cli['valor_total'].sum())
-            
-                            # 2. Atualiza o status dos pedidos para Concluído
+                            # 1. Atualiza os pedidos pendentes do cliente para Concluído
                             cursor.execute("""
                                 UPDATE pedidos 
                                 SET status = 'Concluído (Convertido)' 
                                 WHERE cliente = ? AND status != 'Concluído (Convertido)'
                             """, (cliente_sel,))
             
-                            # 3. Registra no Contas a Receber (busca os valores diretamente das variáveis do Streamlit)
-                            p_qtd = parcelas if 'parcelas' in locals() else 1
-                            p_venc = data_vencimento if 'data_vencimento' in locals() else data_venc if 'data_venc' in locals() else datetime.now().strftime('%Y-%m-%d')
+                            # 2. Pega o valor total restante a ser parcelado
+                            total_para_parcelar = float(saldo_restante) if 'saldo_restante' in locals() else float(df_pedidos_cli['valor_devedor'].sum())
+                            qtd_parc = int(num_parcelas) if 'num_parcelas' in locals() else int(n_parcelas) if 'n_parcelas' in locals() else 1
+                            valor_por_parcela = total_para_parcelar / qtd_parc if qtd_parc > 0 else total_para_parcelar
             
-                            cursor.execute("""
-                                INSERT INTO contas_receber (cliente, valor_total, valor_pago, saldo_devedor, forma_pagamento, parcelas, data_vencimento, status, data)
-                                VALUES (?, ?, ?, ?, 'Crediário / Fiado', ?, ?, 'Em Aberto', datetime('now', 'localtime'))
-                            """, (cliente_sel, total_pedido, valor_recebido, total_pedido - valor_recebido, p_qtd, p_venc))
+                            # 3. Garante a lista de datas das parcelas geradas na tela
+                            lista_datas = datas_vencimento if 'datas_vencimento' in locals() and len(datas_vencimento) == qtd_parc else [data_venc] * qtd_parc if 'data_venc' in locals() else [datetime.now().strftime('%Y-%m-%d')] * qtd_parc
+            
+                            # 4. Grava cada parcela individualmente na tabela vendas (com forma de pagamento Crediário / Fiado)
+                            for i, dt_venc in enumerate(lista_datas):
+                                cursor.execute("""
+                                    INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, tipo, status, data)
+                                    VALUES (?, ?, 'CRÉDITO', 'FIADO', 1, ?, ?, 'CREDIÁRIO', ?, ?)
+                                """, (
+                                    cliente_sel,
+                                    f"Parcela {i+1}/{qtd_parc} - Venda Fiado",
+                                    valor_por_parcela,
+                                    valor_por_parcela,
+                                    f"A Vencer ({dt_venc})",
+                                    datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                                ))
             
                             conn.commit()
                             st.cache_data.clear()
-                            st.success(f"✅ Pedido convertido em Venda Fiado para {cliente_sel}!")
+                            st.success(f"✅ Pedido convertido em Venda Fiado para {cliente_sel} em {qtd_parc}x com sucesso!")
                             st.rerun()
                         except Exception as e:
                             st.error(f"Erro ao converter pedido: {e}")
