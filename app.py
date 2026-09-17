@@ -227,7 +227,7 @@ def adequar_banco_e_migrar():
             fornecedor TEXT,
             grupo TEXT,
             quantidade REAL,
-            valor_custo REAL,
+            valor_compra REAL,
             valor_venda REAL,
             valor_total REAL,
             data TEXT
@@ -319,14 +319,14 @@ def salvar_simples(tabela, coluna, valor):
     except Exception:
         return False
 
-def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo, valor_venda):
+def registrar_compra(produto, fornecedor, grupo, quantidade, valor_compra, valor_venda):
     cursor = conn.cursor()
     data_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    valor_total = quantidade * valor_custo
+    valor_total = quantidade * valor_compra
     cursor.execute("""
-        INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_custo, valor_venda, valor_total, data)
+        INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_compra, valor_venda, valor_total, data)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """, (produto, fornecedor, grupo, quantidade, valor_custo, valor_venda, valor_total, data_str))
+    """, (produto, fornecedor, grupo, quantidade, valor_compra, valor_venda, valor_total, data_str))
     conn.commit()
 
 # -----------------------------------------------------------------------------
@@ -1340,7 +1340,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             cursor.execute("""
                                 UPDATE produtos 
                                 SET valor_compra = (
-                                    SELECT valor_custo FROM compras 
+                                    SELECT valor_compra FROM compras 
                                     WHERE compras.produto = produtos.produto 
                                     ORDER BY id DESC LIMIT 1
                                 )
