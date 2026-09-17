@@ -947,106 +947,97 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
                 grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
         
+                # --- LINHA 1: CLIENTE ---
                 cliente_ped = st.selectbox("Cliente", clientes_opt, key="ped_cli_ind")
-
-                # 1. Aplica a seleção do novo produto ANTES de criar o widget na tela
-                if "prod_selecionado_temp" in st.session_state:
-                    st.session_state["ped_select_produto"] = st.session_state.pop("prod_selecionado_temp")
                 
-                # Adiciona a opção de novo cadastro no topo do selectbox
-                opcoes_produtos_com_novo = ["+ Cadastrar Novo Produto..."] + list(produtos_opt)
-                
-                col_a1, col_a2 = st.columns(2)
-                with col_a1:
+                # --- LINHA 2: PRODUTO E GRUPO LADO A LADO ---
+                col_l2_1, col_l2_2 = st.columns(2)
+                with col_l2_1:
                     prod_item = st.selectbox("Selecione o Produto", opcoes_produtos_com_novo, key="ped_select_produto")
-                
-                    if prod_item == "+ Cadastrar Novo Produto...":
-                        st.warning("⚠️ Preencha os dados abaixo para cadastrar o novo produto:")
-                
-                        # Linha 1: Nome do produto, Grupo e Fornecedor lado a lado
-                        c_cad1, c_cad2, c_cad3 = st.columns([2, 1, 1])
-                        with c_cad1:
-                            novo_nome_prod = st.text_input("Nome do Novo Produto", key="cad_novo_nome_ped").strip().upper()
-                        with c_cad2:
-                            c_g_r = st.selectbox("Grupo", grupos_opt, key="cad_g_rapido")
-                        with c_cad3:
-                            c_f_r = st.selectbox("Fornecedor", fornecedores_opt, key="cad_f_rapido")
-                
-                        # Linha 2: Quantidade Inicial, Preço de Compra e Preço de Venda lado a lado
-                        c_cad4, c_cad5, c_cad6 = st.columns([1, 1, 1])
-                        with c_cad4:
-                            c_qtd_r = st.number_input("Qtd Inicial em Estoque", min_value=0.0, value=0.0, key="cad_q_rapido")
-                        with c_cad5:
-                            c_compra_r = st.number_input("Preço de Compra (R$)", min_value=0.0, value=0.0, key="cad_c_rapido")
-                        with c_cad6:
-                            c_venda_r = st.number_input("Preço de Venda (R$)", min_value=0.0, value=0.0, key="cad_v_rapido")
-                
-                        if st.button("💾 Salvar e Selecionar Produto", key="btn_salvar_novo_prod_ped"):
-                            if novo_nome_prod:
-                                try:
-                                    cursor = conn.cursor()
-                                    
-                                    # Checa se o produto já existe
-                                    cursor.execute("SELECT id FROM produtos WHERE UPPER(produto) = UPPER(?)", (novo_nome_prod,))
-                                    existe = cursor.fetchone()
-                
-                                    if existe:
-                                        st.warning(f"⚠️ O produto '{novo_nome_prod}' já está cadastrado! Selecionando-o para você...")
-                                        st.session_state["prod_selecionado_temp"] = novo_nome_prod
-                                        st.rerun()
-                                    else:
-                                        # Insere e confirma a gravação no banco
-                                        cursor.execute("""
-                                            INSERT INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda)
-                                            VALUES (?, ?, ?, ?, ?, ?)
-                                        """, (novo_nome_prod, c_g_r, c_f_r, c_qtd_r, c_compra_r, c_venda_r))
-                                        conn.commit()
-                
-                                        # Grava o nome na variável temporária para a próxima recarga
-                                        st.cache_data.clear()
-                                        st.session_state["prod_selecionado_temp"] = novo_nome_prod
-                                        st.rerun()
-                
-                                except Exception as e:
-                                    st.error(f"Erro ao cadastrar no banco de dados: {e}")
-                            else:
-                                st.error("Digite o nome do produto.")
-                            st.stop()
-                
-                fornec_ped = st.selectbox("Fornecedor", fornecedores_opt, key="ped_forn_ind")
-        
-                with col_a2:
+                with col_l2_2:
                     grupo_ped = st.selectbox("Grupo", grupos_opt, key="ped_grupo_ind")
-                    
-                    preco_sugerido_admin = 0.0
-                    if not df_p_admin.empty:
-                        df_p_admin['_nome_limpo'] = df_p_admin[col_nome_p].astype(str).str.strip().str.upper()
-                        target_nome = str(prod_item).strip().upper()
-                        df_filtrado_admin = df_p_admin[df_p_admin['_nome_limpo'] == target_nome]
                 
-                        if not df_filtrado_admin.empty:
-                            row_adm = df_filtrado_admin.iloc[0]
-                            # Busca sempre o valor de venda para Pedidos/Orçamentos
-                            col_alvo_preco = 'valor_venda'
-                            for col_v in [col_alvo_preco, 'preco_venda', 'venda', 'valor_compra']:
-                                if col_v in df_p_admin.columns:
-                                    try:
-                                        val_aux = float(row_adm[col_v])
-                                        if val_aux > 0:
-                                            preco_sugerido_admin = val_aux
-                                            break
-                                    except:
-                                        pass
+                # --- BLOCO EXCLUSIVO PARA CADASTRAR NOVO PRODUTO ---
+                if prod_item == "+ Cadastrar Novo Produto...":
+                    st.warning("⚠️ Preencha os dados abaixo para cadastrar o novo produto:")
                 
+                    c_cad1, c_cad2, c_cad3 = st.columns([2, 1, 1])
+                    with c_cad1:
+                        novo_nome_prod = st.text_input("Nome do Novo Produto", key="cad_novo_nome_ped").strip().upper()
+                    with c_cad2:
+                        c_g_r = st.selectbox("Grupo", grupos_opt, key="cad_g_rapido")
+                    with c_cad3:
+                        c_f_r = st.selectbox("Fornecedor", fornecedores_opt, key="cad_f_rapido")
+                
+                    c_cad4, c_cad5, c_cad6 = st.columns([1, 1, 1])
+                    with c_cad4:
+                        c_qtd_r = st.number_input("Qtd Inicial em Estoque", min_value=0.0, value=0.0, key="cad_q_rapido")
+                    with c_cad5:
+                        c_compra_r = st.number_input("Preço de Compra (R$)", min_value=0.0, value=0.0, key="cad_c_rapido")
+                    with c_cad6:
+                        c_venda_r = st.number_input("Preço de Venda (R$)", min_value=0.0, value=0.0, key="cad_v_rapido")
+                
+                    if st.button("💾 Salvar e Selecionar Produto", key="btn_salvar_novo_prod_ped"):
+                        if novo_nome_prod:
+                            try:
+                                cursor = conn.cursor()
+                                cursor.execute("SELECT id FROM produtos WHERE UPPER(produto) = UPPER(?)", (novo_nome_prod,))
+                                existe = cursor.fetchone()
+                
+                                if existe:
+                                    st.warning(f"⚠️ O produto '{novo_nome_prod}' já está cadastrado!")
+                                    st.session_state["prod_selecionado_temp"] = novo_nome_prod
+                                    st.rerun()
+                                else:
+                                    cursor.execute("""
+                                        INSERT INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda)
+                                        VALUES (?, ?, ?, ?, ?, ?)
+                                    """, (novo_nome_prod, c_g_r, c_f_r, c_qtd_r, c_compra_r, c_venda_r))
+                                    conn.commit()
+                                    st.cache_data.clear()
+                                    st.session_state["prod_selecionado_temp"] = novo_nome_prod
+                                    st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao cadastrar: {e}")
+                        else:
+                            st.error("Digite o nome do produto.")
+                        st.stop()
+                
+                # --- BUSCA DO PREÇO SUGERIDO DO BANCO ---
+                preco_sugerido_admin = 0.0
+                if not df_p_admin.empty:
+                    df_p_admin['_nome_limpo'] = df_p_admin[col_nome_p].astype(str).str.strip().str.upper()
+                    df_filtrado_admin = df_p_admin[df_p_admin['_nome_limpo'] == str(prod_item).strip().upper()]
+                
+                    if not df_filtrado_admin.empty:
+                        row_adm = df_filtrado_admin.iloc[0]
+                        for col_v in ['valor_venda', 'preco_venda', 'venda', 'valor_compra']:
+                            if col_v in df_p_admin.columns:
+                                try:
+                                    val_aux = float(row_adm[col_v])
+                                    if val_aux > 0:
+                                        preco_sugerido_admin = val_aux
+                                        break
+                                except:
+                                    pass
+                
+                # --- LINHA 3: FORNECEDOR E QUANTIDADE LADO A LADO ---
+                col_l3_1, col_l3_2 = st.columns(2)
+                with col_l3_1:
+                    fornec_ped = st.selectbox("Fornecedor", fornecedores_opt, key="ped_forn_ind")
+                with col_l3_2:
                     qtd_ped = st.number_input("Quantidade", min_value=0.01, step=1.0, value=1.0, key="ped_qtd_ind")
-                    # A key dinâmica força o Streamlit a atualizar o preço sempre que trocar o produto
+                
+                # --- LINHA 4: PREÇO UNITÁRIO E VALOR TOTAL LADO A LADO ---
+                col_l4_1, col_l4_2 = st.columns(2)
+                with col_l4_1:
                     v_venda_ped = st.number_input("Preço Unitário (R$)", min_value=0.0, value=float(preco_sugerido_admin), key=f"ped_v_ind_{prod_item}")
-        
-                valor_total_item = qtd_ped * v_venda_ped
-                st.info(f"Valor Total do Item: R$ {valor_total_item:.2f}")
-        
-                if st.button("➕ Incluir Produto no Pedido", type="primary", key="btn_add_carrinho_admin"):
-                    st.session_state.carrinho_admin.append({
+                with col_l4_2:
+                    valor_total_item = qtd_ped * v_venda_ped
+                    st.info(f"**Valor Total do Item:** R$ {valor_total_item:.2f}")
+                
+                # --- BOTÃO DE INCLUSÃO ---
+                st.button("➕ Incluir Produto no Pedido", type="primary", key="btn_incluir_prod_pedido")                    st.session_state.carrinho_admin.append({
                         "produto": prod_item,
                         "fornecedor": fornec_ped,
                         "grupo": grupo_ped,
