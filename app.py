@@ -1359,33 +1359,33 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 col_salvar, col_atualizar = st.columns(2)
     
                 with col_salvar:
-                    if st.button("Salvar Alterações no Estoque"):
+                    if st.button("💾 Salvar Alterações no Estoque", type="primary"):
                         try:
-                            cursor = conn.cursor()
-                            for index, row in df_editado.iterrows():
-                                p_id = row.get('id')
-                                p_prod = row.get('produto')
-                                p_qtd = row.get('quantidade', 0)
-                                p_compra = row.get('valor_compra', 0)
-                                p_venda = row.get('valor_venda', 0)
-                                p_grupo = row.get('grupo')
-                                p_forn = row.get('fornecedor')
-    
-                                cursor.execute("""
-                                    UPDATE produtos 
-                                    SET produto = ?, 
-                                        nome = ?,
-                                        quantidade = ?, 
-                                        estoque_atual = ?, 
-                                        valor_compra = ?, 
-                                        valor_venda = ?, 
-                                        grupo = ?, 
-                                        fornecedor = ?
-                                    WHERE id = ?
-                                """, (p_prod, p_prod, p_qtd, p_qtd, p_compra, p_venda, p_grupo, p_forn, p_id))
-    
-                            conn.commit()
-                            st.success("Estoque e preços salvos permanentemente!")
+                            with conn:
+                                cursor = conn.cursor()
+                                # Percorre a linha por linha do data_editor salvando pelo ID
+                                for index, row in df_estoque_editado.iterrows():
+                                    cursor.execute("""
+                                        UPDATE produtos 
+                                        SET produto = ?, 
+                                            quantidade = ?, 
+                                            valor_compra = ?, 
+                                            valor_venda = ?, 
+                                            grupo = ?, 
+                                            fornecedor = ?
+                                        WHERE id = ?
+                                    """, (
+                                        row['produto'], 
+                                        row['quantidade'], 
+                                        row['valor_compra'], 
+                                        row['valor_venda'], 
+                                        row['grupo'], 
+                                        row['fornecedor'], 
+                                        row['id']
+                                    ))
+                    
+                            st.cache_data.clear()
+                            st.success("✅ Alterações salvas com sucesso!")
                             st.rerun()
                         except Exception as e:
                             st.error(f"Erro ao salvar: {e}")
