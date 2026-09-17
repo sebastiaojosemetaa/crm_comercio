@@ -958,34 +958,53 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 
                     if prod_item == "+ Cadastrar Novo Produto...":
                         st.warning("⚠️ Preencha os dados abaixo para cadastrar o novo produto:")
-                        novo_nome_prod = st.text_input("Nome do Novo Produto", key="cad_novo_nome_ped").strip().upper()
-                        c_f_r = st.selectbox("Fornecedor", fornecedores_opt, key="cad_f_rapido")
-                        c_g_r = st.selectbox("Grupo", grupos_opt, key="cad_g_rapido")
-                        c_qtd_r = st.number_input("Qtd Inicial em Estoque", min_value=0.0, value=0.0, key="cad_q_rapido")
-                        c_compra_r = st.number_input("Preço de Compra (R$)", min_value=0.0, value=0.0, key="cad_c_rapido")
-                        c_venda_r = st.number_input("Preço de Venda (R$)", min_value=0.0, value=0.0, key="cad_v_rapido")
+                
+                        # Linha 1: Nome do produto, Grupo e Fornecedor lado a lado
+                        c_cad1, c_cad2, c_cad3 = st.columns([2, 1, 1])
+                        with c_cad1:
+                            novo_nome_prod = st.text_input("Nome do Novo Produto", key="cad_novo_nome_ped").strip().upper()
+                        with c_cad2:
+                            c_g_r = st.selectbox("Grupo", grupos_opt, key="cad_g_rapido")
+                        with c_cad3:
+                            c_f_r = st.selectbox("Fornecedor", fornecedores_opt, key="cad_f_rapido")
+                
+                        # Linha 2: Quantidade Inicial, Preço de Compra e Preço de Venda lado a lado
+                        c_cad4, c_cad5, c_cad6 = st.columns([1, 1, 1])
+                        with c_cad4:
+                            c_qtd_r = st.number_input("Qtd Inicial em Estoque", min_value=0.0, value=0.0, key="cad_q_rapido")
+                        with c_cad5:
+                            c_compra_r = st.number_input("Preço de Compra (R$)", min_value=0.0, value=0.0, key="cad_c_rapido")
+                        with c_cad6:
+                            c_venda_r = st.number_input("Preço de Venda (R$)", min_value=0.0, value=0.0, key="cad_v_rapido")
                 
                         if st.button("💾 Salvar e Selecionar Produto", key="btn_salvar_novo_prod_ped"):
                             if novo_nome_prod:
                                 try:
-                                    with conn:
-                                        cursor = conn.cursor()
-                                        # 1. Verifica se o produto já existe no banco antes de tentar inserir
-                                        cursor.execute("SELECT id FROM produtos WHERE UPPER(produto) = UPPER(?)", (novo_nome_prod,))
-                                        existe = cursor.fetchone()
+                                    cursor = conn.cursor()
+                                    
+                                    # 1. Checa se o produto já existe
+                                    cursor.execute("SELECT id FROM produtos WHERE UPPER(produto) = UPPER(?)", (novo_nome_prod,))
+                                    existe = cursor.fetchone()
                 
-                                        if existe:
-                                            st.warning(f"⚠️ O produto '{novo_nome_prod}' já consta no seu cadastro! Basta selecioná-lo na lista acima.")
-                                        else:
-                                            cursor.execute("""
-                                                INSERT INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda)
-                                                VALUES (?, ?, ?, ?, ?, ?)
-                                            """, (novo_nome_prod, c_g_r, c_f_r, c_qtd_r, c_compra_r, c_venda_r))
-                                            st.success(f"✅ Produto '{novo_nome_prod}' cadastrado com sucesso!")
-                                            st.cache_data.clear()
-                                            st.rerun()
+                                    if existe:
+                                        st.warning(f"⚠️ O produto '{novo_nome_prod}' já está cadastrado! Selecionando-o para você...")
+                                        st.session_state["ped_select_produto"] = novo_nome_prod
+                                        st.rerun()
+                                    else:
+                                        # 2. Insere e Força o COMMIT no Banco de Dados
+                                        cursor.execute("""
+                                            INSERT INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda)
+                                            VALUES (?, ?, ?, ?, ?, ?)
+                                        """, (novo_nome_prod, c_g_r, c_f_r, c_qtd_r, c_compra_r, c_venda_r))
+                                        conn.commit()
+                
+                                        # 3. Limpa o Cache e Seleciona o Novo Produto na Tela
+                                        st.cache_data.clear()
+                                        st.session_state["ped_select_produto"] = novo_nome_prod
+                                        st.rerun()
+                
                                 except Exception as e:
-                                    st.error(f"Erro ao cadastrar produto: {e}")
+                                    st.error(f"Erro ao cadastrar no banco de dados: {e}")
                             else:
                                 st.error("Digite o nome do produto.")
                             st.stop()
