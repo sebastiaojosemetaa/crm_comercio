@@ -1241,9 +1241,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.cache_data.clear()
                         st.success("✅ Pedido baixado com sucesso!")
                         st.rerun()
-                        
-              else:
-                st.success("🎉 Nenhum pedido pendente para recebimento no momento!")      
 
                 st.divider()
                 st.subheader("📚 Pedidos Anteriores / Histórico Geral")
