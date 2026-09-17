@@ -289,13 +289,13 @@ def salvar_cliente_completo(nome, telefone, doc, endereco, cidade):
     except sqlite3.IntegrityError:
         return False
 
-def salvar_produto_completo(nome, fornecedor, grupo, preco_custo, preco_venda, estoque_inicial):
+def salvar_produto_completo(nome, fornecedor, grupo, preco_compra, preco_venda, estoque_inicial):
     cursor = conn.cursor()
     try:
         cursor.execute("""
             INSERT INTO produtos (nome, produto, fornecedor, grupo, valor_compra, valor_venda, quantidade, estoque_atual) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (nome.strip(), nome.strip(), fornecedor, grupo, preco_custo, preco_venda, estoque_inicial, estoque_inicial))
+        """, (nome.strip(), nome.strip(), fornecedor, grupo, preco_compra, preco_venda, estoque_inicial, estoque_inicial))
         conn.commit()
         return True
     except sqlite3.IntegrityError:
@@ -303,7 +303,7 @@ def salvar_produto_completo(nome, fornecedor, grupo, preco_custo, preco_venda, e
             UPDATE produtos 
             SET fornecedor = ?, grupo = ?, valor_compra = ?, valor_venda = ?, quantidade = ?, estoque_atual = ?
             WHERE TRIM(nome) = TRIM(?) OR TRIM(produto) = TRIM(?)
-        """, (fornecedor, grupo, preco_custo, preco_venda, estoque_inicial, estoque_inicial, nome.strip(), nome.strip()))
+        """, (fornecedor, grupo, preco_compra, preco_venda, estoque_inicial, estoque_inicial, nome.strip(), nome.strip()))
         conn.commit()
         return True
     except Exception as e:
@@ -907,12 +907,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         c_f_r = st.selectbox("Fornecedor", fornecedores_opt, key="cad_f_rapido")
                         c_g_r = st.selectbox("Grupo", grupos_opt, key="cad_g_rapido")
                         c_qtd_r = st.number_input("Qtd Inicial em Estoque", min_value=0.0, value=0.0, key="cad_q_rapido")
-                        c_custo_r = st.number_input("Preço de Custo (R$)", min_value=0.0, value=0.0, key="cad_c_rapido")
+                        c_compra_r = st.number_input("Preço de Compra (R$)", min_value=0.0, value=0.0, key="cad_c_rapido")
                         c_venda_r = st.number_input("Preço de Venda (R$)", min_value=0.0, value=0.0, key="cad_v_rapido")
                         
                         if st.button("Salvar e Selecionar Produto"):
                             if novo_nome_prod:
-                                salvar_produto_completo(novo_nome_prod, c_f_r, c_g_r, c_custo_r, c_venda_r, c_qtd_r)
+                                salvar_produto_completo(novo_nome_prod, c_f_r, c_g_r, c_compra_r, c_venda_r, c_qtd_r)
                                 st.success(f"Produto '{novo_nome_prod}' cadastrado com sucesso!")
                                 st.rerun()
                             else:
@@ -1309,7 +1309,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 p_id = row.get('id')
                                 p_prod = row.get('produto')
                                 p_qtd = row.get('quantidade', 0)
-                                p_custo = row.get('valor_compra', 0)
+                                p_compra = row.get('valor_compra', 0)
                                 p_venda = row.get('valor_venda', 0)
                                 p_grupo = row.get('grupo')
                                 p_forn = row.get('fornecedor')
@@ -1325,7 +1325,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         grupo = ?, 
                                         fornecedor = ?
                                     WHERE id = ?
-                                """, (p_prod, p_prod, p_qtd, p_qtd, p_custo, p_venda, p_grupo, p_forn, p_id))
+                                """, (p_prod, p_prod, p_qtd, p_qtd, p_compra, p_venda, p_grupo, p_forn, p_id))
     
                             conn.commit()
                             st.success("Estoque e preços salvos permanentemente!")
@@ -1350,7 +1350,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 )
                             """)
                             conn.commit()
-                            st.success("Preços de custo atualizados com sucesso!")
+                            st.success("Preços de compra atualizados com sucesso!")
                             st.rerun()
                         except Exception as e:
                             st.error(f"Erro ao atualizar preço: {e}")
@@ -1386,7 +1386,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     col1, col2 = st.columns(2)
                     with col1:
                         txt_nome_produto = st.text_input("Nome do Produto")
-                        val_custo = st.number_input("Preço de Custo (R$)", min_value=0.0, format="%.2f")
+                        val_compra = st.number_input("Preço de Compra (R$)", min_value=0.0, format="%.2f")
                     with col2:
                         grupo_produto = st.text_input("Grupo / Categoria", value="Geral")
                         val_venda = st.number_input("Preço de Venda (R$)", min_value=0.0, format="%.2f")
@@ -1411,7 +1411,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     txt_nome_produto.upper(), 
                                     estoque_inicial, 
                                     estoque_inicial, 
-                                    val_custo, 
+                                    val_compra, 
                                     val_venda, 
                                     fornecedor_produto,
                                     grupo_produto
@@ -1628,7 +1628,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     except Exception:
                         pass
 
-                preco_custo = st.number_input("Preço de Custo Unitário (R$)", min_value=0.0, value=preco_cadastrado, format="%.2f", key="custo_entrada")
+                preco_compra = st.number_input("Preço de compra Unitário (R$)", min_value=0.0, value=preco_cadastrado, format="%.2f", key="compra_entrada")
                 preco_venda = st.number_input("Preço de Venda Unitário (R$)", min_value=0.0, format="%.2f", key="venda_entrada")
 
             if st.button("💾 Confirmar Entrada no Estoque", type="primary", key="btn_conf_entrada"):
@@ -1645,14 +1645,14 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 UPDATE produtos 
                                 SET quantidade = quantidade + ?, valor_compra = ?, valor_venda = ?, grupo = ?, fornecedor = ?
                                 WHERE produto = ? OR nome = ?
-                            """, (quantidade_entrada, preco_custo, preco_venda, grupo_escolhido, fornecedor_escolhido, produto_final, produto_final))
+                            """, (quantidade_entrada, preco_compra, preco_venda, grupo_escolhido, fornecedor_escolhido, produto_final, produto_final))
                         else:
                             cursor.execute("""
                                 INSERT INTO produtos (produto, nome, quantidade, estoque_atual, valor_compra, valor_venda, grupo, fornecedor)
                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                            """, (produto_final, produto_final, quantidade_entrada, quantidade_entrada, preco_custo, preco_venda, grupo_escolhido, fornecedor_escolhido))
+                            """, (produto_final, produto_final, quantidade_entrada, quantidade_entrada, preco_compra, preco_venda, grupo_escolhido, fornecedor_escolhido))
                         
-                        registrar_compra(produto_final, fornecedor_escolhido, grupo_escolhido, quantidade_entrada, preco_custo, preco_venda)
+                        registrar_compra(produto_final, fornecedor_escolhido, grupo_escolhido, quantidade_entrada, preco_compra, preco_venda)
                         
                         conn.commit()
                         st.success(f"Estoque atualizado/produto '{produto_final}' cadastrado com sucesso!")
