@@ -1689,17 +1689,14 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 preco_venda = st.number_input("Preço de Venda Unitário (R$)", min_value=0.0, format="%.2f", key="venda_entrada")
 
             if st.button("📥 Confirmar Entrada no Estoque", type="primary"):
-                # Identifica se é novo produto ou existente
-                nome_prod = novo_produto if tipo_cadastro == "Novo Produto" and 'novo_produto' in locals() else (produto_escolhido if 'produto_escolhido' in locals() else "")
-                
-                if not nome_prod:
+                if not produto_final or str(produto_final).strip() == "":
                     st.error("Por favor, informe ou selecione o nome do produto.")
                 else:
                     try:
                         with conn:
                             cursor = conn.cursor()
                             
-                            # 1. Garante que a tabela exista com as colunas corretas
+                            # 1. Garante a estrutura correta da tabela no banco
                             cursor.execute("""
                                 CREATE TABLE IF NOT EXISTS produtos (
                                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1712,26 +1709,21 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 )
                             """)
         
-                            # Captura fornecedor, grupo e quantidade das variáveis locais
-                            forn_val = fornecedor_escolhido if 'fornecedor_escolhido' in locals() else 'GERAL'
-                            grupo_val = grupo_escolhido if 'grupo_escolhido' in locals() else 'GERAL'
-                            qtd_val = quantidade if 'quantidade' in locals() else 1.0
-        
                             if tipo_cadastro == "Novo Produto":
-                                # 2. Insere usando a coluna 'produto' (corrigindo o erro 'no such column: nome')
+                                # 2. Cadastro de Novo Produto usando a coluna 'produto'
                                 cursor.execute("""
                                     INSERT INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda)
                                     VALUES (?, ?, ?, ?, ?, ?)
-                                """, (nome_prod, grupo_val, forn_val, qtd_val, preco_compra, preco_venda))
-                                st.success(f"✅ Novo produto '{nome_prod}' cadastrado com sucesso!")
+                                """, (produto_final, grupo_escolhido, fornecedor_escolhido, quantidade_entrada, preco_compra, preco_venda))
+                                st.success(f"✅ Novo produto '{produto_final}' cadastrado com sucesso!")
                             else:
-                                # 3. Atualiza produto existente
+                                # 3. Atualização de Produto Existente
                                 cursor.execute("""
                                     UPDATE produtos 
                                     SET quantidade = quantidade + ?, valor_compra = ?, valor_venda = ?
                                     WHERE produto = ?
-                                """, (qtd_val, preco_compra, preco_venda, nome_prod))
-                                st.success(f"✅ Estoque de '{nome_prod}' atualizado com sucesso!")
+                                """, (quantidade_entrada, preco_compra, preco_venda, produto_final))
+                                st.success(f"✅ Estoque de '{produto_final}' atualizado com sucesso!")
         
                         st.cache_data.clear()
                         st.rerun()
