@@ -1281,7 +1281,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         try:
                             cursor = conn.cursor()
                             
-                            # 1. Calcula o valor total pendente do cliente selecionado
+                            # 1. Calcula o valor total pendente
                             total_pedido = float(df_pedidos_cli['valor_devedor'].sum()) if 'valor_devedor' in df_pedidos_cli.columns else float(df_pedidos_cli['valor_total'].sum())
             
                             # 2. Atualiza o status dos pedidos para Concluído
@@ -1291,15 +1291,18 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 WHERE cliente = ? AND status != 'Concluído (Convertido)'
                             """, (cliente_sel,))
             
-                            # 3. Registra no Contas a Receber
+                            # 3. Registra no Contas a Receber (busca os valores diretamente das variáveis do Streamlit)
+                            p_qtd = parcelas if 'parcelas' in locals() else 1
+                            p_venc = data_vencimento if 'data_vencimento' in locals() else data_venc if 'data_venc' in locals() else datetime.now().strftime('%Y-%m-%d')
+            
                             cursor.execute("""
                                 INSERT INTO contas_receber (cliente, valor_total, valor_pago, saldo_devedor, forma_pagamento, parcelas, data_vencimento, status, data)
                                 VALUES (?, ?, ?, ?, 'Crediário / Fiado', ?, ?, 'Em Aberto', datetime('now', 'localtime'))
-                            """, (cliente_sel, total_pedido, valor_recebido, total_pedido - valor_recebido, n_parcelas, data_venc))
+                            """, (cliente_sel, total_pedido, valor_recebido, total_pedido - valor_recebido, p_qtd, p_venc))
             
                             conn.commit()
                             st.cache_data.clear()
-                            st.success(f"✅ Pedido convertido em Venda Fiado para {cliente_sel}! Vencimento: {data_venc}")
+                            st.success(f"✅ Pedido convertido em Venda Fiado para {cliente_sel}!")
                             st.rerun()
                         except Exception as e:
                             st.error(f"Erro ao converter pedido: {e}")
