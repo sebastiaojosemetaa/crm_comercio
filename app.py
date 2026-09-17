@@ -1139,6 +1139,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.divider()
                 st.subheader("💳 Confirmar Recebimento / Dar Baixa no Pedido")
         
+                cursor = conn.cursor()
                 cursor.execute("""
                     SELECT DISTINCT cliente 
                     FROM vendas 
