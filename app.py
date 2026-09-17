@@ -1478,57 +1478,77 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 
                 st.markdown("---")
                 st.subheader("📋 Lista de Produtos (Edite direto na tabela ou exclua abaixo)")
-                
-                df_produtos_view = carregar_dados("SELECT * FROM produtos")
-                if not df_produtos_view.empty:
-                    df_produtos_view = df_produtos_view.drop(columns=['estoque_atual', 'nome'], errors='ignore')
-                    
-                    df_editado_prod = st.data_editor(
-                        df_produtos_view, 
-                        use_container_width=True, 
-                        hide_index=True,
-                        key="editor_produtos_geral"
-                    )
-                    
-                    col_btn1, col_btn2 = st.columns(2)
-                    with col_btn1:
-                        if st.button("💾 Salvar Alterações da Tabela"):
-                            try:
+
+                # 1. Carrega a lista atual de produtos do banco de dados
+                df_produtos_gerenciar = pd.read_sql_query(
+                    "SELECT id, produto, quantidade, valor_compra, valor_venda, grupo, fornecedor FROM produtos", 
+                    conn
+                )
+            
+                # 2. Exibe a tabela editável
+                df_gerenciar_editado = st.data_editor(
+                    df_produtos_gerenciar,
+                    use_container_width=True,
+                    hide_index=True,
+                    key="editor_gerenciar_produtos_tab"
+                )
+            
+                col_btn_salvar, col_btn_excluir = st.columns([1, 1])
+            
+                # 3. Botão para Salvar as Alterações feitas na Tabela
+                with col_btn_salvar:
+                    if st.button("💾 Salvar Alterações da Tabela", type="primary", key="btn_salvar_tabela_gerenciar"):
+                        try:
+                            with conn:
                                 cursor = conn.cursor()
-                                for index, row in df_editado_prod.iterrows():
-                                    p_id = row.get('id')
-                                    p_prod = row.get('produto')
-                                    p_qtd = row.get('quantidade', 0)
-                                    p_compra = row.get('valor_compra', 0)
-                                    p_venda = row.get('valor_venda', 0)
-                                    p_grupo = row.get('grupo')
-                                    p_forn = row.get('fornecedor')
-    
+                                for index, row in df_gerenciar_editado.iterrows():
                                     cursor.execute("""
                                         UPDATE produtos 
-                                        SET produto = ?, nome = ?, quantidade = ?, estoque_atual = ?, valor_compra = ?, valor_venda = ?, grupo = ?, fornecedor = ?
+                                        SET produto = ?, 
+                                            quantidade = ?, 
+                                            valor_compra = ?, 
+                                            valor_venda = ?, 
+                                            grupo = ?, 
+                                            fornecedor = ?
                                         WHERE id = ?
-                                    """, (p_prod, p_prod, p_qtd, p_qtd, p_compra, p_venda, p_grupo, p_forn, p_id))
-                                conn.commit()
-                                st.success("Alterações salvas com sucesso!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro ao salvar alterações: {e}")
+                                    """, (
+                                        row['produto'], 
+                                        row['quantidade'], 
+                                        row['valor_compra'], 
+                                        row['valor_venda'], 
+                                        row['grupo'], 
+                                        row['fornecedor'], 
+                                        row['id']
+                                    ))
+                            st.cache_data.clear()
+                            st.success("✅ Alterações salvas com sucesso!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro ao salvar alterações: {e}")
+            
+                # 4. Seleção e Botão para Excluir Produto
+                with col_btn_excluir:
+                    lista_produtos_excluir = df_produtos_gerenciar['produto'].tolist() if not df_produtos_gerenciar.empty else []
+                    prod_para_excluir = st.selectbox(
+                        "Selecione um produto para excluir", 
+                        options=lista_produtos_excluir, 
+                        key="sel_prod_excluir"
+                    )
                     
-                    with col_btn2:
-                        produtos_para_excluir = df_produtos_view['produto'].tolist()
-                        prod_selecionado_excluir = st.selectbox("Selecione um produto para excluir", produtos_para_excluir, key="select_del_prod")
-                        if st.button("🗑️ Excluir Produto Selecionado"):
+                    if st.button("🗑️ Excluir Produto Selecionado", key="btn_excluir_produto"):
+                        if prod_para_excluir:
                             try:
-                                cursor = conn.cursor()
-                                cursor.execute("DELETE FROM produtos WHERE produto = ? OR nome = ?", (prod_selecionado_excluir, prod_selecionado_excluir))
-                                conn.commit()
-                                st.success(f"Produto '{prod_selecionado_excluir}' excluído com sucesso!")
+                                with conn:
+                                    cursor = conn.cursor()
+                                    # Exclui filtrando pela coluna 'produto' (evitando erro de coluna 'nome')
+                                    cursor.execute("DELETE FROM produtos WHERE produto = ?", (prod_para_excluir,))
+                                st.cache_data.clear()
+                                st.success(f"✅ Produto '{prod_para_excluir}' excluído com sucesso!")
                                 st.rerun()
                             except Exception as e:
-                                st.error(f"Erro ao excluir: {e}")
-                else:
-                    st.info("Nenhum produto cadastrado.")
+                                st.error(f"Erro ao excluir produto: {e}")
+                        else:
+                            st.warning("Nenhum produto selecionado para exclusão.")
 
             with tab_forn:
                 st.subheader("🏢 Gerenciar Fornecedores")
