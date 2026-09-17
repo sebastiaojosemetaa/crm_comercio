@@ -970,13 +970,20 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 try:
                                     with conn:
                                         cursor = conn.cursor()
-                                        cursor.execute("""
-                                            INSERT INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda)
-                                            VALUES (?, ?, ?, ?, ?, ?)
-                                        """, (novo_nome_prod, c_g_r, c_f_r, c_qtd_r, c_compra_r, c_venda_r))
-                                    st.success(f"✅ Produto '{novo_nome_prod}' cadastrado com sucesso!")
-                                    st.cache_data.clear()
-                                    st.rerun()
+                                        # 1. Verifica se o produto já existe no banco antes de tentar inserir
+                                        cursor.execute("SELECT id FROM produtos WHERE UPPER(produto) = UPPER(?)", (novo_nome_prod,))
+                                        existe = cursor.fetchone()
+                
+                                        if existe:
+                                            st.warning(f"⚠️ O produto '{novo_nome_prod}' já consta no seu cadastro! Basta selecioná-lo na lista acima.")
+                                        else:
+                                            cursor.execute("""
+                                                INSERT INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda)
+                                                VALUES (?, ?, ?, ?, ?, ?)
+                                            """, (novo_nome_prod, c_g_r, c_f_r, c_qtd_r, c_compra_r, c_venda_r))
+                                            st.success(f"✅ Produto '{novo_nome_prod}' cadastrado com sucesso!")
+                                            st.cache_data.clear()
+                                            st.rerun()
                                 except Exception as e:
                                     st.error(f"Erro ao cadastrar produto: {e}")
                             else:
