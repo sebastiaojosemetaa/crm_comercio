@@ -1,16 +1,16 @@
 import streamlit as st
 import sqlite3
 import pandas as pd
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-
 import io
 
-from datetime import datetime, timedelta
-
+# -----------------------------------------------------------------------------
+# GERADOR DE PDF
+# -----------------------------------------------------------------------------
 def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=15, bottomMargin=30)
@@ -18,65 +18,37 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
 
     styles = getSampleStyleSheet()
 
-    # Estilos com leading ajustado para evitar sobreposição de linhas
     style_empresa = ParagraphStyle(
-        'Empresa', 
-        parent=styles['Normal'], 
-        fontName='Helvetica-Bold', 
-        fontSize=16, 
-        leading=20, 
-        alignment=1, 
-        textColor=colors.HexColor("#0f2a4a"),
-        spaceAfter=4
+        'Empresa', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=16, 
+        leading=20, alignment=1, textColor=colors.HexColor("#0f2a4a"), spaceAfter=4
     )
     style_sub = ParagraphStyle(
-        'Sub', 
-        parent=styles['Normal'], 
-        fontName='Helvetica', 
-        fontSize=9, 
-        leading=12, 
-        alignment=1,
-        spaceAfter=10
+        'Sub', parent=styles['Normal'], fontName='Helvetica', fontSize=9, 
+        leading=12, alignment=1, spaceAfter=10
     )
     style_titulo = ParagraphStyle(
-        'Titulo', 
-        parent=styles['Normal'], 
-        fontName='Helvetica-Bold', 
-        fontSize=12, 
-        leading=15, 
-        alignment=1, 
-        textColor=colors.HexColor("#0f2a4a"), 
-        spaceAfter=4
+        'Titulo', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=12, 
+        leading=15, alignment=1, textColor=colors.HexColor("#0f2a4a"), spaceAfter=4
     )
     style_info = ParagraphStyle(
-        'Info', 
-        parent=styles['Normal'], 
-        fontName='Helvetica', 
-        fontSize=9, 
-        leading=12, 
-        alignment=1, 
-        spaceAfter=15
+        'Info', parent=styles['Normal'], fontName='Helvetica', fontSize=9, 
+        leading=12, alignment=1, spaceAfter=15
     )
 
-    # Cabeçalho da Empresa
     story.append(Paragraph("REY DA CEBOLA", style_empresa))
     story.append(Paragraph("CNPJ: 194.174.39/000-42 INSC.EST.: 12.426725-4<br/>CONTATO: (99) 98814-9722 OU (99) 98414-3943", style_sub))
 
-    # Ajuste do Horário Oficial do Brasil (UTC -3)
     data_atual = (datetime.utcnow() - timedelta(hours=3)).strftime('%Y-%m-%d %H:%M:%S')
 
-    # Validação do título
-    if cliente_nome != "Todos" and cliente_nome != "Geral" and cliente_nome != "":
+    if cliente_nome not in ["Todos", "Geral", ""]:
         story.append(Paragraph("Relatório de Pedidos / Orçamentos", style_titulo))
         story.append(Paragraph(f"<b>Cliente:</b> {cliente_nome} | <b>Gerado em:</b> {data_atual}", style_info))
     else:
         story.append(Paragraph("Relatório de Pedidos / Orçamentos - Geral", style_titulo))
         story.append(Paragraph(f"<b>Gerado em:</b> {data_atual}", style_info))
 
-    # Tratamento dos dados
     if not df_dados.empty:
         df_proc = df_dados.copy()
-
         col_qtd = 'quantidade' if 'quantidade' in df_proc.columns else df_proc.columns[3]
         col_unit = 'valor_venda' if 'valor_venda' in df_proc.columns else ('Valor Unitário (R$)' if 'Valor Unitário (R$)' in df_proc.columns else df_proc.columns[4])
         col_tot = 'valor_total' if 'valor_total' in df_proc.columns else ('Total (R$)' if 'Total (R$)' in df_proc.columns else df_proc.columns[5])
@@ -108,7 +80,6 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
     else:
         df_agrupado = pd.DataFrame(columns=['produto', 'quantidade', 'valor_venda', 'valor_total'])
 
-    # Montagem da tabela
     table_data = [["Produto", "Qtd Total", "Preço Unitário (R$)", "Valor Total (R$)"]]
     total_geral = 0.0
 
@@ -148,8 +119,9 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
     doc.build(story)
     buffer.seek(0)
     return buffer
-    # -----------------------------------------------------------------------------
-# 1. CONFIGURAÇÃO E CONEXÃO COM O BANCO DE DADOS
+
+# -----------------------------------------------------------------------------
+# CONFIGURAÇÃO E CONEXÃO COM BANCO DE DADOS
 # -----------------------------------------------------------------------------
 st.set_page_config(page_title="CRM Comércio - Rey da Cebola", layout="wide")
 
@@ -157,14 +129,6 @@ def get_connection():
     return sqlite3.connect("crm_comercio.db", check_same_thread=False)
 
 conn = get_connection()
-
-# Adicione este bloco aqui:
-try:
-    cursor = conn.cursor()
-    cursor.execute("ALTER TABLE vendas ADD COLUMN status TEXT DEFAULT 'Pendente'")
-    conn.commit()
-except Exception:
-    pass
 
 def adequar_banco_e_migrar():
     cursor = conn.cursor()
@@ -180,7 +144,9 @@ def adequar_banco_e_migrar():
             valor_venda REAL,
             valor_total REAL,
             forma_pagamento TEXT,
-            valor_recebido TEXT,
+            valor_recebido REAL DEFAULT 0,
+            restante REAL DEFAULT 0,
+            status TEXT DEFAULT 'Pendente',
             tipo TEXT DEFAULT 'PEDIDO',
             codigo TEXT DEFAULT 'PED',
             data TEXT
@@ -189,35 +155,22 @@ def adequar_banco_e_migrar():
     cursor.execute("PRAGMA table_info(vendas)")
     colunas_vendas = [col[1] for col in cursor.fetchall()]
 
-    if 'forma_pagamento' not in colunas_vendas:
-        try:
-            cursor.execute("ALTER TABLE vendas ADD COLUMN forma_pagamento TEXT")
-        except:
-            pass
+    colunas_para_adicionar = [
+        ('forma_pagamento', 'TEXT'),
+        ('valor_recebido', 'REAL DEFAULT 0'),
+        ('restante', 'REAL DEFAULT 0'),
+        ('status', "TEXT DEFAULT 'Pendente'"),
+        ('tipo', "TEXT DEFAULT 'PEDIDO'"),
+        ('codigo', "TEXT DEFAULT 'PED'"),
+        ('data', 'TEXT')
+    ]
 
-    if 'valor_recebido' not in colunas_vendas:
-        try:
-            cursor.execute("ALTER TABLE vendas ADD COLUMN valor_recebido TEXT")
-        except:
-            pass
-
-    if 'tipo' not in colunas_vendas:
-        try:
-            cursor.execute("ALTER TABLE vendas ADD COLUMN tipo TEXT DEFAULT 'PEDIDO'")
-        except:
-            pass
-
-    if 'codigo' not in colunas_vendas:
-        try:
-            cursor.execute("ALTER TABLE vendas ADD COLUMN codigo TEXT DEFAULT 'PED'")
-        except:
-            pass
-
-    if 'data' not in colunas_vendas:
-        try:
-            cursor.execute("ALTER TABLE vendas ADD COLUMN data TEXT")
-        except:
-            pass
+    for col_n, col_t in colunas_para_adicionar:
+        if col_n not in colunas_vendas:
+            try:
+                cursor.execute(f"ALTER TABLE vendas ADD COLUMN {col_n} {col_t}")
+            except Exception:
+                pass
             
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS produtos (
@@ -239,7 +192,7 @@ def adequar_banco_e_migrar():
         if col_n not in colunas_produtos:
             try:
                 cursor.execute(f"ALTER TABLE produtos ADD COLUMN {col_n} {col_t}")
-            except:
+            except Exception:
                 pass
 
     cursor.execute("""
@@ -275,6 +228,7 @@ def adequar_banco_e_migrar():
             grupo TEXT,
             quantidade REAL,
             valor_custo REAL,
+            valor_venda REAL,
             valor_total REAL,
             data TEXT
         )
@@ -313,13 +267,16 @@ def carregar_dados(query):
 
 def carregar_coluna(tabela, coluna):
     cursor = conn.cursor()
-    cursor.execute(f"PRAGMA table_info({tabela})")
-    cols = [col[1] for col in cursor.fetchall()]
-    col_alvo = coluna if coluna in cols else (cols[1] if len(cols) > 1 else coluna)
-    
-    df = carregar_dados(f"SELECT DISTINCT TRIM({col_alvo}) as {col_alvo} FROM {tabela} WHERE {col_alvo} IS NOT NULL AND {col_alvo} != ''")
-    if not df.empty:
-        return df[col_alvo].tolist()
+    try:
+        cursor.execute(f"PRAGMA table_info({tabela})")
+        cols = [col[1] for col in cursor.fetchall()]
+        col_alvo = coluna if coluna in cols else (cols[1] if len(cols) > 1 else coluna)
+        
+        df = carregar_dados(f"SELECT DISTINCT TRIM({col_alvo}) as {col_alvo} FROM {tabela} WHERE {col_alvo} IS NOT NULL AND {col_alvo} != ''")
+        if not df.empty:
+            return df[col_alvo].tolist()
+    except Exception:
+        pass
     return []
 
 def salvar_cliente_completo(nome, telefone, doc, endereco, cidade):
@@ -359,11 +316,21 @@ def salvar_simples(tabela, coluna, valor):
         cursor.execute(f"INSERT INTO {tabela} ({coluna}) VALUES (?)", (valor.strip(),))
         conn.commit()
         return True
-    except:
+    except Exception:
         return False
 
+def registrar_compra(produto, fornecedor, grupo, quantidade, valor_custo, valor_venda):
+    cursor = conn.cursor()
+    data_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    valor_total = quantidade * valor_custo
+    cursor.execute("""
+        INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_custo, valor_venda, valor_total, data)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (produto, fornecedor, grupo, quantidade, valor_custo, valor_venda, valor_total, data_str))
+    conn.commit()
+
 # -----------------------------------------------------------------------------
-# 2. INICIALIZAÇÃO DE SESSÃO E PERFIL
+# NAVEGAÇÃO E PERFIL DE ACESSO
 # -----------------------------------------------------------------------------
 if 'admin_logged' not in st.session_state:
     st.session_state.admin_logged = False
@@ -508,9 +475,28 @@ if perfil_selecionado == "👤 Portal do Cliente":
                                 cursor.execute("""
                                     INSERT INTO vendas (
                                         cliente, produto, quantidade, valor_venda, valor_total,
-                                        fornecedor, grupo, data, status, codigo_venda, tipo
+                                        fornecedor, grupo, data, status, codigo, tipo
                                     )
                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ORÇAMENTO')
+                                """, (
+                                    st.session_state.cliente_autenticado,
+                                    item["produto"],
+                                    item["quantidade"],
+                                    item["preco_unitario"],
+                                    item["valor_total"],
+                                    item.get("fornecedor", "BAHIA"),
+                                    item.get("grupo", "GERAL"),
+                                    data_str,
+                                    "Pendente",
+                                    codigo_pedido_gerado
+                                ))
+
+                                cursor.execute("""
+                                    INSERT INTO pedidos (
+                                        cliente, produto, quantidade, valor_unitario, valor_total,
+                                        fornecedor, grupo, data, status, codigo_pedido
+                                    )
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                                 """, (
                                     st.session_state.cliente_autenticado,
                                     item["produto"],
@@ -591,7 +577,6 @@ if perfil_selecionado == "👤 Portal do Cliente":
                         if st.button("🗑️ Excluir Marcados", type="secondary", key="btn_excluir_selecionados"):
                             try:
                                 cursor = conn.cursor()
-                                # Filtra os itens marcados no editor de tabela
                                 itens_para_excluir = df_editado[df_editado['Excluir'] == True]
                                 
                                 if not itens_para_excluir.empty:
@@ -600,10 +585,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                                         cliente_item = row.get('cliente', '')
                                         produto_item = row.get('produto', '')
                                         
-                                        # 1. Deleta o registro específico selecionado pelo ID
-                                        cursor.execute("DELETE FROM pedidos WHERE id = ?", (id_item,))
-                                        
-                                        # 2. Deleta qualquer registro correspondente desse cliente/produto (limpa histórico antigo)
+                                        cursor.execute("DELETE FROM vendas WHERE id = ?", (id_item,))
                                         if cliente_item and produto_item:
                                             cursor.execute(
                                                 "DELETE FROM pedidos WHERE cliente = ? AND produto = ?", 
@@ -611,7 +593,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                                             )
                                     
                                     conn.commit()
-                                    st.warning("Itens excluídos com sucesso do Administrador e do Portal do Cliente!")
+                                    st.warning("Itens excluídos com sucesso!")
                                     st.rerun()
                                 else:
                                     st.info("Nenhum item foi marcado para exclusão.")
@@ -673,7 +655,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             ]
         )
         
-        # --- LÓGICA: PDV — FRENTE DE CAIXA ---
         if menu_admin == "🛒 PDV — Frente de Caixa":
             st.title("🛒 PDV — Frente de Caixa (Múltiplos Produtos)")
     
@@ -787,18 +768,16 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
                         for item in st.session_state.carrinho_pdv:
                             cursor.execute("""
-                                INSERT INTO pedidos (cliente, produto, quantidade, valor_total, status, data)
-                                VALUES (?, ?, ?, ?, 'Concluído (Convertido)', ?)
+                                INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, status, tipo, data)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Concluído', 'VENDA', ?)
                             """, (
-                                cliente_pdv,
-                                item['produto'],
-                                item['quantidade'],
-                                item['valor_total'],
-                                data_venda
+                                cliente_pdv, item['produto'], item['fornecedor'], item['grupo'],
+                                item['quantidade'], item['valor_venda'], item['valor_total'],
+                                f_pag, v_rec, data_venda
                             ))
 
                         cursor.execute("INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, ?, ?, ?, ?)",
-                            (sessao_id, "VENDA", total_geral_carrinho, f"Venda PDV - Cliente: {cliente_pdv}", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+                            (sessao_id, "VENDA", total_geral_carrinho, f"Venda PDV - Cliente: {cliente_pdv}", data_venda)
                         )
                         conn.commit()
 
@@ -1000,39 +979,28 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             try:
                                 cursor = conn.cursor()
                                 tipo_banco = 'ORÇAMENTO' if is_modo_pedido else 'VENDA'
+                                data_agora = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     
                                 for item in st.session_state.carrinho_admin:
-                                    # 1. Salva na tabela do Administrador (vendas)
                                     cursor.execute("""
                                         INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, tipo, status, data)
-                                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Pendente', datetime('now', 'localtime'))
+                                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Pendente', ?)
                                     """, (
-                                        cliente_ped,
-                                        item["produto"],
-                                        item["fornecedor"],
-                                        item["grupo"],
-                                        item["quantidade"],
-                                        item["valor_unitario"],
-                                        item["valor_total"],
-                                        tipo_banco
+                                        cliente_ped, item["produto"], item["fornecedor"], item["grupo"],
+                                        item["quantidade"], item["valor_unitario"], item["valor_total"],
+                                        tipo_banco, data_agora
                                     ))
                     
-                                    # 2. Salva na tabela do Portal do Cliente (pedidos)
                                     cursor.execute("""
                                         INSERT INTO pedidos (cliente, produto, fornecedor, grupo, quantidade, valor_unitario, valor_total, status, data)
-                                        VALUES (?, ?, ?, ?, ?, ?, ?, 'Pendente', datetime('now', 'localtime'))
+                                        VALUES (?, ?, ?, ?, ?, ?, ?, 'Pendente', ?)
                                     """, (
-                                        cliente_ped,
-                                        item["produto"],
-                                        item["fornecedor"],
-                                        item["grupo"],
-                                        item["quantidade"],
-                                        item["valor_unitario"],
-                                        item["valor_total"]
+                                        cliente_ped, item["produto"], item["fornecedor"], item["grupo"],
+                                        item["quantidade"], item["valor_unitario"], item["valor_total"], data_agora
                                     ))
                     
                                 conn.commit()
-                                st.cache_data.clear()  # Limpa a memória para aparecer na mesma hora pro cliente
+                                st.cache_data.clear()
                                 st.session_state.carrinho_admin = []
                                 st.success("Pedido salvo com sucesso!")
                                 st.rerun()
@@ -1041,55 +1009,54 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 else:
                     st.info("Nenhum item adicionado ao carrinho ainda.")
         
-            # AQUI COMEÇA A SEGUNDA ABA (Tabela Editável)
             with aba_list:
                 st.subheader("🟢 Pedidos do Dia (Editáveis)")
 
-            # --- BARRA DE FILTROS ---
-            df_todos_pedidos = pd.read_sql_query("SELECT * FROM vendas", conn)
-    
-            if not df_todos_pedidos.empty:
-                col_f1, col_f2, col_f3, col_f4 = st.columns(4)
-    
-                lista_clientes = ["Todos"] + sorted(list(df_todos_pedidos['cliente'].dropna().unique()))
-                lista_fornecedores = ["Todos"] + sorted(list(df_todos_pedidos['fornecedor'].dropna().unique()))
-                lista_grupos = ["Todos"] + sorted(list(df_todos_pedidos['grupo'].dropna().unique()))
-    
-                with col_f1:
-                    filtro_cliente = st.selectbox("Filtrar por Cliente:", lista_clientes, key="f_cli_pedidos")
-                with col_f2:
-                    filtro_fornecedor = st.selectbox("Filtrar por Fornecedor:", lista_fornecedores, key="f_forn_pedidos")
-                with col_f3:
-                    filtro_grupo = st.selectbox("Filtrar por Grupo:", lista_grupos, key="f_grp_pedidos")
-                with col_f4:
-                    filtro_data = st.date_input("Filtrar por Data:", value=None, key="f_dt_pedidos")
-    
-                query_base = "SELECT id, cliente, produto, quantidade, valor_venda, valor_total, fornecedor, grupo, data, status FROM vendas WHERE 1=1"
-                params_filtro = []
-    
-                if filtro_cliente != "Todos":
-                    query_base += " AND cliente = ?"
-                    params_filtro.append(filtro_cliente)
-                if filtro_fornecedor != "Todos":
-                    query_base += " AND fornecedor = ?"
-                    params_filtro.append(filtro_fornecedor)
-                if filtro_grupo != "Todos":
-                    query_base += " AND grupo = ?"
-                    params_filtro.append(filtro_grupo)
-                if filtro_data is not None:
-                    query_base += " AND DATE(data) = ?"
-                    params_filtro.append(str(filtro_data))
-    
-                query_base += " ORDER BY id DESC"
-                df_dia = pd.read_sql_query(query_base, conn, params=params_filtro)
-            else:
-                df_dia = pd.DataFrame()
-    
-            if not df_dia.empty:
-                df_exibir = df_dia.copy()
-                if 'Excluir' not in df_exibir.columns:
-                    df_exibir.insert(0, 'Excluir', False)
+                df_todos_pedidos = pd.read_sql_query("SELECT * FROM vendas", conn)
         
+                if not df_todos_pedidos.empty:
+                    col_f1, col_f2, col_f3, col_f4 = st.columns(4)
+        
+                    lista_clientes = ["Todos"] + sorted(list(df_todos_pedidos['cliente'].dropna().unique()))
+                    lista_fornecedores = ["Todos"] + sorted(list(df_todos_pedidos['fornecedor'].dropna().unique()))
+                    lista_grupos = ["Todos"] + sorted(list(df_todos_pedidos['grupo'].dropna().unique()))
+        
+                    with col_f1:
+                        filtro_cliente = st.selectbox("Filtrar por Cliente:", lista_clientes, key="f_cli_pedidos")
+                    with col_f2:
+                        filtro_fornecedor = st.selectbox("Filtrar por Fornecedor:", lista_fornecedores, key="f_forn_pedidos")
+                    with col_f3:
+                        filtro_grupo = st.selectbox("Filtrar por Grupo:", lista_grupos, key="f_grp_pedidos")
+                    with col_f4:
+                        filtro_data = st.date_input("Filtrar por Data:", value=None, key="f_dt_pedidos")
+        
+                    query_base = "SELECT id, cliente, produto, quantidade, valor_venda, valor_total, fornecedor, grupo, data, status FROM vendas WHERE 1=1"
+                    params_filtro = []
+        
+                    if filtro_cliente != "Todos":
+                        query_base += " AND cliente = ?"
+                        params_filtro.append(filtro_cliente)
+                    if filtro_fornecedor != "Todos":
+                        query_base += " AND fornecedor = ?"
+                        params_filtro.append(filtro_fornecedor)
+                    if filtro_grupo != "Todos":
+                        query_base += " AND grupo = ?"
+                        params_filtro.append(filtro_grupo)
+                    if filtro_data is not None:
+                        query_base += " AND DATE(data) = ?"
+                        params_filtro.append(str(filtro_data))
+        
+                    query_base += " ORDER BY id DESC"
+                    df_dia = pd.read_sql_query(query_base, conn, params=params_filtro)
+                else:
+                    df_dia = pd.DataFrame()
+                    filtro_cliente = "Todos"
+        
+                if not df_dia.empty:
+                    df_exibir = df_dia.copy()
+                    if 'Excluir' not in df_exibir.columns:
+                        df_exibir.insert(0, 'Excluir', False)
+            
                     df_exibir['Valor Unitário (R$)'] = df_exibir['valor_venda'].apply(lambda x: f"R$ {float(x):.2f}" if pd.notnull(x) else "R$ 0.00")
                     df_exibir['Total (R$)'] = df_exibir['valor_total'].apply(lambda x: f"R$ {float(x):.2f}" if pd.notnull(x) else "R$ 0.00")
         
@@ -1104,10 +1071,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         disabled=['id', 'Valor Unitário (R$)', 'Total (R$)', 'data']
                     )
         
-                    col_b1, col_b2, col_b3, col_b4 = st.columns([1, 1, 1, 2])
+                    col_b1, col_b2, col_b3 = st.columns([1, 1, 1])
                     
                     with col_b1:
-                        # 1. Botão Salvar Alterações
                         if st.button("💾 Salvar Alterações", type="primary", key="btn_salvar_edit_admin_global"):
                             try:
                                 cursor = conn.cursor()
@@ -1134,66 +1100,42 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Erro ao atualizar: {e}")
-                
-                        st.write("---")
-                
-                        # 2. Três Botões de Ação Lado a Lado
-                        col_b1, col_b2, col_b3 = st.columns([1, 1, 1])
-                
-                        with col_b1:
-                            if st.button("🗑️ Excluir Marcados", type="secondary", key="btn_excluir_admin_v2"):
-                                try:
-                                    cursor = conn.cursor()
-                                    deletados = 0
-                                    for index, row in df_editado.iterrows():
-                                        if row.get('Excluir', False):
-                                            cursor.execute("DELETE FROM vendas WHERE id = ?", (row['id'],))
-                                            deletados += 1
-                                    conn.commit()
-                                    if deletados > 0:
-                                        st.toast(f"🗑️ {deletados} item(ns) excluído(s)!")
-                                        st.rerun()
-                                    else:
-                                        st.warning("Marque a caixa 'Excluir'.")
-                                except Exception as e:
-                                    st.error(f"Erro ao excluir: {e}")
-                
-                        with col_b2:
-                            # Identifica o cliente no filtro
-                            label_limpar = f"🧹 Limpar Histórico ({filtro_cliente})" if filtro_cliente != "Todos" else "🧹 Limpar Histórico Geral"
-                            if st.button(label_limpar, type="secondary", key="btn_limpar_hist_admin_v2"):
-                                try:
-                                    cursor = conn.cursor()
-                                    if filtro_cliente != "Todos":
-                                        cursor.execute(
-                                            "DELETE FROM pedidos WHERE cliente = ? AND status = 'Concluído (Convertido)'", 
-                                            (filtro_cliente,)
-                                        )
-                                        st.success(f"Histórico de {filtro_cliente} limpo!")
-                                    else:
-                                        cursor.execute("DELETE FROM pedidos WHERE status = 'Concluído (Convertido)'")
-                                        st.success("Todo o histórico antigo do Portal do Cliente foi limpo!")
-                                    conn.commit()
-                                    st.rerun()
-                                except Exception as e_limpar:
-                                    st.error(f"Erro ao limpar histórico: {e_limpar}")
-                
-                        with col_b3:
+
+                    with col_b2:
+                        if st.button("🗑️ Excluir Marcados", type="secondary", key="btn_excluir_admin_v2"):
                             try:
-                                pdf_buf = gerar_pdf_tabela_pedidos(df_dia, cliente_nome=filtro_cliente)
-                                nome_arq = f"relatorio_pedidos_{filtro_cliente.lower().replace(' ', '_')}.pdf" if filtro_cliente != "Todos" else "relatorio_pedidos_geral.pdf"
-                
-                                st.download_button(
-                                    label="📄 Baixar PDF do Dia",
-                                    data=pdf_buf.getvalue(),
-                                    file_name=nome_arq,
-                                    mime="application/pdf",
-                                    key="btn_pdf_dia_admin_v2"
-                                )
+                                cursor = conn.cursor()
+                                deletados = 0
+                                for index, row in df_editado.iterrows():
+                                    if row.get('Excluir', False):
+                                        cursor.execute("DELETE FROM vendas WHERE id = ?", (row['id'],))
+                                        deletados += 1
+                                conn.commit()
+                                if deletados > 0:
+                                    st.toast(f"🗑️ {deletados} item(ns) excluído(s)!")
+                                    st.rerun()
+                                else:
+                                    st.warning("Marque a caixa 'Excluir'.")
                             except Exception as e:
-                                st.error(f"Erro ao gerar PDF: {e}")
+                                st.error(f"Erro ao excluir: {e}")
+
+                    with col_b3:
+                        try:
+                            pdf_buf = gerar_pdf_tabela_pedidos(df_dia, cliente_nome=filtro_cliente)
+                            nome_arq = f"relatorio_pedidos_{filtro_cliente.lower().replace(' ', '_')}.pdf" if filtro_cliente != "Todos" else "relatorio_pedidos_geral.pdf"
+            
+                            st.download_button(
+                                label="📄 Baixar PDF do Dia",
+                                data=pdf_buf.getvalue(),
+                                file_name=nome_arq,
+                                mime="application/pdf",
+                                key="btn_pdf_dia_admin_v2"
+                            )
+                        except Exception as e:
+                            st.error(f"Erro ao gerar PDF: {e}")
                 else:
-                    st.info("Nenhum pedido cadastrado hoje.")
+                    st.info("Nenhum pedido cadastrado com os filtros selecionados.")
+
                 st.divider()
                 st.subheader("💳 Confirmar Recebimento / Dar Baixa no Pedido")
         
@@ -1201,14 +1143,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     SELECT DISTINCT cliente 
                     FROM vendas 
                     WHERE status = 'Pendente' 
-                      AND (restante IS NULL OR restante > 0)
+                      AND (restante IS NULL OR restante >= 0)
                 """)
                 clientes_pendentes = [row[0] for row in cursor.fetchall() if row[0]]
         
                 if clientes_pendentes:
                     cliente_sel = st.selectbox("Selecione o Cliente:", clientes_pendentes, key="sel_cli_baixa")
                     
-                    # Busca pedidos pendentes exibindo exatamente o valor devedor atualizado
                     df_pedidos_cli = pd.read_sql_query("""
                         SELECT id, produto, quantidade, valor_venda AS valor_unitario, valor_total,
                                COALESCE(valor_recebido, 0) AS valor_pago,
@@ -1218,7 +1159,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         WHERE status = 'Pendente' AND cliente = ?
                     """, conn, params=(cliente_sel,))
                     
-                    # Formatação visual para garantir que as colunas fiquem organizadas
                     st.dataframe(
                         df_pedidos_cli, 
                         use_container_width=True, 
@@ -1238,7 +1178,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     with col_p1:
                         forma_pgto = st.selectbox("Forma de Pagamento:", ["Dinheiro", "Pix", "Cartão de Crédito", "Cartão de Débito", "Crediário / Fiado"], key="fp_baixa")
                     with col_p2:
-                        # Inicia sempre zerado conforme solicitado
                         valor_recebido = st.number_input("Valor Recebido / Haver (R$):", min_value=0.0, value=0.0, step=0.50, key="vr_baixa")
                     with col_p3:
                         restante_calculado = max(0.0, total_pendente - valor_recebido)
@@ -1248,7 +1187,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         else:
                             st.metric("Troco", f"R$ {troco:.2f}")
         
-                    # Campos para Crediário / Fiado
                     datas_vencimento = []
                     num_parcelas = 1
                 
@@ -1277,30 +1215,26 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         )
                                         datas_vencimento.append(dt)
         
-                    if st.button("🔄 Converter Pedido em Venda (Fiado)", type="primary", key="btn_quitar_pedidos"):
+                    if st.button("🔄 Converter Pedido em Venda (Fiado / Baixa)", type="primary", key="btn_quitar_pedidos"):
                         try:
                             cursor = conn.cursor()
                             
-                            # 1. Atualiza os pedidos pendentes do cliente para Concluído
                             cursor.execute("""
                                 UPDATE pedidos 
                                 SET status = 'Concluído (Convertido)' 
                                 WHERE cliente = ? AND status != 'Concluído (Convertido)'
                             """, (cliente_sel,))
             
-                            # 2. Pega o valor total restante a ser parcelado
-                            total_para_parcelar = float(saldo_restante) if 'saldo_restante' in locals() else float(df_pedidos_cli['valor_devedor'].sum())
-                            qtd_parc = int(num_parcelas) if 'num_parcelas' in locals() else int(n_parcelas) if 'n_parcelas' in locals() else 1
+                            total_para_parcelar = restante_calculado
+                            qtd_parc = int(num_parcelas)
                             valor_por_parcela = total_para_parcelar / qtd_parc if qtd_parc > 0 else total_para_parcelar
             
-                            # 3. Garante a lista de datas das parcelas geradas na tela
-                            lista_datas = datas_vencimento if 'datas_vencimento' in locals() and len(datas_vencimento) == qtd_parc else [data_venc] * qtd_parc if 'data_venc' in locals() else [datetime.now().strftime('%Y-%m-%d')] * qtd_parc
+                            lista_datas = datas_vencimento if len(datas_vencimento) == qtd_parc else [datetime.now().strftime('%Y-%m-%d')] * qtd_parc
             
-                            # 4. Grava cada parcela individualmente na tabela vendas (com forma de pagamento Crediário / Fiado)
                             for i, dt_venc in enumerate(lista_datas):
                                 cursor.execute("""
-                                    INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, tipo, status, data)
-                                    VALUES (?, ?, 'CRÉDITO', 'FIADO', 1, ?, ?, 'CREDIÁRIO', ?, ?)
+                                    INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, tipo, status, data)
+                                    VALUES (?, ?, 'CRÉDITO', 'FIADO', 1, ?, ?, 'Crediário / Fiado', 'CREDIÁRIO', ?, ?)
                                 """, (
                                     cliente_sel,
                                     f"Parcela {i+1}/{qtd_parc} - Venda Fiado",
@@ -1310,39 +1244,43 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                                 ))
             
+                            cursor.execute("""
+                                UPDATE vendas 
+                                SET status = 'Concluído', restante = 0, valor_recebido = valor_total 
+                                WHERE cliente = ? AND status = 'Pendente'
+                            """, (cliente_sel,))
+
                             conn.commit()
                             st.cache_data.clear()
-                            st.success(f"✅ Pedido convertido em Venda Fiado para {cliente_sel} em {qtd_parc}x com sucesso!")
+                            st.success(f"✅ Pedido convertido/baixado para {cliente_sel} com sucesso!")
                             st.rerun()
                         except Exception as e:
                             st.error(f"Erro ao converter pedido: {e}")
                 else:
                     st.success("🎉 Nenhum pedido pendente para recebimento no momento!")        
-                    st.divider()
-                    st.subheader("📚 Pedidos Anteriores / Histórico Geral")
 
-                    # Botão para limpar o histórico SOMENTE do cliente filtrado
-                    if cliente_sel and cliente_sel != "Todos":
-                        if st.button(f"🧹 Limpar Histórico do Cliente: {cliente_sel}", type="secondary", key="btn_limpar_hist_cli"):
-                            try:
-                                cursor = conn.cursor()
-                                cursor.execute(
-                                    "DELETE FROM pedidos WHERE cliente = ? AND status = 'Concluído (Convertido)'", 
-                                    (cliente_sel,)
-                                )
-                                conn.commit()
-                                st.success(f"Histórico antigo de {cliente_sel} foi limpo com sucesso!")
-                                st.rerun()
-                            except Exception as e_limpar:
-                                st.error(f"Erro ao limpar histórico do cliente: {e_limpar}")
-                    else:
-                        st.info("💡 Selecione um cliente no filtro acima caso deseje limpar o histórico específico dele.")
-            
-                    df_todas_vendas = carregar_dados("SELECT * FROM vendas ORDER BY id DESC")
-                    if not df_todas_vendas.empty:
-                        st.dataframe(df_todas_vendas, use_container_width=True, hide_index=True)
-                    else:
-                        st.info("Nenhum registro encontrado.")
+                st.divider()
+                st.subheader("📚 Pedidos Anteriores / Histórico Geral")
+
+                if 'filtro_cliente' in locals() and filtro_cliente != "Todos":
+                    if st.button(f"🧹 Limpar Histórico do Cliente: {filtro_cliente}", type="secondary", key="btn_limpar_hist_cli"):
+                        try:
+                            cursor = conn.cursor()
+                            cursor.execute(
+                                "DELETE FROM pedidos WHERE cliente = ? AND status = 'Concluído (Convertido)'", 
+                                (filtro_cliente,)
+                            )
+                            conn.commit()
+                            st.success(f"Histórico antigo de {filtro_cliente} foi limpo com sucesso!")
+                            st.rerun()
+                        except Exception as e_limpar:
+                            st.error(f"Erro ao limpar histórico do cliente: {e_limpar}")
+
+                df_todas_vendas = carregar_dados("SELECT * FROM vendas ORDER BY id DESC")
+                if not df_todas_vendas.empty:
+                    st.dataframe(df_todas_vendas, use_container_width=True, hide_index=True)
+                else:
+                    st.info("Nenhum registro encontrado.")
             
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
