@@ -1342,57 +1342,55 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
-            
-            query_produtos = "SELECT * FROM produtos"
-            df_produtos = carregar_dados(query_produtos)
+
+            # 1. Carrega os produtos do banco
+            df_produtos = pd.read_sql_query("SELECT id, produto, quantidade, valor_compra, valor_venda, grupo, fornecedor FROM produtos", conn)
         
-            if not df_produtos.empty:
-                df_produtos = df_produtos.drop(columns=['estoque_atual', 'nome'], errors='ignore')
-                
-                df_editado = st.data_editor(
-                    df_produtos,
-                    use_container_width=True,
-                    key="editor_estoque_produtos",
-                    hide_index=True
-                )
-    
-                col_salvar, col_atualizar = st.columns(2)
-    
-                with col_salvar:
-                    if st.button("💾 Salvar Alterações no Estoque", type="primary"):
-                        try:
-                            with conn:
-                                cursor = conn.cursor()
-                                # Percorre a linha por linha do data_editor salvando pelo ID
-                                for index, row in df_estoque_editado.iterrows():
-                                    cursor.execute("""
-                                        UPDATE produtos 
-                                        SET produto = ?, 
-                                            quantidade = ?, 
-                                            valor_compra = ?, 
-                                            valor_venda = ?, 
-                                            grupo = ?, 
-                                            fornecedor = ?
-                                        WHERE id = ?
-                                    """, (
-                                        row['produto'], 
-                                        row['quantidade'], 
-                                        row['valor_compra'], 
-                                        row['valor_venda'], 
-                                        row['grupo'], 
-                                        row['fornecedor'], 
-                                        row['id']
-                                    ))
-                    
-                            st.cache_data.clear()
-                            st.success("✅ Alterações salvas com sucesso!")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Erro ao salvar: {e}")
-    
-                with col_atualizar:
-                    if st.button("🔄 Atualizar Preços de Compra"):
-                        try:
+            # 2. Exibe a tabela editável atribuindo o resultado à variável df_estoque_editado
+            df_estoque_editado = st.data_editor(
+                df_produtos,
+                use_container_width=True,
+                hide_index=True,
+                key="editor_estoque_produtos"
+            )
+        
+            col_salvar, col_atualizar = st.columns([1, 1])
+        
+            with col_salvar:
+                if st.button("💾 Salvar Alterações no Estoque", type="primary"):
+                    try:
+                        with conn:
+                            cursor = conn.cursor()
+                            for index, row in df_estoque_editado.iterrows():
+                                cursor.execute("""
+                                    UPDATE produtos 
+                                    SET produto = ?, 
+                                        quantidade = ?, 
+                                        valor_compra = ?, 
+                                        valor_venda = ?, 
+                                        grupo = ?, 
+                                        fornecedor = ?
+                                    WHERE id = ?
+                                """, (
+                                    row['produto'], 
+                                    row['quantidade'], 
+                                    row['valor_compra'], 
+                                    row['valor_venda'], 
+                                    row['grupo'], 
+                                    row['fornecedor'], 
+                                    row['id']
+                                ))
+        
+                        st.cache_data.clear()
+                        st.success("✅ Alterações salvas com sucesso!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao salvar: {e}")
+        
+            with col_atualizar:
+                if st.button("🔄 Atualizar Preços de Compra"):
+                    try:
+                        with conn:
                             cursor = conn.cursor()
                             cursor.execute("""
                                 UPDATE produtos 
@@ -1407,10 +1405,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 )
                             """)
                             conn.commit()
-                            st.success("Preços de compra atualizados com sucesso!")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Erro ao atualizar preço: {e}")
+                        st.success("Preços de compra atualizados com sucesso!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao atualizar preço: {e}")
             else:
                 st.info("Nenhum produto cadastrado no estoque.")
         
