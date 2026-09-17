@@ -949,6 +949,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         
                 cliente_ped = st.selectbox("Cliente", clientes_opt, key="ped_cli_ind")
 
+                # 1. Aplica a seleção do novo produto ANTES de criar o widget na tela
+                if "prod_selecionado_temp" in st.session_state:
+                    st.session_state["ped_select_produto"] = st.session_state.pop("prod_selecionado_temp")
+                
                 # Adiciona a opção de novo cadastro no topo do selectbox
                 opcoes_produtos_com_novo = ["+ Cadastrar Novo Produto..."] + list(produtos_opt)
                 
@@ -982,25 +986,25 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 try:
                                     cursor = conn.cursor()
                                     
-                                    # 1. Checa se o produto já existe
+                                    # Checa se o produto já existe
                                     cursor.execute("SELECT id FROM produtos WHERE UPPER(produto) = UPPER(?)", (novo_nome_prod,))
                                     existe = cursor.fetchone()
                 
                                     if existe:
                                         st.warning(f"⚠️ O produto '{novo_nome_prod}' já está cadastrado! Selecionando-o para você...")
-                                        st.session_state["ped_select_produto"] = novo_nome_prod
+                                        st.session_state["prod_selecionado_temp"] = novo_nome_prod
                                         st.rerun()
                                     else:
-                                        # 2. Insere e Força o COMMIT no Banco de Dados
+                                        # Insere e confirma a gravação no banco
                                         cursor.execute("""
                                             INSERT INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda)
                                             VALUES (?, ?, ?, ?, ?, ?)
                                         """, (novo_nome_prod, c_g_r, c_f_r, c_qtd_r, c_compra_r, c_venda_r))
                                         conn.commit()
                 
-                                        # 3. Limpa o Cache e Seleciona o Novo Produto na Tela
+                                        # Grava o nome na variável temporária para a próxima recarga
                                         st.cache_data.clear()
-                                        st.session_state["ped_select_produto"] = novo_nome_prod
+                                        st.session_state["prod_selecionado_temp"] = novo_nome_prod
                                         st.rerun()
                 
                                 except Exception as e:
