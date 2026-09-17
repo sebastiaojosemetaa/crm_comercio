@@ -1344,9 +1344,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             st.title("📦 Estoque de Produtos e Preços")
 
             # 1. Carrega os produtos do banco
-            df_produtos = pd.read_sql_query("SELECT id, produto, quantidade, valor_compra, valor_venda, grupo, fornecedor FROM produtos", conn)
+            df_produtos = pd.read_sql_query(
+                "SELECT id, produto, quantidade, valor_compra, valor_venda, grupo, fornecedor FROM produtos", 
+                conn
+            )
         
-            # 2. Exibe a tabela editável atribuindo o resultado à variável df_estoque_editado
+            # 2. Exibe a tabela editável e armazena na variável
             df_estoque_editado = st.data_editor(
                 df_produtos,
                 use_container_width=True,
@@ -1380,7 +1383,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     row['fornecedor'], 
                                     row['id']
                                 ))
-        
                         st.cache_data.clear()
                         st.success("✅ Alterações salvas com sucesso!")
                         st.rerun()
@@ -1404,13 +1406,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     WHERE compras.produto = produtos.produto
                                 )
                             """)
-                            conn.commit()
                         st.success("Preços de compra atualizados com sucesso!")
                         st.rerun()
                     except Exception as e:
                         st.error(f"Erro ao atualizar preço: {e}")
-            else:
-                st.info("Nenhum produto cadastrado no estoque.")
         
         elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
             st.title("👥 Cadastros Gerais")
