@@ -947,6 +947,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
                 grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
         
+                # 1. Trata a seleção do produto recém-cadastrado na sessão
+                if "prod_selecionado_temp" in st.session_state:
+                    st.session_state["ped_select_produto"] = st.session_state.pop("prod_selecionado_temp")
+                
+                # 2. Cria a lista com a opção de cadastro (Corrige o NameError)
+                opcoes_produtos_com_novo = ["+ Cadastrar Novo Produto..."] + list(produtos_opt)
+                
                 # --- LINHA 1: CLIENTE ---
                 cliente_ped = st.selectbox("Cliente", clientes_opt, key="ped_cli_ind")
                 
@@ -1005,7 +1012,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 
                 # --- BUSCA DO PREÇO SUGERIDO DO BANCO ---
                 preco_sugerido_admin = 0.0
-                if not df_p_admin.empty:
+                if not df_p_admin.empty and prod_item != "+ Cadastrar Novo Produto...":
                     df_p_admin['_nome_limpo'] = df_p_admin[col_nome_p].astype(str).str.strip().str.upper()
                     df_filtrado_admin = df_p_admin[df_p_admin['_nome_limpo'] == str(prod_item).strip().upper()]
                 
@@ -1036,7 +1043,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     valor_total_item = qtd_ped * v_venda_ped
                     st.info(f"**Valor Total do Item:** R$ {valor_total_item:.2f}")
                 
-                # --- BOTÃO DE INCLUSÃO ---
+                # --- BOTÃO DE INCLUSÃO NO CARRINHO ---
                 if st.button("➕ Incluir Produto no Pedido", type="primary", key="btn_incluir_prod_pedido"):
                     if prod_item == "+ Cadastrar Novo Produto...":
                         st.error("Por favor, selecione ou cadastre o produto antes de incluir no pedido.")
