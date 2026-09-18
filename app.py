@@ -1174,102 +1174,51 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         
             with aba_list:
                 st.subheader("🟢 Pedidos do Dia (Editáveis)")
-
-                df_todos_pedidos = pd.read_sql_query("SELECT * FROM pedidos ORDER BY id DESC", conn)
-        
-                if not df_todos_pedidos.empty:
-                    col_f1, col_f2, col_f3, col_f4 = st.columns(4)
-        
-                    lista_clientes = ["Todos"] + sorted(list(df_todos_pedidos['cliente'].dropna().unique()))
-                    lista_fornecedores = ["Todos"] + sorted(list(df_todos_pedidos['fornecedor'].dropna().unique()))
-                    lista_grupos = ["Todos"] + sorted(list(df_todos_pedidos['grupo'].dropna().unique()))
-        
-                    with col_f1:
-                        filtro_cliente = st.selectbox("Filtrar por Cliente:", lista_clientes, key="f_cli_pedidos")
-                    with col_f2:
-                        filtro_fornecedor = st.selectbox("Filtrar por Fornecedor:", lista_fornecedores, key="f_forn_pedidos")
-                    with col_f3:
-                        filtro_grupo = st.selectbox("Filtrar por Grupo:", lista_grupos, key="f_grp_pedidos")
-                    with col_f4:
-                        filtro_data = st.date_input("Filtrar por Data:", value=None, key="f_dt_pedidos")
-        
-                    # Filtra os dados de acordo com o menu ativo
-                    if is_modo_pedido:
-                        # Em "Pedidos / Orçamentos": mostra apenas registros Pendentes
-                        query_base = "SELECT id, cliente, produto, quantidade, valor_venda, valor_total, fornecedor, grupo, data, status FROM vendas WHERE status = 'Pendente'"
-                    else:
-                        # Em "Registrar Venda": mostra apenas registros Concluídos
-                        query_base = "SELECT id, cliente, produto, quantidade, valor_venda, valor_total, fornecedor, grupo, data, status FROM vendas WHERE status = 'Concluído'"
-                    params_filtro = []
-        
-                    if filtro_cliente != "Todos":
-                        query_base += " AND cliente = ?"
-                        params_filtro.append(filtro_cliente)
-                    if filtro_fornecedor != "Todos":
-                        query_base += " AND fornecedor = ?"
-                        params_filtro.append(filtro_fornecedor)
-                    if filtro_grupo != "Todos":
-                        query_base += " AND grupo = ?"
-                        params_filtro.append(filtro_grupo)
-                    if filtro_data is not None:
-                        query_base += " AND DATE(data) = ?"
-                        params_filtro.append(str(filtro_data))
-        
-                    query_base += " ORDER BY id DESC"
-                    df_dia = pd.read_sql_query(query_base, conn, params=params_filtro)
-                else:
-                    df_dia = pd.DataFrame()
-                    filtro_cliente = "Todos"
-        
-                if not df_dia.empty:
-                    df_exibir = df_dia.copy()
-                    if 'Excluir' not in df_exibir.columns:
-                        df_exibir.insert(0, 'Excluir', False)
             
-                    df_exibir['Valor Unitário (R$)'] = df_exibir['valor_venda'].apply(lambda x: f"R$ {float(x):.2f}" if pd.notnull(x) else "R$ 0.00")
-                    df_exibir['Total (R$)'] = df_exibir['valor_total'].apply(lambda x: f"R$ {float(x):.2f}" if pd.notnull(x) else "R$ 0.00")
-        
-                    cols_vis = ['Excluir', 'id', 'cliente', 'produto', 'quantidade', 'Valor Unitário (R$)', 'Total (R$)', 'fornecedor', 'grupo', 'data', 'status']
-                    cols_finais = [c for c in cols_vis if c in df_exibir.columns]
-        
-                    df_editado = st.data_editor(
-                        df_exibir[cols_finais], 
-                        key="editor_global_admin_dia", 
-                        use_container_width=True, 
-                        hide_index=True,
-                        disabled=['id', 'Valor Unitário (R$)', 'Total (R$)', 'data']
-                    )
-        
-                    col_b1, col_b2, col_b3 = st.columns([1, 1, 1])
-                    
-                    with col_b1:
-                        if st.button("💾 Salvar Alterações", type="primary", key="btn_salvar_edit_admin_global"):
-                            try:
-                                cursor = conn.cursor()
-                                for index, row in df_editado.iterrows():
-                                    row_id = int(row['id'])
-                                    nova_qtd = float(row.get('quantidade', 1))
-                                    novo_prod = str(row.get('produto', '')).strip()
-                                    novo_cli = str(row.get('cliente', '')).strip()
-                                    novo_fornec = str(row.get('fornecedor', '')).strip()
-                                    novo_grupo = str(row.get('grupo', '')).strip()
-                                    novo_status = str(row.get('status', 'Pendente')).strip()
-                                    
-                                    v_unit_orig = float(df_dia.loc[df_dia['id'] == row_id, 'valor_venda'].values[0])
-                                    novo_total = nova_qtd * v_unit_orig
-                                    
-                                    cursor.execute("""
-                                        UPDATE vendas 
-                                        SET quantidade = ?, produto = ?, cliente = ?, fornecedor = ?, grupo = ?, status = ?, valor_total = ?
-                                        WHERE id = ?
-                                    """, (nova_qtd, novo_prod, novo_cli, novo_fornec, novo_grupo, novo_status, novo_total, row_id))
-                                conn.commit()
-                                st.cache_data.clear()
-                                st.toast("✅ Pedidos atualizados com sucesso!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro ao atualizar: {e}")
-
+                # Carrega sempre da tabela unificada 'pedidos'
+                df_todos_pedidos = carregar_dados("SELECT * FROM pedidos ORDER BY id DESC")
+            
+                if not df_todos_pedidos.empty:
+                    df_filtrado = df_todos_pedidos.copy()
+            
+                    # Extrai AAAA-MM-DD da coluna de data para o filtro funcionar corretamente
+                    if 'data' in df_filtrado.columns:
+                        df_filtrado['data_formatada'] = df_filtrado['data'].astype(str).str.slice(0, 10)
+            
+                    # Montagem dos menus de filtro
+                    col_f1, col_f2, col_f3, col_f4 = st.columns(4)
+            
+                    lista_cli = ["Todos"] + sorted(list(df_filtrado['cliente'].dropna().astype(str).unique())) if 'cliente' in df_filtrado.columns else ["Todos"]
+                    lista_forn = ["Todos"] + sorted(list(df_filtrado['fornecedor'].dropna().astype(str).unique())) if 'fornecedor' in df_filtrado.columns else ["Todos"]
+                    lista_grp = ["Todos"] + sorted(list(df_filtrado['grupo'].dropna().astype(str).unique())) if 'grupo' in df_filtrado.columns else ["Todos"]
+            
+                    with col_f1:
+                        f_cli = st.selectbox("Filtrar por Cliente:", lista_cli, key="f_cli_pedidos")
+                    with col_f2:
+                        f_forn = st.selectbox("Filtrar por Fornecedor:", lista_forn, key="f_forn_pedidos")
+                    with col_f3:
+                        f_grp = st.selectbox("Filtrar por Grupo:", lista_grp, key="f_grp_pedidos")
+                    with col_f4:
+                        f_data = st.date_input("Filtrar por Data:", value=None, key="f_data_pedidos")
+            
+                    # Aplicação dinâmica dos filtros
+                    if f_cli != "Todos":
+                        df_filtrado = df_filtrado[df_filtrado['cliente'].astype(str) == str(f_cli)]
+                    if f_forn != "Todos":
+                        df_filtrado = df_filtrado[df_filtrado['fornecedor'].astype(str) == str(f_forn)]
+                    if f_grp != "Todos":
+                        df_filtrado = df_filtrado[df_filtrado['grupo'].astype(str) == str(f_grp)]
+                    if f_data is not None and 'data_formatada' in df_filtrado.columns:
+                        df_filtrado = df_filtrado[df_filtrado['data_formatada'] == str(f_data)]
+            
+                    # Exibição da tabela final
+                    if not df_filtrado.empty:
+                        cols_exibir = [c for c in df_filtrado.columns if c != 'data_formatada']
+                        st.dataframe(df_filtrado[cols_exibir], use_container_width=True)
+                    else:
+                        st.warning("Nenhum pedido encontrado com os filtros selecionados.")
+                else:
+                    st.info("Nenhum pedido registado no sistema.")
                     with col_b2:
                         if st.button("🗑️ Excluir Marcados", type="secondary", key="btn_excluir_admin_v2"):
                             try:
