@@ -281,7 +281,27 @@ def adequar_banco_e_migrar():
     conn.commit()
 
 adequar_banco_e_migrar()
+# --- FUNÇÃO DE LIMPEZA E SANITIÇÃO DO BANCO DE DADOS ---
+def executar_limpeza_banco():
+    """Aplica correções nos registros antigos salvos no banco SQLite."""
+    try:
+        cursor = conn.cursor()
+        
+        # 1. Substitui valores nulos/None/vazios por padrão seguro
+        cursor.execute("UPDATE vendas SET forma_pagamento = '-' WHERE forma_pagamento IS NULL OR forma_pagamento = 'None' OR forma_pagamento = ''")
+        cursor.execute("UPDATE vendas SET valor_recebido = 0.0 WHERE valor_recebido IS NULL")
+        cursor.execute("UPDATE vendas SET troco = 0.0 WHERE troco IS NULL")
+        
+        # 2. Reajusta o restante de registros inconsistentes antigos
+        cursor.execute("UPDATE vendas SET restante = (valor_total - valor_recebido) WHERE restante IS NULL OR restante > valor_total")
+        cursor.execute("UPDATE vendas SET restante = 0.0 WHERE restante < 0")
+        
+        conn.commit()
+    except Exception as e:
+        pass
 
+# Executa a limpeza da base de dados ao iniciar
+executar_limpeza_banco()
 def carregar_dados(query):
     try:
         return pd.read_sql_query(query, conn)
@@ -1932,24 +1952,3 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     if st.button("🗑️ Esvaziar Carrinho"):
                         st.session_state.carrinho_compras = []
                         st.rerun()
-#####-----------------------------------#####--------------------------------------#####
-def executar_limpeza_banco():
-    """Aplica uma correção definitiva diretamente na base de dados SQLite."""
-    try:
-        cursor = conn.cursor()
-        
-        # 1. Substitui NULL/None/strings vazias na tabela vendas
-        cursor.execute("UPDATE vendas SET forma_pagamento = '-' WHERE forma_pagamento IS NULL OR forma_pagamento = 'None' OR forma_pagamento = ''")
-        cursor.execute("UPDATE vendas SET valor_recebido = 0.0 WHERE valor_recebido IS NULL")
-        cursor.execute("UPDATE vendas SET troco = 0.0 WHERE troco IS NULL")
-        
-        # 2. Recalcula o campo 'restante' item por item se estiver inconsistente
-        cursor.execute("UPDATE vendas SET restante = (valor_total - valor_recebido) WHERE restante IS NULL OR restante > valor_total")
-        cursor.execute("UPDATE vendas SET restante = 0.0 WHERE restante < 0")
-        
-        conn.commit()
-    except Exception as e:
-        pass
-
-# Executa a limpeza do banco ao carregar
-executar_limpeza_banco()
