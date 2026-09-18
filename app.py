@@ -1277,7 +1277,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
                         with col_b3:
                             try:
-                                # Remove a coluna 'Excluir' para a geração do PDF
                                 df_pdf = df_editado.drop(columns=['Excluir'], errors='ignore')
                                 pdf_buf = gerar_pdf_tabela_pedidos(df_pdf, cliente_nome=f_cli)
                                 nome_arq = f"relatorio_pedidos_{f_cli.lower().replace(' ', '_')}.pdf" if f_cli != "Todos" else "relatorio_pedidos_geral.pdf"
@@ -1296,141 +1295,86 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.warning("Nenhum pedido encontrado com os filtros selecionados.")
                 else:
                     st.info("Nenhum pedido registrado no sistema.")
-
+            
                 st.divider()
-                # Exibe a área de Dar Baixa APENAS na tela de Pedidos/Orçamentos
-                if is_modo_pedido:
-                    st.divider()
-                    st.subheader("💳 Confirmar Recebimento / Dar Baixa no Pedido")
-                    
-                    # (Mantenha todo o código de seleção de cliente, débito e botão de baixa aqui dentro)
-        
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT DISTINCT cliente 
-                    FROM vendas 
-                    WHERE status = 'Pendente' 
-                      AND (restante IS NULL OR restante >= 0)
-                """)
-                clientes_pendentes = [row[0] for row in cursor.fetchall() if row[0]]
-        
-                if clientes_pendentes:
-                    cliente_sel = st.selectbox("Selecione o Cliente:", clientes_pendentes, key="sel_cli_baixa")
-                    
-                    df_pedidos_cli = pd.read_sql_query("""
-                        SELECT id, produto, quantidade, valor_venda AS valor_unitario, valor_total,
-                               COALESCE(valor_recebido, 0) AS valor_pago,
-                               COALESCE(restante, valor_total) AS valor_devedor,
-                               data 
-                        FROM vendas 
-                        WHERE status = 'Pendente' AND cliente = ?
-                    """, conn, params=(cliente_sel,))
-                    
-                    st.dataframe(
-                        df_pedidos_cli, 
-                        use_container_width=True, 
-                        hide_index=True,
-                        column_config={
-                            "valor_unitario": st.column_config.NumberColumn("Valor Unitário (R$)", format="R$ %.2f"),
-                            "valor_total": st.column_config.NumberColumn("Valor Total (R$)", format="R$ %.2f"),
-                            "valor_pago": st.column_config.NumberColumn("Valor Já Pago (R$)", format="R$ %.2f"),
-                            "valor_devedor": st.column_config.NumberColumn("Valor Devedor (R$)", format="R$ %.2f"),
-                        }
-                    )
-                    
-                    total_pendente = float(df_pedidos_cli['valor_devedor'].sum())
-                    st.warning(f"💳 **Débito Total Atual de {cliente_sel}: R$ {total_pendente:.2f}**")
-                    
-                    col_p1, col_p2, col_p3 = st.columns(3)
-                    with col_p1:
-                        forma_pgto = st.selectbox("Forma de Pagamento:", ["Dinheiro", "Pix", "Cartão de Crédito", "Cartão de Débito", "Crediário / Fiado"], key="fp_baixa")
-                    with col_p2:
-                        valor_recebido = st.number_input("Valor Recebido / Haver (R$):", min_value=0.0, value=0.0, step=0.50, key="vr_baixa")
-                    with col_p3:
-                        restante_calculado = max(0.0, total_pendente - valor_recebido)
-                        troco = max(0.0, valor_recebido - total_pendente)
-                        if forma_pgto == "Crediário / Fiado":
-                            st.metric("Saldo Restante (Fiado)", f"R$ {restante_calculado:.2f}")
-                        else:
-                            st.metric("Troco", f"R$ {troco:.2f}")
-        
-                    datas_vencimento = []
-                    num_parcelas = 1
-                
-                    if forma_pgto == "Crediário / Fiado":
-                        col_parc1, col_parc2 = st.columns([1, 3])
-                        
-                        with col_parc1:
-                            num_parcelas = st.number_input("Nº de Parcelas:", min_value=1, max_value=24, value=1, step=1, key="num_parc_baixa")
-                        
-                        with col_parc2:
-                            if num_parcelas == 1:
-                                dt_venc = st.date_input("Data do Vencimento:", value=datetime.today(), key="venc_unica_baixa")
-                                datas_vencimento.append(dt_venc)
-                            else:
-                                st.caption("📅 Você pode alterar a data de cada parcela abaixo:")
-                                cols_venc = st.columns(min(int(num_parcelas), 3))
-                                
-                                for i in range(int(num_parcelas)):
-                                    col_target = cols_venc[i % 3]
-                                    with col_target:
-                                        data_sugerida = datetime.today() + timedelta(days=30 * i)
-                                        dt = st.date_input(
-                                            label=f"Venc. {i+1}ª Parcela:",
-                                            value=data_sugerida,
-                                            key=f"venc_parc_{i}"
-                                        )
-                                        datas_vencimento.append(dt)
-        
-                    # Substitua o trecho onde está o seu st.button atual por este:
-                    if st.button("🔄 Converter Pedido em Venda (Fiado / Baixa)", type="primary"):
-                        with conn:
-                            cursor = conn.cursor()
-                
-                            # 1. Garante que a tabela exista
-                            cursor.execute("""
-                                CREATE TABLE IF NOT EXISTS contas_a_receber (
-                                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                    cliente TEXT,
-                                    parcela TEXT,
-                                    valor REAL,
-                                    vencimento TEXT,
-                                    status TEXT
-                                )
-                            """)
-                
-                            # 2. Atualiza os itens no banco
-                            cursor.execute("""
-                                UPDATE vendas 
-                                SET status = 'Concluído', forma_pagamento = ?
-                                WHERE cliente = ? AND status = 'Pendente'
-                            """, (forma_pgto, cliente_sel))
-                
-                            # 3. Insere as parcelas (loop necessário para usar 'i' e 'dt_venc')
-                            qtd_parc = int(num_parcelas)
-                            valor_por_parcela = restante_calculado / qtd_parc if qtd_parc > 0 else restante_calculado
-                
-                            for i, dt_venc in enumerate(datas_vencimento):
-                                cursor.execute("""
-                                    INSERT INTO contas_a_receber (cliente, parcela, valor, vencimento, status)
-                                    VALUES (?, ?, ?, ?, 'A Vencer')
-                                """, (cliente_sel, f"{i+1}/{qtd_parc}", valor_por_parcela, str(dt_venc)))
-                
-                        st.cache_data.clear()
-                        st.success("✅ Pedido baixado e parcelas registradas com sucesso!")
-                        st.rerun()
-
+            
+                # --- SEÇÃO: CONFIRMAR RECEBIMENTO / DAR BAIXA NO PEDIDO ---
+                st.subheader("💳 Confirmar Recebimento / Dar Baixa no Pedido")
+            
+                df_baixa = carregar_dados("SELECT * FROM pedidos WHERE status = 'PENDENTE' OR status = 'Pendente'")
+            
+                if not df_baixa.empty:
+                    clientes_com_pendencia = sorted(list(df_baixa['cliente'].dropna().astype(str).unique()))
+                    cliente_sel_baixa = st.selectbox("Selecione o Cliente:", clientes_com_pendencia, key="sel_cli_baixa_pedidos")
+            
+                    df_cli_pedidos = df_baixa[df_baixa['cliente'].astype(str) == str(cliente_sel_baixa)].copy()
+            
+                    if not df_cli_pedidos.empty:
+                        st.dataframe(df_cli_pedidos, use_container_width=True)
+            
+                        valor_total_debito = float(df_cli_pedidos['valor_total'].sum())
+                        st.info(f"💳 **Débito Total Atual de {cliente_sel_baixa}: R$ {valor_total_debito:.2f}**")
+            
+                        col_p1, col_p2, col_p3 = st.columns([2, 2, 2])
+                        with col_p1:
+                            forma_pagamento = st.selectbox("Forma de Pagamento:", ["Dinheiro", "Pix", "Cartão de Crédito", "Cartão de Débito", "Crediário / Fiado"], key="fp_baixa_pedido")
+                        with col_p2:
+                            valor_recebido = st.number_input("Valor Recebido / Haver (R$):", min_value=0.0, value=float(valor_total_debito), step=1.0, key="vr_baixa_pedido")
+                        with col_p3:
+                            troco = valor_recebido - valor_total_debito if valor_recebido > valor_total_debito else 0.0
+                            st.markdown(f"**Troco:**\n### R$ {troco:.2f}")
+            
+                        if st.button("🔄 Converter Pedido em Venda (Fiado / Baixa)", type="primary", key="btn_converter_pedido_venda"):
+                            try:
+                                cursor = conn.cursor()
+                                codigo_venda_gerado = f"PED-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+            
+                                for _, r in df_cli_pedidos.iterrows():
+                                    cursor.execute("""
+                                        INSERT INTO vendas (cliente, produto, fornecedor, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, troco, restante, data, grupo, codigo_venda, status, tipo, codigo)
+                                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                    """, (
+                                        str(r['cliente']),
+                                        str(r['produto']),
+                                        str(r.get('fornecedor', '')),
+                                        float(r.get('quantidade', 1)),
+                                        float(r.get('valor_unitario', 0)),
+                                        float(r.get('valor_total', 0)),
+                                        forma_pagamento,
+                                        valor_recebido,
+                                        troco,
+                                        max(0.0, valor_total_debito - valor_recebido),
+                                        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                        str(r.get('grupo', '')),
+                                        codigo_venda_gerado,
+                                        "Concluído",
+                                        "PEDIDO",
+                                        f"PED-{r['id']}"
+                                    ))
+            
+                                    cursor.execute("UPDATE pedidos SET status = 'Concluído (Convertido)' WHERE id = ?", (r['id'],))
+            
+                                conn.commit()
+                                st.cache_data.clear()
+                                st.success(f"✅ Pedido(s) de {cliente_sel_baixa} convertidos em venda com sucesso!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao dar baixa no pedido: {e}")
+                    else:
+                        st.info("Nenhum pedido pendente para este cliente.")
+                else:
+                    st.info("Nenhum cliente possui pedidos pendentes para dar baixa no momento.")
+            
                 st.divider()
+            
                 # --- SEÇÃO: PEDIDOS ANTERIORES / HISTÓRICO GERAL ---
                 st.subheader("📚 Pedidos Anteriores / Histórico Geral")
-                
-                # Carrega o histórico registrado
+            
                 df_historico = carregar_dados("SELECT * FROM vendas ORDER BY id DESC")
-                
+            
                 if not df_historico.empty:
                     st.dataframe(df_historico, use_container_width=True)
-                
-                    # Botão para apagar todo o histórico
+            
                     col_hist1, col_hist2 = st.columns([1, 4])
                     with col_hist1:
                         if st.button("🗑️ Limpar Todo o Histórico", type="secondary", key="btn_limpar_historico_vendas"):
