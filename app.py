@@ -1037,8 +1037,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.info(f"**Valor Total do Item:** R$ {valor_total_item:.2f}")
                 
                 # --- BOTÃO DE INCLUSÃO ---
-                if st.button("➕ Incluir Produto no Pedido", type="primary", key="btn_incluir_prod_pedido")
-                    if st.session_state.carrinho_admin.append({
+                st.button("➕ Incluir Produto no Pedido", type="primary", key="btn_incluir_prod_pedido")
+                    st.session_state.carrinho_admin.append({
                         "produto": prod_item,
                         "fornecedor": fornec_ped,
                         "grupo": grupo_ped,
