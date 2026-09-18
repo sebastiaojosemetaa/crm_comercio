@@ -540,7 +540,9 @@ if perfil_selecionado == "👤 Portal do Cliente":
                         st.rerun()
     
                 with col_b2:
-                    # --- LÓGICA DE FINALIZAÇÃO DO PEDIDO ---
+                    import datetime
+
+                    # --- FINALIZAR PEDIDO NO PORTAL DO CLIENTE ---
                     if st.button("🔴 Finalizar e Enviar Pedido", key="btn_finalizar_ped_cli"):
                         carrinho = st.session_state.get("carrinho_cliente", [])
                         
@@ -549,26 +551,30 @@ if perfil_selecionado == "👤 Portal do Cliente":
                         else:
                             try:
                                 cursor = conn.cursor()
+                                data_hoje = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+                                cliente_atual = st.session_state.get("cliente_autenticado", "Cliente")
+                                
                                 for item in carrinho:
-                                    # Obtém o valor unitário de forma segura (evita o KeyError)
                                     preco_unit = item.get("preco_unitario", item.get("valor_unitario", 0.0))
                                     
                                     cursor.execute("""
-                                        INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, fornecedor, grupo, status)
-                                        VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDENTE')
+                                        INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, fornecedor, grupo, status, data)
+                                        VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDENTE', ?)
                                     """, (
-                                        st.session_state.get("cliente_autenticado", "Cliente"),
+                                        cliente_atual,
                                         item.get("produto"),
                                         item.get("quantidade"),
                                         preco_unit,
                                         item.get("valor_total"),
                                         item.get("fornecedor", ""),
-                                        item.get("grupo", "")
+                                        item.get("grupo", ""),
+                                        data_hoje
                                     ))
                                 
                                 conn.commit()
-                                st.success("✅ Pedido finalizado e enviado com sucesso!")
-                                st.session_state.carrinho_cliente = []  # Limpa o carrinho após finalizar
+                                st.cache_data.clear()  # Atualiza a cache para aparecer no Admin imediatamente
+                                st.success("✅ Pedido enviado com sucesso! Já está visível no painel Admin.")
+                                st.session_state.carrinho_cliente = []
                                 st.rerun()
                                 
                             except Exception as e:
@@ -1169,7 +1175,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             with aba_list:
                 st.subheader("🟢 Pedidos do Dia (Editáveis)")
 
-                df_todos_pedidos = pd.read_sql_query("SELECT * FROM vendas", conn)
+                df_todos_pedidos = pd.read_sql_query("SELECT * FROM pedidos ORDER BY id DESC", conn)
         
                 if not df_todos_pedidos.empty:
                     col_f1, col_f2, col_f3, col_f4 = st.columns(4)
