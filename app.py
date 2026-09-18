@@ -616,7 +616,11 @@ if perfil_selecionado == "👤 Portal do Cliente":
                                         item.get("grupo", ""),
                                         data_hoje
                                     ))
-                                
+                                cursor.execute("""
+                                    UPDATE produtos 
+                                    SET quantidade = quantidade + ? 
+                                    WHERE produto = ?
+                                """, (float(item["quantidade"]), str(item["produto"])))
                                 conn.commit()
                                 st.cache_data.clear()  # Atualiza a cache para aparecer no Admin imediatamente
                                 st.success("✅ Pedido enviado com sucesso! Já está visível no painel Admin.")
