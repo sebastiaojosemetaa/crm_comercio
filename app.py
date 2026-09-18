@@ -1437,7 +1437,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 for _, r in df_cli_pedidos.iterrows():
                                     item_tot = float(r.get('valor_total', 0.0))
                                     
-                                    # Rateia o valor recebido proporcionalmente por item
+                                    # Rateia proporcionalmente o valor recebido e o restante por item
                                     if valor_total_debito > 0:
                                         item_rec = round((item_tot / valor_total_debito) * valor_recebido, 2)
                                     else:
@@ -1445,13 +1445,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     
                                     item_rest = round(max(0.0, item_tot - item_rec), 2)
             
-                                    # 1. REMOVE O REGISTRO PENDENTE ANTIGO DO HISTÓRICO PARA EVITAR DUPLICAÇÃO
-                                    cursor.execute("""
-                                        DELETE FROM vendas 
-                                        WHERE cliente = ? AND produto = ? AND (forma_pagamento = '-' OR forma_pagamento IS NULL OR forma_pagamento = 'None')
-                                    """, (str(r['cliente']), str(r['produto'])))
-            
-                                    # 2. INSERE A VENDA ATUALIZADA COM A FORMA DE PAGAMENTO E PARCELAS
                                     cursor.execute("""
                                         INSERT INTO vendas (cliente, produto, fornecedor, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, troco, restante, data, grupo, codigo_venda, status, tipo, codigo)
                                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -1477,12 +1470,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     cursor.execute("UPDATE pedidos SET status = 'Concluído (Convertido)' WHERE id = ?", (r['id'],))
             
                                 conn.commit()
-            
-                                if 'executar_limpeza_banco' in globals():
-                                    executar_limpeza_banco()
-            
+                                executar_limpeza_banco()
                                 st.cache_data.clear()
-                                st.success(f"✅ Pedido(s) de {cliente_sel_baixa} convertidos sem duplicados!")
+                                st.success(f"✅ Pedido(s) de {cliente_sel_baixa} convertidos e parcelamento registrado!")
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Erro ao dar baixa no pedido: {e}")
