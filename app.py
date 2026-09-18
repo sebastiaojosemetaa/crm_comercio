@@ -921,12 +921,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
             st.subheader("💳 Contas a Receber (Parcelas / Fiado)")
             
-            df_vendas_fin = carregar_dados("SELECT * FROM vendas ORDER BY id DESC")
-            df_vendas_fin = sanear_df_vendas(df_vendas_fin)
-            
+            df_vendas_fin = carregar_dados("SELECT id, cliente, produto, fornecedor, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, troco, restante, data, grupo FROM vendas ORDER BY id DESC")
             df_pedidos_fin = carregar_dados("SELECT * FROM pedidos ORDER BY id DESC")
             
             if not df_vendas_fin.empty and 'restante' in df_vendas_fin.columns:
+                df_vendas_fin['restante'] = pd.to_numeric(df_vendas_fin['restante'], errors='coerce').fillna(0.0)
                 df_pendentes_fin = df_vendas_fin[df_vendas_fin['restante'] > 0]
                 if not df_pendentes_fin.empty:
                     st.warning(f"⚠️ Existem {len(df_pendentes_fin)} registro(s) de crediário com saldo pendente.")
@@ -1005,9 +1004,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     ]
             
             if not df_fin_geral.empty:
-                fat_periodo = float(df_fin_geral['valor_total'].sum()) if 'valor_total' in df_fin_geral.columns else 0.0
-                rec_caixa = float(df_fin_geral['valor_recebido'].sum()) if 'valor_recebido' in df_fin_geral.columns else 0.0
-                tot_pendente = float(df_fin_geral['restante'].sum()) if 'restante' in df_fin_geral.columns else 0.0
+                for c in ['valor_total', 'valor_recebido', 'restante']:
+                    if c in df_fin_geral.columns:
+                        df_fin_geral[c] = pd.to_numeric(df_fin_geral[c], errors='coerce').fillna(0.0)
+            
+                fat_periodo = float(df_fin_geral['valor_total'].sum())
+                rec_caixa = float(df_fin_geral['valor_recebido'].sum())
+                tot_pendente = float(df_fin_geral['restante'].sum())
             else:
                 fat_periodo = 0.0
                 rec_caixa = 0.0
@@ -1228,10 +1231,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             import datetime as dt
 
             with aba_list:
-                st.subheader("🟢 Pedidos do Dia (Editáveis)")
+                st.subheader("🟢 Pedidos do Dia Pendentes (Editáveis)")
             
-                # Carrega da tabela unificada 'pedidos'
-                df_todos_pedidos = carregar_dados("SELECT * FROM pedidos ORDER BY id DESC")
+                # Carrega apenas pedidos PENDENTES para a tela principal de edição/baixa
+                df_todos_pedidos = carregar_dados("SELECT * FROM pedidos WHERE status = 'PENDENTE' OR status = 'Pendente' ORDER BY id DESC")
             
                 if not df_todos_pedidos.empty:
                     df_filtrado = df_todos_pedidos.copy()
@@ -1341,9 +1344,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 st.error(f"Erro ao gerar PDF: {e}")
             
                     else:
-                        st.warning("Nenhum pedido encontrado com os filtros selecionados.")
+                        st.warning("Nenhum pedido pendente encontrado com os filtros selecionados.")
                 else:
-                    st.info("Nenhum pedido registrado no sistema.")
+                    st.info("Nenhum pedido pendente registrado no sistema.")
             
                 st.divider()
             
@@ -1401,7 +1404,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 
                                 parcelas_info.append(f"P{i+1}: R$ {val_parc_input:.2f} ({dt_input.strftime('%d/%m/%Y')})")
             
-                            detalhe_pagamento = f"Crediário ({num_parcelas}x | Total: R$ {valor_pendente:.2f} | " + ", ".join(parcelas_info) + ")"
+                            detalhe_pagamento = f"Crediário ({num_parcelas}x | " + ", ".join(parcelas_info) + ")"
             
                         if st.button("🔄 Converter Pedido em Venda (Fiado / Baixa)", type="primary", key="btn_converter_pedido_venda"):
                             try:
@@ -1409,15 +1412,15 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 codigo_venda_gerado = f"PED-{dt.datetime.now().strftime('%Y%m%d%H%M%S')}"
             
                                 for _, r in df_cli_pedidos.iterrows():
-                                    item_tot = float(r.get('valor_total', 0))
+                                    item_tot = float(r.get('valor_total', 0.0))
                                     
-                                    # Rateia o valor recebido e o restante proporcionalmente por item
+                                    # Rateia proporcionalmente o valor recebido e o restante por item
                                     if valor_total_debito > 0:
                                         item_rec = round((item_tot / valor_total_debito) * valor_recebido, 2)
                                     else:
                                         item_rec = 0.0
                                     
-                                    item_rest = max(0.0, item_tot - item_rec)
+                                    item_rest = round(max(0.0, item_tot - item_rec), 2)
             
                                     cursor.execute("""
                                         INSERT INTO vendas (cliente, produto, fornecedor, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, troco, restante, data, grupo, codigo_venda, status, tipo, codigo)
@@ -1444,6 +1447,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     cursor.execute("UPDATE pedidos SET status = 'Concluído (Convertido)' WHERE id = ?", (r['id'],))
             
                                 conn.commit()
+                                executar_limpeza_banco()
                                 st.cache_data.clear()
                                 st.success(f"✅ Pedido(s) de {cliente_sel_baixa} convertidos e parcelamento registrado!")
                                 st.rerun()
@@ -1459,10 +1463,14 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 # --- SEÇÃO: PEDIDOS ANTERIORES / HISTÓRICO GERAL ---
                 st.subheader("📚 Pedidos Anteriores / Histórico Geral")
             
-                df_historico = carregar_dados("SELECT * FROM vendas ORDER BY id DESC")
-                df_historico = sanear_df_vendas(df_historico)
+                df_historico = carregar_dados("SELECT id, cliente, produto, fornecedor, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, troco, restante, data, grupo FROM vendas ORDER BY id DESC")
             
                 if not df_historico.empty:
+                    # Garante substituição visual de qualquer NULL restante
+                    df_historico['forma_pagamento'] = df_historico['forma_pagamento'].fillna('-').replace({'None': '-', '': '-'})
+                    for c in ['valor_recebido', 'troco', 'restante']:
+                        df_historico[c] = pd.to_numeric(df_historico[c], errors='coerce').fillna(0.0)
+            
                     st.dataframe(df_historico, use_container_width=True)
             
                     col_hist1, col_hist2 = st.columns([1, 4])
@@ -1924,3 +1932,24 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     if st.button("🗑️ Esvaziar Carrinho"):
                         st.session_state.carrinho_compras = []
                         st.rerun()
+#####-----------------------------------#####--------------------------------------#####
+def executar_limpeza_banco():
+    """Aplica uma correção definitiva diretamente na base de dados SQLite."""
+    try:
+        cursor = conn.cursor()
+        
+        # 1. Substitui NULL/None/strings vazias na tabela vendas
+        cursor.execute("UPDATE vendas SET forma_pagamento = '-' WHERE forma_pagamento IS NULL OR forma_pagamento = 'None' OR forma_pagamento = ''")
+        cursor.execute("UPDATE vendas SET valor_recebido = 0.0 WHERE valor_recebido IS NULL")
+        cursor.execute("UPDATE vendas SET troco = 0.0 WHERE troco IS NULL")
+        
+        # 2. Recalcula o campo 'restante' item por item se estiver inconsistente
+        cursor.execute("UPDATE vendas SET restante = (valor_total - valor_recebido) WHERE restante IS NULL OR restante > valor_total")
+        cursor.execute("UPDATE vendas SET restante = 0.0 WHERE restante < 0")
+        
+        conn.commit()
+    except Exception as e:
+        pass
+
+# Executa a limpeza do banco ao carregar
+executar_limpeza_banco()
