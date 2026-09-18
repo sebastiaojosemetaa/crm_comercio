@@ -1234,13 +1234,19 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     ))
                     
                                     cursor.execute("""
-                                        INSERT INTO pedidos (cliente, produto, fornecedor, grupo, quantidade, valor_unitario, valor_total, status, data)
-                                        VALUES (?, ?, ?, ?, ?, ?, ?, 'Pendente', ?)
-                                    """, (
-                                        cliente_ped, item["produto"], item["fornecedor"], item["grupo"],
-                                        item["quantidade"], item["valor_unitario"], item["valor_total"], data_agora
-                                    ))
-                    
+                                    INSERT INTO pedidos (cliente, produto, fornecedor, grupo, quantidade, valor_unitario, valor_total, status, data)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, 'Pendente', ?)
+                                """, (
+                                    cliente_ped, item["produto"], item["fornecedor"], item["grupo"],
+                                    item["quantidade"], item["valor_unitario"], item["valor_total"], data_agora
+                                ))
+        
+                                # DÁ ENTRADA / SOMA A QUANTIDADE NO ESTOQUE DE PRODUTOS
+                                cursor.execute("""
+                                    UPDATE produtos 
+                                    SET quantidade = quantidade + ? 
+                                    WHERE produto = ?
+                                """, (float(item["quantidade"]), str(item["produto"])))
                                 conn.commit()
                                 st.cache_data.clear()
                                 st.session_state.carrinho_admin = []
@@ -1436,8 +1442,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
                                 for _, r in df_cli_pedidos.iterrows():
                                     item_tot = float(r.get('valor_total', 0.0))
+                                    qtd_item = float(r.get('quantidade', 1))
                                     
-                                    # Rateia proporcionalmente o valor recebido e o restante por item
+                                    # Rateia o valor recebido proporcionalmente por item
                                     if valor_total_debito > 0:
                                         item_rec = round((item_tot / valor_total_debito) * valor_recebido, 2)
                                     else:
@@ -1445,6 +1452,20 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     
                                     item_rest = round(max(0.0, item_tot - item_rec), 2)
             
+                                    # 1. REMOVE O REGISTO PENDENTE ANTIGO DO HISTÓRICO PARA EVITAR DUPLICAÇÃO
+                                    cursor.execute("""
+                                        DELETE FROM vendas 
+                                        WHERE cliente = ? AND produto = ? AND (forma_pagamento = '-' OR forma_pagamento IS NULL OR forma_pagamento = 'None')
+                                    """, (str(r['cliente']), str(r['produto'])))
+            
+                                    # 2. SUBTRAI / DÁ BAIXA DA QUANTIDADE NO ESTOQUE DE PRODUTOS
+                                    cursor.execute("""
+                                        UPDATE produtos 
+                                        SET quantidade = quantidade - ? 
+                                        WHERE produto = ?
+                                    """, (qtd_item, str(r['produto'])))
+            
+                                    # 3. INSERE A VENDA ATUALIZADA COM A FORMA DE PAGAMENTO E PARCELAS
                                     cursor.execute("""
                                         INSERT INTO vendas (cliente, produto, fornecedor, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, troco, restante, data, grupo, codigo_venda, status, tipo, codigo)
                                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -1452,7 +1473,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         str(r['cliente']),
                                         str(r['produto']),
                                         str(r.get('fornecedor', '')),
-                                        float(r.get('quantidade', 1)),
+                                        qtd_item,
                                         float(r.get('valor_unitario', 0)),
                                         item_tot,
                                         detalhe_pagamento,
@@ -1470,9 +1491,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     cursor.execute("UPDATE pedidos SET status = 'Concluído (Convertido)' WHERE id = ?", (r['id'],))
             
                                 conn.commit()
-                                executar_limpeza_banco()
+            
+                                if 'executar_limpeza_banco' in globals():
+                                    executar_limpeza_banco()
+            
                                 st.cache_data.clear()
-                                st.success(f"✅ Pedido(s) de {cliente_sel_baixa} convertidos e parcelamento registrado!")
+                                st.success(f"✅ Pedido(s) de {cliente_sel_baixa} convertidos e estoque atualizado com sucesso!")
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Erro ao dar baixa no pedido: {e}")
