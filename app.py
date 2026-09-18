@@ -891,96 +891,142 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.rerun()
 
         elif menu_admin == "📊 Fechamento & Financeiro":
-            st.title("📊 Painel Financeiro & Fechamento por Data")
-            # --- MÓDULO DE RECEBIMENTO DE PARCELAS / FIADO ---
+            import datetime as dt
+
+            # --- PAINEL FINANCEIRO & FECHAMENTO POR DATA ---
+            st.header("📊 Painel Financeiro & Fechamento por Data")
+            
+            # 1. Seção de Contas a Receber (Parcelas / Fiado)
             st.subheader("💳 Contas a Receber (Parcelas / Fiado)")
             
-            # 1. Garante que a tabela exista antes de tentar ler
-            with conn:
-                conn.execute("""
-                    CREATE TABLE IF NOT EXISTS contas_a_receber (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        cliente TEXT,
-                        parcela TEXT,
-                        valor REAL,
-                        vencimento TEXT,
-                        status TEXT
-                    )
-                """)
-        
-            # 2. Faz a consulta com a certeza de que a tabela existe
-            df_contas = pd.read_sql_query(
-                "SELECT id, cliente, parcela, valor, vencimento, status FROM contas_a_receber WHERE status = 'A Vencer'", 
-                conn
-            )
-        
-            if not df_contas.empty:
-                st.dataframe(
-                    df_contas,
-                    use_container_width=True,
-                    hide_index=True,
-                    column_config={
-                        "valor": st.column_config.NumberColumn("Valor (R$)", format="R$ %.2f"),
-                        "vencimento": "Vencimento",
-                        "parcela": "Parcela",
-                        "cliente": "Cliente",
-                        "status": "Status"
-                    }
-                )
-                
-                col_sel, col_btn = st.columns([2, 1])
-                with col_sel:
-                    parcela_id = st.selectbox("Selecione o ID da parcela que deseja quitar:", df_contas['id'], key="sel_parcela_quitar")
-                
-                with col_btn:
-                    st.write("")
-                    if st.button("💵 Confirmar Recebimento", type="primary", key="btn_quitar_parcela"):
-                        with conn:
-                            cursor = conn.cursor()
-                            cursor.execute("UPDATE contas_a_receber SET status = 'Pago' WHERE id = ?", (parcela_id,))
-                        st.cache_data.clear()
-                        st.success(f"✅ Parcela ID {parcela_id} quitada com sucesso!")
-                        st.rerun()
+            # Busca vendas e pedidos para compor a lista geral e a tabela
+            df_vendas_fin = carregar_dados("SELECT * FROM vendas ORDER BY id DESC")
+            df_pedidos_fin = carregar_dados("SELECT * FROM pedidos ORDER BY id DESC")
+            
+            # Exibe aviso de contas a receber pendentes se houver
+            if not df_vendas_fin.empty and 'restante' in df_vendas_fin.columns:
+                df_pendentes_fin = df_vendas_fin[df_vendas_fin['restante'] > 0]
+                if not df_pendentes_fin.empty:
+                    st.warning(f"⚠️ Existem {len(df_pendentes_fin)} registro(s) de crediário com saldo pendente.")
+                else:
+                    st.info("Nenhuma parcela pendente de recebimento no momento.")
             else:
                 st.info("Nenhuma parcela pendente de recebimento no momento.")
-        
-            st.divider()
-            col_d1, col_d2, col_d3 = st.columns(3)
-            with col_d1:
-                data_inicio = st.date_input("Data Inicial", value=date(2025, 1, 1))
-            with col_d2:
-                data_fim = st.date_input("Data Final", value=date.today())
-            with col_d3:
-                status_filtro = st.selectbox("Status dos Registros", ["Somente Vendas Concluídas", "Incluir Pedidos Pendentes", "Todos"])
-    
-            str_d1 = data_inicio.strftime("%Y-%m-%d")
-            str_d2 = data_fim.strftime("%Y-%m-%d")
             
-            query_fin = f"SELECT * FROM vendas WHERE date(data) BETWEEN '{str_d1}' AND '{str_d2}'"
-            df_todas = carregar_dados(query_fin)
-    
-            if not df_todas.empty:
-                df_todas['status_str'] = df_todas['tipo'].fillna('').astype(str).str.strip().str.upper() if 'tipo' in df_todas.columns else ''
+            st.markdown("---")
+            
+            # --- FILTROS DO PAINEL FINANCEIRO ---
+            
+            # Coleta lista única de clientes para o filtro
+            clientes_vendas = df_vendas_fin['cliente'].dropna().astype(str).unique().tolist() if not df_vendas_fin.empty and 'cliente' in df_vendas_fin.columns else []
+            clientes_pedidos = df_pedidos_fin['cliente'].dropna().astype(str).unique().tolist() if not df_pedidos_fin.empty and 'cliente' in df_pedidos_fin.columns else []
+            todos_clientes = sorted(list(set(clientes_vendas + clientes_pedidos)))
+            lista_clientes_fin = ["Todos"] + todos_clientes
+            
+            # 4 Colunas para os Filtros (Cliente + Data Inicial + Data Final + Status)
+            col_f1, col_f2, col_f3, col_f4 = st.columns([2.5, 2, 2, 2.5])
+            
+            with col_f1:
+                f_cliente_fin = st.selectbox("Filtrar por Cliente:", lista_clientes_fin, key="f_cli_painel_fin")
+            
+            with col_f2:
+                data_inicio_def = dt.date(2025, 1, 1)
+                data_inicio = st.date_input("Data Inicial", value=data_inicio_def, key="dt_inicio_fin")
+            
+            with col_f3:
+                data_fim = st.date_input("Data Final", value=dt.date.today(), key="dt_fim_fin")
+            
+            with col_f4:
+                opcao_status = st.selectbox(
+                    "Status dos Registros",
+                    ["Incluir Pedidos Pendentes", "Apenas Vendas Concluídas", "Apenas Pedidos Pendentes"],
+                    key="status_registros_fin"
+                )
+            
+            # --- TRATAMENTO E FILTRAGEM DOS DADOS ---
+            dfs_para_concatenar = []
+            
+            # Processa Vendas
+            if not df_vendas_fin.empty and opcao_status != "Apenas Pedidos Pendentes":
+                df_v = df_vendas_fin.copy()
+                if 'data' in df_v.columns:
+                    df_v['dt_formatada'] = pd.to_datetime(df_v['data'], errors='coerce').dt.date
+                dfs_para_concatenar.append(df_v)
+            
+            # Processa Pedidos Pendentes se selecionado
+            if not df_pedidos_fin.empty and opcao_status in ["Incluir Pedidos Pendentes", "Apenas Pedidos Pendentes"]:
+                df_p = df_pedidos_fin[df_pedidos_fin['status'].astype(str).str.upper().str.contains("PENDENTE")].copy()
+                if not df_p.empty:
+                    if 'data' in df_p.columns:
+                        df_p['dt_formatada'] = pd.to_datetime(df_p['data'], errors='coerce').dt.date
+                    
+                    # Mapeia colunas para ficarem idênticas à tabela de vendas
+                    if 'valor_unitario' in df_p.columns and 'valor_venda' not in df_p.columns:
+                        df_p['valor_venda'] = df_p['valor_unitario']
+                    if 'forma_pagamento' not in df_p.columns:
+                        df_p['forma_pagamento'] = "PENDENTE"
+                    if 'valor_recebido' not in df_p.columns:
+                        df_p['valor_recebido'] = 0.0
+                    if 'troco' not in df_p.columns:
+                        df_p['troco'] = 0.0
+                    if 'restante' not in df_p.columns:
+                        df_p['restante'] = df_p['valor_total']
+                        
+                    dfs_para_concatenar.append(df_p)
+            
+            # Unifica os dados
+            if dfs_para_concatenar:
+                df_fin_geral = pd.concat(dfs_para_concatenar, ignore_index=True)
+            else:
+                df_fin_geral = pd.DataFrame()
+            
+            # Aplicação dos Filtros
+            if not df_fin_geral.empty:
+                # 1. Filtro por Cliente
+                if f_cliente_fin != "Todos":
+                    df_fin_geral = df_fin_geral[df_fin_geral['cliente'].astype(str) == str(f_cliente_fin)]
+            
+                # 2. Filtro por Data
+                if 'dt_formatada' in df_fin_geral.columns:
+                    df_fin_geral = df_fin_geral[
+                        (df_fin_geral['dt_formatada'] >= data_inicio) & 
+                        (df_fin_geral['dt_formatada'] <= data_fim)
+                    ]
+            
+            # --- MÉTRICAS FINANCEIRAS ---
+            if not df_fin_geral.empty:
+                fat_periodo = float(df_fin_geral['valor_total'].sum()) if 'valor_total' in df_fin_geral.columns else 0.0
+                rec_caixa = float(df_fin_geral['valor_recebido'].sum()) if 'valor_recebido' in df_fin_geral.columns else 0.0
+                tot_pendente = float(df_fin_geral['restante'].sum()) if 'restante' in df_fin_geral.columns else (fat_periodo - rec_caixa)
+            else:
+                fat_periodo = 0.0
+                rec_caixa = 0.0
+                tot_pendente = 0.0
+            
+            col_m1, col_m2, col_m3 = st.columns(3)
+            
+            with col_m1:
+                st.markdown("**Faturamento do Período**")
+                st.markdown(f"### R$ {fat_periodo:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+            
+            with col_m2:
+                st.markdown("**Total Recebido em Caixa**")
+                st.markdown(f"### R$ {rec_caixa:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+            
+            with col_m3:
+                st.markdown("**Total Pendente / Fiado**")
+                st.markdown(f"### R$ {tot_pendente:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+            
+            st.markdown("---")
+            
+            # --- EXIBIÇÃO DA TABELA ---
+            if not df_fin_geral.empty:
+                cols_ordem = ['id', 'cliente', 'produto', 'fornecedor', 'quantidade', 'valor_venda', 'valor_total', 'forma_pagamento', 'valor_recebido', 'troco', 'restante', 'data', 'grupo']
+                cols_presentes = [c for c in cols_ordem if c in df_fin_geral.columns]
                 
-                if status_filtro == "Somente Vendas Concluídas":
-                    df_filtrado = df_todas[df_todas['status_str'].str.contains('VENDA', na=False)]
-                elif status_filtro == "Incluir Pedidos Pendentes":
-                    df_filtrado = df_todas[df_todas['status_str'].str.contains('PEDIDO|ORÇAMENTO', na=False)]
-                else:
-                    df_filtrado = df_todas
-    
-                if not df_filtrado.empty:
-                    col1, col2, col3 = st.columns(3)
-                    faturamento = pd.to_numeric(df_filtrado['valor_total'], errors='coerce').sum() if 'valor_total' in df_filtrado.columns else 0.0
-                    valor_rec = pd.to_numeric(df_filtrado['valor_recebido'], errors='coerce').sum() if 'valor_recebido' in df_filtrado.columns else 0.0
-    
-                    col1.metric("Faturamento do Período", f"R$ {faturamento:,.2f}")
-                    col2.metric("Total Recebido em Caixa", f"R$ {valor_rec:,.2f}")
-                    col3.metric("Total Pendente / Fiado", f"R$ {faturamento - valor_rec:,.2f}")
-                    st.markdown("---")
-                    st.dataframe(df_filtrado, use_container_width=True)
-                else:
-                    st.info("Nenhum registro encontrado para os filtros selecionados.")
+                st.dataframe(df_fin_geral[cols_presentes], use_container_width=True)
+            else:
+                st.info("Nenhum registro encontrado para os filtros selecionados.")
             else:
                 st.info("Nenhum dado cadastrado no período.")
 
