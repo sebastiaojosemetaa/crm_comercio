@@ -1038,7 +1038,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 
                 # --- BOTÃO DE INCLUSÃO ---
                 if st.button("➕ Incluir Produto no Pedido", type="primary", key="btn_incluir_prod_pedido")
-                    st.session_state.carrinho_admin.append({
+                    if st.session_state.carrinho_admin.append({
                         "produto": prod_item,
                         "fornecedor": fornec_ped,
                         "grupo": grupo_ped,
