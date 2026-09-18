@@ -1173,6 +1173,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.info("Nenhum item adicionado ao carrinho ainda.")
         
             with aba_list:
+                import datetime
                 st.subheader("🟢 Pedidos do Dia (Editáveis)")
             
                 # Carrega da tabela unificada 'pedidos'
@@ -1319,15 +1320,42 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         with col_p1:
                             forma_pagamento = st.selectbox("Forma de Pagamento:", ["Dinheiro", "Pix", "Cartão de Crédito", "Cartão de Débito", "Crediário / Fiado"], key="fp_baixa_pedido")
                         with col_p2:
-                            valor_recebido = st.number_input("Valor Recebido / Haver (R$):", min_value=0.0, value=float(valor_total_debito), step=1.0, key="vr_baixa_pedido")
+                            valor_recebido = st.number_input("Valor Recebido / Entrada (R$):", min_value=0.0, value=0.0 if forma_pagamento == "Crediário / Fiado" else float(valor_total_debito), step=1.0, key="vr_baixa_pedido")
                         with col_p3:
                             troco = valor_recebido - valor_total_debito if valor_recebido > valor_total_debito else 0.0
                             st.markdown(f"**Troco:**\n### R$ {troco:.2f}")
             
+                        # Opções dinâmicas de Parcelamento para Crediário / Fiado
+                        detalhe_pagamento = forma_pagamento
+                        if forma_pagamento == "Crediário / Fiado":
+                            st.markdown("---")
+                            st.subheader("📅 Configuração das Parcelas do Crediário")
+                            
+                            valor_pendente = max(0.0, valor_total_debito - valor_recebido)
+                            
+                            col_parc1, col_parc2 = st.columns(2)
+                            with col_parc1:
+                                num_parcelas = st.number_input("Quantidade de Parcelas:", min_value=1, max_value=24, value=1, step=1, key="num_parc_fiado")
+                            with col_parc2:
+                                val_parcela = valor_pendente / num_parcelas if num_parcelas > 0 else 0.0
+                                st.metric("Valor de Cada Parcela", f"R$ {val_parcela:.2f}")
+            
+                            st.write("**Defina as Datas de Vencimento:**")
+                            datas_venc = []
+                            cols_venc = st.columns(min(int(num_parcelas), 4))
+                            
+                            for i in range(int(num_parcelas)):
+                                with cols_venc[i % 4]:
+                                    data_sugerida = datetime.date.today() + datetime.timedelta(days=30 * (i + 1))
+                                    dt = st.date_input(f"Venc. Parcela {i+1}:", value=data_sugerida, key=f"dt_venc_parc_{i}")
+                                    datas_venc.append(dt.strftime("%d/%m/%Y"))
+            
+                            detalhe_pagamento = f"Crediário ({num_parcelas}x R$ {val_parcela:.2f} | Vencs: {', '.join(datas_venc)})"
+            
                         if st.button("🔄 Converter Pedido em Venda (Fiado / Baixa)", type="primary", key="btn_converter_pedido_venda"):
                             try:
                                 cursor = conn.cursor()
-                                codigo_venda_gerado = f"PED-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+                                codigo_venda_gerado = f"PED-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
             
                                 for _, r in df_cli_pedidos.iterrows():
                                     cursor.execute("""
@@ -1340,11 +1368,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         float(r.get('quantidade', 1)),
                                         float(r.get('valor_unitario', 0)),
                                         float(r.get('valor_total', 0)),
-                                        forma_pagamento,
+                                        detalhe_pagamento,
                                         valor_recebido,
                                         troco,
                                         max(0.0, valor_total_debito - valor_recebido),
-                                        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                        datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                                         str(r.get('grupo', '')),
                                         codigo_venda_gerado,
                                         "Concluído",
@@ -1356,7 +1384,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
                                 conn.commit()
                                 st.cache_data.clear()
-                                st.success(f"✅ Pedido(s) de {cliente_sel_baixa} convertidos em venda com sucesso!")
+                                st.success(f"✅ Pedido(s) de {cliente_sel_baixa} convertidos e parcelamento registrado!")
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Erro ao dar baixa no pedido: {e}")
