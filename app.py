@@ -412,43 +412,117 @@ if perfil_selecionado == "👤 Portal do Cliente":
             fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
             grupos_opt = carregar_coluna("produtos", "grupo") or ["GERAL"]
     
-            col1, col2 = st.columns(2)
-            with col1:
-                prod = st.selectbox("Selecione o Produto", produtos_opt, key="cli_prod_unique_v3")
-                forn_cli = st.selectbox("Selecione o Fornecedor", fornecedores_opt, key="cli_forn_unique_v3")
-                
-                preco_sugerido = 0.0
-                if prod:
-                    try:
-                        cursor = conn.cursor()
-                        cursor.execute("SELECT valor_compra FROM produtos WHERE produto = ? OR nome = ?", (prod, prod))
-                        res = cursor.fetchone()
-                        if res and res[0] is not None:
-                            preco_sugerido = float(res[0])
-                    except Exception:
-                        pass
-    
-            with col2:
-                grupo_cli = st.selectbox("Selecione o Grupo", grupos_opt, key="cli_grupo_unique_v3")
-                qtd_cli = st.number_input("Quantidade", min_value=0.01, value=1.0, format="%.2f", key="cli_qtd_unique_v3")
-                preco_cli = st.number_input("Preço Unitário (R$)", min_value=0.0, value=preco_sugerido, format="%.2f", key="cli_preco_unique_v3")
-    
-            valor_total_item = qtd_cli * preco_cli
-            st.info(f"Valor Total do Item: R$ {valor_total_item:.2f}")
-    
-            if st.button("➕ Incluir Produto no Pedido", type="primary", key="cli_btn_add_unique_v3"):
-                if "carrinho_cliente" not in st.session_state:
-                    st.session_state.carrinho_cliente = []
-                st.session_state.carrinho_cliente.append({
-                    "produto": prod,
-                    "fornecedor": forn_cli,
-                    "grupo": grupo_cli,
-                    "quantidade": qtd_cli,
-                    "preco_unitario": preco_cli,
-                    "valor_total": valor_total_item
-                })
-                st.success(f"Item '{prod}' adicionado ao pedido!")
-                st.rerun()
+            # 1. Trata a seleção do produto recém-cadastrado na sessão (se houver)
+            if "prod_selecionado_temp_cli" in st.session_state:
+                st.session_state["cli_select_produto"] = st.session_state.pop("prod_selecionado_temp_cli")
+            
+            opcoes_produtos_com_novo_cli = ["+ Cadastrar Novo Produto..."] + list(produtos_opt)
+            
+            # --- LINHA 1: PRODUTO E GRUPO LADO A LADO ---
+            col_cli_1, col_cli_2 = st.columns(2)
+            with col_cli_1:
+                prod_item = st.selectbox("Selecione o Produto", opcoes_produtos_com_novo_cli, key="cli_select_produto")
+            with col_cli_2:
+                grupo_ped = st.selectbox("Selecione o Grupo", grupos_opt, key="cli_grupo_ind")
+            
+            # --- BLOCO EXCLUSIVO PARA CADASTRAR NOVO PRODUTO ---
+            if prod_item == "+ Cadastrar Novo Produto...":
+                st.warning("⚠️ Preencha os dados abaixo para cadastrar o novo produto:")
+            
+                c_cad1, c_cad2, c_cad3 = st.columns([2, 1, 1])
+                with c_cad1:
+                    novo_nome_prod = st.text_input("Nome do Novo Produto", key="cad_novo_nome_cli").strip().upper()
+                with c_cad2:
+                    c_g_r = st.selectbox("Grupo", grupos_opt, key="cad_g_rapido_cli")
+                with c_cad3:
+                    c_f_r = st.selectbox("Fornecedor", fornecedores_opt, key="cad_f_rapido_cli")
+            
+                c_cad4, c_cad5, c_cad6 = st.columns([1, 1, 1])
+                with c_cad4:
+                    c_qtd_r = st.number_input("Qtd Inicial em Estoque", min_value=0.0, value=0.0, key="cad_q_rapido_cli")
+                with c_cad5:
+                    c_compra_r = st.number_input("Preço de Compra (R$)", min_value=0.0, value=0.0, key="cad_c_rapido_cli")
+                with c_cad6:
+                    c_venda_r = st.number_input("Preço de Venda (R$)", min_value=0.0, value=0.0, key="cad_v_rapido_cli")
+            
+                if st.button("💾 Salvar e Selecionar Produto", key="btn_salvar_novo_prod_cli"):
+                    if novo_nome_prod:
+                        try:
+                            cursor = conn.cursor()
+                            cursor.execute("SELECT id FROM produtos WHERE UPPER(produto) = UPPER(?)", (novo_nome_prod,))
+                            existe = cursor.fetchone()
+            
+                            if existe:
+                                st.warning(f"⚠️ O produto '{novo_nome_prod}' já está cadastrado!")
+                                st.session_state["prod_selecionado_temp_cli"] = novo_nome_prod
+                                st.rerun()
+                            else:
+                                cursor.execute("""
+                                    INSERT INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda)
+                                    VALUES (?, ?, ?, ?, ?, ?)
+                                """, (novo_nome_prod, c_g_r, c_f_r, c_qtd_r, c_compra_r, c_venda_r))
+                                conn.commit()
+                                st.cache_data.clear()
+                                st.session_state["prod_selecionado_temp_cli"] = novo_nome_prod
+                                st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro ao cadastrar: {e}")
+                    else:
+                        st.error("Digite o nome do produto.")
+                    st.stop()
+            
+            # --- BUSCA DO PREÇO SUGERIDO AUTOMÁTICO ---
+            preco_sugerido_cli = 0.0
+            if 'df_p_cli' in locals() and not df_p_cli.empty and prod_item != "+ Cadastrar Novo Produto...":
+                col_nome_p_cli = 'produto' if 'produto' in df_p_cli.columns else df_p_cli.columns[1]
+                df_p_cli['_nome_limpo'] = df_p_cli[col_nome_p_cli].astype(str).str.strip().str.upper()
+                df_filtrado_cli = df_p_cli[df_p_cli['_nome_limpo'] == str(prod_item).strip().upper()]
+            
+                if not df_filtrado_cli.empty:
+                    row_cli = df_filtrado_cli.iloc[0]
+                    for col_v in ['valor_venda', 'preco_venda', 'venda', 'valor_compra']:
+                        if col_v in df_p_cli.columns:
+                            try:
+                                val_aux = float(row_cli[col_v])
+                                if val_aux > 0:
+                                    preco_sugerido_cli = val_aux
+                                    break
+                            except:
+                                pass
+            
+            # --- LINHA 2: FORNECEDOR E QUANTIDADE LADO A LADO ---
+            col_cli_3, col_cli_4 = st.columns(2)
+            with col_cli_3:
+                fornec_ped = st.selectbox("Selecione o Fornecedor", fornecedores_opt, key="cli_forn_ind")
+            with col_cli_4:
+                qtd_ped = st.number_input("Quantidade", min_value=0.01, step=1.0, value=1.0, key="cli_qtd_ind")
+            
+            # --- LINHA 3: PREÇO UNITÁRIO E VALOR TOTAL LADO A LADO ---
+            col_cli_5, col_cli_6 = st.columns(2)
+            with col_cli_5:
+                v_venda_ped = st.number_input("Preço Unitário (R$)", min_value=0.0, value=float(preco_sugerido_cli), key=f"cli_v_ind_{prod_item}")
+            with col_cli_6:
+                valor_total_item = qtd_ped * v_venda_ped
+                st.info(f"**Valor Total do Item:** R$ {valor_total_item:.2f}")
+            
+            # --- BOTÃO DE INCLUSÃO NO CARRINHO ---
+            if st.button("➕ Incluir Produto no Pedido", type="primary", key="btn_incluir_prod_cli"):
+                if prod_item == "+ Cadastrar Novo Produto...":
+                    st.error("Por favor, selecione ou cadastre o produto antes de incluir no pedido.")
+                else:
+                    if "carrinho_cliente" not in st.session_state:
+                        st.session_state.carrinho_cliente = []
+            
+                    st.session_state.carrinho_cliente.append({
+                        "produto": prod_item,
+                        "fornecedor": fornec_ped,
+                        "grupo": grupo_ped,
+                        "quantidade": qtd_ped,
+                        "valor_unitario": v_venda_ped,
+                        "valor_total": valor_total_item
+                    })
+                    st.success(f"✅ '{prod_item}' adicionado ao pedido com sucesso!")
+                    st.rerun()
     
             st.markdown("---")
             st.subheader("📋 Itens Atuais no Pedido")
