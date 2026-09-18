@@ -1223,12 +1223,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         # Tabela Editável
                         df_editado = st.data_editor(
                             df_filtrado[cols_exibir],
-                            disabled=["id", "data"],  # Protege o ID e a Data de edições acidentais
+                            disabled=["id", "data"],
                             use_container_width=True,
                             key="editor_pedidos_dia"
                         )
             
-                        # Botões de Ação
+                        # Apenas 2 colunas para botões
                         col_b1, col_b2 = st.columns(2)
             
                         with col_b1:
@@ -1239,7 +1239,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         ped_id = row['id']
                                         qtd = float(row.get('quantidade', 1))
                                         v_unit = float(row.get('valor_unitario', 0.0))
-                                        v_tot = qtd * v_unit  # Recalcula total automaticamente
+                                        v_tot = qtd * v_unit
                                         cli = str(row.get('cliente', '')).strip()
                                         prod = str(row.get('produto', '')).strip()
                                         fornec = str(row.get('fornecedor', '')).strip()
@@ -1278,8 +1278,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     else:
                         st.warning("Nenhum pedido encontrado com os filtros selecionados.")
                 else:
-                    st.info("Nenhum pedido registado no sistema.")
-
+                    st.info("Nenhum pedido registrado no sistema.")
                     with col_b3:
                         try:
                             pdf_buf = gerar_pdf_tabela_pedidos(df_dia, cliente_nome=filtro_cliente)
