@@ -1251,8 +1251,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             )
                         except Exception as e:
                             st.error(f"Erro ao gerar PDF: {e}")
-                else:
-                    st.info("Nenhum pedido cadastrado com os filtros selecionados.")
 
                 st.divider()
                 # Exibe a área de Dar Baixa APENAS na tela de Pedidos/Orçamentos
