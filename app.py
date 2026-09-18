@@ -1037,17 +1037,23 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.info(f"**Valor Total do Item:** R$ {valor_total_item:.2f}")
                 
                 # --- BOTÃO DE INCLUSÃO ---
-                st.button("➕ Incluir Produto no Pedido", type="primary", key="btn_incluir_prod_pedido")
-                    st.session_state.carrinho_admin.append({
-                        "produto": prod_item,
-                        "fornecedor": fornec_ped,
-                        "grupo": grupo_ped,
-                        "quantidade": qtd_ped,
-                        "valor_unitario": v_venda_ped,
-                        "valor_total": valor_total_item
-                    })
-                    st.success(f"Item '{prod_item}' adicionado ao pedido!")
-                    st.rerun()
+                if st.button("➕ Incluir Produto no Pedido", type="primary", key="btn_incluir_prod_pedido"):
+                    if prod_item == "+ Cadastrar Novo Produto...":
+                        st.error("Por favor, selecione ou cadastre o produto antes de incluir no pedido.")
+                    else:
+                        if "carrinho_admin" not in st.session_state:
+                            st.session_state.carrinho_admin = []
+                
+                        st.session_state.carrinho_admin.append({
+                            "produto": prod_item,
+                            "fornecedor": fornec_ped,
+                            "grupo": grupo_ped,
+                            "quantidade": qtd_ped,
+                            "valor_unitario": v_venda_ped,
+                            "valor_total": valor_total_item
+                        })
+                        st.success(f"✅ '{prod_item}' adicionado ao pedido com sucesso!")
+                        st.rerun()
         
                 st.markdown("---")
                 st.subheader("📋 Itens Atuais no Pedido")
