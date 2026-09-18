@@ -1419,25 +1419,28 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.rerun()
 
                 st.divider()
+                # --- SEÇÃO: PEDIDOS ANTERIORES / HISTÓRICO GERAL ---
                 st.subheader("📚 Pedidos Anteriores / Histórico Geral")
-
-                if 'filtro_cliente' in locals() and filtro_cliente != "Todos":
-                    if st.button(f"🧹 Limpar Histórico do Cliente: {filtro_cliente}", type="secondary", key="btn_limpar_hist_cli"):
-                        try:
-                            cursor = conn.cursor()
-                            cursor.execute(
-                                "DELETE FROM pedidos WHERE cliente = ? AND status = 'Concluído (Convertido)'", 
-                                (filtro_cliente,)
-                            )
-                            conn.commit()
-                            st.success(f"Histórico antigo de {filtro_cliente} foi limpo com sucesso!")
-                            st.rerun()
-                        except Exception as e_limpar:
-                            st.error(f"Erro ao limpar histórico do cliente: {e_limpar}")
-
-                df_todas_vendas = carregar_dados("SELECT * FROM vendas ORDER BY id DESC")
-                if not df_todas_vendas.empty:
-                    st.dataframe(df_todas_vendas, use_container_width=True, hide_index=True)
+                
+                # Carrega o histórico registrado
+                df_historico = carregar_dados("SELECT * FROM vendas ORDER BY id DESC")
+                
+                if not df_historico.empty:
+                    st.dataframe(df_historico, use_container_width=True)
+                
+                    # Botão para apagar todo o histórico
+                    col_hist1, col_hist2 = st.columns([1, 4])
+                    with col_hist1:
+                        if st.button("🗑️ Limpar Todo o Histórico", type="secondary", key="btn_limpar_historico_vendas"):
+                            try:
+                                cursor = conn.cursor()
+                                cursor.execute("DELETE FROM vendas")
+                                conn.commit()
+                                st.cache_data.clear()
+                                st.success("✅ Histórico de vendas apagado com sucesso!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao limpar histórico: {e}")
                 else:
                     st.info("Nenhum registro encontrado.")
             
