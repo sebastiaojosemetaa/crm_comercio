@@ -1228,11 +1228,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             key="editor_pedidos_dia"
                         )
             
-                        # Apenas 2 colunas para botões
-                        col_b1, col_b2 = st.columns(2)
+                        # 3 Colunas para botões: Salvar, Excluir e Baixar PDF
+                        col_b1, col_b2, col_b3 = st.columns(3)
             
                         with col_b1:
-                            if st.button("💾 Salvar Alterações na Tabela", type="primary", key="btn_salvar_edicoes_pedidos"):
+                            if st.button("💾 Salvar Alterações", type="primary", key="btn_salvar_edicoes_pedidos"):
                                 try:
                                     cursor = conn.cursor()
                                     for index, row in df_editado.iterrows():
@@ -1260,7 +1260,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     st.error(f"Erro ao salvar alterações: {e}")
             
                         with col_b2:
-                            if st.button("🗑️ Excluir Pedidos Marcados", type="secondary", key="btn_excluir_pedidos_marcados"):
+                            if st.button("🗑️ Excluir Marcados", type="secondary", key="btn_excluir_pedidos_marcados"):
                                 try:
                                     pedidos_para_excluir = df_editado[df_editado['Excluir'] == True]['id'].tolist()
                                     if pedidos_para_excluir:
@@ -1268,30 +1268,34 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         cursor.executemany("DELETE FROM pedidos WHERE id = ?", [(pid,) for pid in pedidos_para_excluir])
                                         conn.commit()
                                         st.cache_data.clear()
-                                        st.success(f"✅ {len(pedidos_para_excluir)} pedido(s) excluído(s) com sucesso!")
+                                        st.success(f"✅ {len(pedidos_para_excluir)} pedido(s) excluído(s)!")
                                         st.rerun()
                                     else:
-                                        st.warning("Nenhum pedido foi marcado na coluna 'Excluir'.")
+                                        st.warning("Nenhum pedido marcado na coluna 'Excluir'.")
                                 except Exception as e:
                                     st.error(f"Erro ao excluir pedido(s): {e}")
+            
+                        with col_b3:
+                            try:
+                                # Remove a coluna 'Excluir' para a geração do PDF
+                                df_pdf = df_editado.drop(columns=['Excluir'], errors='ignore')
+                                pdf_buf = gerar_pdf_tabela_pedidos(df_pdf, cliente_nome=f_cli)
+                                nome_arq = f"relatorio_pedidos_{f_cli.lower().replace(' ', '_')}.pdf" if f_cli != "Todos" else "relatorio_pedidos_geral.pdf"
+                                
+                                st.download_button(
+                                    label="📄 Baixar PDF do Dia",
+                                    data=pdf_buf.getvalue(),
+                                    file_name=nome_arq,
+                                    mime="application/pdf",
+                                    key="btn_pdf_dia_admin_v3"
+                                )
+                            except Exception as e:
+                                st.error(f"Erro ao gerar PDF: {e}")
             
                     else:
                         st.warning("Nenhum pedido encontrado com os filtros selecionados.")
                 else:
                     st.info("Nenhum pedido registrado no sistema.")
-                    
-                            pdf_buf = gerar_pdf_tabela_pedidos(df_dia, cliente_nome=filtro_cliente)
-                            nome_arq = f"relatorio_pedidos_{filtro_cliente.lower().replace(' ', '_')}.pdf" if filtro_cliente != "Todos" else "relatorio_pedidos_geral.pdf"
-            
-                            st.download_button(
-                                label="📄 Baixar PDF do Dia",
-                                data=pdf_buf.getvalue(),
-                                file_name=nome_arq,
-                                mime="application/pdf",
-                                key="btn_pdf_dia_admin_v2"
-                            )
-                        except Exception as e:
-                            st.error(f"Erro ao gerar PDF: {e}")
 
                 st.divider()
                 # Exibe a área de Dar Baixa APENAS na tela de Pedidos/Orçamentos
