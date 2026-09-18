@@ -1498,13 +1498,19 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
                     col_hist1, col_hist2 = st.columns([1, 4])
                     with col_hist1:
-                        if st.button("🗑️ Limpar Todo o Histórico", type="secondary", key="btn_limpar_historico_vendas"):
+                        if st.button("🗑️ Limpar Todo o Histórico", type="secondary", key="btn_limpar_historico"):
                             try:
                                 cursor = conn.cursor()
+                                
+                                # 1. Limpa o histórico geral de vendas (Admin)
                                 cursor.execute("DELETE FROM vendas")
+                                
+                                # 2. Limpa o histórico de pedidos antigos/concluídos (Portal do Cliente)
+                                cursor.execute("DELETE FROM pedidos WHERE status LIKE '%Concluído%' OR status LIKE '%Convertido%'")
+                                
                                 conn.commit()
                                 st.cache_data.clear()
-                                st.success("✅ Histórico de vendas apagado com sucesso!")
+                                st.success("✅ Histórico do Admin e do Portal do Cliente limpos com sucesso!")
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Erro ao limpar histórico: {e}")
