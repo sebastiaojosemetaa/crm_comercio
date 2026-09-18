@@ -1288,7 +1288,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     data=pdf_buf.getvalue(),
                                     file_name=nome_arq,
                                     mime="application/pdf",
-                                    key="btn_pdf_dia_admin_v5"
+                                    key="btn_pdf_dia_admin_v6"
                                 )
                             except Exception as e:
                                 st.error(f"Erro ao gerar PDF: {e}")
@@ -1338,20 +1338,36 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             with col_parc1:
                                 num_parcelas = st.number_input("Quantidade de Parcelas:", min_value=1, max_value=24, value=1, step=1, key="num_parc_fiado")
                             with col_parc2:
-                                val_parcela = valor_pendente / num_parcelas if num_parcelas > 0 else 0.0
-                                st.metric("Valor de Cada Parcela", f"R$ {val_parcela:.2f}")
+                                st.metric("Valor Total a Parcelar", f"R$ {valor_pendente:.2f}")
             
-                            st.write("**Defina as Datas de Vencimento:**")
-                            datas_venc = []
-                            cols_venc = st.columns(min(int(num_parcelas), 4))
+                            st.write("**Defina os Valores e Datas de Vencimento das Parcelas:**")
                             
-                            for i in range(int(num_parcelas)):
-                                with cols_venc[i % 4]:
-                                    data_sugerida = dt.date.today() + dt.timedelta(days=30 * (i + 1))
-                                    dt_input = st.date_input(f"Venc. Parcela {i+1}:", value=data_sugerida, key=f"dt_venc_parc_{i}")
-                                    datas_venc.append(dt_input.strftime("%d/%m/%Y"))
+                            val_sugerido_padrao = round(valor_pendente / int(num_parcelas), 2) if num_parcelas > 0 else 0.0
+                            parcelas_info = []
             
-                            detalhe_pagamento = f"Crediário ({num_parcelas}x R$ {val_parcela:.2f} | Vencs: {', '.join(datas_venc)})"
+                            for i in range(int(num_parcelas)):
+                                col_v1, col_v2 = st.columns(2)
+                                
+                                with col_v1:
+                                    val_parc_input = st.number_input(
+                                        f"Valor Parcela {i+1} (R$):",
+                                        min_value=0.0,
+                                        value=float(val_sugerido_padrao),
+                                        step=1.0,
+                                        key=f"val_parc_{i}"
+                                    )
+                                
+                                with col_v2:
+                                    data_sugerida = dt.date.today() + dt.timedelta(days=30 * (i + 1))
+                                    dt_input = st.date_input(
+                                        f"Venc. Parcela {i+1}:",
+                                        value=data_sugerida,
+                                        key=f"dt_venc_parc_{i}"
+                                    )
+                                
+                                parcelas_info.append(f"P{i+1}: R$ {val_parc_input:.2f} ({dt_input.strftime('%d/%m/%Y')})")
+            
+                            detalhe_pagamento = f"Crediário ({num_parcelas}x | Total: R$ {valor_pendente:.2f} | " + ", ".join(parcelas_info) + ")"
             
                         if st.button("🔄 Converter Pedido em Venda (Fiado / Baixa)", type="primary", key="btn_converter_pedido_venda"):
                             try:
