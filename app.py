@@ -1173,7 +1173,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.info("Nenhum item adicionado ao carrinho ainda.")
         
             with aba_list:
-                import datetime
                 st.subheader("🟢 Pedidos do Dia (Editáveis)")
             
                 # Carrega da tabela unificada 'pedidos'
@@ -1287,7 +1286,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     data=pdf_buf.getvalue(),
                                     file_name=nome_arq,
                                     mime="application/pdf",
-                                    key="btn_pdf_dia_admin_v3"
+                                    key="btn_pdf_dia_admin_v4"
                                 )
                             except Exception as e:
                                 st.error(f"Erro ao gerar PDF: {e}")
