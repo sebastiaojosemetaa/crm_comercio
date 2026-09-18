@@ -287,6 +287,9 @@ def executar_limpeza_banco():
     try:
         cursor = conn.cursor()
         
+        # 0. Apaga especificamente os registros duplicados de teste (IDs 16, 17 e 18)
+        cursor.execute("DELETE FROM vendas WHERE id IN (16, 17, 18)")
+        
         # 1. Substitui valores nulos/None/vazios por padrão seguro
         cursor.execute("UPDATE vendas SET forma_pagamento = '-' WHERE forma_pagamento IS NULL OR forma_pagamento = 'None' OR forma_pagamento = ''")
         cursor.execute("UPDATE vendas SET valor_recebido = 0.0 WHERE valor_recebido IS NULL")
