@@ -1280,7 +1280,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 else:
                     st.info("Nenhum pedido registrado no sistema.")
                     
-                        try:
                             pdf_buf = gerar_pdf_tabela_pedidos(df_dia, cliente_nome=filtro_cliente)
                             nome_arq = f"relatorio_pedidos_{filtro_cliente.lower().replace(' ', '_')}.pdf" if filtro_cliente != "Todos" else "relatorio_pedidos_geral.pdf"
             
