@@ -1172,6 +1172,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 else:
                     st.info("Nenhum item adicionado ao carrinho ainda.")
         
+            import datetime as dt
+
             with aba_list:
                 st.subheader("🟢 Pedidos do Dia (Editáveis)")
             
@@ -1286,7 +1288,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     data=pdf_buf.getvalue(),
                                     file_name=nome_arq,
                                     mime="application/pdf",
-                                    key="btn_pdf_dia_admin_v4"
+                                    key="btn_pdf_dia_admin_v5"
                                 )
                             except Exception as e:
                                 st.error(f"Erro ao gerar PDF: {e}")
@@ -1345,16 +1347,16 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             
                             for i in range(int(num_parcelas)):
                                 with cols_venc[i % 4]:
-                                    data_sugerida = datetime.date.today() + datetime.timedelta(days=30 * (i + 1))
-                                    dt = st.date_input(f"Venc. Parcela {i+1}:", value=data_sugerida, key=f"dt_venc_parc_{i}")
-                                    datas_venc.append(dt.strftime("%d/%m/%Y"))
+                                    data_sugerida = dt.date.today() + dt.timedelta(days=30 * (i + 1))
+                                    dt_input = st.date_input(f"Venc. Parcela {i+1}:", value=data_sugerida, key=f"dt_venc_parc_{i}")
+                                    datas_venc.append(dt_input.strftime("%d/%m/%Y"))
             
                             detalhe_pagamento = f"Crediário ({num_parcelas}x R$ {val_parcela:.2f} | Vencs: {', '.join(datas_venc)})"
             
                         if st.button("🔄 Converter Pedido em Venda (Fiado / Baixa)", type="primary", key="btn_converter_pedido_venda"):
                             try:
                                 cursor = conn.cursor()
-                                codigo_venda_gerado = f"PED-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
+                                codigo_venda_gerado = f"PED-{dt.datetime.now().strftime('%Y%m%d%H%M%S')}"
             
                                 for _, r in df_cli_pedidos.iterrows():
                                     cursor.execute("""
@@ -1371,7 +1373,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         valor_recebido,
                                         troco,
                                         max(0.0, valor_total_debito - valor_recebido),
-                                        datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                        dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                                         str(r.get('grupo', '')),
                                         codigo_venda_gerado,
                                         "Concluído",
