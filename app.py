@@ -513,12 +513,14 @@ if perfil_selecionado == "👤 Portal do Cliente":
                     if "carrinho_cliente" not in st.session_state:
                         st.session_state.carrinho_cliente = []
             
+                    # Adiciona o item ao carrinho com ambas as chaves de preço para evitar incompatibilidade
                     st.session_state.carrinho_cliente.append({
                         "produto": prod_item,
                         "fornecedor": fornec_ped,
                         "grupo": grupo_ped,
                         "quantidade": qtd_ped,
                         "valor_unitario": v_venda_ped,
+                        "preco_unitario": v_venda_ped,  # Chave exigida na finalização
                         "valor_total": valor_total_item
                     })
                     st.success(f"✅ '{prod_item}' adicionado ao pedido com sucesso!")
