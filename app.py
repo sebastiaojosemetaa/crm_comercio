@@ -1175,13 +1175,17 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             with aba_list:
                 st.subheader("🟢 Pedidos do Dia (Editáveis)")
             
-                # Carrega sempre da tabela unificada 'pedidos'
+                # Carrega da tabela unificada 'pedidos'
                 df_todos_pedidos = carregar_dados("SELECT * FROM pedidos ORDER BY id DESC")
             
                 if not df_todos_pedidos.empty:
                     df_filtrado = df_todos_pedidos.copy()
             
-                    # Extrai AAAA-MM-DD da coluna de data para o filtro funcionar corretamente
+                    # Adiciona coluna de seleção para exclusão se não existir
+                    if 'Excluir' not in df_filtrado.columns:
+                        df_filtrado.insert(0, 'Excluir', False)
+            
+                    # Extrai AAAA-MM-DD da coluna de data para o filtro
                     if 'data' in df_filtrado.columns:
                         df_filtrado['data_formatada'] = df_filtrado['data'].astype(str).str.slice(0, 10)
             
@@ -1211,31 +1215,70 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     if f_data is not None and 'data_formatada' in df_filtrado.columns:
                         df_filtrado = df_filtrado[df_filtrado['data_formatada'] == str(f_data)]
             
-                    # Exibição da tabela final
                     if not df_filtrado.empty:
                         cols_exibir = [c for c in df_filtrado.columns if c != 'data_formatada']
-                        st.dataframe(df_filtrado[cols_exibir], use_container_width=True)
+                        
+                        st.caption("💡 *Edite os dados diretamente na tabela abaixo ou marque a caixa 'Excluir' para remover.*")
+                        
+                        # Tabela Editável
+                        df_editado = st.data_editor(
+                            df_filtrado[cols_exibir],
+                            disabled=["id", "data"],  # Protege o ID e a Data de edições acidentais
+                            use_container_width=True,
+                            key="editor_pedidos_dia"
+                        )
+            
+                        # Botões de Ação
+                        col_b1, col_b2 = st.columns(2)
+            
+                        with col_b1:
+                            if st.button("💾 Salvar Alterações na Tabela", type="primary", key="btn_salvar_edicoes_pedidos"):
+                                try:
+                                    cursor = conn.cursor()
+                                    for index, row in df_editado.iterrows():
+                                        ped_id = row['id']
+                                        qtd = float(row.get('quantidade', 1))
+                                        v_unit = float(row.get('valor_unitario', 0.0))
+                                        v_tot = qtd * v_unit  # Recalcula total automaticamente
+                                        cli = str(row.get('cliente', '')).strip()
+                                        prod = str(row.get('produto', '')).strip()
+                                        fornec = str(row.get('fornecedor', '')).strip()
+                                        grp = str(row.get('grupo', '')).strip()
+                                        stts = str(row.get('status', 'PENDENTE')).strip()
+            
+                                        cursor.execute("""
+                                            UPDATE pedidos
+                                            SET cliente = ?, produto = ?, quantidade = ?, valor_unitario = ?, valor_total = ?, fornecedor = ?, grupo = ?, status = ?
+                                            WHERE id = ?
+                                        """, (cli, prod, qtd, v_unit, v_tot, fornec, grp, stts, ped_id))
+            
+                                    conn.commit()
+                                    st.cache_data.clear()
+                                    st.success("✅ Alterações salvas com sucesso!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Erro ao salvar alterações: {e}")
+            
+                        with col_b2:
+                            if st.button("🗑️ Excluir Pedidos Marcados", type="secondary", key="btn_excluir_pedidos_marcados"):
+                                try:
+                                    pedidos_para_excluir = df_editado[df_editado['Excluir'] == True]['id'].tolist()
+                                    if pedidos_para_excluir:
+                                        cursor = conn.cursor()
+                                        cursor.executemany("DELETE FROM pedidos WHERE id = ?", [(pid,) for pid in pedidos_para_excluir])
+                                        conn.commit()
+                                        st.cache_data.clear()
+                                        st.success(f"✅ {len(pedidos_para_excluir)} pedido(s) excluído(s) com sucesso!")
+                                        st.rerun()
+                                    else:
+                                        st.warning("Nenhum pedido foi marcado na coluna 'Excluir'.")
+                                except Exception as e:
+                                    st.error(f"Erro ao excluir pedido(s): {e}")
+            
                     else:
                         st.warning("Nenhum pedido encontrado com os filtros selecionados.")
                 else:
                     st.info("Nenhum pedido registado no sistema.")
-                    with col_b2:
-                        if st.button("🗑️ Excluir Marcados", type="secondary", key="btn_excluir_admin_v2"):
-                            try:
-                                cursor = conn.cursor()
-                                deletados = 0
-                                for index, row in df_editado.iterrows():
-                                    if row.get('Excluir', False):
-                                        cursor.execute("DELETE FROM vendas WHERE id = ?", (row['id'],))
-                                        deletados += 1
-                                conn.commit()
-                                if deletados > 0:
-                                    st.toast(f"🗑️ {deletados} item(ns) excluído(s)!")
-                                    st.rerun()
-                                else:
-                                    st.warning("Marque a caixa 'Excluir'.")
-                            except Exception as e:
-                                st.error(f"Erro ao excluir: {e}")
 
                     with col_b3:
                         try:
