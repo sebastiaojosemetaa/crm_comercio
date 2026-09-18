@@ -540,59 +540,39 @@ if perfil_selecionado == "👤 Portal do Cliente":
                         st.rerun()
     
                 with col_b2:
-                    if st.button("💾 Finalizar e Enviar Pedido", type="primary", key="cli_finalizar_unique_v3"):
-                        try:
-                            cursor = conn.cursor()
-                            data_hora_atual = datetime.now()
-                            codigo_pedido_gerado = f"PED-{data_hora_atual.strftime('%Y%m%d%H%M%S')}"
-                            data_str = data_hora_atual.strftime("%Y-%m-%d %H:%M:%S")
-                            
-                            for item in st.session_state.carrinho_cliente:
-                                cursor.execute("""
-                                    INSERT INTO vendas (
-                                        cliente, produto, quantidade, valor_venda, valor_total,
-                                        fornecedor, grupo, data, status, codigo, tipo
-                                    )
-                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ORÇAMENTO')
-                                """, (
-                                    st.session_state.cliente_autenticado,
-                                    item["produto"],
-                                    item["quantidade"],
-                                    item["preco_unitario"],
-                                    item["valor_total"],
-                                    item.get("fornecedor", "BAHIA"),
-                                    item.get("grupo", "GERAL"),
-                                    data_str,
-                                    "Pendente",
-                                    codigo_pedido_gerado
-                                ))
-
-                                cursor.execute("""
-                                    INSERT INTO pedidos (
-                                        cliente, produto, quantidade, valor_unitario, valor_total,
-                                        fornecedor, grupo, data, status, codigo_pedido
-                                    )
-                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                                """, (
-                                    st.session_state.cliente_autenticado,
-                                    item["produto"],
-                                    item["quantidade"],
-                                    item["preco_unitario"],
-                                    item["valor_total"],
-                                    item.get("fornecedor", "BAHIA"),
-                                    item.get("grupo", "GERAL"),
-                                    data_str,
-                                    "Pendente",
-                                    codigo_pedido_gerado
-                                ))
-                    
-                            conn.commit()
-                            st.cache_data.clear()
-                            st.session_state.carrinho_cliente = []
-                            st.success("Pedido finalizado e enviado com sucesso!")
-                            st.rerun()
-                        except Exception as ex:
-                            st.error(f"Erro ao finalizar pedido: {ex}")
+                    # --- LÓGICA DE FINALIZAÇÃO DO PEDIDO ---
+                    if st.button("🔴 Finalizar e Enviar Pedido", key="btn_finalizar_ped_cli"):
+                        carrinho = st.session_state.get("carrinho_cliente", [])
+                        
+                        if not carrinho:
+                            st.error("O carrinho está vazio!")
+                        else:
+                            try:
+                                cursor = conn.cursor()
+                                for item in carrinho:
+                                    # Obtém o valor unitário de forma segura (evita o KeyError)
+                                    preco_unit = item.get("preco_unitario", item.get("valor_unitario", 0.0))
+                                    
+                                    cursor.execute("""
+                                        INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, fornecedor, grupo, status)
+                                        VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDENTE')
+                                    """, (
+                                        st.session_state.get("cliente_autenticado", "Cliente"),
+                                        item.get("produto"),
+                                        item.get("quantidade"),
+                                        preco_unit,
+                                        item.get("valor_total"),
+                                        item.get("fornecedor", ""),
+                                        item.get("grupo", "")
+                                    ))
+                                
+                                conn.commit()
+                                st.success("✅ Pedido finalizado e enviado com sucesso!")
+                                st.session_state.carrinho_cliente = []  # Limpa o carrinho após finalizar
+                                st.rerun()
+                                
+                            except Exception as e:
+                                st.error(f"Erro ao finalizar pedido: {e}")
             else:
                 st.info("Nenhum item adicionado ao pedido ainda.")
     
