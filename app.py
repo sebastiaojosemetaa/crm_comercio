@@ -7,7 +7,30 @@ from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 import io
+import pandas as pd
+import datetime as dt
 
+def sanear_df_vendas(df):
+    """Trata campos nulos (None) e ajusta o cálculo do valor restante por item."""
+    if df is None or df.empty:
+        return df
+    df = df.copy()
+    
+    # Preenche valores nulos em colunas de texto
+    if 'forma_pagamento' in df.columns:
+        df['forma_pagamento'] = df['forma_pagamento'].fillna('-').replace({'None': '-', '': '-'})
+    
+    # Garante conversão numérica e substitui None/NaN por 0.0
+    for col in ['quantidade', 'valor_venda', 'valor_total', 'valor_recebido', 'troco', 'restante']:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
+            
+    # Corrige o valor 'restante' caso tenha sido gravado o total do pedido em cada linha do item
+    if 'valor_total' in df.columns and 'valor_recebido' in df.columns and 'restante' in df.columns:
+        mask_excesso = df['restante'] > df['valor_total']
+        df.loc[mask_excesso, 'restante'] = (df.loc[mask_excesso, 'valor_total'] - df.loc[mask_excesso, 'valor_recebido']).clip(lower=0.0)
+
+    return df
 # -----------------------------------------------------------------------------
 # GERADOR DE PDF
 # -----------------------------------------------------------------------------
@@ -896,14 +919,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             # --- PAINEL FINANCEIRO & FECHAMENTO POR DATA ---
             st.header("📊 Painel Financeiro & Fechamento por Data")
             
-            # 1. Seção de Contas a Receber (Parcelas / Fiado)
             st.subheader("💳 Contas a Receber (Parcelas / Fiado)")
             
-            # Busca vendas e pedidos para compor a lista geral e a tabela
             df_vendas_fin = carregar_dados("SELECT * FROM vendas ORDER BY id DESC")
+            df_vendas_fin = sanear_df_vendas(df_vendas_fin)
+            
             df_pedidos_fin = carregar_dados("SELECT * FROM pedidos ORDER BY id DESC")
             
-            # Exibe aviso de contas a receber pendentes se houver
             if not df_vendas_fin.empty and 'restante' in df_vendas_fin.columns:
                 df_pendentes_fin = df_vendas_fin[df_vendas_fin['restante'] > 0]
                 if not df_pendentes_fin.empty:
@@ -915,15 +937,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
             st.markdown("---")
             
-            # --- FILTROS DO PAINEL FINANCEIRO ---
-            
-            # Coleta lista única de clientes para o filtro
+            # Filtro de Clientes
             clientes_vendas = df_vendas_fin['cliente'].dropna().astype(str).unique().tolist() if not df_vendas_fin.empty and 'cliente' in df_vendas_fin.columns else []
             clientes_pedidos = df_pedidos_fin['cliente'].dropna().astype(str).unique().tolist() if not df_pedidos_fin.empty and 'cliente' in df_pedidos_fin.columns else []
             todos_clientes = sorted(list(set(clientes_vendas + clientes_pedidos)))
             lista_clientes_fin = ["Todos"] + todos_clientes
             
-            # 4 Colunas para os Filtros (Cliente + Data Inicial + Data Final + Status)
             col_f1, col_f2, col_f3, col_f4 = st.columns([2.5, 2, 2, 2.5])
             
             with col_f1:
@@ -943,24 +962,20 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     key="status_registros_fin"
                 )
             
-            # --- TRATAMENTO E FILTRAGEM DOS DADOS ---
             dfs_para_concatenar = []
             
-            # Processa Vendas
             if not df_vendas_fin.empty and opcao_status != "Apenas Pedidos Pendentes":
                 df_v = df_vendas_fin.copy()
                 if 'data' in df_v.columns:
                     df_v['dt_formatada'] = pd.to_datetime(df_v['data'], errors='coerce').dt.date
                 dfs_para_concatenar.append(df_v)
             
-            # Processa Pedidos Pendentes se selecionado
             if not df_pedidos_fin.empty and opcao_status in ["Incluir Pedidos Pendentes", "Apenas Pedidos Pendentes"]:
                 df_p = df_pedidos_fin[df_pedidos_fin['status'].astype(str).str.upper().str.contains("PENDENTE")].copy()
                 if not df_p.empty:
                     if 'data' in df_p.columns:
                         df_p['dt_formatada'] = pd.to_datetime(df_p['data'], errors='coerce').dt.date
                     
-                    # Mapeia colunas para ficarem idênticas à tabela de vendas
                     if 'valor_unitario' in df_p.columns and 'valor_venda' not in df_p.columns:
                         df_p['valor_venda'] = df_p['valor_unitario']
                     if 'forma_pagamento' not in df_p.columns:
@@ -974,30 +989,25 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         
                     dfs_para_concatenar.append(df_p)
             
-            # Unifica os dados
             if dfs_para_concatenar:
                 df_fin_geral = pd.concat(dfs_para_concatenar, ignore_index=True)
             else:
                 df_fin_geral = pd.DataFrame()
             
-            # Aplicação dos Filtros
             if not df_fin_geral.empty:
-                # 1. Filtro por Cliente
                 if f_cliente_fin != "Todos":
                     df_fin_geral = df_fin_geral[df_fin_geral['cliente'].astype(str) == str(f_cliente_fin)]
             
-                # 2. Filtro por Data
                 if 'dt_formatada' in df_fin_geral.columns:
                     df_fin_geral = df_fin_geral[
                         (df_fin_geral['dt_formatada'] >= data_inicio) & 
                         (df_fin_geral['dt_formatada'] <= data_fim)
                     ]
             
-            # --- MÉTRICAS FINANCEIRAS ---
             if not df_fin_geral.empty:
                 fat_periodo = float(df_fin_geral['valor_total'].sum()) if 'valor_total' in df_fin_geral.columns else 0.0
                 rec_caixa = float(df_fin_geral['valor_recebido'].sum()) if 'valor_recebido' in df_fin_geral.columns else 0.0
-                tot_pendente = float(df_fin_geral['restante'].sum()) if 'restante' in df_fin_geral.columns else (fat_periodo - rec_caixa)
+                tot_pendente = float(df_fin_geral['restante'].sum()) if 'restante' in df_fin_geral.columns else 0.0
             else:
                 fat_periodo = 0.0
                 rec_caixa = 0.0
@@ -1019,7 +1029,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
             st.markdown("---")
             
-            # --- EXIBIÇÃO DA TABELA ---
             if not df_fin_geral.empty:
                 cols_ordem = ['id', 'cliente', 'produto', 'fornecedor', 'quantidade', 'valor_venda', 'valor_total', 'forma_pagamento', 'valor_recebido', 'troco', 'restante', 'data', 'grupo']
                 cols_presentes = [c for c in cols_ordem if c in df_fin_geral.columns]
@@ -1227,15 +1236,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 if not df_todos_pedidos.empty:
                     df_filtrado = df_todos_pedidos.copy()
             
-                    # Adiciona coluna de seleção para exclusão se não existir
                     if 'Excluir' not in df_filtrado.columns:
                         df_filtrado.insert(0, 'Excluir', False)
             
-                    # Extrai AAAA-MM-DD da coluna de data para o filtro
                     if 'data' in df_filtrado.columns:
                         df_filtrado['data_formatada'] = df_filtrado['data'].astype(str).str.slice(0, 10)
             
-                    # Montagem dos menus de filtro
                     col_f1, col_f2, col_f3, col_f4 = st.columns(4)
             
                     lista_cli = ["Todos"] + sorted(list(df_filtrado['cliente'].dropna().astype(str).unique())) if 'cliente' in df_filtrado.columns else ["Todos"]
@@ -1251,7 +1257,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     with col_f4:
                         f_data = st.date_input("Filtrar por Data:", value=None, key="f_data_pedidos")
             
-                    # Aplicação dinâmica dos filtros
                     if f_cli != "Todos":
                         df_filtrado = df_filtrado[df_filtrado['cliente'].astype(str) == str(f_cli)]
                     if f_forn != "Todos":
@@ -1266,7 +1271,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         
                         st.caption("💡 *Edite os dados diretamente na tabela abaixo ou marque a caixa 'Excluir' para remover.*")
                         
-                        # Tabela Editável
                         df_editado = st.data_editor(
                             df_filtrado[cols_exibir],
                             disabled=["id", "data"],
@@ -1274,7 +1278,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             key="editor_pedidos_dia"
                         )
             
-                        # 3 Colunas para botões: Salvar, Excluir e Baixar PDF
                         col_b1, col_b2, col_b3 = st.columns(3)
             
                         with col_b1:
@@ -1332,7 +1335,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     data=pdf_buf.getvalue(),
                                     file_name=nome_arq,
                                     mime="application/pdf",
-                                    key="btn_pdf_dia_admin_v6"
+                                    key="btn_pdf_dia_admin_v7"
                                 )
                             except Exception as e:
                                 st.error(f"Erro ao gerar PDF: {e}")
@@ -1370,7 +1373,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             troco = valor_recebido - valor_total_debito if valor_recebido > valor_total_debito else 0.0
                             st.markdown(f"**Troco:**\n### R$ {troco:.2f}")
             
-                        # Opções dinâmicas de Parcelamento para Crediário / Fiado
                         detalhe_pagamento = forma_pagamento
                         if forma_pagamento == "Crediário / Fiado":
                             st.markdown("---")
@@ -1391,23 +1393,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
                             for i in range(int(num_parcelas)):
                                 col_v1, col_v2 = st.columns(2)
-                                
                                 with col_v1:
-                                    val_parc_input = st.number_input(
-                                        f"Valor Parcela {i+1} (R$):",
-                                        min_value=0.0,
-                                        value=float(val_sugerido_padrao),
-                                        step=1.0,
-                                        key=f"val_parc_{i}"
-                                    )
-                                
+                                    val_parc_input = st.number_input(f"Valor Parcela {i+1} (R$):", min_value=0.0, value=float(val_sugerido_padrao), step=1.0, key=f"val_parc_{i}")
                                 with col_v2:
                                     data_sugerida = dt.date.today() + dt.timedelta(days=30 * (i + 1))
-                                    dt_input = st.date_input(
-                                        f"Venc. Parcela {i+1}:",
-                                        value=data_sugerida,
-                                        key=f"dt_venc_parc_{i}"
-                                    )
+                                    dt_input = st.date_input(f"Venc. Parcela {i+1}:", value=data_sugerida, key=f"dt_venc_parc_{i}")
                                 
                                 parcelas_info.append(f"P{i+1}: R$ {val_parc_input:.2f} ({dt_input.strftime('%d/%m/%Y')})")
             
@@ -1419,6 +1409,16 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 codigo_venda_gerado = f"PED-{dt.datetime.now().strftime('%Y%m%d%H%M%S')}"
             
                                 for _, r in df_cli_pedidos.iterrows():
+                                    item_tot = float(r.get('valor_total', 0))
+                                    
+                                    # Rateia o valor recebido e o restante proporcionalmente por item
+                                    if valor_total_debito > 0:
+                                        item_rec = round((item_tot / valor_total_debito) * valor_recebido, 2)
+                                    else:
+                                        item_rec = 0.0
+                                    
+                                    item_rest = max(0.0, item_tot - item_rec)
+            
                                     cursor.execute("""
                                         INSERT INTO vendas (cliente, produto, fornecedor, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, troco, restante, data, grupo, codigo_venda, status, tipo, codigo)
                                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -1428,11 +1428,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         str(r.get('fornecedor', '')),
                                         float(r.get('quantidade', 1)),
                                         float(r.get('valor_unitario', 0)),
-                                        float(r.get('valor_total', 0)),
+                                        item_tot,
                                         detalhe_pagamento,
-                                        valor_recebido,
-                                        troco,
-                                        max(0.0, valor_total_debito - valor_recebido),
+                                        item_rec,
+                                        0.0,
+                                        item_rest,
                                         dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                                         str(r.get('grupo', '')),
                                         codigo_venda_gerado,
@@ -1460,6 +1460,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.subheader("📚 Pedidos Anteriores / Histórico Geral")
             
                 df_historico = carregar_dados("SELECT * FROM vendas ORDER BY id DESC")
+                df_historico = sanear_df_vendas(df_historico)
             
                 if not df_historico.empty:
                     st.dataframe(df_historico, use_container_width=True)
