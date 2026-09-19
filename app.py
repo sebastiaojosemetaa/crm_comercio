@@ -976,10 +976,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             st.header("📊 Painel Financeiro & Fechamento por Data")
             
             st.subheader("💳 Contas a Receber (Parcelas / Fiado)")
-            
+
+            # 1. Carrega vendas e pedidos
             df_vendas_fin = carregar_dados("SELECT id, cliente, produto, fornecedor, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, troco, restante, data, grupo FROM vendas ORDER BY id DESC")
             df_pedidos_fin = carregar_dados("SELECT * FROM pedidos ORDER BY id DESC")
             
+            # Trata e identifica pendências (Crediário / Fiado)
             if not df_vendas_fin.empty and 'restante' in df_vendas_fin.columns:
                 df_vendas_fin['restante'] = pd.to_numeric(df_vendas_fin['restante'], errors='coerce').fillna(0.0)
                 df_pendentes_fin = df_vendas_fin[df_vendas_fin['restante'] > 0]
@@ -992,12 +994,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
             st.markdown("---")
             
-            # Filtro de Clientes
+            # 2. Monta lista de clientes para o filtro
             clientes_vendas = df_vendas_fin['cliente'].dropna().astype(str).unique().tolist() if not df_vendas_fin.empty and 'cliente' in df_vendas_fin.columns else []
             clientes_pedidos = df_pedidos_fin['cliente'].dropna().astype(str).unique().tolist() if not df_pedidos_fin.empty and 'cliente' in df_pedidos_fin.columns else []
             todos_clientes = sorted(list(set(clientes_vendas + clientes_pedidos)))
             lista_clientes_fin = ["Todos"] + todos_clientes
             
+            # 3. Filtros no Topo
             col_f1, col_f2, col_f3, col_f4 = st.columns([2.5, 2, 2, 2.5])
             
             with col_f1:
@@ -1019,18 +1022,27 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
             dfs_para_concatenar = []
             
+            # Trata Vendas
             if not df_vendas_fin.empty and opcao_status != "Apenas Pedidos Pendentes":
                 df_v = df_vendas_fin.copy()
                 if 'data' in df_v.columns:
+                    # Converte para data simples evitando falhas de fuso ou hora
                     df_v['dt_formatada'] = pd.to_datetime(df_v['data'], errors='coerce').dt.date
+                    df_v['dt_formatada'] = df_v['dt_formatada'].fillna(
+                        pd.to_datetime(df_v['data'].astype(str).str[:10], errors='coerce').dt.date
+                    )
                 dfs_para_concatenar.append(df_v)
             
+            # Trata Pedidos Pendentes
             if not df_pedidos_fin.empty and opcao_status in ["Incluir Pedidos Pendentes", "Apenas Pedidos Pendentes"]:
                 df_p = df_pedidos_fin[df_pedidos_fin['status'].astype(str).str.upper().str.contains("PENDENTE")].copy()
                 if not df_p.empty:
                     if 'data' in df_p.columns:
                         df_p['dt_formatada'] = pd.to_datetime(df_p['data'], errors='coerce').dt.date
-                    
+                        df_p['dt_formatada'] = df_p['dt_formatada'].fillna(
+                            pd.to_datetime(df_p['data'].astype(str).str[:10], errors='coerce').dt.date
+                        )
+            
                     if 'valor_unitario' in df_p.columns and 'valor_venda' not in df_p.columns:
                         df_p['valor_venda'] = df_p['valor_unitario']
                     if 'forma_pagamento' not in df_p.columns:
@@ -1041,24 +1053,28 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         df_p['troco'] = 0.0
                     if 'restante' not in df_p.columns:
                         df_p['restante'] = df_p['valor_total']
-                        
+            
                     dfs_para_concatenar.append(df_p)
             
+            # Unifica dados
             if dfs_para_concatenar:
                 df_fin_geral = pd.concat(dfs_para_concatenar, ignore_index=True)
             else:
                 df_fin_geral = pd.DataFrame()
             
+            # Aplica Filtros de Cliente e Intervalo de Datas
             if not df_fin_geral.empty:
                 if f_cliente_fin != "Todos":
                     df_fin_geral = df_fin_geral[df_fin_geral['cliente'].astype(str) == str(f_cliente_fin)]
             
                 if 'dt_formatada' in df_fin_geral.columns:
+                    # Filtra considerando apenas o intervalo de dias (inclusivo)
                     df_fin_geral = df_fin_geral[
                         (df_fin_geral['dt_formatada'] >= data_inicio) & 
                         (df_fin_geral['dt_formatada'] <= data_fim)
                     ]
             
+            # Converte valores numéricos para cálculo dos totais
             if not df_fin_geral.empty:
                 for c in ['valor_total', 'valor_recebido', 'restante']:
                     if c in df_fin_geral.columns:
@@ -1072,6 +1088,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 rec_caixa = 0.0
                 tot_pendente = 0.0
             
+            # Exibição das Métricas Financeiras
             col_m1, col_m2, col_m3 = st.columns(3)
             
             with col_m1:
@@ -1088,10 +1105,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
             st.markdown("---")
             
+            # Exibição da Tabela Final
             if not df_fin_geral.empty:
                 cols_ordem = ['id', 'cliente', 'produto', 'fornecedor', 'quantidade', 'valor_venda', 'valor_total', 'forma_pagamento', 'valor_recebido', 'troco', 'restante', 'data', 'grupo']
                 cols_presentes = [c for c in cols_ordem if c in df_fin_geral.columns]
-                
+            
                 st.dataframe(df_fin_geral[cols_presentes], use_container_width=True)
             else:
                 st.info("Nenhum registro encontrado para os filtros selecionados.")
