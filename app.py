@@ -1698,26 +1698,25 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
             st.title("👥 Cadastros Gerais")
             tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["👤 Clientes", "📦 Produtos", "🏢 Fornecedores", "🏷️ Grupos"])
-            # Linha 1701 (Exemplo do seu 'if' de navegação):
-            if navegacao == "Cadastros (Clientes / Fornecedores / Grupos)":
-                # ⚠️ TODAS AS LINHAS ABAIXO PRECISAM TER RECUO (4 ESPAÇOS OU 1 TAB) PARA A DIREITA
-                
+    
+            # --- ABA 1: CLIENTES ---
+            with tab_cli:
                 st.subheader("👤 Gerenciamento de Clientes")
-            
+    
                 with st.form("form_cadastrar_cliente", clear_on_submit=True):
                     col_cli1, col_cli2 = st.columns(2)
-                    
+    
                     with col_cli1:
                         txt_nome_cli = st.text_input("Nome do Cliente / Razão Social", key="cli_nome_cad")
                         txt_doc_cli = st.text_input("CPF / CNPJ", key="cli_doc_cad")
                         txt_cidade_cli = st.text_input("Cidade / Email", key="cli_cidade_cad")
-                        
+    
                     with col_cli2:
                         txt_tel_cli = st.text_input("Telefone / WhatsApp", key="cli_tel_cad")
                         txt_end_cli = st.text_input("Endereço", key="cli_end_cad")
-            
+    
                     btn_salvar_cli = st.form_submit_button("💾 Salvar Cliente")
-            
+    
                     if btn_salvar_cli:
                         if not txt_nome_cli.strip():
                             st.warning("Por favor, informe o nome do cliente.")
@@ -1730,32 +1729,40 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 st.rerun()
                             else:
                                 st.error(msg)
-
+    
+                st.markdown("---")
+                st.subheader("📋 Lista de Clientes")
+                df_cli_view = carregar_dados("SELECT * FROM clientes")
+                if not df_cli_view.empty:
+                    st.dataframe(df_cli_view, use_container_width=True)
+                else:
+                    st.info("Nenhum cliente cadastrado ainda.")
+    
+            # --- ABA 2: PRODUTOS ---
             with tab_prod:
                 st.subheader("📝 Gerenciar Produtos (Cadastrar, Editar e Excluir)")
-
+    
                 with st.form("form_cadastrar_produto", clear_on_submit=True):
                     col1, col2 = st.columns(2)
-                    
+    
                     with col1:
                         txt_nome_produto = st.text_input("Nome do Produto")
                         val_compra = st.number_input("Preço de Compra (R$)", min_value=0.0, value=0.0, step=0.5)
                         estoque_inicial = st.number_input("Estoque Inicial", min_value=0.0, value=0.0, step=1.0)
-                
+    
                     with col2:
                         grupo_produto = st.selectbox("Grupo / Categoria", grupos_opt if 'grupos_opt' in locals() else ["Geral"])
                         val_venda = st.number_input("Preço de Venda (R$)", min_value=0.0, value=0.0, step=0.5)
                         fornecedor_produto = st.selectbox("Fornecedor", fornecedores_opt if 'fornecedores_opt' in locals() else ["BAHIA"])
-                
+    
                     btn_salvar = st.form_submit_button("💾 Salvar Novo Produto")
-                
+    
                     if btn_salvar:
                         if not txt_nome_produto.strip():
                             st.warning("Por favor, informe o nome do produto.")
                         else:
                             try:
                                 cursor = conn.cursor()
-                                # CORREÇÃO: Utiliza 'produto' em vez de 'nome'
                                 cursor.execute("""
                                     INSERT INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda)
                                     VALUES (?, ?, ?, ?, ?, ?)
@@ -1773,17 +1780,15 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Erro ao cadastrar produto: {e}")
-                
+    
                 st.markdown("---")
                 st.subheader("📋 Lista de Produtos (Edite direto na tabela ou exclua abaixo)")
-
-                # 1. Carrega a lista atual de produtos do banco de dados
+    
                 try:
                     df_produtos_gerenciar = pd.read_sql_query("SELECT * FROM produtos", conn)
                 except Exception:
                     df_produtos_gerenciar = pd.DataFrame()
     
-                # Garante a presença de todas as colunas necessárias sem quebrar a aplicação
                 cols_esperadas = ['id', 'produto', 'quantidade', 'valor_compra', 'valor_venda', 'grupo', 'fornecedor']
                 for c in cols_esperadas:
                     if c not in df_produtos_gerenciar.columns:
@@ -1792,18 +1797,16 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 if not df_produtos_gerenciar.empty:
                     cols_finais = [c for c in cols_esperadas if c in df_produtos_gerenciar.columns]
                     df_produtos_gerenciar = df_produtos_gerenciar[cols_finais]
-            
-                # 2. Exibe a tabela editável
+    
                 df_gerenciar_editado = st.data_editor(
                     df_produtos_gerenciar,
                     use_container_width=True,
                     hide_index=True,
                     key="editor_gerenciar_produtos_tab"
                 )
-            
+    
                 col_btn_salvar, col_btn_excluir = st.columns([1, 1])
-            
-                # 3. Botão para Salvar as Alterações feitas na Tabela
+    
                 with col_btn_salvar:
                     if st.button("💾 Salvar Alterações da Tabela", type="primary", key="btn_salvar_tabela_gerenciar"):
                         try:
@@ -1833,8 +1836,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             st.rerun()
                         except Exception as e:
                             st.error(f"Erro ao salvar alterações: {e}")
-            
-                # 4. Seleção e Botão para Excluir Produto
+    
                 with col_btn_excluir:
                     lista_produtos_excluir = df_produtos_gerenciar['produto'].tolist() if not df_produtos_gerenciar.empty else []
                     prod_para_excluir = st.selectbox(
@@ -1842,13 +1844,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         options=lista_produtos_excluir, 
                         key="sel_prod_excluir"
                     )
-                    
+    
                     if st.button("🗑️ Excluir Produto Selecionado", key="btn_excluir_produto"):
                         if prod_para_excluir:
                             try:
                                 with conn:
                                     cursor = conn.cursor()
-                                    # Exclui filtrando pela coluna 'produto' (evitando erro de coluna 'nome')
                                     cursor.execute("DELETE FROM produtos WHERE produto = ?", (prod_para_excluir,))
                                 st.cache_data.clear()
                                 st.success(f"✅ Produto '{prod_para_excluir}' excluído com sucesso!")
@@ -1857,10 +1858,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 st.error(f"Erro ao excluir produto: {e}")
                         else:
                             st.warning("Nenhum produto selecionado para exclusão.")
-
+    
+            # --- ABA 3: FORNECEDORES ---
             with tab_forn:
                 st.subheader("🏢 Gerenciar Fornecedores")
-                
+    
                 with st.form("form_cad_fornecedor", clear_on_submit=True):
                     nome_forn = st.text_input("Nome do Fornecedor / Empresa")
                     if st.form_submit_button("Salvar Novo Fornecedor"):
@@ -1873,10 +1875,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 st.error(f"Erro ao cadastrar fornecedor: {e}")
                         else:
                             st.warning("Informe o nome do fornecedor.")
-                
+    
                 st.markdown("---")
                 st.subheader("📋 Lista de Fornecedores (Edite ou Exclua)")
-                
+    
                 df_forn_view = carregar_dados("SELECT * FROM fornecedores")
                 if not df_forn_view.empty:
                     df_editado_forn = st.data_editor(
@@ -1885,7 +1887,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         hide_index=True,
                         key="editor_fornecedores"
                     )
-                    
+    
                     col_f1, col_f2 = st.columns(2)
                     with col_f1:
                         if st.button("💾 Salvar Alterações de Fornecedores"):
@@ -1900,7 +1902,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Erro ao salvar: {e}")
-                    
+    
                     with col_f2:
                         forn_para_excluir = df_forn_view['fornecedor'].tolist()
                         forn_selecionado = st.selectbox("Selecione um fornecedor para excluir", forn_para_excluir, key="select_del_forn")
@@ -1915,10 +1917,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 st.error(f"Erro ao excluir: {e}")
                 else:
                     st.info("Nenhum fornecedor cadastrado.")
-
+    
+            # --- ABA 4: GRUPOS ---
             with tab_grup:
                 st.subheader("🏷️ Gerenciar Grupos / Categorias")
-                
+    
                 with st.form("form_cad_grupo", clear_on_submit=True):
                     nome_grupo = st.text_input("Nome do Grupo / Categoria")
                     if st.form_submit_button("Salvar Novo Grupo"):
@@ -1931,10 +1934,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 st.error(f"Erro ao cadastrar grupo: {e}")
                         else:
                             st.warning("Informe o nome do grupo.")
-                
+    
                 st.markdown("---")
                 st.subheader("📋 Lista de Grupos (Edite ou Exclua)")
-                
+    
                 df_grup_view = carregar_dados("SELECT * FROM grupos")
                 if not df_grup_view.empty:
                     df_editado_grup = st.data_editor(
@@ -1943,7 +1946,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         hide_index=True,
                         key="editor_grupos"
                     )
-                    
+    
                     col_g1, col_g2 = st.columns(2)
                     with col_g1:
                         if st.button("💾 Salvar Alterações de Grupos"):
@@ -1958,7 +1961,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Erro ao salvar: {e}")
-                    
+    
                     with col_g2:
                         grup_para_excluir = df_grup_view['grupo'].tolist()
                         grup_selecionado = st.selectbox("Selecione um grupo para excluir", grup_para_excluir, key="select_del_grup")
