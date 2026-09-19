@@ -1743,43 +1743,43 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
             with tab_prod:
                 st.subheader("📝 Gerenciar Produtos (Cadastrar, Editar e Excluir)")
-                
-                with st.form("form_cad_produto_completo", clear_on_submit=True):
+
+                with st.form("form_cadastrar_produto", clear_on_submit=True):
                     col1, col2 = st.columns(2)
+                    
                     with col1:
                         txt_nome_produto = st.text_input("Nome do Produto")
-                        val_compra = st.number_input("Preço de Compra (R$)", min_value=0.0, format="%.2f")
+                        val_compra = st.number_input("Preço de Compra (R$)", min_value=0.0, value=0.0, step=0.5)
+                        estoque_inicial = st.number_input("Estoque Inicial", min_value=0.0, value=0.0, step=1.0)
+                
                     with col2:
-                        grupo_produto = st.text_input("Grupo / Categoria", value="Geral")
-                        val_venda = st.number_input("Preço de Venda (R$)", min_value=0.0, format="%.2f")
-                        
-                    col3, col4 = st.columns(2)
-                    with col3:
-                        estoque_inicial = st.number_input("Estoque Inicial", min_value=0, value=0, step=1)
-                    with col4:
-                        fornecedor_produto = st.text_input("Fornecedor", value="BAHIA")
-                            
-                    if st.form_submit_button("Salvar Novo Produto"):
+                        grupo_produto = st.selectbox("Grupo / Categoria", grupos_opt if 'grupos_opt' in locals() else ["Geral"])
+                        val_venda = st.number_input("Preço de Venda (R$)", min_value=0.0, value=0.0, step=0.5)
+                        fornecedor_produto = st.selectbox("Fornecedor", fornecedores_opt if 'fornecedores_opt' in locals() else ["BAHIA"])
+                
+                    btn_salvar = st.form_submit_button("💾 Salvar Novo Produto")
+                
+                    if btn_salvar:
                         if not txt_nome_produto.strip():
                             st.warning("Por favor, informe o nome do produto.")
                         else:
                             try:
                                 cursor = conn.cursor()
+                                # CORREÇÃO: Utiliza 'produto' em vez de 'nome'
                                 cursor.execute("""
-                                    INSERT INTO produtos (produto, nome, quantidade, estoque_atual, valor_compra, valor_venda, fornecedor, grupo)
-                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                                    INSERT INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda)
+                                    VALUES (?, ?, ?, ?, ?, ?)
                                 """, (
-                                    txt_nome_produto.upper(), 
-                                    txt_nome_produto.upper(), 
-                                    estoque_inicial, 
-                                    estoque_inicial, 
-                                    val_compra, 
-                                    val_venda, 
+                                    txt_nome_produto.strip().upper(),
+                                    grupo_produto,
                                     fornecedor_produto,
-                                    grupo_produto
+                                    float(estoque_inicial),
+                                    float(val_compra),
+                                    float(val_venda)
                                 ))
                                 conn.commit()
-                                st.success(f"Produto '{txt_nome_produto}' cadastrado com sucesso!")
+                                st.cache_data.clear()
+                                st.success(f"✅ Produto '{txt_nome_produto}' cadastrado com sucesso!")
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Erro ao cadastrar produto: {e}")
