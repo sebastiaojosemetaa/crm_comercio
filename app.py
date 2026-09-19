@@ -157,51 +157,38 @@ def adequar_banco_e_migrar():
     try:
         cursor = conn.cursor()
 
-        # 1. Tabela de Vendas
+        # 1. Tabela de Clientes
         cursor.execute("""
-            CREATE TABLE IF NOT EXISTS vendas (
+            CREATE TABLE IF NOT EXISTS clientes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 cliente TEXT,
-                produto TEXT,
-                fornecedor TEXT,
-                grupo TEXT,
-                quantidade REAL,
-                valor_venda REAL,
-                valor_total REAL,
-                forma_pagamento TEXT,
-                valor_recebido REAL,
-                troco REAL,
-                restante REAL,
-                data TEXT
+                nome TEXT,
+                cpf TEXT,
+                doc TEXT,
+                endereco TEXT,
+                email TEXT,
+                fone TEXT,
+                telefone TEXT,
+                cidade TEXT
             )
         """)
 
-        # 2. Tabela de Produtos
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS produtos (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                produto TEXT,
-                quantidade REAL,
-                valor_compra REAL,
-                valor_venda REAL,
-                grupo TEXT,
-                fornecedor TEXT
-            )
-        """)
-
-        # Adiciona colunas em falta na tabela produtos se a base de dados for antiga
-        colunas_produtos = ["produto", "quantidade", "valor_compra", "valor_venda", "grupo", "fornecedor"]
-        for col in colunas_produtos:
+        # Adiciona colunas faltantes se for banco antigo
+        for col in ["cliente", "nome", "cpf", "doc", "endereco", "email", "fone", "telefone", "cidade"]:
             try:
-                cursor.execute(f"ALTER TABLE produtos ADD COLUMN {col} REAL" if "valor" in col or "quantidade" in col else f"ALTER TABLE produtos ADD COLUMN {col} TEXT")
+                cursor.execute(f"ALTER TABLE clientes ADD COLUMN {col} TEXT")
             except Exception:
-                pass  # Coluna já existe
+                pass
+
+        # 🔄 CORREÇÃO/SINCRONIZAÇÃO: Copia 'cliente' para 'nome' e vice-versa se estiver vazio
+        cursor.execute("UPDATE clientes SET nome = cliente WHERE (nome IS NULL OR nome = '') AND (cliente IS NOT NULL AND cliente != '')")
+        cursor.execute("UPDATE clientes SET cliente = nome WHERE (cliente IS NULL OR cliente = '') AND (nome IS NOT NULL AND nome != '')")
 
         conn.commit()
     except Exception as e:
-        print(f"Aviso de migração: {e}")
+        print(f"Aviso de migração de clientes: {e}")
 
-# Executa ao iniciar o sistema
+# Executa a migração/sincronização
 adequar_banco_e_migrar()
 # --- FUNÇÃO DE LIMPEZA E SANITIÇÃO DO BANCO DE DADOS ---
 def executar_limpeza_banco():
@@ -376,7 +363,16 @@ if perfil_selecionado == "👤 Portal do Cliente":
         st.title("🔒 Portal do Cliente")
         st.info("Por favor, selecione seu nome no menu à esquerda e insira sua senha para acessar seus pedidos.")
         
-        lista_clientes = carregar_coluna("clientes", "nome") or carregar_coluna("vendas", "cliente") or ["Carlos Alberto"]
+        # 1. Carrega todos os clientes registados de forma segura
+        df_cli_select = carregar_dados("""
+            SELECT DISTINCT COALESCE(NULLIF(cliente, ''), nome) AS cliente_nome 
+            FROM clientes 
+            WHERE cliente_nome IS NOT NULL AND cliente_nome != '' 
+            ORDER BY cliente_nome
+        """)
+        lista_clientes = df_cli_select['cliente_nome'].tolist() if not df_cli_select.empty else []
+        
+        # 2. Exibe o selectbox com a lista completa
         cliente_nome = st.sidebar.selectbox("Identifique seu Nome/Empresa:", lista_clientes)
         senha_cliente = st.sidebar.text_input("Digite sua Senha de Cliente:", type="password")
         
