@@ -329,29 +329,32 @@ def carregar_coluna(tabela, coluna):
 def salvar_cliente_completo(nome, telefone, doc, endereco, cidade):
     try:
         cursor = conn.cursor()
-        # Garante a criação da tabela com todas as colunas
+        
+        # 1. Garante a criação da tabela 'clientes'
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS clientes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                nome TEXT,
-                telefone TEXT,
-                doc TEXT,
+                cliente TEXT,
+                cpf TEXT,
                 endereco TEXT,
-                cidade TEXT
+                email TEXT,
+                fone TEXT
             )
         """)
         
-        # Adiciona colunas faltantes em bancos antigos para evitar OperationalError
-        for col in ["telefone", "doc", "endereco", "cidade"]:
+        # 2. Adiciona colunas para compatibilidade se não existirem
+        colunas_necessarias = ["cliente", "nome", "cpf", "doc", "endereco", "email", "fone", "telefone", "cidade"]
+        for col in colunas_necessarias:
             try:
                 cursor.execute(f"ALTER TABLE clientes ADD COLUMN {col} TEXT")
             except Exception:
                 pass  # Coluna já existe
                 
+        # 3. Insere dados preenchendo ambas as colunas (cliente/nome, fone/telefone, cpf/doc)
         cursor.execute("""
-            INSERT INTO clientes (nome, telefone, doc, endereco, cidade)
-            VALUES (?, ?, ?, ?, ?)
-        """, (nome.strip(), telefone, doc, endereco, cidade))
+            INSERT INTO clientes (cliente, nome, fone, telefone, cpf, doc, endereco, email, cidade)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (nome.strip(), nome.strip(), telefone, telefone, doc, doc, endereco, cidade, cidade))
         
         conn.commit()
         st.cache_data.clear()
@@ -359,20 +362,20 @@ def salvar_cliente_completo(nome, telefone, doc, endereco, cidade):
     except Exception as e:
         return False, f"Erro ao salvar cliente: {e}"
 
-# --- FORMULÁRIO ALINHADO (ORGANIZADO EM 2 COLUNAS) ---
-st.subheader("👤 Cadastrar Novo Cliente")
+# --- FORMULÁRIO ALINHADO EM 2 COLUNAS ---
+st.subheader("👤 Gerenciamento de Clientes")
 
 with st.form("form_cadastrar_cliente", clear_on_submit=True):
     col_cli1, col_cli2 = st.columns(2)
     
     with col_cli1:
-        txt_nome_cli = st.text_input("Nome do Cliente", key="cli_nome_cad")
+        txt_nome_cli = st.text_input("Nome do Cliente / Razão Social", key="cli_nome_cad")
         txt_doc_cli = st.text_input("CPF / CNPJ", key="cli_doc_cad")
-        txt_cidade_cli = st.text_input("Cidade / Estado", key="cli_cidade_cad")
+        txt_cidade_cli = st.text_input("Cidade / Email", key="cli_cidade_cad")
         
     with col_cli2:
         txt_tel_cli = st.text_input("Telefone / WhatsApp", key="cli_tel_cad")
-        txt_end_cli = st.text_input("Endereço Completo", key="cli_end_cad")
+        txt_end_cli = st.text_input("Endereço", key="cli_end_cad")
 
     btn_salvar_cli = st.form_submit_button("💾 Salvar Cliente")
 
@@ -388,7 +391,6 @@ with st.form("form_cadastrar_cliente", clear_on_submit=True):
                 st.rerun()
             else:
                 st.error(msg)
-
 def salvar_produto_completo(nome, fornecedor, grupo, preco_compra, preco_venda, estoque_inicial):
     cursor = conn.cursor()
     try:
