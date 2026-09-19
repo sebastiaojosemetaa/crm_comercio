@@ -286,10 +286,10 @@ def salvar_cliente_completo(nome, telefone, doc, endereco, cidade):
 
 # --- FORMULÁRIO ALINHADO EM 2 COLUNAS ---
 st.subheader("👤 Gerenciamento de Clientes")
-    st.subheader("👤 Gerenciamento de Clientes")
 
 with st.form("form_cadastrar_cliente", clear_on_submit=True):
-        
+    col_cli1, col_cli2 = st.columns(2)
+    
     with col_cli1:
         txt_nome_cli = st.text_input("Nome do Cliente / Razão Social", key="cli_nome_cad")
         txt_doc_cli = st.text_input("CPF / CNPJ", key="cli_doc_cad")
