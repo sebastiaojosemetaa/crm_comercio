@@ -1757,7 +1757,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     with col3:
                         estoque_inicial = st.number_input("Estoque Inicial", min_value=0, value=0, step=1)
                     with col4:
-                        fornecedor_escolhido = st.selectbox("Fornecedor", fornecedores_opt, key="forn_entrada")
+                        fornecedor_produto = st.text_input("Fornecedor", value="BAHIA")
                             
                     if st.form_submit_button("Salvar Novo Produto"):
                         if not txt_nome_produto.strip():
