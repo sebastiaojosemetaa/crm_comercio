@@ -325,15 +325,69 @@ def carregar_coluna(tabela, coluna):
         pass
     return []
 
+# --- FUNÇÃO CORRIGIDA PARA SALVAR CLIENTE ---
 def salvar_cliente_completo(nome, telefone, doc, endereco, cidade):
-    cursor = conn.cursor()
     try:
-        cursor.execute("INSERT INTO clientes (nome, telefone, doc, endereco, cidade) VALUES (?, ?, ?, ?, ?)",
-                       (nome.strip(), telefone, doc, endereco, cidade))
+        cursor = conn.cursor()
+        # Garante a criação da tabela com todas as colunas
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS clientes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome TEXT,
+                telefone TEXT,
+                doc TEXT,
+                endereco TEXT,
+                cidade TEXT
+            )
+        """)
+        
+        # Adiciona colunas faltantes em bancos antigos para evitar OperationalError
+        for col in ["telefone", "doc", "endereco", "cidade"]:
+            try:
+                cursor.execute(f"ALTER TABLE clientes ADD COLUMN {col} TEXT")
+            except Exception:
+                pass  # Coluna já existe
+                
+        cursor.execute("""
+            INSERT INTO clientes (nome, telefone, doc, endereco, cidade)
+            VALUES (?, ?, ?, ?, ?)
+        """, (nome.strip(), telefone, doc, endereco, cidade))
+        
         conn.commit()
-        return True
-    except sqlite3.IntegrityError:
-        return False
+        st.cache_data.clear()
+        return True, "✅ Cliente cadastrado com sucesso!"
+    except Exception as e:
+        return False, f"Erro ao salvar cliente: {e}"
+
+# --- FORMULÁRIO ALINHADO (ORGANIZADO EM 2 COLUNAS) ---
+st.subheader("👤 Cadastrar Novo Cliente")
+
+with st.form("form_cadastrar_cliente", clear_on_submit=True):
+    col_cli1, col_cli2 = st.columns(2)
+    
+    with col_cli1:
+        txt_nome_cli = st.text_input("Nome do Cliente", key="cli_nome_cad")
+        txt_doc_cli = st.text_input("CPF / CNPJ", key="cli_doc_cad")
+        txt_cidade_cli = st.text_input("Cidade / Estado", key="cli_cidade_cad")
+        
+    with col_cli2:
+        txt_tel_cli = st.text_input("Telefone / WhatsApp", key="cli_tel_cad")
+        txt_end_cli = st.text_input("Endereço Completo", key="cli_end_cad")
+
+    btn_salvar_cli = st.form_submit_button("💾 Salvar Cliente")
+
+    if btn_salvar_cli:
+        if not txt_nome_cli.strip():
+            st.warning("Por favor, informe o nome do cliente.")
+        else:
+            sucesso, msg = salvar_cliente_completo(
+                txt_nome_cli, txt_tel_cli, txt_doc_cli, txt_end_cli, txt_cidade_cli
+            )
+            if sucesso:
+                st.success(msg)
+                st.rerun()
+            else:
+                st.error(msg)
 
 def salvar_produto_completo(nome, fornecedor, grupo, preco_compra, preco_venda, estoque_inicial):
     cursor = conn.cursor()
