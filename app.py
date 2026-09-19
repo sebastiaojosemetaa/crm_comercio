@@ -1698,30 +1698,38 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
             st.title("👥 Cadastros Gerais")
             tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["👤 Clientes", "📦 Produtos", "🏢 Fornecedores", "🏷️ Grupos"])
+            # Linha 1701 (Exemplo do seu 'if' de navegação):
             if navegacao == "Cadastros (Clientes / Fornecedores / Grupos)":
-            # A função salvar_cliente_completo() pode ficar aqui ou no início do app.py
-        
-            # O formulário st.subheader(...) e st.form(...) TEM de estar indentado (com recuo) AQUI DENTRO!
-            st.subheader("👤 Gerenciamento de Clientes")
-            with st.form("form_cadastrar_cliente", clear_on_submit=True):
-                ...
-            with tab_cli:
-                st.subheader("Gerenciamento de Clientes")
-                with st.form("form_cad_cliente_completo"):
-                    novo_cli = st.text_input("Nome do Cliente / Razão Social")
-                    telefone = st.text_input("Telefone / WhatsApp")
-                    doc = st.text_input("CPF / CNPJ")
-                    endereco = st.text_input("Endereço")
-                    cidade = st.text_input("Cidade / Email")
-
-                    if st.form_submit_button("💾 Salvar Cliente"):
-                        if novo_cli.strip():
-                            salvar_cliente_completo(novo_cli, telefone, doc, endereco, cidade)
-                            st.success("Cliente cadastrado com sucesso!")
-                            st.rerun()
+                # ⚠️ TODAS AS LINHAS ABAIXO PRECISAM TER RECUO (4 ESPAÇOS OU 1 TAB) PARA A DIREITA
+                
+                st.subheader("👤 Gerenciamento de Clientes")
+            
+                with st.form("form_cadastrar_cliente", clear_on_submit=True):
+                    col_cli1, col_cli2 = st.columns(2)
+                    
+                    with col_cli1:
+                        txt_nome_cli = st.text_input("Nome do Cliente / Razão Social", key="cli_nome_cad")
+                        txt_doc_cli = st.text_input("CPF / CNPJ", key="cli_doc_cad")
+                        txt_cidade_cli = st.text_input("Cidade / Email", key="cli_cidade_cad")
+                        
+                    with col_cli2:
+                        txt_tel_cli = st.text_input("Telefone / WhatsApp", key="cli_tel_cad")
+                        txt_end_cli = st.text_input("Endereço", key="cli_end_cad")
+            
+                    btn_salvar_cli = st.form_submit_button("💾 Salvar Cliente")
+            
+                    if btn_salvar_cli:
+                        if not txt_nome_cli.strip():
+                            st.warning("Por favor, informe o nome do cliente.")
                         else:
-                            st.warning("Preencha o nome do cliente.")
-                st.dataframe(carregar_dados("SELECT * FROM clientes"), use_container_width=True)
+                            sucesso, msg = salvar_cliente_completo(
+                                txt_nome_cli, txt_tel_cli, txt_doc_cli, txt_end_cli, txt_cidade_cli
+                            )
+                            if sucesso:
+                                st.success(msg)
+                                st.rerun()
+                            else:
+                                st.error(msg)
 
             with tab_prod:
                 st.subheader("📝 Gerenciar Produtos (Cadastrar, Editar e Excluir)")
