@@ -156,8 +156,8 @@ conn = get_connection()
 def adequar_banco_e_migrar():
     try:
         cursor = conn.cursor()
-        
-        # 1. Cria a tabela 'vendas' com sintaxe limpa (sem vírgulas sobrando no final)
+
+        # 1. Tabela de Vendas
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS vendas (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -175,24 +175,33 @@ def adequar_banco_e_migrar():
                 data TEXT
             )
         """)
-        
-        # 2. Garante que colunas adicionais existam se o banco for antigo
-        colunas_vendas = [
-            "cliente", "produto", "fornecedor", "grupo", "quantidade", 
-            "valor_venda", "valor_total", "forma_pagamento", 
-            "valor_recebido", "troco", "restante", "data"
-        ]
-        for col in colunas_vendas:
+
+        # 2. Tabela de Produtos
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS produtos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                produto TEXT,
+                quantidade REAL,
+                valor_compra REAL,
+                valor_venda REAL,
+                grupo TEXT,
+                fornecedor TEXT
+            )
+        """)
+
+        # Adiciona colunas em falta na tabela produtos se a base de dados for antiga
+        colunas_produtos = ["produto", "quantidade", "valor_compra", "valor_venda", "grupo", "fornecedor"]
+        for col in colunas_produtos:
             try:
-                cursor.execute(f"ALTER TABLE vendas ADD COLUMN {col} TEXT")
+                cursor.execute(f"ALTER TABLE produtos ADD COLUMN {col} REAL" if "valor" in col or "quantidade" in col else f"ALTER TABLE produtos ADD COLUMN {col} TEXT")
             except Exception:
                 pass  # Coluna já existe
-                
+
         conn.commit()
     except Exception as e:
-        print(f"Aviso de migração de banco de dados: {e}")
+        print(f"Aviso de migração: {e}")
 
-# Executa a migração com segurança ao iniciar
+# Executa ao iniciar o sistema
 adequar_banco_e_migrar()
 # --- FUNÇÃO DE LIMPEZA E SANITIÇÃO DO BANCO DE DADOS ---
 def executar_limpeza_banco():
@@ -1757,10 +1766,20 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.subheader("📋 Lista de Produtos (Edite direto na tabela ou exclua abaixo)")
 
                 # 1. Carrega a lista atual de produtos do banco de dados
-                df_produtos_gerenciar = pd.read_sql_query(
-                    "SELECT id, produto, quantidade, valor_compra, valor_venda, grupo, fornecedor FROM produtos", 
-                    conn
-                )
+                try:
+                    df_produtos_gerenciar = pd.read_sql_query("SELECT * FROM produtos", conn)
+                except Exception:
+                    df_produtos_gerenciar = pd.DataFrame()
+    
+                # Garante a presença de todas as colunas necessárias sem quebrar a aplicação
+                cols_esperadas = ['id', 'produto', 'quantidade', 'valor_compra', 'valor_venda', 'grupo', 'fornecedor']
+                for c in cols_esperadas:
+                    if c not in df_produtos_gerenciar.columns:
+                        df_produtos_gerenciar[c] = 0.0 if ('valor' in c or 'quantidade' in c) else ""
+    
+                if not df_produtos_gerenciar.empty:
+                    cols_finais = [c for c in cols_esperadas if c in df_produtos_gerenciar.columns]
+                    df_produtos_gerenciar = df_produtos_gerenciar[cols_finais]
             
                 # 2. Exibe a tabela editável
                 df_gerenciar_editado = st.data_editor(
