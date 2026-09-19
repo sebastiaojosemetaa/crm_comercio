@@ -285,9 +285,7 @@ def salvar_cliente_completo(nome, telefone, doc, endereco, cidade):
         return False, f"Erro ao salvar cliente: {e}"
 
 # --- FORMULÁRIO ALINHADO EM 2 COLUNAS ---
-st.subheader("👤 Gerenciamento de Clientes")
 
-with st.form("form_cadastrar_cliente", clear_on_submit=True):
     col_cli1, col_cli2 = st.columns(2)
     
     with col_cli1:
