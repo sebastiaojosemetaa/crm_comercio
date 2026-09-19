@@ -285,9 +285,7 @@ def salvar_cliente_completo(nome, telefone, doc, endereco, cidade):
         return False, f"Erro ao salvar cliente: {e}"
 
 # --- FORMULÁRIO ALINHADO EM 2 COLUNAS ---
-st.subheader("👤 Gerenciamento de Clientes")
 
-with st.form("form_cadastrar_cliente", clear_on_submit=True):
     col_cli1, col_cli2 = st.columns(2)
     
     with col_cli1:
@@ -1700,7 +1698,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
             st.title("👥 Cadastros Gerais")
             tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["👤 Clientes", "📦 Produtos", "🏢 Fornecedores", "🏷️ Grupos"])
-            
+            if navegacao == "Cadastros (Clientes / Fornecedores / Grupos)":
+            # A função salvar_cliente_completo() pode ficar aqui ou no início do app.py
+        
+            # O formulário st.subheader(...) e st.form(...) TEM de estar indentado (com recuo) AQUI DENTRO!
+            st.subheader("👤 Gerenciamento de Clientes")
+            with st.form("form_cadastrar_cliente", clear_on_submit=True):
+                ...
             with tab_cli:
                 st.subheader("Gerenciamento de Clientes")
                 with st.form("form_cad_cliente_completo"):
