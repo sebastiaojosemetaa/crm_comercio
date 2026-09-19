@@ -605,82 +605,107 @@ if perfil_selecionado == "👤 Portal do Cliente":
                     if st.button("🗑️ Limpar Carrinho", use_container_width=True, key="btn_limpar_carrinho_v2"):
                         if 'carrinho_admin' in st.session_state:
                             st.session_state.carrinho_admin = []
-                        if 'carrinho' in st.session_state:
+                        # --- INICIALIZAÇÃO DO CARRINHO DO CLIENTE ---
+                        if 'carrinho' not in st.session_state:
                             st.session_state.carrinho = []
-                        st.session_state.modo_edicao_carrinho = False
-                        st.rerun()
-        
-                # 2. BOTÃO ALTERAR (NOVO)
-                with col_btn2:
-                    if st.button("✏️ Alterar", use_container_width=True, key="btn_alterar_carrinho_v2"):
-                        st.session_state.modo_edicao_carrinho = True
-                        st.rerun()
-        
-                # 3. BOTÃO SALVAR (NOVO)
-                with col_btn3:
-                    if st.button("💾 Salvar", use_container_width=True, key="btn_salvar_carrinho_v2"):
-                        if st.session_state.modo_edicao_carrinho and 'df_editado' in locals():
-                            # Recalcula os totais após a edição
-                            if 'quantidade' in df_editado.columns and 'valor_unitario' in df_editado.columns:
-                                df_editado['quantidade'] = pd.to_numeric(df_editado['quantidade'], errors='coerce').fillna(1)
-                                df_editado['valor_unitario'] = pd.to_numeric(df_editado['valor_unitario'], errors='coerce').fillna(0)
-                                df_editado['valor_total'] = df_editado['quantidade'] * df_editado['valor_unitario']
-        
-                            novos_itens = df_editado.to_dict('records')
-                            if 'carrinho_admin' in st.session_state:
-                                st.session_state.carrinho_admin = novos_itens
-                            if 'carrinho' in st.session_state:
-                                st.session_state.carrinho = novos_itens
-        
-                            st.session_state.modo_edicao_carrinho = False
-                            st.success("✅ Alterações do carrinho salvas!")
-                            st.rerun()
+                        
+                        if 'modo_edicao_cli' not in st.session_state:
+                            st.session_state.modo_edicao_cli = False
+                        
+                        # --- BOTÃO INCLUIR PRODUTO NO PEDIDO (PORTAL DO CLIENTE) ---
+                        if st.button("➕ Incluir Produto no Pedido", type="primary", key="btn_incluir_prod_portal_cliente"):
+                            if prod_sel:  # ajuste a variável com o nome do seu selectbox de produto
+                                item_carrinho = {
+                                    "produto": prod_sel,
+                                    "fornecedor": forn_sel,
+                                    "grupo": grupo_sel,
+                                    "quantidade": float(qtd_input),
+                                    "valor_unitario": float(preco_input),
+                                    "valor_total": float(qtd_input * preco_input)
+                                }
+                                st.session_state.carrinho.append(item_carrinho)
+                                st.success(f"✅ {prod_sel} adicionado ao pedido!")
+                                st.rerun()
+                            else:
+                                st.warning("Selecione um produto antes de incluir.")
+                        
+                        # --- SEÇÃO: ITENS ATUAIS NO PEDIDO ---
+                        st.subheader("📋 Itens Atuais no Pedido")
+                        
+                        if st.session_state.carrinho:
+                            df_carrinho_cli = pd.DataFrame(st.session_state.carrinho)
+                        
+                            if st.session_state.modo_edicao_cli:
+                                st.info("💡 **Modo de Edição Ativo:** Altere a quantidade ou valores na tabela e clique em **'💾 Salvar'**.")
+                                df_editado_cli = st.data_editor(
+                                    df_carrinho_cli,
+                                    use_container_width=True,
+                                    key="editor_carrinho_cliente"
+                                )
+                            else:
+                                st.dataframe(df_carrinho_cli, use_container_width=True)
+                        
+                            # --- LINHA COM OS 4 BOTÕES LADO A LADO ---
+                            col1, col2, col3, col4 = st.columns(4)
+                        
+                            with col1:
+                                if st.button("🗑️ Limpar Carrinho", use_container_width=True, key="btn_limpar_cli"):
+                                    st.session_state.carrinho = []
+                                    st.session_state.modo_edicao_cli = False
+                                    st.rerun()
+                        
+                            with col2:
+                                if st.button("✏️ Alterar", use_container_width=True, key="btn_alterar_cli"):
+                                    st.session_state.modo_edicao_cli = True
+                                    st.rerun()
+                        
+                            with col3:
+                                if st.button("💾 Salvar", use_container_width=True, key="btn_salvar_cli"):
+                                    if st.session_state.modo_edicao_cli and 'df_editado_cli' in locals():
+                                        df_editado_cli['quantidade'] = pd.to_numeric(df_editado_cli['quantidade'], errors='coerce').fillna(1)
+                                        df_editado_cli['valor_unitario'] = pd.to_numeric(df_editado_cli['valor_unitario'], errors='coerce').fillna(0)
+                                        df_editado_cli['valor_total'] = df_editado_cli['quantidade'] * df_editado_cli['valor_unitario']
+                                        
+                                        st.session_state.carrinho = df_editado_cli.to_dict('records')
+                                        st.session_state.modo_edicao_cli = False
+                                        st.success("✅ Pedido atualizado com sucesso!")
+                                        st.rerun()
+                        
+                            with col4:
+                                if st.button("🔴 Finalizar e Enviar Pedido", type="primary", use_container_width=True, key="btn_finalizar_cli"):
+                                    try:
+                                        cursor = conn.cursor()
+                                        data_agora = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        
+                                        for item in st.session_state.carrinho:
+                                            qtd_item = float(item.get("quantidade", 1))
+                                            prod_nome = str(item.get("produto", ""))
+                        
+                                            cursor.execute("""
+                                                INSERT INTO pedidos (cliente, produto, fornecedor, grupo, quantidade, valor_unitario, valor_total, status, data)
+                                                VALUES (?, ?, ?, ?, ?, ?, ?, 'Pendente', ?)
+                                            """, (
+                                                nome_cliente_logado, prod_nome, item.get("fornecedor", ""), item.get("grupo", ""),
+                                                qtd_item, float(item.get("valor_unitario", 0)), float(item.get("valor_total", 0)), data_agora
+                                            ))
+                        
+                                            # DÁ ENTRADA / SOMA A QUANTIDADE NO ESTOQUE DE PRODUTOS
+                                            cursor.execute("""
+                                                UPDATE produtos 
+                                                SET quantidade = quantidade + ? 
+                                                WHERE produto = ?
+                                            """, (qtd_item, prod_nome))
+                        
+                                        conn.commit()
+                                        st.session_state.carrinho = []
+                                        st.session_state.modo_edicao_cli = False
+                                        st.cache_data.clear()
+                                        st.success("✅ Pedido enviado com sucesso!")
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"Erro ao enviar pedido: {e}")
                         else:
-                            st.warning("Clique em '✏️ Alterar' primeiro para editar a tabela.")
-        
-                # 4. BOTÃO FINALIZAR E ENVIAR PEDIDO
-                with col_btn4:
-                    if st.button("🔴 Finalizar e Enviar Pedido", type="primary", use_container_width=True, key="btn_finalizar_pedido_v2"):
-                        try:
-                            cursor = conn.cursor()
-                            data_agora = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
-                            # Salva cada item no banco de dados
-                            for item in carrinho_atual:
-                                qtd_item = float(item.get("quantidade", 1))
-                                prod_nome = str(item.get("produto", ""))
-        
-                                cursor.execute("""
-                                    INSERT INTO pedidos (cliente, produto, fornecedor, grupo, quantidade, valor_unitario, valor_total, status, data)
-                                    VALUES (?, ?, ?, ?, ?, ?, ?, 'Pendente', ?)
-                                """, (
-                                    cliente_ped, prod_nome, item.get("fornecedor", ""), item.get("grupo", ""),
-                                    qtd_item, float(item.get("valor_unitario", 0)), float(item.get("valor_total", 0)), data_agora
-                                ))
-        
-                                # DÁ ENTRADA / SOMA A QUANTIDADE NO ESTOQUE DE PRODUTOS
-                                cursor.execute("""
-                                    UPDATE produtos 
-                                    SET quantidade = quantidade + ? 
-                                    WHERE produto = ?
-                                """, (qtd_item, prod_nome))
-        
-                            conn.commit()
-        
-                            # Esvazia o carrinho
-                            if 'carrinho_admin' in st.session_state:
-                                st.session_state.carrinho_admin = []
-                            if 'carrinho' in st.session_state:
-                                st.session_state.carrinho = []
-        
-                            st.session_state.modo_edicao_carrinho = False
-                            st.cache_data.clear()
-                            st.success("✅ Pedido enviado com sucesso!")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Erro ao salvar pedido: {e}")
-            else:
-                st.info("Nenhum item adicionado ao carrinho ainda.")
+                            st.info("Nenhum item adicionado ao carrinho ainda.")
     
         with aba_historico:
             st.subheader("Histórico e Gestão de Meus Pedidos")
