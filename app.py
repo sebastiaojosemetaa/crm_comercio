@@ -1386,6 +1386,16 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             df_filtrado[cols_exibir],
                             disabled=["id", "data"],
                             use_container_width=True,
+                            column_config={
+                                "valor_unitario": st.column_config.NumberColumn(
+                                    "Valor Unitário",
+                                    format="R$ %.2f"
+                                ),
+                                "valor_total": st.column_config.NumberColumn(
+                                    "Valor Total",
+                                    format="R$ %.2f"
+                                )
+                            },
                             key="editor_pedidos_dia"
                         )
             
