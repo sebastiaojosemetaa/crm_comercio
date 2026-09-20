@@ -1647,37 +1647,45 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 key="editor_estoque_produtos"
             )
         
-            col_salvar, col_atualizar = st.columns([1, 1])
-        
-            with col_salvar:
-                if st.button("💾 Salvar Alterações no Estoque", type="primary"):
-                    try:
-                        with conn:
-                            cursor = conn.cursor()
-                            for index, row in df_estoque_editado.iterrows():
-                                cursor.execute("""
-                                    UPDATE produtos 
-                                    SET produto = ?, 
-                                        quantidade = ?, 
-                                        valor_compra = ?, 
-                                        valor_venda = ?, 
-                                        grupo = ?, 
-                                        fornecedor = ?
-                                    WHERE id = ?
-                                """, (
-                                    row['produto'], 
-                                    row['quantidade'], 
-                                    row['valor_compra'], 
-                                    row['valor_venda'], 
-                                    row['grupo'], 
-                                    row['fornecedor'], 
-                                    row['id']
-                                ))
-                        st.cache_data.clear()
-                        st.success("✅ Alterações salvas com sucesso!")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Erro ao salvar: {e}")
+            # --- BOTÃO SALVAR ALTERAÇÕES NO ESTOQUE CORRIGIDO ---
+            if st.button("💾 Salvar Alterações no Estoque", type="primary"):
+                try:
+                    cursor = conn.cursor()
+            
+                    # Garante que as colunas existem fisicamente na base de dados SQLite
+                    for col in ["grupo", "fornecedor"]:
+                        try:
+                            cursor.execute(f"ALTER TABLE produtos ADD COLUMN {col} TEXT")
+                        except Exception:
+                            pass  # A coluna já existe
+            
+                    # Atualiza os registos na base de dados
+                    for index, row in df_estoque_editado.iterrows():
+                        cursor.execute("""
+                            UPDATE produtos 
+                            SET produto = ?, 
+                                quantidade = ?, 
+                                valor_compra = ?, 
+                                valor_venda = ?, 
+                                grupo = ?, 
+                                fornecedor = ?
+                            WHERE id = ?
+                        """, (
+                            row['produto'], 
+                            row['quantidade'], 
+                            row['valor_compra'], 
+                            row['valor_venda'], 
+                            row.get('grupo', ''), 
+                            row.get('fornecedor', ''), 
+                            row['id']
+                        ))
+            
+                    conn.commit()
+                    st.cache_data.clear()
+                    st.success("✅ Alterações do estoque salvas com sucesso!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Erro ao salvar: {e}")
         
             with col_atualizar:
                 if st.button("🔄 Atualizar Preços de Compra"):
