@@ -1782,6 +1782,14 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         else:
                             try:
                                 cursor = conn.cursor()
+    
+                                # Garante que as colunas 'grupo' e 'fornecedor' existem na tabela do banco
+                                for col in ["grupo", "fornecedor", "valor_compra", "valor_venda"]:
+                                    try:
+                                        cursor.execute(f"ALTER TABLE produtos ADD COLUMN {col} TEXT")
+                                    except Exception:
+                                        pass  # Coluna já existe
+    
                                 cursor.execute("""
                                     INSERT INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda)
                                     VALUES (?, ?, ?, ?, ?, ?)
