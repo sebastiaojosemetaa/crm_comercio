@@ -1418,7 +1418,30 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     st.rerun()
                                 except Exception as e:
                                     st.error(f"Erro ao salvar alterações: {e}")
-            
+                            if st.button("🔄 Atualizar Preços dos Pedidos com o Estoque", key="btn_atualizar_precos_pedidos"):
+                                try:
+                                    with conn:
+                                        cursor = conn.cursor()
+                                        cursor.execute("""
+                                            UPDATE pedidos
+                                            SET valor_unitario = (
+                                                SELECT valor_venda FROM produtos
+                                                WHERE produtos.produto = pedidos.produto
+                                            ),
+                                            valor_total = quantidade * (
+                                                SELECT valor_venda FROM produtos
+                                                WHERE produtos.produto = pedidos.produto
+                                            )
+                                            WHERE status = 'Pendente' AND EXISTS (
+                                                SELECT 1 FROM produtos
+                                                WHERE produtos.produto = pedidos.produto
+                                            )
+                                        """)
+                                    st.cache_data.clear()
+                                    st.success("✅ Preços dos pedidos pendentes atualizados com o estoque com sucesso!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Erro ao atualizar preços dos pedidos: {e}")
                         with col_b2:
                             if st.button("🗑️ Excluir Marcados", type="secondary", key="btn_excluir_pedidos_marcados"):
                                 try:
