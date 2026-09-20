@@ -172,7 +172,22 @@ def adequar_banco_e_migrar():
                 cidade TEXT
             )
         """)
-
+# Garante a criação da tabela caixa_sessoes e colunas necessárias
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS caixa_sessoes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                data_abertura TEXT,
+                data_fechamento TEXT,
+                saldo_inicial REAL,
+                saldo_final REAL,
+                status TEXT
+            )
+        """)
+        for col in ["data_abertura", "data_fechamento", "saldo_inicial", "saldo_final", "status"]:
+            try:
+                cursor.execute(f"ALTER TABLE caixa_sessoes ADD COLUMN {col} TEXT")
+            except Exception:
+                pass
         # Adiciona colunas faltantes se for banco antigo
         for col in ["cliente", "nome", "cpf", "doc", "endereco", "email", "fone", "telefone", "cidade"]:
             try:
