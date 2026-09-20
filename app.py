@@ -1623,11 +1623,21 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
 
-            # 1. Carrega os produtos do banco
-            df_produtos = pd.read_sql_query(
-                "SELECT id, produto, quantidade, valor_compra, valor_venda, grupo, fornecedor FROM produtos", 
-                conn
-            )
+            # --- CARREGAMENTO SEGURO DA TABELA DE ESTOQUE ---
+            try:
+                df_produtos = pd.read_sql_query("SELECT * FROM produtos", conn)
+            except Exception:
+                df_produtos = pd.DataFrame()
+            
+            # Garante a existência de todas as colunas necessárias
+            cols_esperadas = ['id', 'produto', 'quantidade', 'valor_compra', 'valor_venda', 'grupo', 'fornecedor']
+            for c in cols_esperadas:
+                if c not in df_produtos.columns:
+                    df_produtos[c] = 0.0 if ('valor' in c or 'quantidade' in c) else ""
+            
+            if not df_produtos.empty:
+                cols_finais = [c for c in cols_esperadas if c in df_produtos.columns]
+                df_produtos = df_produtos[cols_finais]
         
             # 2. Exibe a tabela editável e armazena na variável
             df_estoque_editado = st.data_editor(
