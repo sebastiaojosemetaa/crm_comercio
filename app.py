@@ -898,12 +898,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
                 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
                 from reportlab.lib import colors
-        
+            
                 buffer = io.BytesIO()
                 doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
                 elementos = []
                 styles = getSampleStyleSheet()
-        
+            
                 titulo_estilo = ParagraphStyle(
                     'TituloCupom',
                     parent=styles['Heading1'],
@@ -917,16 +917,16 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 elementos.append(Paragraph(f"<b>Cliente:</b> {cliente_selecionado}", styles['Normal']))
                 elementos.append(Paragraph(f"<b>Data/Hora:</b> {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}", styles['Normal']))
                 elementos.append(Spacer(1, 15))
-        
+            
                 dados_tabela = [["Produto", "Fornecedor", "Grupo", "Qtd", "Unit. (R$)", "Total (R$)"]]
                 total_geral = 0.0
-        
+            
                 for item in itens:
                     qtd = float(item.get('quantidade', 1))
                     v_venda = float(item.get('valor_venda', 0))
                     v_tot = qtd * v_venda
                     total_geral += v_tot
-        
+            
                     dados_tabela.append([
                         str(item.get('produto', '')),
                         str(item.get('fornecedor', '')),
@@ -935,7 +935,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         f"R$ {v_venda:.2f}",
                         f"R$ {v_tot:.2f}"
                     ])
-        
+            
                 tabela = Table(dados_tabela, colWidths=[130, 80, 80, 40, 70, 70])
                 tabela.setStyle(TableStyle([
                     ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#333333")),
@@ -950,7 +950,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 elementos.append(tabela)
                 elementos.append(Spacer(1, 15))
                 elementos.append(Paragraph(f"<b>Total Geral da Venda: R$ {total_geral:.2f}</b>", styles['Heading2']))
-        
+            
                 doc.build(elementos)
                 buffer.seek(0)
                 return buffer.getvalue()
