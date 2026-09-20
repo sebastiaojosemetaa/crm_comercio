@@ -183,7 +183,11 @@ def adequar_banco_e_migrar():
         # 🔄 CORREÇÃO/SINCRONIZAÇÃO: Copia 'cliente' para 'nome' e vice-versa se estiver vazio
         cursor.execute("UPDATE clientes SET nome = cliente WHERE (nome IS NULL OR nome = '') AND (cliente IS NOT NULL AND cliente != '')")
         cursor.execute("UPDATE clientes SET cliente = nome WHERE (cliente IS NULL OR cliente = '') AND (nome IS NOT NULL AND nome != '')")
-
+    # Garante que a coluna 'status' existe na tabela vendas
+            try:
+                cursor.execute("ALTER TABLE vendas ADD COLUMN status TEXT")
+            except Exception:
+                pass
         conn.commit()
     except Exception as e:
         print(f"Aviso de migração de clientes: {e}")
