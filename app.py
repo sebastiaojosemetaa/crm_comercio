@@ -1761,6 +1761,20 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             with tab_prod:
                 st.subheader("📝 Gerenciar Produtos (Cadastrar, Editar e Excluir)")
     
+                # 🔍 Busca todos os Grupos cadastrados no banco
+                try:
+                    df_g = carregar_dados("SELECT DISTINCT grupo FROM grupos WHERE grupo IS NOT NULL AND grupo != '' ORDER BY grupo")
+                    grupos_opt = df_g['grupo'].tolist() if not df_g.empty else ["GERAL"]
+                except Exception:
+                    grupos_opt = ["GERAL"]
+    
+                # 🔍 Busca todos os Fornecedores cadastrados no banco
+                try:
+                    df_f = carregar_dados("SELECT DISTINCT fornecedor FROM fornecedores WHERE fornecedor IS NOT NULL AND fornecedor != '' ORDER BY fornecedor")
+                    fornecedores_opt = df_f['fornecedor'].tolist() if not df_f.empty else ["BAHIA"]
+                except Exception:
+                    fornecedores_opt = ["BAHIA"]
+    
                 with st.form("form_cadastrar_produto", clear_on_submit=True):
                     col1, col2 = st.columns(2)
     
@@ -1770,9 +1784,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         estoque_inicial = st.number_input("Estoque Inicial", min_value=0.0, value=0.0, step=1.0)
     
                     with col2:
-                        grupo_produto = st.selectbox("Grupo / Categoria", grupos_opt if 'grupos_opt' in locals() else ["Geral"])
+                        grupo_produto = st.selectbox("Grupo / Categoria", grupos_opt)
                         val_venda = st.number_input("Preço de Venda (R$)", min_value=0.0, value=0.0, step=0.5)
-                        fornecedor_produto = st.selectbox("Fornecedor", fornecedores_opt if 'fornecedores_opt' in locals() else ["BAHIA"])
+                        fornecedor_produto = st.selectbox("Fornecedor", fornecedores_opt)
     
                     btn_salvar = st.form_submit_button("💾 Salvar Novo Produto")
     
@@ -1783,12 +1797,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             try:
                                 cursor = conn.cursor()
     
-                                # Garante que as colunas 'grupo' e 'fornecedor' existem na tabela do banco
+                                # Garante que as colunas existem na tabela do banco
                                 for col in ["grupo", "fornecedor", "valor_compra", "valor_venda"]:
                                     try:
                                         cursor.execute(f"ALTER TABLE produtos ADD COLUMN {col} TEXT")
                                     except Exception:
-                                        pass  # Coluna já existe
+                                        pass
     
                                 cursor.execute("""
                                     INSERT INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda)
