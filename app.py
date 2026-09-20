@@ -1622,89 +1622,94 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
-
+    
             # --- CARREGAMENTO SEGURO DA TABELA DE ESTOQUE ---
             try:
                 df_produtos = pd.read_sql_query("SELECT * FROM produtos", conn)
             except Exception:
                 df_produtos = pd.DataFrame()
-            
+    
             # Garante a existência de todas as colunas necessárias
             cols_esperadas = ['id', 'produto', 'quantidade', 'valor_compra', 'valor_venda', 'grupo', 'fornecedor']
             for c in cols_esperadas:
                 if c not in df_produtos.columns:
                     df_produtos[c] = 0.0 if ('valor' in c or 'quantidade' in c) else ""
-            
+    
             if not df_produtos.empty:
                 cols_finais = [c for c in cols_esperadas if c in df_produtos.columns]
                 df_produtos = df_produtos[cols_finais]
-        
-            # 2. Exibe a tabela editável e armazena na variável
+    
+            # Exibe a tabela editável
             df_estoque_editado = st.data_editor(
                 df_produtos,
                 use_container_width=True,
                 hide_index=True,
                 key="editor_estoque_produtos"
             )
-        
-            # --- BOTÃO SALVAR ALTERAÇÕES NO ESTOQUE CORRIGIDO ---
-            if st.button("💾 Salvar Alterações no Estoque", type="primary"):
-                try:
-                    cursor = conn.cursor()
-            
-                    # Garante que as colunas existem fisicamente na base de dados SQLite
-                    for col in ["grupo", "fornecedor"]:
-                        try:
-                            cursor.execute(f"ALTER TABLE produtos ADD COLUMN {col} TEXT")
-                        except Exception:
-                            pass  # A coluna já existe
-            
-                    # Atualiza os registos na base de dados
-                    for index, row in df_estoque_editado.iterrows():
-                        cursor.execute("""
-                            UPDATE produtos 
-                            SET produto = ?, 
-                                quantidade = ?, 
-                                valor_compra = ?, 
-                                valor_venda = ?, 
-                                grupo = ?, 
-                                fornecedor = ?
-                            WHERE id = ?
-                        """, (
-                            row['produto'], 
-                            row['quantidade'], 
-                            row['valor_compra'], 
-                            row['valor_venda'], 
-                            row.get('grupo', ''), 
-                            row.get('fornecedor', ''), 
-                            row['id']
-                        ))
-            
-                    conn.commit()
-                    st.cache_data.clear()
-                    st.success("✅ Alterações do estoque salvas com sucesso!")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Erro ao salvar: {e}")
-        
+    
+            # DEFINIÇÃO DAS COLUNAS PARA OS BOTÕES (RESOLVE O NameError)
+            col_salvar, col_atualizar = st.columns([1, 1])
+    
+            # Botão 1: Salvar Alterações
+            with col_salvar:
+                if st.button("💾 Salvar Alterações no Estoque", type="primary", key="btn_salvar_estoque"):
+                    try:
+                        cursor = conn.cursor()
+    
+                        # Garante que as colunas existem fisicamente na base de dados
+                        for col in ["grupo", "fornecedor"]:
+                            try:
+                                cursor.execute(f"ALTER TABLE produtos ADD COLUMN {col} TEXT")
+                            except Exception:
+                                pass
+    
+                        for index, row in df_estoque_editado.iterrows():
+                            cursor.execute("""
+                                UPDATE produtos 
+                                SET produto = ?, 
+                                    quantidade = ?, 
+                                    valor_compra = ?, 
+                                    valor_venda = ?, 
+                                    grupo = ?, 
+                                    fornecedor = ?
+                                WHERE id = ?
+                            """, (
+                                row['produto'], 
+                                row['quantidade'], 
+                                row['valor_compra'], 
+                                row['valor_venda'], 
+                                row.get('grupo', ''), 
+                                row.get('fornecedor', ''), 
+                                row['id']
+                            ))
+    
+                        conn.commit()
+                        st.cache_data.clear()
+                        st.success("✅ Alterações do estoque salvas com sucesso!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao salvar: {e}")
+    
+            # Botão 2: Atualizar Preços de Compra
             with col_atualizar:
-                if st.button("🔄 Atualizar Preços de Compra"):
+                if st.button("🔄 Atualizar Preços de Compra", key="btn_atualizar_precos"):
                     try:
                         with conn:
                             cursor = conn.cursor()
                             cursor.execute("""
-                                UPDATE produtos 
+                                UPDATE produtos
                                 SET valor_compra = (
-                                    SELECT valor_compra FROM compras 
-                                    WHERE compras.produto = produtos.produto 
+                                    SELECT valor_compra FROM compras
+                                    WHERE compras.produto = produtos.produto
                                     ORDER BY id DESC LIMIT 1
                                 )
                                 WHERE EXISTS (
-                                    SELECT 1 FROM compras 
+                                    SELECT 1 FROM compras
                                     WHERE compras.produto = produtos.produto
                                 )
                             """)
-                        st.success("Preços de compra atualizados com sucesso!")
+                        st.cache_data.clear()
+                        st.success("✅ Preços de compra atualizados com sucesso!")
                         st.rerun()
                     except Exception as e:
                         st.error(f"Erro ao atualizar preço: {e}")
