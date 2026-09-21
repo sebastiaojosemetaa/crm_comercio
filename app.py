@@ -896,9 +896,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 if st.button("Finalizar Venda no PDV", type="primary"):
                     if not df_caixa_aberto.empty and len(st.session_state.carrinho_pdv) > 0:
                         cursor = conn.cursor()
-                        sessao_id = df_caixa_aberto.iloc[0]['id']
+                        sessao_id = int(df_caixa_aberto.iloc[0]['id'])
                         data_venda = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 
+                        # 1. Grava cada item na tabela de vendas
                         for item in st.session_state.carrinho_pdv:
                             cursor.execute("""
                                 INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, status, tipo, data)
@@ -918,11 +919,21 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 data_venda
                             ))
                 
-                        cursor.execute("INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, ?, ?, ?, ?)",
-                            (sessao_id, "VENDA", total_geral_carrinho, f"Venda PDV - Cliente: {cliente_pdv}", data_venda)
-                        )
+                        # 2. Insere obrigatoriamente a movimentação vinculada ao caixa aberto para somar no total
+                        cursor.execute("""
+                            INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) 
+                            VALUES (?, ?, ?, ?, ?)
+                        """, (
+                            sessao_id, 
+                            "VENDA", 
+                            float(total_geral_carrinho), 
+                            f"Venda PDV - Cliente: {cliente_pdv}", 
+                            data_venda
+                        ))
+                        
                         conn.commit()
                 
+                        # 3. Limpa o carrinho e avisa o utilizador
                         st.session_state.carrinho_pdv = []
                         st.success(f"Venda realizada com sucesso! Troco: R$ {max(0.0, troco):.2f}")
                         st.rerun()
