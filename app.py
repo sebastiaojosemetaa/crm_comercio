@@ -173,30 +173,30 @@ def adequar_banco_e_migrar():
             )
         """)
 
-        # 2. Garante a criação da tabela vendas básica caso não exista
+        # 2. Tabela de Vendas
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS vendas (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 cliente TEXT,
                 produto TEXT,
+                fornecedor TEXT,
+                grupo TEXT,
+                quantidade REAL,
+                valor_venda REAL,
+                valor_total REAL,
+                forma_pagamento TEXT,
+                valor_recebido TEXT,
+                troco REAL,
+                restante REAL,
+                status TEXT,
+                tipo TEXT,
+                codigo TEXT,
+                codigo_venda TEXT,
                 data TEXT
             )
         """)
 
-        # 🔄 ADICIONA AUTOMATICAMENTE TODAS AS COLUNAS FALTANTES NA TABELA VENDAS
-        colunas_vendas_necessarias = [
-            "cliente", "produto", "fornecedor", "grupo", "quantidade", 
-            "valor_venda", "valor_total", "forma_pagamento", "valor_recebido", 
-            "troco", "restante", "status", "tipo", "codigo", "codigo_venda", "data"
-        ]
-        
-        for col in colunas_vendas_necessarias:
-            try:
-                cursor.execute(f"ALTER TABLE vendas ADD COLUMN {col} TEXT")
-            except Exception:
-                pass  # A coluna já existe, ignora e continua
-
-        # Garante a criação da tabela caixa_sessoes e colunas necessárias
+        # 3. Tabela de Sessões de Caixa
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS caixa_sessoes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -207,7 +207,20 @@ def adequar_banco_e_migrar():
                 status TEXT
             )
         """)
-        
+
+        # 4. Tabela de Movimentações de Caixa (Adicione este bloco)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS caixa_movimentacoes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sessao_id INTEGER,
+                tipo TEXT,
+                valor REAL,
+                descricao TEXT,
+                data TEXT
+            )
+        """)
+
+        # Garante colunas extras caso necessário
         for col in ["data_abertura", "data_fechamento", "saldo_inicial", "saldo_final", "status"]:
             try:
                 cursor.execute(f"ALTER TABLE caixa_sessoes ADD COLUMN {col} TEXT")
