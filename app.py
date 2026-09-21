@@ -898,15 +898,15 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         sessao_id = df_caixa_aberto.iloc[0]['id']
                         data_venda = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-                        for item in st.session_state.carrinho_pdv:
-                        cursor.execute("""
-                            INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, status, tipo, data)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Concluído', 'VENDA', ?)
-                        """, (
-                            cliente_pdv, item['produto'], item['fornecedor'], item['grupo'],
-                            item['quantidade'], item['valor_venda'], item['valor_total'],
-                            f_pag, v_rec, data_venda
-                        ))
+                for item in st.session_state.carrinho_pdv:
+                    cursor.execute("""
+                        INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, status, tipo, data)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Concluído', 'VENDA', ?)
+                    """, (
+                        cliente_pdv, item['produto'], item['fornecedor'], item['grupo'],
+                        item['quantidade'], item['valor_venda'], item['valor_total'],
+                        f_pag, v_rec, data_venda
+                    ))
 
                         cursor.execute("INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, ?, ?, ?, ?)",
                             (sessao_id, "VENDA", total_geral_carrinho, f"Venda PDV - Cliente: {cliente_pdv}", data_venda)
