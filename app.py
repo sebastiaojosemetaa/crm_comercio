@@ -950,7 +950,15 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     
 # Chamada do botão do cupom:
 if 'carrinho_pdv' in st.session_state and st.session_state['carrinho_pdv']:
-    pdf_bytes = gerar_pdf_cupom(cliente_atual, st.session_state['carrinho_pdv'])
+    # Obtenha o cliente e o carrinho de forma segura do session_state
+    cliente_selecionado = st.session_state.get('cliente_atual', 'Cliente Balcão')
+    carrinho = st.session_state.get('carrinho_pdv', [])
+    
+    # Certifique-se de que o carrinho não está vazio antes de gerar o PDF
+    if carrinho:
+        pdf_bytes = gerar_pdf_cupom(cliente_selecionado, carrinho)
+    else:
+        st.warning("O carrinho está vazio.")
     
     st.download_button(
         label="📥 Baixar / Imprimir Cupom da Venda",
