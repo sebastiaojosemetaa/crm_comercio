@@ -156,58 +156,44 @@ conn = get_connection()
 def adequar_banco_e_migrar():
     try:
         cursor = conn.cursor()
-
-        # 1. Tabela de Clientes
+        
+        # Garante que a tabela vendas existe com a estrutura base
         cursor.execute("""
-            CREATE TABLE IF NOT EXISTS clientes (
+            CREATE TABLE IF NOT EXISTS vendas (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 cliente TEXT,
-                nome TEXT,
-                cpf TEXT,
-                doc TEXT,
-                endereco TEXT,
-                email TEXT,
-                fone TEXT,
-                telefone TEXT,
-                cidade TEXT
+                produto TEXT,
+                quantidade REAL,
+                valor_venda REAL,
+                valor_total REAL,
+                data TEXT
             )
         """)
-# Garante a criação da tabela caixa_sessoes e colunas necessárias
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS caixa_sessoes (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                data_abertura TEXT,
-                data_fechamento TEXT,
-                saldo_inicial REAL,
-                saldo_final REAL,
-                status TEXT
-            )
-        """)
-        for col in ["data_abertura", "data_fechamento", "saldo_inicial", "saldo_final", "status"]:
+        
+        # Adiciona automaticamente todas as colunas que o seu PDV/vendas utiliza se elas não existirem
+        colunas_necessarias = [
+            ("fornecedor", "TEXT"),
+            ("grupo", "TEXT"),
+            ("forma_pagamento", "TEXT"),
+            ("valor_recebido", "REAL"),
+            ("troco", "REAL"),
+            ("restante", "REAL"),
+            ("status", "TEXT"),
+            ("tipo", "TEXT"),
+            ("codigo", "TEXT"),
+            ("codigo_venda", "TEXT")
+        ]
+        
+        for col_nome, col_tipo in colunas_necessarias:
             try:
-                cursor.execute(f"ALTER TABLE caixa_sessoes ADD COLUMN {col} TEXT")
+                cursor.execute(f"ALTER TABLE vendas ADD COLUMN {col_nome} {col_tipo};")
+                conn.commit()
             except Exception:
-                pass
-        # Adiciona colunas faltantes se for banco antigo
-        for col in ["cliente", "nome", "cpf", "doc", "endereco", "email", "fone", "telefone", "cidade"]:
-            try:
-                cursor.execute(f"ALTER TABLE clientes ADD COLUMN {col} TEXT")
-            except Exception:
-                pass
-
-        # 🔄 CORREÇÃO/SINCRONIZAÇÃO: Copia 'cliente' para 'nome' e vice-versa se estiver vazio
-        cursor.execute("UPDATE clientes SET nome = cliente WHERE (nome IS NULL OR nome = '') AND (cliente IS NOT NULL AND cliente != '')")
-        cursor.execute("UPDATE clientes SET cliente = nome WHERE (cliente IS NULL OR cliente = '') AND (nome IS NOT NULL AND nome != '')")
-    # Garante que a coluna 'status' existe na tabela vendas
-        try:
-            cursor.execute("ALTER TABLE vendas ADD COLUMN status TEXT")
-        except Exception:
-            pass
-        conn.commit()
+                pass # A coluna já existe, ignora e continua
+                
     except Exception as e:
-        print(f"Aviso de migração de clientes: {e}")
+        print(f"Erro na migração: {e}")
 
-# Executa a migração/sincronização
 adequar_banco_e_migrar()
 # --- FUNÇÃO DE LIMPEZA E SANITIÇÃO DO BANCO DE DADOS ---
 def executar_limpeza_banco():
