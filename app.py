@@ -172,7 +172,31 @@ def adequar_banco_e_migrar():
                 cidade TEXT
             )
         """)
-# Garante a criação da tabela caixa_sessoes e colunas necessárias
+
+        # 2. Tabela de Vendas (Adicione este bloco que estava em falta)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS vendas (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                cliente TEXT,
+                produto TEXT,
+                fornecedor TEXT,
+                grupo TEXT,
+                quantidade REAL,
+                valor_venda REAL,
+                valor_total REAL,
+                forma_pagamento TEXT,
+                valor_recebido REAL,
+                troco REAL,
+                restante REAL,
+                status TEXT,
+                tipo TEXT,
+                codigo TEXT,
+                codigo_venda TEXT,
+                data TEXT
+            )
+        """)
+
+        # Garante a criação da tabela caixa_sessoes e colunas necessárias
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS caixa_sessoes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -183,29 +207,30 @@ def adequar_banco_e_migrar():
                 status TEXT
             )
         """)
+        
         for col in ["data_abertura", "data_fechamento", "saldo_inicial", "saldo_final", "status"]:
             try:
                 cursor.execute(f"ALTER TABLE caixa_sessoes ADD COLUMN {col} TEXT")
             except Exception:
                 pass
-        # Adiciona colunas faltantes se for banco antigo
+
         for col in ["cliente", "nome", "cpf", "doc", "endereco", "email", "fone", "telefone", "cidade"]:
             try:
                 cursor.execute(f"ALTER TABLE clientes ADD COLUMN {col} TEXT")
             except Exception:
                 pass
 
-        # 🔄 CORREÇÃO/SINCRONIZAÇÃO: Copia 'cliente' para 'nome' e vice-versa se estiver vazio
         cursor.execute("UPDATE clientes SET nome = cliente WHERE (nome IS NULL OR nome = '') AND (cliente IS NOT NULL AND cliente != '')")
         cursor.execute("UPDATE clientes SET cliente = nome WHERE (cliente IS NULL OR cliente = '') AND (nome IS NOT NULL AND nome != '')")
-    # Garante que a coluna 'status' existe na tabela vendas
+
         try:
             cursor.execute("ALTER TABLE vendas ADD COLUMN status TEXT")
         except Exception:
             pass
+            
         conn.commit()
     except Exception as e:
-        print(f"Aviso de migração de clientes: {e}")
+        print(f"Aviso de migração: {e}")
 
 # Executa a migração/sincronização
 adequar_banco_e_migrar()
