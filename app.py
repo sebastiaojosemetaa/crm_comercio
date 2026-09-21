@@ -1863,10 +1863,58 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 st.error(msg)
     
                 st.markdown("---")
-                st.subheader("📋 Lista de Clientes")
+                st.subheader("Lista de Clientes")
                 df_cli_view = carregar_dados("SELECT * FROM clientes")
                 if not df_cli_view.empty:
                     st.dataframe(df_cli_view, use_container_width=True)
+                    
+                    # Seção para Atualizar e Excluir Clientes Existentes
+                    st.markdown("---")
+                    st.subheader("⚙️ Gerir Clientes Selecionados")
+                    if 'id' in df_cli_view.columns:
+                        lista_ids = df_cli_view['id'].tolist()
+                        id_selecionado = st.selectbox("Selecione o ID do Cliente para Atualizar ou Excluir", lista_ids, key="sel_cli_gerir")
+                        
+                        cli_atual = df_cli_view[df_cli_view['id'] == id_selecionado].iloc[0]
+                        
+                        nome_atual = str(cli_atual.get('cliente', '')) if pd.notna(cli_atual.get('cliente')) else str(cli_atual.get('nome', ''))
+                        cpf_atual = str(cli_atual.get('cpf', '')) if pd.notna(cli_atual.get('cpf')) else ''
+                        end_atual = str(cli_atual.get('endereco', '')) if pd.notna(cli_atual.get('endereco')) else ''
+                        email_atual = str(cli_atual.get('email', '')) if pd.notna(cli_atual.get('email')) else ''
+                        fone_atual = str(cli_atual.get('fone', '')) if pd.notna(cli_atual.get('fone')) else ''
+                        cidade_atual = str(cli_atual.get('cidade', '')) if pd.notna(cli_atual.get('cidade')) else ''
+            
+                        with st.form("form_gerir_cliente"):
+                            novo_nome = st.text_input("Nome / Cliente", value=nome_atual)
+                            novo_cpf = st.text_input("CPF / DOC", value=cpf_atual)
+                            novo_end = st.text_input("Endereço", value=end_atual)
+                            novo_email = st.text_input("E-mail", value=email_atual)
+                            novo_fone = st.text_input("Telefone / Fone", value=fone_atual)
+                            novo_cidade = st.text_input("Cidade", value=cidade_atual)
+                            
+                            col_b1, col_b2 = st.columns(2)
+                            with col_b1:
+                                btn_atualizar = st.form_submit_button("🔄 Atualizar Cliente", type="primary")
+                            with col_b2:
+                                btn_excluir = st.form_submit_button("🗑️ Excluir Cliente", type="secondary")
+                                
+                            if btn_atualizar:
+                                cursor = conn.cursor()
+                                cursor.execute("""
+                                    UPDATE clientes 
+                                    SET cliente = ?, nome = ?, cpf = ?, endereco = ?, email = ?, fone = ?, cidade = ?
+                                    WHERE id = ?
+                                """, (novo_nome, novo_nome, novo_cpf, novo_end, novo_email, novo_fone, novo_cidade, id_selecionado))
+                                conn.commit()
+                                st.success("Cliente atualizado com sucesso!")
+                                st.rerun()
+                                
+                            if btn_excluir:
+                                cursor = conn.cursor()
+                                cursor.execute("DELETE FROM clientes WHERE id = ?", (id_selecionado,))
+                                conn.commit()
+                                st.success("Cliente excluído com sucesso!")
+                                st.rerun()
                 else:
                     st.info("Nenhum cliente cadastrado ainda.")
     
