@@ -969,32 +969,32 @@ if 'carrinho_pdv' in st.session_state and st.session_state['carrinho_pdv']:
         key="btn_download_cupom_pdv"
     )
                 
-    if st.button("", type="primary"):
-        if not df_caixa_aberto.empty and len(st.session_state.carrinho_pdv) > 0:
-            cursor = conn.cursor()
-            sessao_id = df_caixa_aberto.iloc[0]['id']
-            data_venda = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    
-            for item in st.session_state.carrinho_pdv:
-                cursor.execute("""
-                    INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, status, tipo, data)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Concluído', 'VENDA', ?)
-                """, (
-                    cliente_pdv, item['produto'], item['fornecedor'], item['grupo'],
-                    item['quantidade'], item['valor_venda'], item['valor_total'],
-                    f_pag, v_rec, data_venda
-                ))
-    
-            cursor.execute("INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, ?, ?, ?, ?)",
-                (sessao_id, "VENDA", total_geral_carrinho, f"Venda PDV - Cliente: {cliente_pdv}", data_venda)
-            )
-            conn.commit()
-    
-            st.session_state.carrinho_pdv = []
-            st.success(f"Venda realizada com sucesso! Troco: R$ {max(0.0, troco):.2f}")
-            st.rerun()
-        else:
-            st.error("Verifique se o caixa está aberto e se há itens no carrinho.")
+if st.button("", type="primary"):
+    if not df_caixa_aberto.empty and len(st.session_state.carrinho_pdv) > 0:
+        cursor = conn.cursor()
+        sessao_id = df_caixa_aberto.iloc[0]['id']
+        data_venda = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+        for item in st.session_state.carrinho_pdv:
+            cursor.execute("""
+                INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, status, tipo, data)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Concluído', 'VENDA', ?)
+            """, (
+                cliente_pdv, item['produto'], item['fornecedor'], item['grupo'],
+                item['quantidade'], item['valor_venda'], item['valor_total'],
+                f_pag, v_rec, data_venda
+            ))
+
+        cursor.execute("INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, ?, ?, ?, ?)",
+            (sessao_id, "VENDA", total_geral_carrinho, f"Venda PDV - Cliente: {cliente_pdv}", data_venda)
+        )
+        conn.commit()
+
+        st.session_state.carrinho_pdv = []
+        st.success(f"Venda realizada com sucesso! Troco: R$ {max(0.0, troco):.2f}")
+        st.rerun()
+    else:
+        st.error("Verifique se o caixa está aberto e se há itens no carrinho.")
 
         elif menu_admin == "🔓 Abertura e Fechamento de Caixa":
             st.title("🔓 Abertura e Fechamento de Caixa")
