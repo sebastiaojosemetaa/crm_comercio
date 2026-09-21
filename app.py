@@ -268,30 +268,30 @@ def adequar_banco_e_migrar():
             except:
                 pass
                 # Garante a criação da tabela caixa_movimentacoes e colunas necessárias
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS caixa_movimentacoes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            sessao_id INTEGER,
-            tipo TEXT,
-            valor REAL,
-            descricao TEXT,
-            data TEXT
-        )
-    """)
-    conn.commit()
-
-    for col_nome, col_tipo in [
-        ("sessao_id", "INTEGER"),
-        ("tipo", "TEXT"),
-        ("valor", "REAL"),
-        ("descricao", "TEXT"),
-        ("data", "TEXT")
-    ]:
-        try:
-            cursor.execute(f"ALTER TABLE caixa_movimentacoes ADD COLUMN {col_nome} {col_tipo};")
-            conn.commit()
-        except:
-            pass
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS caixa_movimentacoes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sessao_id INTEGER,
+                tipo TEXT,
+                valor REAL,
+                descricao TEXT,
+                data TEXT
+            )
+        """)
+        conn.commit()
+    
+        for col_nome, col_tipo in [
+            ("sessao_id", "INTEGER"),
+            ("tipo", "TEXT"),
+            ("valor", "REAL"),
+            ("descricao", "TEXT"),
+            ("data", "TEXT")
+        ]:
+            try:
+                cursor.execute(f"ALTER TABLE caixa_movimentacoes ADD COLUMN {col_nome} {col_tipo};")
+                conn.commit()
+            except:
+                pass
 # Garante a criação da tabela caixa_sessoes e colunas necessárias
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS caixa_sessoes (
