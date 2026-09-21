@@ -1440,11 +1440,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         grp = str(row.get('grupo', '')).strip()
                                         stts = str(row.get('status', 'PENDENTE')).strip()
             
-                                        cursor.execute("""
-                                            UPDATE pedidos
-                                            SET cliente = ?, produto = ?, quantidade = ?, valor_unitario = ?, valor_total = ?, fornecedor = ?, grupo = ?, status = ?
-                                            WHERE id = ?
-                                        """, (cli, prod, qtd, v_unit, v_tot, fornec, grp, stts, ped_id))
+                                        cursor.execute("UPDATE pedidos SET cliente = ?, produto = ?, quantidade = ?, valor_unitario = ?, valor_total = ?, fornecedor = ?, grupo = ?, status = ? WHERE id = ?", (cli, prod, qtd, v_unit, v_tot, fornec, grp, stts, ped_id))
             
                                     conn.commit()
                                     st.cache_data.clear()
