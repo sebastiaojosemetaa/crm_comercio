@@ -963,7 +963,10 @@ if 'carrinho_pdv' in st.session_state and st.session_state['carrinho_pdv']:
     st.download_button(
         label="📥 Baixar / Imprimir Cupom da Venda",
         data=pdf_bytes,
-        file_name=f"cupom_venda_{cliente_atual}.pdf",
+        # Garanta que a variável está definida antes de a utilizar no f-string
+        cliente_atual = st.session_state.get('cliente_atual', 'Cliente Balcão')
+        
+        file_name = f"cupom_venda_{cliente_atual}.pdf"
         mime="application/pdf",
         key="btn_download_cupom_pdv"
     )
