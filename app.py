@@ -157,84 +157,28 @@ def adequar_banco_e_migrar():
     try:
         cursor = conn.cursor()
 
-        # 1. Tabela de Clientes
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS clientes (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                cliente TEXT,
-                nome TEXT,
-                cpf TEXT,
-                doc TEXT,
-                endereco TEXT,
-                email TEXT,
-                fone TEXT,
-                telefone TEXT,
-                cidade TEXT
-            )
-        """)
-
-        # 2. Tabela de Vendas
+        # Garante a criação da tabela vendas base
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS vendas (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 cliente TEXT,
                 produto TEXT,
-                fornecedor TEXT,
-                grupo TEXT,
-                quantidade REAL,
-                valor_venda REAL,
-                valor_total REAL,
-                forma_pagamento TEXT,
-                valor_recebido TEXT,
-                troco REAL,
-                restante REAL,
-                status TEXT,
-                tipo TEXT,
-                codigo TEXT,
-                codigo_venda TEXT,
                 data TEXT
             )
         """)
 
-        # 3. Tabela de Sessões de Caixa
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS caixa_sessoes (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                data_abertura TEXT,
-                data_fechamento TEXT,
-                saldo_inicial REAL,
-                saldo_final REAL,
-                status TEXT
-            )
-        """)
-
-        # 4. Tabela de Movimentações de Caixa (Adicione este bloco)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS caixa_movimentacoes (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                sessao_id INTEGER,
-                tipo TEXT,
-                valor REAL,
-                descricao TEXT,
-                data TEXT
-            )
-        """)
-
-        # Garante colunas extras caso necessário
-        for col in ["data_abertura", "data_fechamento", "saldo_inicial", "saldo_final", "status"]:
+        # Adiciona automaticamente cada coluna necessária se não existir
+        colunas_necessarias = [
+            "fornecedor", "grupo", "quantidade", "valor_venda", 
+            "valor_total", "forma_pagamento", "valor_recebido", 
+            "troco", "restante", "status", "tipo", "codigo", "codigo_venda"
+        ]
+        
+        for col in colunas_necessarias:
             try:
-                cursor.execute(f"ALTER TABLE caixa_sessoes ADD COLUMN {col} TEXT")
+                cursor.execute(f"ALTER TABLE vendas ADD COLUMN {col} TEXT")
             except Exception:
-                pass
-
-        for col in ["cliente", "nome", "cpf", "doc", "endereco", "email", "fone", "telefone", "cidade"]:
-            try:
-                cursor.execute(f"ALTER TABLE clientes ADD COLUMN {col} TEXT")
-            except Exception:
-                pass
-
-        cursor.execute("UPDATE clientes SET nome = cliente WHERE (nome IS NULL OR nome = '') AND (cliente IS NOT NULL AND cliente != '')")
-        cursor.execute("UPDATE clientes SET cliente = nome WHERE (cliente IS NULL OR cliente = '') AND (nome IS NOT NULL AND nome != '')")
+                pass  # A coluna já existe, ignora
 
         conn.commit()
     except Exception as e:
@@ -930,22 +874,31 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         cursor = conn.cursor()
                         sessao_id = df_caixa_aberto.iloc[0]['id']
                         data_venda = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
+                
                         for item in st.session_state.carrinho_pdv:
                             cursor.execute("""
                                 INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, status, tipo, data)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Concluído', 'VENDA', ?)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                             """, (
-                                cliente_pdv, item['produto'], item['fornecedor'], item['grupo'],
-                                item['quantidade'], item['valor_venda'], item['valor_total'],
-                                f_pag, v_rec, data_venda
+                                cliente_pdv, 
+                                item['produto'], 
+                                item['fornecedor'], 
+                                item['grupo'],
+                                item['quantidade'], 
+                                item['valor_venda'], 
+                                item['valor_total'],
+                                f_pag, 
+                                v_rec, 
+                                'Concluído', 
+                                'VENDA', 
+                                data_venda
                             ))
-
+                
                         cursor.execute("INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, ?, ?, ?, ?)",
                             (sessao_id, "VENDA", total_geral_carrinho, f"Venda PDV - Cliente: {cliente_pdv}", data_venda)
                         )
                         conn.commit()
-
+                
                         st.session_state.carrinho_pdv = []
                         st.success(f"Venda realizada com sucesso! Troco: R$ {max(0.0, troco):.2f}")
                         st.rerun()
