@@ -157,7 +157,41 @@ def adequar_banco_e_migrar():
     try:
         cursor = conn.cursor()
 
-        # 1. Garante a criação da tabela vendas base
+        # 1. Tabela de Produtos (Garanti a criação básica e as colunas extras)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS produtos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                produto TEXT
+            )
+        """)
+        
+        colunas_produtos = [
+            "fornecedor", "grupo", "preco_compra", "preco_venda", 
+            "venda", "quantidade", "estoque", "codigo"
+        ]
+        for col in colunas_produtos:
+            try:
+                cursor.execute(f"ALTER TABLE produtos ADD COLUMN {col} TEXT")
+            except Exception:
+                pass  # Se a coluna já existir, o SQLite ignora
+
+        # 2. Tabela de Clientes
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS clientes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                cliente TEXT,
+                nome TEXT,
+                cpf TEXT,
+                doc TEXT,
+                endereco TEXT,
+                email TEXT,
+                fone TEXT,
+                telefone TEXT,
+                cidade TEXT
+            )
+        """)
+
+        # 3. Tabela de Vendas
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS vendas (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -166,22 +200,18 @@ def adequar_banco_e_migrar():
                 data TEXT
             )
         """)
-
-        # 2. Lista completa de colunas utilizadas nas inserções do PDV
-        colunas_necessarias = [
+        colunas_vendas = [
             "fornecedor", "grupo", "quantidade", "valor_venda", 
             "valor_total", "forma_pagamento", "valor_recebido", 
             "troco", "restante", "status", "tipo", "codigo", "codigo_venda"
         ]
-        
-        # 3. Adiciona cada coluna de forma segura caso ela não exista
-        for col in colunas_necessarias:
+        for col in colunas_vendas:
             try:
                 cursor.execute(f"ALTER TABLE vendas ADD COLUMN {col} TEXT")
             except Exception:
-                pass  # Se a coluna já existir, o SQLite ignora sem dar erro
+                pass
 
-        # 4. Garante também as tabelas de caixa
+        # 4. Tabela de Sessões de Caixa
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS caixa_sessoes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -193,6 +223,7 @@ def adequar_banco_e_migrar():
             )
         """)
 
+        # 5. Tabela de Movimentações de Caixa
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS caixa_movimentacoes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
