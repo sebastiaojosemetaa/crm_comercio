@@ -908,16 +908,16 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         f_pag, v_rec, data_venda
                     ))
 
-                        cursor.execute("INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, ?, ?, ?, ?)",
-                            (sessao_id, "VENDA", total_geral_carrinho, f"Venda PDV - Cliente: {cliente_pdv}", data_venda)
-                        )
-                        conn.commit()
+                    cursor.execute("INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, ?, ?, ?, ?)",
+                        (sessao_id, "VENDA", total_geral_carrinho, f"Venda PDV - Cliente: {cliente_pdv}", data_venda)
+                    )
+                    conn.commit()
 
-                        st.session_state.carrinho_pdv = []
-                        st.success(f"Venda realizada com sucesso! Troco: R$ {max(0.0, troco):.2f}")
-                        st.rerun()
-                    else:
-                        st.error("Verifique se o caixa está aberto e se há itens no carrinho.")
+                    st.session_state.carrinho_pdv = []
+                    st.success(f"Venda realizada com sucesso! Troco: R$ {max(0.0, troco):.2f}")
+                    st.rerun()
+                else:
+                    st.error("Verifique se o caixa está aberto e se há itens no carrinho.")
 
         elif menu_admin == "🔓 Abertura e Fechamento de Caixa":
             st.title("🔓 Abertura e Fechamento de Caixa")
