@@ -1340,22 +1340,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     qtd_item = float(item.get("quantidade", 1))
                                     prod_nome = str(item.get("produto", ""))
             
-                                    cursor.execute("""
-                                        INSERT INTO pedidos (cliente, produto, fornecedor, grupo, quantidade, valor_unitario, valor_total, status, data)
-                                        VALUES (?, ?, ?, ?, ?, ?, ?, 'Pendente', ?)
-                                    """, (
-                                        cliente_ped, prod_nome, item.get("fornecedor", ""), item.get("grupo", ""),
-                                        qtd_item, float(item.get("valor_unitario", 0)), float(item.get("valor_total", 0)), data_agora
-                                    ))
+                                    cursor.execute("INSERT INTO pedidos (cliente, produto, fornecedor, grupo, quantidade, valor_unitario, valor_total, status, data) VALUES (?, ?, ?, ?, ?, ?, ?, 'Pendente', ?)", (cliente_ped, prod_nome, item.get("fornecedor", ""), item.get("grupo", ""), qtd_item, float(item.get("valor_unitario", 0)), float(item.get("valor_total", 0)), data_agora))
             
                                     # DÁ ENTRADA / SOMA A QUANTIDADE NO ESTOQUE DE PRODUTOS
-                                    cursor.execute("""
-                                        UPDATE produtos 
-                                        SET quantidade = quantidade + ? 
-                                        WHERE produto = ?
-                                    """, (qtd_item, prod_nome))
-            
-                                conn.commit()
+                                    cursor.execute("UPDATE produtos SET quantidade = quantidade + ? WHERE produto = ?", (qtd_item, prod_nome))
             
                                 # Esvazia o carrinho
                                 if 'carrinho_admin' in st.session_state:
