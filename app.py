@@ -1452,21 +1452,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 try:
                                     with conn:
                                         cursor = conn.cursor()
-                                        cursor.execute("""
-                                            UPDATE pedidos
-                                            SET valor_unitario = (
-                                                SELECT valor_venda FROM produtos
-                                                WHERE produtos.produto = pedidos.produto
-                                            ),
-                                            valor_total = quantidade * (
-                                                SELECT valor_venda FROM produtos
-                                                WHERE produtos.produto = pedidos.produto
-                                            )
-                                            WHERE status = 'Pendente' AND EXISTS (
-                                                SELECT 1 FROM produtos
-                                                WHERE produtos.produto = pedidos.produto
-                                            )
-                                        """)
+                                        cursor.execute("UPDATE pedidos SET valor_unitario = (SELECT valor_venda FROM produtos WHERE produtos.produto = pedidos.produto), valor_total = quantidade * (SELECT valor_venda FROM produtos WHERE produtos.produto = pedidos.produto) WHERE status = 'Pendente' AND EXISTS (SELECT 1 FROM produtos WHERE produtos.produto = pedidos.produto)")
                                     st.cache_data.clear()
                                     st.success("✅ Preços dos pedidos pendentes atualizados com o estoque com sucesso!")
                                     st.rerun()
