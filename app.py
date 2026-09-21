@@ -946,12 +946,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.success("Caixa aberto com sucesso!")
                         st.rerun()
             else:
-                sessao_id = int(df_caixa_aberto.iloc[0]['id'])
+                # CORREÇÃO AQUI: Usando df_caixa_atual em vez de df_caixa_aberto
+                sessao_id = int(df_caixa_atual.iloc[0]['id'])
                 data_abertura = df_caixa_atual.iloc[0]['data_abertura']
                 saldo_inicial = float(df_caixa_atual.iloc[0]['saldo_inicial'])
                 
                 st.success(f"🟢 **Caixa ABERTO** desde: {data_abertura} | Saldo Inicial: R$ {saldo_inicial:,.2f}")
-                df_movs = carregar_dados(f"SELECT * FROM caixa_movimentacoes WHERE sessao_id = {int(sessao_id)}")
+                df_movs = carregar_dados(f"SELECT * FROM caixa_movimentacoes WHERE sessao_id = {sessao_id}")
                 total_movimentado = df_movs['valor'].sum() if not df_movs.empty else 0.0
                 
                 st.metric("Total Movimentado neste Caixa", f"R$ {total_movimentado:,.2f}")
