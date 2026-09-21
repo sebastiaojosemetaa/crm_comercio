@@ -228,6 +228,27 @@ def adequar_banco_e_migrar():
                 cidade TEXT
             )
         """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS vendas (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                cliente TEXT,
+                produto TEXT,
+                fornecedor TEXT,
+                grupo TEXT,
+                quantidade REAL,
+                valor_venda REAL,
+                valor_total REAL,
+                forma_pagamento TEXT,
+                valor_recebido REAL,
+                troco REAL,
+                restante REAL,
+                status TEXT,
+                tipo TEXT,
+                codigo TEXT,
+                codigo_venda TEXT,
+                data TEXT
+            )
+        """)
 # Garante a criação da tabela caixa_sessoes e colunas necessárias
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS caixa_sessoes (
