@@ -948,25 +948,17 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 with col_t2:
                     st.metric("Troco", f"R$ {troco:.2f}")
                     
-# Chamada do botão do cupom:
+# Bloco corrigido para gerar e descarregar o cupão no PDV
 if 'carrinho_pdv' in st.session_state and st.session_state['carrinho_pdv']:
-    # Obtenha o cliente e o carrinho de forma segura do session_state
-    cliente_selecionado = st.session_state.get('cliente_atual', 'Cliente Balcão')
-    carrinho = st.session_state.get('carrinho_pdv', [])
+    # Utiliza a variável correta do PDV (cliente_pdv) com segurança
+    cliente_nome = cliente_pdv if 'cliente_pdv' in locals() else "Cliente Balcão"
     
-    # Certifique-se de que o carrinho não está vazio antes de gerar o PDF
-    if carrinho:
-        pdf_bytes = gerar_pdf_cupom(cliente_selecionado, carrinho)
-    else:
-        st.warning("O carrinho está vazio.")
+    pdf_bytes = gerar_pdf_cupom(cliente_nome, st.session_state['carrinho_pdv'])
     
     st.download_button(
         label="📥 Baixar / Imprimir Cupom da Venda",
         data=pdf_bytes,
-        # Garanta que a variável está definida antes de a utilizar no f-string
-        cliente_atual = st.session_state.get('cliente_atual', 'Cliente Balcão')
-        
-        file_name = f"cupom_venda_{cliente_atual}.pdf"
+        file_name=f"cupom_venda_{cliente_nome}.pdf",
         mime="application/pdf",
         key="btn_download_cupom_pdv"
     )
