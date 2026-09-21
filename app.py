@@ -855,76 +855,89 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 else:
                     st.error("Verifique se o caixa está aberto e se há itens no carrinho.")
         
-            # ⚠️ IMPORTANTE: ESTE BLOCO TEM DE FICAR AQUI DENTRO (COM O MESMO RECUO / INDENTAÇÃO DO PDV)
-            if "ultimo_cupom" in st.session_state and st.session_state.ultimo_cupom:
-                st.markdown("---")
-                st.subheader("🧾 Comprovante / Cupom Não Fiscal")
-                cupom = st.session_state.ultimo_cupom
-                
-                if st.button("🖨️ Imprimir Cupom da Última Venda"):
-                    html_cupom = f"""
-                    <!DOCTYPE html>
-                    <html>
-                    <head>
-                        <meta charset="utf-8">
-                        <style>
-                            body {{
-                                font-family: 'Courier New', Courier, monospace;
-                                width: 280px;
-                                margin: 0 auto;
-                                padding: 5px;
-                                background: #fff;
-                                color: #000;
-                                font-size: 11px;
-                            }}
-                            .center {{ text-align: center; }}
-                            .bold {{ font-weight: bold; }}
-                            hr {{ border: dashed 1px #000; border-bottom: none; margin: 5px 0; }}
-                            table {{ width: 100%; border-collapse: collapse; }}
-                            th, td {{ text-align: left; padding: 2px 0; font-size: 11px; }}
-                            .right {{ text-align: right; }}
-                        </style>
-                    </head>
-                    <body>
-                        <div class="center bold" style="font-size: 14px;">CRM COMÉRCIO</div>
-                        <div class="center bold">Rey da Cebola</div>
-                        <div class="center" style="font-size: 10px;">COMPROVANTE NÃO FISCAL</div>
-                        <hr>
-                        <div>Data: {cupom['data']}</div>
-                        <div>Cliente: {cupom['cliente']}</div>
-                        <hr>
-                        <table>
-                            <tr>
-                                <th>Item / Qtd</th>
-                                <th class="right">Total</th>
-                            </tr>
-                    """
-                    for item in cupom['itens']:
-                        html_cupom += f"""
-                            <tr>
-                                <td colspan="2">{item['quantidade']}x {item['produto']}</td>
-                            </tr>
-                            <tr>
-                                <td>R$ {item['valor_venda']:.2f} un</td>
-                                <td class="right">R$ {item['valor_total']:.2f}</td>
-                            </tr>
-                        """
-                    html_cupom += f"""
-                        </table>
-                        <hr>
-                        <div class="bold">TOTAL GERAL: R$ {cupom['total']:.2f}</div>
-                        <div>Forma Pagto: {cupom['forma_pagamento']}</div>
-                        <div>Valor Recebido: R$ {cupom['valor_recebido']:.2f}</div>
-                        <div>Troco: R$ {cupom['troco']:.2f}</div>
-                        <hr>
-                        <div class="center">Obrigado pela preferência!</div>
-                        <script>
-                            window.print();
-                        </script>
-                    </body>
-                    </html>
-                    """
-                    components.html(html_cupom, height=300)
+            # Bloco que exibe o cupom automaticamente assim que a venda é finalizada
+    if "ultimo_cupom" in st.session_state and st.session_state.ultimo_cupom:
+        st.markdown("---")
+        st.subheader("🧾 Comprovante / Cupom Não Fiscal da Última Venda")
+        cupom = st.session_state.ultimo_cupom
+        
+        html_cupom = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <style>
+                body {{
+                    font-family: 'Courier New', Courier, monospace;
+                    width: 280px;
+                    margin: 0 auto;
+                    padding: 5px;
+                    background: #fff;
+                    color: #000;
+                    font-size: 11px;
+                }}
+                .center {{ text-align: center; }}
+                .bold {{ font-weight: bold; }}
+                hr {{ border: dashed 1px #000; border-bottom: none; margin: 5px 0; }}
+                table {{ width: 100%; border-collapse: collapse; }}
+                th, td {{ text-align: left; padding: 2px 0; font-size: 11px; }}
+                .right {{ text-align: right; }}
+                .print-btn {{
+                    display: block;
+                    width: 100%;
+                    background: #ff4b4b;
+                    color: #fff;
+                    border: none;
+                    padding: 10px;
+                    margin-top: 10px;
+                    cursor: pointer;
+                    font-weight: bold;
+                    text-align: center;
+                    border-radius: 4px;
+                }}
+                .print-btn:hover {{
+                    background: #ff2121;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="center bold" style="font-size: 14px;">CRM COMÉRCIO</div>
+            <div class="center bold">Rey da Cebola</div>
+            <div class="center" style="font-size: 10px;">COMPROVANTE NÃO FISCAL</div>
+            <hr>
+            <div>Data: {cupom['data']}</div>
+            <div>Cliente: {cupom['cliente']}</div>
+            <hr>
+            <table>
+                <tr>
+                    <th>Item / Qtd</th>
+                    <th class="right">Total</th>
+                </tr>
+        """
+        for item in cupom['itens']:
+            html_cupom += f"""
+                <tr>
+                    <td colspan="2">{item['quantidade']}x {item['produto']}</td>
+                </tr>
+                <tr>
+                    <td>R$ {item['valor_venda']:.2f} un</td>
+                    <td class="right">R$ {item['valor_total']:.2f}</td>
+                </tr>
+            """
+        html_cupom += f"""
+            </table>
+            <hr>
+            <div class="bold">TOTAL GERAL: R$ {cupom['total']:.2f}</div>
+            <div>Forma Pagto: {cupom['forma_pagamento']}</div>
+            <div>Valor Recebido: R$ {cupom['valor_recebido']:.2f}</div>
+            <div>Troco: R$ {cupom['troco']:.2f}</div>
+            <hr>
+            <div class="center">Obrigado pela preferência!</div>
+            <button class="print-btn" onclick="window.print()">🖨️ Imprimir Cupom</button>
+        </body>
+        </html>
+        """
+        components.html(html_cupom, height=370)
 
         elif menu_admin == "🔓 Abertura e Fechamento de Caixa":
             st.title("🔓 Abertura e Fechamento de Caixa")
