@@ -173,28 +173,28 @@ def adequar_banco_e_migrar():
             )
         """)
 
-        # 2. Tabela de Vendas (Adicione este bloco que estava em falta)
+        # 2. Garante a criação da tabela vendas básica caso não exista
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS vendas (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 cliente TEXT,
                 produto TEXT,
-                fornecedor TEXT,
-                grupo TEXT,
-                quantidade REAL,
-                valor_venda REAL,
-                valor_total REAL,
-                forma_pagamento TEXT,
-                valor_recebido REAL,
-                troco REAL,
-                restante REAL,
-                status TEXT,
-                tipo TEXT,
-                codigo TEXT,
-                codigo_venda TEXT,
                 data TEXT
             )
         """)
+
+        # 🔄 ADICIONA AUTOMATICAMENTE TODAS AS COLUNAS FALTANTES NA TABELA VENDAS
+        colunas_vendas_necessarias = [
+            "cliente", "produto", "fornecedor", "grupo", "quantidade", 
+            "valor_venda", "valor_total", "forma_pagamento", "valor_recebido", 
+            "troco", "restante", "status", "tipo", "codigo", "codigo_venda", "data"
+        ]
+        
+        for col in colunas_vendas_necessarias:
+            try:
+                cursor.execute(f"ALTER TABLE vendas ADD COLUMN {col} TEXT")
+            except Exception:
+                pass  # A coluna já existe, ignora e continua
 
         # Garante a criação da tabela caixa_sessoes e colunas necessárias
         cursor.execute("""
@@ -223,11 +223,6 @@ def adequar_banco_e_migrar():
         cursor.execute("UPDATE clientes SET nome = cliente WHERE (nome IS NULL OR nome = '') AND (cliente IS NOT NULL AND cliente != '')")
         cursor.execute("UPDATE clientes SET cliente = nome WHERE (cliente IS NULL OR cliente = '') AND (nome IS NOT NULL AND nome != '')")
 
-        try:
-            cursor.execute("ALTER TABLE vendas ADD COLUMN status TEXT")
-        except Exception:
-            pass
-            
         conn.commit()
     except Exception as e:
         print(f"Aviso de migração: {e}")
