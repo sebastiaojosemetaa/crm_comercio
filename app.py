@@ -415,13 +415,21 @@ if perfil_selecionado == "👤 Portal do Cliente":
         st.info("Por favor, selecione seu nome no menu à esquerda e insira sua senha para acessar seus pedidos.")
         
         # 1. Carrega todos os clientes registados de forma segura
-        df_cli_select = carregar_dados("""
-            SELECT DISTINCT COALESCE(NULLIF(cliente, ''), nome) AS cliente_nome 
-            FROM clientes 
-            WHERE cliente_nome IS NOT NULL AND cliente_nome != '' 
-            ORDER BY cliente_nome
-        """)
-        lista_clientes = df_cli_select['cliente_nome'].tolist() if not df_cli_select.empty else []
+        df_cli_select = carregar_dados("SELECT * FROM clientes")
+        lista_clientes = []
+        
+        if not df_cli_select.empty:
+            df_cli_select.columns = [c.lower() for c in df_cli_select.columns]
+            # Procura nas colunas comuns onde o nome do cliente pode estar guardado
+            for col_cand in ['cliente', 'nome', 'razao_social']:
+                if col_cand in df_cli_select.columns:
+                    vals = df_cli_select[col_cand].dropna().astype(str).str.strip()
+                    lista_clientes.extend(vals[vals != ''].unique().tolist())
+            # Remove duplicados mantendo a ordem
+            lista_clientes = list(dict.fromkeys(lista_clientes))
+    
+        if not lista_clientes:
+            lista_clientes = ["Carlos Alberto"]
         
         # 2. Exibe o selectbox com a lista completa
         cliente_nome = st.sidebar.selectbox("Identifique seu Nome/Empresa:", lista_clientes)
