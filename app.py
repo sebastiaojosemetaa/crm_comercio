@@ -939,7 +939,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         sessao_id = int(df_caixa_aberto.iloc[0]['id'])
                         data_venda = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 
-                        # 1. Grava cada item na tabela de vendas
                         for item in st.session_state.carrinho_pdv:
                             cursor.execute("""
                                 INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, status, tipo, data)
@@ -959,7 +958,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 data_venda
                             ))
                 
-                        # 2. Insere a movimentação vinculada ao caixa aberto
                         cursor.execute("""
                             INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) 
                             VALUES (?, ?, ?, ?, ?)
@@ -973,7 +971,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         
                         conn.commit()
                 
-                        # 3. Guarda os dados da venda na sessão para permitir a impressão imediata do cupom
                         st.session_state.ultimo_cupom = {
                             "cliente": cliente_pdv,
                             "itens": list(st.session_state.carrinho_pdv),
@@ -984,13 +981,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             "data": data_venda
                         }
 
-                        # 4. Limpa o carrinho
                         st.session_state.carrinho_pdv = []
                         st.success(f"Venda realizada com sucesso! Troco: R$ {max(0.0, troco):.2f}")
+                        st.rerun()
                     else:
                         st.error("Verifique se o caixa está aberto e se há itens no carrinho.")
 
-        # Botão e Visualização do Cupom Não Fiscal da Última Venda
+        # ESTE BLOCO DEVE FICAR AQUI DENTRO (IDENTADO) DO PDV:
         if "ultimo_cupom" in st.session_state and st.session_state.ultimo_cupom:
             st.markdown("---")
             st.subheader("🧾 Comprovante / Cupom Não Fiscal")
