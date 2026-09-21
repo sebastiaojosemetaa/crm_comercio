@@ -1070,7 +1070,7 @@ if st.button("Finalizar Venda", type="primary"):
     else:
         st.error("Verifique se o caixa está aberto e se há itens no carrinho.")
 
-elif menu_admin == "🔓 Abertura e Fechamento de Caixa":
+elif 'menu_admin' in locals() and menu_admin == "🔒 Abertura e Fechamento de Caixa":
     st.title("🔓 Abertura e Fechamento de Caixa")
     df_caixa_atual = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
 
