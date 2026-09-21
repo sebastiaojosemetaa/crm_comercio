@@ -1200,11 +1200,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     st.session_state["prod_selecionado_temp"] = novo_nome_prod
                                     st.rerun()
                                 else:
-                                    cursor.execute("""
-                                        INSERT INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda)
-                                        VALUES (?, ?, ?, ?, ?, ?)
-                                    """, (novo_nome_prod, c_g_r, c_f_r, c_qtd_r, c_compra_r, c_venda_r))
-                                    conn.commit()
+                                    cursor.execute("INSERT INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda) VALUES (?, ?, ?, ?, ?, ?)", (novo_nome_prod, c_g_r, c_f_r, c_qtd_r, c_compra_r, c_venda_r))
                                     st.cache_data.clear()
                                     st.session_state["prod_selecionado_temp"] = novo_nome_prod
                                     st.rerun()
