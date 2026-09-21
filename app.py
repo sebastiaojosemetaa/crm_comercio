@@ -154,132 +154,60 @@ def get_connection():
 conn = get_connection()
 
 def adequar_banco_e_migrar():
-    cursor = conn.cursor()
-    
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS vendas (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            cliente TEXT,
-            produto TEXT,
-            fornecedor TEXT,
-            grupo TEXT,
-            quantidade REAL,
-            valor_venda REAL,
-            valor_total REAL,
-            forma_pagamento TEXT,
-            valor_recebido REAL DEFAULT 0,
-            restante REAL DEFAULT 0,
-            status TEXT DEFAULT 'Pendente',
-            tipo TEXT DEFAULT 'PEDIDO',
-            codigo TEXT DEFAULT 'PED',
-            data TEXT
-        )
-    """)
-    cursor.execute("PRAGMA table_info(vendas)")
-    colunas_vendas = [col[1] for col in cursor.fetchall()]
+    try:
+        cursor = conn.cursor()
 
-    colunas_para_adicionar = [
-        ('forma_pagamento', 'TEXT'),
-        ('valor_recebido', 'REAL DEFAULT 0'),
-        ('restante', 'REAL DEFAULT 0'),
-        ('status', "TEXT DEFAULT 'Pendente'"),
-        ('tipo', "TEXT DEFAULT 'PEDIDO'"),
-        ('codigo', "TEXT DEFAULT 'PED'"),
-        ('data', 'TEXT')
-    ]
-
-    for col_n, col_t in colunas_para_adicionar:
-        if col_n not in colunas_vendas:
+        # 1. Tabela de Clientes
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS clientes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                cliente TEXT,
+                nome TEXT,
+                cpf TEXT,
+                doc TEXT,
+                endereco TEXT,
+                email TEXT,
+                fone TEXT,
+                telefone TEXT,
+                cidade TEXT
+            )
+        """)
+# Garante a criação da tabela caixa_sessoes e colunas necessárias
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS caixa_sessoes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                data_abertura TEXT,
+                data_fechamento TEXT,
+                saldo_inicial REAL,
+                saldo_final REAL,
+                status TEXT
+            )
+        """)
+        for col in ["data_abertura", "data_fechamento", "saldo_inicial", "saldo_final", "status"]:
             try:
-                cursor.execute(f"ALTER TABLE vendas ADD COLUMN {col_n} {col_t}")
+                cursor.execute(f"ALTER TABLE caixa_sessoes ADD COLUMN {col} TEXT")
             except Exception:
                 pass
-            
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS produtos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT UNIQUE,
-            produto TEXT,
-            quantidade REAL DEFAULT 0,
-            fornecedor TEXT,
-            grupo TEXT,
-            valor_compra REAL,
-            valor_venda REAL,
-            estoque_atual REAL
-        )
-    """)
-    cursor.execute("PRAGMA table_info(produtos)")
-    colunas_produtos = [col[1] for col in cursor.fetchall()]
-
-    for col_n, col_t in [('fornecedor', 'TEXT'), ('grupo', 'TEXT'), ('valor_compra', 'REAL'), ('valor_venda', 'REAL'), ('estoque_atual', 'REAL'), ('quantidade', 'REAL'), ('produto', 'TEXT')]:
-        if col_n not in colunas_produtos:
+        # Adiciona colunas faltantes se for banco antigo
+        for col in ["cliente", "nome", "cpf", "doc", "endereco", "email", "fone", "telefone", "cidade"]:
             try:
-                cursor.execute(f"ALTER TABLE produtos ADD COLUMN {col_n} {col_t}")
+                cursor.execute(f"ALTER TABLE clientes ADD COLUMN {col} TEXT")
             except Exception:
                 pass
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS clientes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT UNIQUE,
-            telefone TEXT,
-            doc TEXT,
-            endereco TEXT,
-            cidade TEXT
-        )
-    """)
+        # 🔄 CORREÇÃO/SINCRONIZAÇÃO: Copia 'cliente' para 'nome' e vice-versa se estiver vazio
+        cursor.execute("UPDATE clientes SET nome = cliente WHERE (nome IS NULL OR nome = '') AND (cliente IS NOT NULL AND cliente != '')")
+        cursor.execute("UPDATE clientes SET cliente = nome WHERE (cliente IS NULL OR cliente = '') AND (nome IS NOT NULL AND nome != '')")
+    # Garante que a coluna 'status' existe na tabela vendas
+        try:
+            cursor.execute("ALTER TABLE vendas ADD COLUMN status TEXT")
+        except Exception:
+            pass
+        conn.commit()
+    except Exception as e:
+        print(f"Aviso de migração de clientes: {e}")
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS fornecedores (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            fornecedor TEXT UNIQUE
-        )
-    """)
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS grupos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            grupo TEXT UNIQUE
-        )
-    """)
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS compras (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            produto TEXT,
-            fornecedor TEXT,
-            grupo TEXT,
-            quantidade REAL,
-            valor_compra REAL,
-            valor_venda REAL,
-            valor_total REAL,
-            data TEXT
-        )
-    """)
-    
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS caixa_sessoes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            data_abertura TEXT,
-            data_fechamento TEXT,
-            saldo_inicial REAL,
-            saldo_final REAL,
-            status TEXT
-        )
-    """)
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS caixa_movimentacoes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            sessao_id INTEGER,
-            tipo TEXT,
-            valor REAL,
-            descricao TEXT,
-            data TEXT
-        )
-    """)
-    conn.commit()
-
+# Executa a migração/sincronização
 adequar_banco_e_migrar()
 # --- FUNÇÃO DE LIMPEZA E SANITIÇÃO DO BANCO DE DADOS ---
 def executar_limpeza_banco():
@@ -963,8 +891,82 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.metric("Valor Total da Venda", f"R$ {total_geral_carrinho:.2f}")
                 with col_t2:
                     st.metric("Troco", f"R$ {troco:.2f}")
-    
-                if st.button("Finalizar Venda no PDV", type="primary"):
+            # Função para gerar o cupom em PDF
+            def gerar_pdf_cupom(cliente_selecionado, itens):
+                import io
+                from reportlab.lib.pagesizes import letter
+                from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+                from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+                from reportlab.lib import colors
+        
+                buffer = io.BytesIO()
+                doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+                elementos = []
+                styles = getSampleStyleSheet()
+        
+                titulo_estilo = ParagraphStyle(
+                    'TituloCupom',
+                    parent=styles['Heading1'],
+                    fontSize=18,
+                    alignment=1,
+                    spaceAfter=10
+                )
+                
+                elementos.append(Paragraph("<b>CRM Comércio — Cupom de Venda</b>", titulo_estilo))
+                elementos.append(Spacer(1, 10))
+                elementos.append(Paragraph(f"<b>Cliente:</b> {cliente_selecionado}", styles['Normal']))
+                elementos.append(Paragraph(f"<b>Data/Hora:</b> {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}", styles['Normal']))
+                elementos.append(Spacer(1, 15))
+        
+                dados_tabela = [["Produto", "Fornecedor", "Grupo", "Qtd", "Unit. (R$)", "Total (R$)"]]
+                total_geral = 0.0
+        
+                for item in itens:
+                    qtd = float(item.get('quantidade', 1))
+                    v_venda = float(item.get('valor_venda', 0))
+                    v_tot = qtd * v_venda
+                    total_geral += v_tot
+        
+                    dados_tabela.append([
+                        str(item.get('produto', '')),
+                        str(item.get('fornecedor', '')),
+                        str(item.get('grupo', '')),
+                        str(qtd),
+                        f"R$ {v_venda:.2f}",
+                        f"R$ {v_tot:.2f}"
+                    ])
+        
+                tabela = Table(dados_tabela, colWidths=[130, 80, 80, 40, 70, 70])
+                tabela.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#333333")),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, -1), 9),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                ]))
+                
+                elementos.append(tabela)
+                elementos.append(Spacer(1, 15))
+                elementos.append(Paragraph(f"<b>Total Geral da Venda: R$ {total_geral:.2f}</b>", styles['Heading2']))
+        
+                doc.build(elementos)
+                buffer.seek(0)
+                return buffer.getvalue()
+        
+            # Botão de download do cupom exibido se houver itens no carrinho do PDV
+            if 'carrinho_pdv' in st.session_state and st.session_state['carrinho_pdv']:
+                pdf_bytes = gerar_pdf_cupom(cliente_atual, st.session_state['carrinho_pdv'])
+                
+                st.download_button(
+                    label="📥 Baixar / Imprimir Cupom da Venda",
+                    data=pdf_bytes,
+                    file_name=f"cupom_venda_{cliente_atual}.pdf",
+                    mime="application/pdf",
+                    key="btn_download_cupom_pdv"
+                )
+                if st.button("", type="primary"):
                     if not df_caixa_aberto.empty and len(st.session_state.carrinho_pdv) > 0:
                         cursor = conn.cursor()
                         sessao_id = df_caixa_aberto.iloc[0]['id']
