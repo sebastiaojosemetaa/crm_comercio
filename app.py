@@ -954,17 +954,17 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 with col_t2:
                     st.metric("Troco", f"R$ {troco:.2f}")
                     
-            # Botão de download do cupom exibido se houver itens no carrinho do PDV
-            if 'carrinho_pdv' in st.session_state and st.session_state['carrinho_pdv']:
-                pdf_bytes = gerar_pdf_cupom(cliente_atual, st.session_state['carrinho_pdv'])
-                
-                st.download_button(
-                    label="📥 Baixar / Imprimir Cupom da Venda",
-                    data=pdf_bytes,
-                    file_name=f"cupom_venda_{cliente_atual}.pdf",
-                    mime="application/pdf",
-                    key="btn_download_cupom_pdv"
-                )
+# Botão de download do cupom exibido se houver itens no carrinho do PDV
+if 'carrinho_pdv' in st.session_state and st.session_state['carrinho_pdv']:
+    pdf_bytes = gerar_pdf_cupom(cliente_atual, st.session_state['carrinho_pdv'])
+    
+    st.download_button(
+        label="📥 Baixar / Imprimir Cupom da Venda",
+        data=pdf_bytes,
+        file_name=f"cupom_venda_{cliente_atual}.pdf",
+        mime="application/pdf",
+        key="btn_download_cupom_pdv"
+    )
                 if st.button("", type="primary"):
                     if not df_caixa_aberto.empty and len(st.session_state.carrinho_pdv) > 0:
                         cursor = conn.cursor()
