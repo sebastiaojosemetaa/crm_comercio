@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import sqlite3
 import pandas as pd
 from datetime import datetime, date, timedelta
@@ -958,7 +959,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 data_venda
                             ))
                 
-                        # 2. Insere obrigatoriamente a movimentação vinculada ao caixa aberto para somar no total
+                        # 2. Insere a movimentação vinculada ao caixa aberto
                         cursor.execute("""
                             INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) 
                             VALUES (?, ?, ?, ?, ?)
@@ -972,12 +973,93 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         
                         conn.commit()
                 
-                        # 3. Limpa o carrinho e avisa o utilizador
+                        # 3. Guarda os dados da venda na sessão para permitir a impressão imediata do cupom
+                        st.session_state.ultimo_cupom = {
+                            "cliente": cliente_pdv,
+                            "itens": list(st.session_state.carrinho_pdv),
+                            "forma_pagamento": f_pag,
+                            "valor_recebido": v_rec,
+                            "troco": max(0.0, troco),
+                            "total": float(total_geral_carrinho),
+                            "data": data_venda
+                        }
+
+                        # 4. Limpa o carrinho
                         st.session_state.carrinho_pdv = []
                         st.success(f"Venda realizada com sucesso! Troco: R$ {max(0.0, troco):.2f}")
-                        st.rerun()
                     else:
                         st.error("Verifique se o caixa está aberto e se há itens no carrinho.")
+
+        # Botão e Visualização do Cupom Não Fiscal da Última Venda
+        if "ultimo_cupom" in st.session_state and st.session_state.ultimo_cupom:
+            st.markdown("---")
+            st.subheader("🧾 Comprovante / Cupom Não Fiscal")
+            cupom = st.session_state.ultimo_cupom
+            
+            if st.button("🖨️ Imprimir Cupom da Última Venda"):
+                html_cupom = f"""
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="utf-8">
+                    <style>
+                        body {{
+                            font-family: 'Courier New', Courier, monospace;
+                            width: 280px;
+                            margin: 0 auto;
+                            padding: 5px;
+                            background: #fff;
+                            color: #000;
+                            font-size: 11px;
+                        }}
+                        .center {{ text-align: center; }}
+                        .bold {{ font-weight: bold; }}
+                        hr {{ border: dashed 1px #000; border-bottom: none; margin: 5px 0; }}
+                        table {{ width: 100%; border-collapse: collapse; }}
+                        th, td {{ text-align: left; padding: 2px 0; font-size: 11px; }}
+                        .right {{ text-align: right; }}
+                    </style>
+                </head>
+                <body>
+                    <div class="center bold" style="font-size: 14px;">CRM COMÉRCIO</div>
+                    <div class="center bold">Rey da Cebola</div>
+                    <div class="center" style="font-size: 10px;">COMPROVANTE NÃO FISCAL</div>
+                    <hr>
+                    <div>Data: {cupom['data']}</div>
+                    <div>Cliente: {cupom['cliente']}</div>
+                    <hr>
+                    <table>
+                        <tr>
+                            <th>Item / Qtd</th>
+                            <th class="right">Total</th>
+                        </tr>
+                """
+                for item in cupom['itens']:
+                    html_cupom += f"""
+                        <tr>
+                            <td colspan="2">{item['quantidade']}x {item['produto']}</td>
+                        </tr>
+                        <tr>
+                            <td>R$ {item['valor_venda']:.2f} un</td>
+                            <td class="right">R$ {item['valor_total']:.2f}</td>
+                        </tr>
+                    """
+                html_cupom += f"""
+                    </table>
+                    <hr>
+                    <div class="bold">TOTAL GERAL: R$ {cupom['total']:.2f}</div>
+                    <div>Forma Pagto: {cupom['forma_pagamento']}</div>
+                    <div>Valor Recebido: R$ {cupom['valor_recebido']:.2f}</div>
+                    <div>Troco: R$ {cupom['troco']:.2f}</div>
+                    <hr>
+                    <div class="center">Obrigado pela preferência!</div>
+                    <script>
+                        window.print();
+                    </script>
+                </body>
+                </html>
+                """
+                components.html(html_cupom, height=300)
 
         elif menu_admin == "🔓 Abertura e Fechamento de Caixa":
             st.title("🔓 Abertura e Fechamento de Caixa")
