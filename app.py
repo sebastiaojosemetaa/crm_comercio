@@ -936,7 +936,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             <button class="print-btn" onclick="window.print()">🖨️ Imprimir Cupom</button>
         </body>
         </html>
-        """
+        st.markdown("---")
         components.html(html_cupom, height=370)
 
         elif menu_admin == "🔓 Abertura e Fechamento de Caixa":
