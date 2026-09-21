@@ -1053,9 +1053,15 @@ if st.button("Finalizar Venda", type="primary"):
                 data_venda
             ))
 
-        cursor.execute("INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, ?, ?, ?, ?)",
-            (sessao_id, "VENDA", total_geral_carrinho, f"Venda PDV - Cliente: {cliente_pdv}", data_venda)
-        )
+        # Busca o ID da sessão de caixa aberta atual antes de registrar a movimentação
+        cursor.execute("SELECT id FROM caixa_sessoes WHERE status = 'ABERTO' ORDER BY id DESC LIMIT 1")
+        sessao_ativa = cursor.fetchone()
+        sessao_id_atual = sessao_ativa[0] if sessao_ativa else None
+
+        cursor.execute("""
+            INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) 
+            VALUES (?, ?, ?, ?, ?)
+        """, (sessao_id_atual, "VENDA", total_geral_carrinho, f"Venda PDV - Cliente: {cliente_pdv}", data_venda))
         conn.commit()
 
         st.session_state.carrinho_pdv = []
