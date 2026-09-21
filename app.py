@@ -154,45 +154,131 @@ def get_connection():
 conn = get_connection()
 
 def adequar_banco_e_migrar():
-    try:
-        cursor = conn.cursor()
-        
-        # Garante que a tabela vendas existe com a estrutura base
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS vendas (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                cliente TEXT,
-                produto TEXT,
-                quantidade REAL,
-                valor_venda REAL,
-                valor_total REAL,
-                data TEXT
-            )
-        """)
-        
-        # Adiciona automaticamente todas as colunas que o seu PDV/vendas utiliza se elas não existirem
-        colunas_necessarias = [
-            ("fornecedor", "TEXT"),
-            ("grupo", "TEXT"),
-            ("forma_pagamento", "TEXT"),
-            ("valor_recebido", "REAL"),
-            ("troco", "REAL"),
-            ("restante", "REAL"),
-            ("status", "TEXT"),
-            ("tipo", "TEXT"),
-            ("codigo", "TEXT"),
-            ("codigo_venda", "TEXT")
-        ]
-        
-        for col_nome, col_tipo in colunas_necessarias:
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS vendas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            cliente TEXT,
+            produto TEXT,
+            fornecedor TEXT,
+            grupo TEXT,
+            quantidade REAL,
+            valor_venda REAL,
+            valor_total REAL,
+            forma_pagamento TEXT,
+            valor_recebido REAL DEFAULT 0,
+            restante REAL DEFAULT 0,
+            status TEXT DEFAULT 'Pendente',
+            tipo TEXT DEFAULT 'PEDIDO',
+            codigo TEXT DEFAULT 'PED',
+            data TEXT
+        )
+    """)
+    cursor.execute("PRAGMA table_info(vendas)")
+    colunas_vendas = [col[1] for col in cursor.fetchall()]
+
+    colunas_para_adicionar = [
+        ('forma_pagamento', 'TEXT'),
+        ('valor_recebido', 'REAL DEFAULT 0'),
+        ('restante', 'REAL DEFAULT 0'),
+        ('status', "TEXT DEFAULT 'Pendente'"),
+        ('tipo', "TEXT DEFAULT 'PEDIDO'"),
+        ('codigo', "TEXT DEFAULT 'PED'"),
+        ('data', 'TEXT')
+    ]
+
+    for col_n, col_t in colunas_para_adicionar:
+        if col_n not in colunas_vendas:
             try:
-                cursor.execute(f"ALTER TABLE vendas ADD COLUMN {col_nome} {col_tipo};")
-                conn.commit()
+                cursor.execute(f"ALTER TABLE vendas ADD COLUMN {col_n} {col_t}")
             except Exception:
-                pass # A coluna já existe, ignora e continua
-                
-    except Exception as e:
-        print(f"Erro na migração: {e}")
+                pass
+            
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS produtos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT UNIQUE,
+            produto TEXT,
+            quantidade REAL DEFAULT 0,
+            fornecedor TEXT,
+            grupo TEXT,
+            valor_compra REAL,
+            valor_venda REAL,
+            estoque_atual REAL
+        )
+    """)
+    cursor.execute("PRAGMA table_info(produtos)")
+    colunas_produtos = [col[1] for col in cursor.fetchall()]
+
+    for col_n, col_t in [('fornecedor', 'TEXT'), ('grupo', 'TEXT'), ('valor_compra', 'REAL'), ('valor_venda', 'REAL'), ('estoque_atual', 'REAL'), ('quantidade', 'REAL'), ('produto', 'TEXT')]:
+        if col_n not in colunas_produtos:
+            try:
+                cursor.execute(f"ALTER TABLE produtos ADD COLUMN {col_n} {col_t}")
+            except Exception:
+                pass
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS clientes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT UNIQUE,
+            telefone TEXT,
+            doc TEXT,
+            endereco TEXT,
+            cidade TEXT
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS fornecedores (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            fornecedor TEXT UNIQUE
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS grupos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            grupo TEXT UNIQUE
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS compras (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            produto TEXT,
+            fornecedor TEXT,
+            grupo TEXT,
+            quantidade REAL,
+            valor_compra REAL,
+            valor_venda REAL,
+            valor_total REAL,
+            data TEXT
+        )
+    """)
+    
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS caixa_sessoes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            data_abertura TEXT,
+            data_fechamento TEXT,
+            saldo_inicial REAL,
+            saldo_final REAL,
+            status TEXT
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS caixa_movimentacoes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sessao_id INTEGER,
+            tipo TEXT,
+            valor REAL,
+            descricao TEXT,
+            data TEXT
+        )
+    """)
+    conn.commit()
 
 adequar_banco_e_migrar()
 # --- FUNÇÃO DE LIMPEZA E SANITIÇÃO DO BANCO DE DADOS ---
