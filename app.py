@@ -250,23 +250,23 @@ def adequar_banco_e_migrar():
             )
         """)
         # Garante a existência de todas as colunas na tabela vendas
-            for col_nome, col_tipo in [
-                ("forma_pagamento", "TEXT"),
-                ("valor_recebido", "REAL"),
-                ("troco", "REAL"),
-                ("restante", "REAL"),
-                ("status", "TEXT"),
-                ("tipo", "TEXT"),
-                ("fornecedor", "TEXT"),
-                ("grupo", "TEXT"),
-                ("codigo", "TEXT"),
-                ("codigo_venda", "TEXT")
-            ]:
-                try:
-                    cursor.execute(f"ALTER TABLE vendas ADD COLUMN {col_nome} {col_tipo};")
-                    conn.commit()
-                except:
-                    pass
+        for col_nome, col_tipo in [
+            ("forma_pagamento", "TEXT"),
+            ("valor_recebido", "REAL"),
+            ("troco", "REAL"),
+            ("restante", "REAL"),
+            ("status", "TEXT"),
+            ("tipo", "TEXT"),
+            ("fornecedor", "TEXT"),
+            ("grupo", "TEXT"),
+            ("codigo", "TEXT"),
+            ("codigo_venda", "TEXT")
+        ]:
+            try:
+                cursor.execute(f"ALTER TABLE vendas ADD COLUMN {col_nome} {col_tipo};")
+                conn.commit()
+            except:
+                pass
 # Garante a criação da tabela caixa_sessoes e colunas necessárias
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS caixa_sessoes (
