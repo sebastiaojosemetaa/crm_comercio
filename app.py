@@ -157,32 +157,75 @@ def adequar_banco_e_migrar():
     try:
         cursor = conn.cursor()
 
-        # Garante a criação da tabela vendas base
+        # 1. Tabela de Clientes
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS clientes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                cliente TEXT,
+                nome TEXT,
+                cpf TEXT,
+                doc TEXT,
+                endereco TEXT,
+                email TEXT,
+                fone TEXT,
+                telefone TEXT,
+                cidade TEXT
+            )
+        """)
+
+        # 2. Tabela de Vendas
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS vendas (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 cliente TEXT,
                 produto TEXT,
+                fornecedor TEXT,
+                grupo TEXT,
+                quantidade REAL,
+                valor_venda REAL,
+                valor_total REAL,
+                forma_pagamento TEXT,
+                valor_recebido TEXT,
+                troco REAL,
+                restante REAL,
+                status TEXT,
+                tipo TEXT,
+                codigo TEXT,
+                codigo_venda TEXT,
                 data TEXT
             )
         """)
 
-        # Adiciona automaticamente cada coluna necessária se não existir
-        colunas_necessarias = [
-            "fornecedor", "grupo", "quantidade", "valor_venda", 
-            "valor_total", "forma_pagamento", "valor_recebido", 
-            "troco", "restante", "status", "tipo", "codigo", "codigo_venda"
-        ]
-        
-        for col in colunas_necessarias:
-            try:
-                cursor.execute(f"ALTER TABLE vendas ADD COLUMN {col} TEXT")
-            except Exception:
-                pass  # A coluna já existe, ignora
+        # 3. Tabela de Sessões de Caixa (Essencial para Abertura/Fechamento)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS caixa_sessoes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                data_abertura TEXT,
+                data_fechamento TEXT,
+                saldo_inicial REAL,
+                saldo_final REAL,
+                status TEXT
+            )
+        """)
+
+        # 4. Tabela de Movimentações de Caixa
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS caixa_movimentacoes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sessao_id INTEGER,
+                tipo TEXT,
+                valor REAL,
+                descricao TEXT,
+                data TEXT
+            )
+        """)
 
         conn.commit()
     except Exception as e:
         print(f"Aviso de migração: {e}")
+
+# Executa a migração/criação das tabelas
+adequar_banco_e_migrar()
 
 # Executa a migração/sincronização
 adequar_banco_e_migrar()
