@@ -157,46 +157,31 @@ def adequar_banco_e_migrar():
     try:
         cursor = conn.cursor()
 
-        # 1. Tabela de Clientes
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS clientes (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                cliente TEXT,
-                nome TEXT,
-                cpf TEXT,
-                doc TEXT,
-                endereco TEXT,
-                email TEXT,
-                fone TEXT,
-                telefone TEXT,
-                cidade TEXT
-            )
-        """)
-
-        # 2. Tabela de Vendas
+        # 1. Garante a criação da tabela vendas base
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS vendas (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 cliente TEXT,
                 produto TEXT,
-                fornecedor TEXT,
-                grupo TEXT,
-                quantidade REAL,
-                valor_venda REAL,
-                valor_total REAL,
-                forma_pagamento TEXT,
-                valor_recebido TEXT,
-                troco REAL,
-                restante REAL,
-                status TEXT,
-                tipo TEXT,
-                codigo TEXT,
-                codigo_venda TEXT,
                 data TEXT
             )
         """)
 
-        # 3. Tabela de Sessões de Caixa (Essencial para Abertura/Fechamento)
+        # 2. Lista completa de colunas utilizadas nas inserções do PDV
+        colunas_necessarias = [
+            "fornecedor", "grupo", "quantidade", "valor_venda", 
+            "valor_total", "forma_pagamento", "valor_recebido", 
+            "troco", "restante", "status", "tipo", "codigo", "codigo_venda"
+        ]
+        
+        # 3. Adiciona cada coluna de forma segura caso ela não exista
+        for col in colunas_necessarias:
+            try:
+                cursor.execute(f"ALTER TABLE vendas ADD COLUMN {col} TEXT")
+            except Exception:
+                pass  # Se a coluna já existir, o SQLite ignora sem dar erro
+
+        # 4. Garante também as tabelas de caixa
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS caixa_sessoes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -208,7 +193,6 @@ def adequar_banco_e_migrar():
             )
         """)
 
-        # 4. Tabela de Movimentações de Caixa
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS caixa_movimentacoes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -224,10 +208,7 @@ def adequar_banco_e_migrar():
     except Exception as e:
         print(f"Aviso de migração: {e}")
 
-# Executa a migração/criação das tabelas
-adequar_banco_e_migrar()
-
-# Executa a migração/sincronização
+# Executa a migração ao iniciar
 adequar_banco_e_migrar()
 # --- FUNÇÃO DE LIMPEZA E SANITIÇÃO DO BANCO DE DADOS ---
 def executar_limpeza_banco():
