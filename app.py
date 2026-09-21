@@ -152,7 +152,6 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from datetime import datetime
 
-# FUNÇÃO GLOBAL NO TOPO (Sem nenhum espaço antes do def)
 def gerar_pdf_cupom(cliente_selecionado, itens):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
