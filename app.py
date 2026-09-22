@@ -1,69 +1,14 @@
 import streamlit as st
-import pandas as pd
 import sqlite3
-import io
+import pandas as pd
 from datetime import datetime, date, timedelta
 from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib import colors
-
-def gerar_pdf_cupom(cliente_selecionado, itens):
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
-    elementos = []
-    styles = getSampleStyleSheet()
-
-    titulo_estilo = ParagraphStyle(
-        'TituloCupom',
-        parent=styles['Heading1'],
-        fontSize=18,
-        alignment=1,
-        spaceAfter=10
-    )
-    
-    elementos.append(Paragraph("<b>CRM Comércio — Cupom de Venda</b>", titulo_estilo))
-    elementos.append(Spacer(1, 10))
-    elementos.append(Paragraph(f"<b>Cliente:</b> {cliente_selecionado}", styles['Normal']))
-    elementos.append(Paragraph(f"<b>Data/Hora:</b> {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}", styles['Normal']))
-    elementos.append(Spacer(1, 15))
-
-    dados_tabela = [["Produto", "Fornecedor", "Grupo", "Qtd", "Unit. (R$)", "Total (R$)"]]
-    total_geral = 0.0
-
-    for item in itens:
-        qtd = float(item.get('quantidade', 1))
-        v_venda = float(item.get('valor_venda', 0))
-        v_tot = qtd * v_venda
-        total_geral += v_tot
-
-        dados_tabela.append([
-            str(item.get('produto', '')),
-            str(item.get('fornecedor', '')),
-            str(item.get('grupo', '')),
-            str(qtd),
-            f"R$ {v_venda:.2f}",
-            f"R$ {v_tot:.2f}"
-        ])
-
-    tabela = Table(dados_tabela, colWidths=[130, 80, 80, 40, 70, 70])
-    tabela.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#333333")),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 9),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-    ]))
-    
-    elementos.append(tabela)
-    elementos.append(Spacer(1, 15))
-    elementos.append(Paragraph(f"<b>Total Geral da Venda: R$ {total_geral:.2f}</b>", styles['Heading2']))
-
-    doc.build(elementos)
-    buffer.seek(0)
-    return buffer.getvalue()
+import io
+import pandas as pd
+import datetime as dt
 
 def sanear_df_vendas(df):
     """Trata campos nulos (None) e ajusta o cálculo do valor restante por item."""
@@ -197,6 +142,72 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
     doc.build(story)
     buffer.seek(0)
     return buffer
+import streamlit as st
+import pandas as pd
+import sqlite3
+import io
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
+from datetime import datetime
+
+def gerar_pdf_cupom(cliente_selecionado, itens):
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+    elementos = []
+    styles = getSampleStyleSheet()
+
+    titulo_estilo = ParagraphStyle(
+        'TituloCupom',
+        parent=styles['Heading1'],
+        fontSize=18,
+        alignment=1,
+        spaceAfter=10
+    )
+    
+    elementos.append(Paragraph("<b>CRM Comércio — Cupom de Venda</b>", titulo_estilo))
+    elementos.append(Spacer(1, 10))
+    elementos.append(Paragraph(f"<b>Cliente:</b> {cliente_selecionado}", styles['Normal']))
+    elementos.append(Paragraph(f"<b>Data/Hora:</b> {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}", styles['Normal']))
+    elementos.append(Spacer(1, 15))
+
+    dados_tabela = [["Produto", "Fornecedor", "Grupo", "Qtd", "Unit. (R$)", "Total (R$)"]]
+    total_geral = 0.0
+
+    for item in itens:
+        qtd = float(item.get('quantidade', 1))
+        v_venda = float(item.get('valor_venda', 0))
+        v_tot = qtd * v_venda
+        total_geral += v_tot
+
+        dados_tabela.append([
+            str(item.get('produto', '')),
+            str(item.get('fornecedor', '')),
+            str(item.get('grupo', '')),
+            str(qtd),
+            f"R$ {v_venda:.2f}",
+            f"R$ {v_tot:.2f}"
+        ])
+
+    tabela = Table(dados_tabela, colWidths=[130, 80, 80, 40, 70, 70])
+    tabela.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#333333")),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+    ]))
+    
+    elementos.append(tabela)
+    elementos.append(Spacer(1, 15))
+    elementos.append(Paragraph(f"<b>Total Geral da Venda: R$ {total_geral:.2f}</b>", styles['Heading2']))
+
+    doc.build(elementos)
+    buffer.seek(0)
+    return buffer.getvalue()
 
 # Restante do código da aplicação...
 # -----------------------------------------------------------------------------
