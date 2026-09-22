@@ -823,7 +823,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 "🛒 Registrar Venda",
                 "📥 Entrada de Estoque (Compras)",
                 "📦 Estoque de Produtos",
-                "👥 Cadastros (Clientes / Fornecedores / Grupos)"
+                "👥 Cadastros (Clientes / Fornecedores / Grupos)",
+                "💾 Backup e Restauração"  <-- Adicione esta linha aqui
             ]
         )
         
@@ -2178,7 +2179,49 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 st.error(f"Erro ao excluir: {e}")
                 else:
                     st.info("Nenhum grupo cadastrado.")
+        elif menu_admin == "💾 Backup e Restauração":
+                st.title("💾 Central de Backup e Restauração")
+                st.info("Gerencie cópias de segurança do seu banco de dados com total segurança. Nenhum dado cadastrado será perdido.")
+
+                tab_bk1, tab_bk2 = st.tabs(["📤 Fazer Backup", "📥 Restaurar Backup"])
+
+                # --- ABA 1: FAZER BACKUP ---
+                with tab_bk1:
+                    st.subheader("Gerar Cópia de Segurança")
+                    st.write("Clique no botão abaixo para baixar o arquivo contendo todos os seus produtos, clientes e vendas atualizados.")
                     
+                    try:
+                        with open("crm_comercio.db", "rb") as f:
+                            bytes_db = f.read()
+                        
+                        data_hoje = datetime.now().strftime("%Y-%m-%d_%H-%M")
+                        st.download_button(
+                            label="📥 Baixar Arquivo de Backup (.db)",
+                            data=bytes_db,
+                            file_name=f"backup_crm_comercio_{data_hoje}.db",
+                            mime="application/octet-stream",
+                            type="primary"
+                        )
+                    except Exception as e:
+                        st.warning("O arquivo do banco de dados ainda não foi criado ou não foi encontrado.")
+
+                # --- ABA 2: RESTAURAR BACKUP ---
+                with tab_bk2:
+                    st.subheader("Restaurar Sistema por Arquivo de Backup")
+                    st.warning("⚠️ **Atenção:** Enviar um arquivo de backup antigo irá substituir os dados atuais pelos dados contidos no arquivo enviado.")
+                    
+                    arquivo_upload = st.file_uploader("Selecione o arquivo de backup (.db)", type=["db"])
+                    
+                    if arquivo_upload is not None:
+                        if st.button("🔄 Confirmar e Restaurar Banco de Dados", type="primary"):
+                            try:
+                                with open("crm_comercio.db", "wb") as f:
+                                    f.write(arquivo_upload.getbuffer())
+                                
+                                st.success("✅ Backup restaurado com sucesso! Recarregando o sistema...")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao restaurar o backup: {e}")            
         elif menu_admin == "📥 Entrada de Estoque (Compras)":
             st.title("📥 Entrada de Estoque (Compras)")
             st.subheader("Registrar Entrada de Estoque")
