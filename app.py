@@ -614,7 +614,6 @@ if perfil_selecionado == "👤 Portal do Cliente":
             if st.session_state.carrinho_cliente:
                 df_carrinho_cli = pd.DataFrame(st.session_state.carrinho_cliente)
 
-                # Se o botão 'Alterar' foi clicado, mostra editor
                 if st.session_state.modo_edicao_cli:
                     st.info("💡 **Modo de Edição Ativo:** Altere as quantidades ou valores diretamente na tabela abaixo e clique em **'💾 Salvar'**.")
                     df_editado_cli = st.data_editor(
@@ -625,23 +624,19 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 else:
                     st.dataframe(df_carrinho_cli, use_container_width=True)
 
-                # --- LINHA COM OS 4 BOTÕES LADO A LADO ---
                 col_btn1, col_btn2, col_btn3, col_btn4 = st.columns(4)
 
-                # 1. BOTÃO LIMPAR CARRINHO
                 with col_btn1:
                     if st.button("🗑️ Limpar Carrinho", use_container_width=True, key="btn_limpar_cli"):
                         st.session_state.carrinho_cliente = []
                         st.session_state.modo_edicao_cli = False
                         st.rerun()
 
-                # 2. BOTÃO ALTERAR
                 with col_btn2:
                     if st.button("✏️ Alterar", use_container_width=True, key="btn_alterar_cli"):
                         st.session_state.modo_edicao_cli = True
                         st.rerun()
 
-                # 3. BOTÃO SALVAR
                 with col_btn3:
                     if st.button("💾 Salvar", use_container_width=True, key="btn_salvar_cli"):
                         if st.session_state.modo_edicao_cli and 'df_editado_cli' in locals():
@@ -654,7 +649,6 @@ if perfil_selecionado == "👤 Portal do Cliente":
                             st.success("✅ Pedido atualizado com sucesso!")
                             st.rerun()
 
-                # 4. BOTÃO FINALIZAR E ENVIAR PEDIDO
                 with col_btn4:
                     if st.button("🔴 Finalizar e Enviar Pedido", type="primary", use_container_width=True, key="btn_finalizar_cli"):
                         try:
@@ -674,7 +668,6 @@ if perfil_selecionado == "👤 Portal do Cliente":
                                     qtd_item, float(item.get("valor_unitario", 0)), float(item.get("valor_total", 0)), data_agora
                                 ))
 
-                                # DÁ ENTRADA / SOMA A QUANTIDADE NO ESTOQUE DE PRODUTOS
                                 cursor.execute("""
                                     UPDATE produtos 
                                     SET quantidade = quantidade + ? 
@@ -726,7 +719,9 @@ if perfil_selecionado == "👤 Portal do Cliente":
                         key="tabela_pedidos_do_dia_unica"
                     )
         
-                    col_btn1, col_btn2 = st.columns(2)
+                    # --- BOTÕES NA TELA DO CLIENTE (IGUAL AO PAINEL ADMIN) ---
+                    col_btn1, col_btn2, col_btn3 = st.columns(3)
+                    
                     with col_btn1:
                         if st.button("💾 Salvar Alterações", type="primary", key="btn_salvar_tabela_unica"):
                             try:
@@ -746,7 +741,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                                 st.error(f"Erro ao atualizar os pedidos: {ex}")
         
                     with col_btn2:
-                        if st.button("🗑️ Excluir Marcados", type="secondary", key="btn_excluir_selecionados"):
+                        if st.button("🗑️ Excluir Marcados", key="btn_excluir_selecionados"):
                             try:
                                 cursor = conn.cursor()
                                 itens_para_excluir = df_editado[df_editado['Excluir'] == True]
@@ -771,12 +766,25 @@ if perfil_selecionado == "👤 Portal do Cliente":
                                     st.info("Nenhum item foi marcado para exclusão.")
                             except Exception as ex:
                                 st.error(f"Erro ao excluir os itens: {ex}")
+
+                    with col_btn3:
+                        try:
+                            pdf_buffer = gerar_pdf_tabela_pedidos(df_dia, st.session_state.cliente_autenticado)
+                            st.download_button(
+                                label="📄 Baixar PDF do Dia",
+                                data=pdf_buffer,
+                                file_name=f"pedidos_{st.session_state.cliente_autenticado.replace(' ', '_')}.pdf",
+                                mime="application/pdf",
+                                key="btn_pdf_cli_dia"
+                            )
+                        except Exception as e_pdf:
+                            st.error(f"Erro ao gerar PDF: {e_pdf}")
                 else:
                     st.info("Nenhum pedido registrado hoje para edição.")
                     
             except Exception as e:
                 st.error(f"Erro ao carregar pedidos do dia: {e}")
-                        
+                    
             st.markdown("---")
             st.subheader("📚 Pedidos Anteriores (Histórico)")
             try:
