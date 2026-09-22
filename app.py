@@ -157,7 +157,25 @@ def adequar_banco_e_migrar():
     try:
         cursor = conn.cursor()
 
-        # 1. Tabela de Clientes
+        # 1. Tabela de Produtos (Garanti a criação básica e as colunas extras)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS produtos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                produto TEXT
+            )
+        """)
+        
+        colunas_produtos = [
+            "fornecedor", "grupo", "preco_compra", "preco_venda", 
+            "venda", "quantidade", "estoque", "codigo"
+        ]
+        for col in colunas_produtos:
+            try:
+                cursor.execute(f"ALTER TABLE produtos ADD COLUMN {col} TEXT")
+            except Exception:
+                pass  # Se a coluna já existir, o SQLite ignora
+
+        # 2. Tabela de Clientes
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS clientes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -172,7 +190,28 @@ def adequar_banco_e_migrar():
                 cidade TEXT
             )
         """)
-# Garante a criação da tabela caixa_sessoes e colunas necessárias
+
+        # 3. Tabela de Vendas
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS vendas (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                cliente TEXT,
+                produto TEXT,
+                data TEXT
+            )
+        """)
+        colunas_vendas = [
+            "fornecedor", "grupo", "quantidade", "valor_venda", 
+            "valor_total", "forma_pagamento", "valor_recebido", 
+            "troco", "restante", "status", "tipo", "codigo", "codigo_venda"
+        ]
+        for col in colunas_vendas:
+            try:
+                cursor.execute(f"ALTER TABLE vendas ADD COLUMN {col} TEXT")
+            except Exception:
+                pass
+
+        # 4. Tabela de Sessões de Caixa
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS caixa_sessoes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -183,31 +222,24 @@ def adequar_banco_e_migrar():
                 status TEXT
             )
         """)
-        for col in ["data_abertura", "data_fechamento", "saldo_inicial", "saldo_final", "status"]:
-            try:
-                cursor.execute(f"ALTER TABLE caixa_sessoes ADD COLUMN {col} TEXT")
-            except Exception:
-                pass
-        # Adiciona colunas faltantes se for banco antigo
-        for col in ["cliente", "nome", "cpf", "doc", "endereco", "email", "fone", "telefone", "cidade"]:
-            try:
-                cursor.execute(f"ALTER TABLE clientes ADD COLUMN {col} TEXT")
-            except Exception:
-                pass
 
-        # 🔄 CORREÇÃO/SINCRONIZAÇÃO: Copia 'cliente' para 'nome' e vice-versa se estiver vazio
-        cursor.execute("UPDATE clientes SET nome = cliente WHERE (nome IS NULL OR nome = '') AND (cliente IS NOT NULL AND cliente != '')")
-        cursor.execute("UPDATE clientes SET cliente = nome WHERE (cliente IS NULL OR cliente = '') AND (nome IS NOT NULL AND nome != '')")
-    # Garante que a coluna 'status' existe na tabela vendas
-        try:
-            cursor.execute("ALTER TABLE vendas ADD COLUMN status TEXT")
-        except Exception:
-            pass
+        # 5. Tabela de Movimentações de Caixa
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS caixa_movimentacoes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sessao_id INTEGER,
+                tipo TEXT,
+                valor REAL,
+                descricao TEXT,
+                data TEXT
+            )
+        """)
+
         conn.commit()
     except Exception as e:
-        print(f"Aviso de migração de clientes: {e}")
+        print(f"Aviso de migração: {e}")
 
-# Executa a migração/sincronização
+# Executa a migração ao iniciar
 adequar_banco_e_migrar()
 # --- FUNÇÃO DE LIMPEZA E SANITIÇÃO DO BANCO DE DADOS ---
 def executar_limpeza_banco():
@@ -383,13 +415,21 @@ if perfil_selecionado == "👤 Portal do Cliente":
         st.info("Por favor, selecione seu nome no menu à esquerda e insira sua senha para acessar seus pedidos.")
         
         # 1. Carrega todos os clientes registados de forma segura
-        df_cli_select = carregar_dados("""
-            SELECT DISTINCT COALESCE(NULLIF(cliente, ''), nome) AS cliente_nome 
-            FROM clientes 
-            WHERE cliente_nome IS NOT NULL AND cliente_nome != '' 
-            ORDER BY cliente_nome
-        """)
-        lista_clientes = df_cli_select['cliente_nome'].tolist() if not df_cli_select.empty else []
+        df_cli_select = carregar_dados("SELECT * FROM clientes")
+        lista_clientes = []
+        
+        if not df_cli_select.empty:
+            df_cli_select.columns = [c.lower() for c in df_cli_select.columns]
+            # Procura nas colunas comuns onde o nome do cliente pode estar guardado
+            for col_cand in ['cliente', 'nome', 'razao_social']:
+                if col_cand in df_cli_select.columns:
+                    vals = df_cli_select[col_cand].dropna().astype(str).str.strip()
+                    lista_clientes.extend(vals[vals != ''].unique().tolist())
+            # Remove duplicados mantendo a ordem
+            lista_clientes = list(dict.fromkeys(lista_clientes))
+    
+        if not lista_clientes:
+            lista_clientes = ["Carlos Alberto"]
         
         # 2. Exibe o selectbox com a lista completa
         cliente_nome = st.sidebar.selectbox("Identifique seu Nome/Empresa:", lista_clientes)
@@ -895,24 +935,44 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 if st.button("Finalizar Venda no PDV", type="primary"):
                     if not df_caixa_aberto.empty and len(st.session_state.carrinho_pdv) > 0:
                         cursor = conn.cursor()
-                        sessao_id = df_caixa_aberto.iloc[0]['id']
+                        sessao_id = int(df_caixa_aberto.iloc[0]['id'])
                         data_venda = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
+                
+                        # 1. Grava cada item na tabela de vendas
                         for item in st.session_state.carrinho_pdv:
                             cursor.execute("""
                                 INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, status, tipo, data)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Concluído', 'VENDA', ?)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                             """, (
-                                cliente_pdv, item['produto'], item['fornecedor'], item['grupo'],
-                                item['quantidade'], item['valor_venda'], item['valor_total'],
-                                f_pag, v_rec, data_venda
+                                cliente_pdv, 
+                                item['produto'], 
+                                item['fornecedor'], 
+                                item['grupo'],
+                                item['quantidade'], 
+                                item['valor_venda'], 
+                                item['valor_total'],
+                                f_pag, 
+                                v_rec, 
+                                'Concluído', 
+                                'VENDA', 
+                                data_venda
                             ))
-
-                        cursor.execute("INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, ?, ?, ?, ?)",
-                            (sessao_id, "VENDA", total_geral_carrinho, f"Venda PDV - Cliente: {cliente_pdv}", data_venda)
-                        )
+                
+                        # 2. Insere obrigatoriamente a movimentação vinculada ao caixa aberto para somar no total
+                        cursor.execute("""
+                            INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) 
+                            VALUES (?, ?, ?, ?, ?)
+                        """, (
+                            sessao_id, 
+                            "VENDA", 
+                            float(total_geral_carrinho), 
+                            f"Venda PDV - Cliente: {cliente_pdv}", 
+                            data_venda
+                        ))
+                        
                         conn.commit()
-
+                
+                        # 3. Limpa o carrinho e avisa o utilizador
                         st.session_state.carrinho_pdv = []
                         st.success(f"Venda realizada com sucesso! Troco: R$ {max(0.0, troco):.2f}")
                         st.rerun()
@@ -936,6 +996,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.success("Caixa aberto com sucesso!")
                         st.rerun()
             else:
+                # CORREÇÃO AQUI: Usando df_caixa_atual em vez de df_caixa_aberto
                 sessao_id = int(df_caixa_atual.iloc[0]['id'])
                 data_abertura = df_caixa_atual.iloc[0]['data_abertura']
                 saldo_inicial = float(df_caixa_atual.iloc[0]['saldo_inicial'])
@@ -1802,10 +1863,58 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 st.error(msg)
     
                 st.markdown("---")
-                st.subheader("📋 Lista de Clientes")
+                st.subheader("Lista de Clientes")
                 df_cli_view = carregar_dados("SELECT * FROM clientes")
                 if not df_cli_view.empty:
                     st.dataframe(df_cli_view, use_container_width=True)
+                    
+                    # Seção para Atualizar e Excluir Clientes Existentes
+                    st.markdown("---")
+                    st.subheader("⚙️ Gerir Clientes Selecionados")
+                    if 'id' in df_cli_view.columns:
+                        lista_ids = df_cli_view['id'].tolist()
+                        id_selecionado = st.selectbox("Selecione o ID do Cliente para Atualizar ou Excluir", lista_ids, key="sel_cli_gerir")
+                        
+                        cli_atual = df_cli_view[df_cli_view['id'] == id_selecionado].iloc[0]
+                        
+                        nome_atual = str(cli_atual.get('cliente', '')) if pd.notna(cli_atual.get('cliente')) else str(cli_atual.get('nome', ''))
+                        cpf_atual = str(cli_atual.get('cpf', '')) if pd.notna(cli_atual.get('cpf')) else ''
+                        end_atual = str(cli_atual.get('endereco', '')) if pd.notna(cli_atual.get('endereco')) else ''
+                        email_atual = str(cli_atual.get('email', '')) if pd.notna(cli_atual.get('email')) else ''
+                        fone_atual = str(cli_atual.get('fone', '')) if pd.notna(cli_atual.get('fone')) else ''
+                        cidade_atual = str(cli_atual.get('cidade', '')) if pd.notna(cli_atual.get('cidade')) else ''
+            
+                        with st.form("form_gerir_cliente"):
+                            novo_nome = st.text_input("Nome / Cliente", value=nome_atual)
+                            novo_cpf = st.text_input("CPF / DOC", value=cpf_atual)
+                            novo_end = st.text_input("Endereço", value=end_atual)
+                            novo_email = st.text_input("E-mail", value=email_atual)
+                            novo_fone = st.text_input("Telefone / Fone", value=fone_atual)
+                            novo_cidade = st.text_input("Cidade", value=cidade_atual)
+                            
+                            col_b1, col_b2 = st.columns(2)
+                            with col_b1:
+                                btn_atualizar = st.form_submit_button("🔄 Atualizar Cliente", type="primary")
+                            with col_b2:
+                                btn_excluir = st.form_submit_button("🗑️ Excluir Cliente", type="secondary")
+                                
+                            if btn_atualizar:
+                                cursor = conn.cursor()
+                                cursor.execute("""
+                                    UPDATE clientes 
+                                    SET cliente = ?, nome = ?, cpf = ?, endereco = ?, email = ?, fone = ?, cidade = ?
+                                    WHERE id = ?
+                                """, (novo_nome, novo_nome, novo_cpf, novo_end, novo_email, novo_fone, novo_cidade, id_selecionado))
+                                conn.commit()
+                                st.success("Cliente atualizado com sucesso!")
+                                st.rerun()
+                                
+                            if btn_excluir:
+                                cursor = conn.cursor()
+                                cursor.execute("DELETE FROM clientes WHERE id = ?", (id_selecionado,))
+                                conn.commit()
+                                st.success("Cliente excluído com sucesso!")
+                                st.rerun()
                 else:
                     st.info("Nenhum cliente cadastrado ainda.")
     
