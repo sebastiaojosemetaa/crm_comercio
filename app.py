@@ -434,8 +434,8 @@ if perfil_selecionado == "Portal do Cliente":
     if st.session_state.get("ativar_recuperacao", False):
         fluxo_recuperacao_cliente(conn)
 
-    # 3. Se NÃO estiver em recuperação, mostra o painel normal do cliente
-    if not st.session_state.get("ativar_recuperacao", False):
+    # 3. Se NÃO estiver em recuperação, mostra o portal do cliente normal
+    else:
         if 'cliente_autenticado' not in st.session_state:
             st.session_state.cliente_autenticado = None
 
@@ -443,9 +443,19 @@ if perfil_selecionado == "Portal do Cliente":
             st.title("🔒 Portal do Cliente")
             st.info("Por favor, selecione seu nome no menu à esquerda e insira sua senha para acessar seus pedidos.")
             
-        # (O restante do seu código original do portal do cliente continua aqui embaixo normalmente)
+        # Certifique-se de que o seu código original de carregamento de clientes (selectbox, etc.) 
+        # está logo aqui abaixo, dentro deste mesmo bloco 'else':
+        df_cli_select = carregar_dados("SELECT * FROM clientes")
+        lista_clientes = []
+        
+        if not df_cli_select.empty:
+            df_cli_select.columns = [c.lower() for c in df_cli_select.columns]
+            for col_cand in ['cliente', 'nome', 'razao_social']:
+                if col_cand in df_cli_select.columns:
+                    lista_clientes = df_cli_select[col_cand].dropna().unique().tolist()
+                    break
             
-            # Restante do seu código original que lista os clientes e valida a senha...
+            # (Continue aqui com o resto do seu código original de login do cliente...)
         df_cli_select = carregar_dados("SELECT * FROM clientes")
         # ...
         lista_clientes = []
