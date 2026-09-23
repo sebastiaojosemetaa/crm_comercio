@@ -1153,10 +1153,10 @@ elif perfil_selecionado == "Administração / Vendedor":
         " produtos, clientes e relatórios."
     )
    
-        st.sidebar.subheader("🔒 Área Restrita")
-        if st.sidebar.button("Sair do Modo Admin"):
-            st.session_state.admin_logged = False
-            st.rerun()
+    st.sidebar.subheader("🔒 Área Restrita")
+    if st.sidebar.button("Sair do Modo Admin"):
+        st.session_state.admin_logged = False
+        st.rerun()
             
         menu_admin = st.sidebar.radio(
             "Navegação",
