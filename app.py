@@ -1351,11 +1351,30 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 for item in carrinho_atual:
                                     qtd_item = float(item.get("quantidade", 1))
                                     prod_nome = str(item.get("produto", ""))
+                                    val_unit = float(item.get("valor_unitario", 0))
+                                    val_tot = float(item.get("valor_total", 0))
+                                    forn_nome = item.get("fornecedor", "")
+                                    grupo_nome = item.get("grupo", "")
             
-                                    cursor.execute("INSERT INTO pedidos (cliente, produto, fornecedor, grupo, quantidade, valor_unitario, valor_total, status, data) VALUES (?, ?, ?, ?, ?, ?, ?, 'Pendente', ?)", (cliente_ped, prod_nome, item.get("fornecedor", ""), item.get("grupo", ""), qtd_item, float(item.get("valor_unitario", 0)), float(item.get("valor_total", 0)), data_agora))
-                                    cursor.execute("UPDATE produtos SET quantidade = quantidade + ? WHERE produto = ?", (qtd_item, prod_nome))
+                                    # 1. Grava no histórico de pedidos
+                                    cursor.execute("""
+                                        INSERT INTO pedidos (cliente, produto, fornecedor, grupo, quantidade, valor_unitario, valor_total, status, data)
+                                        VALUES (?, ?, ?, ?, ?, ?, ?, 'Pendente', ?)
+                                    """, (cliente_ped, prod_nome, forn_nome, grupo_nome, qtd_item, val_unit, val_tot, data_agora))
             
-                                # COMANDO ESSENCIAL PARA SALVAR NO BANCO DE DADOS:
+                                    # 2. Grava também nas vendas do dia (para aparecer idêntico ao portal do cliente)
+                                    cursor.execute("""
+                                        INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, status, data)
+                                        VALUES (?, ?, ?, ?, ?, ?, ?, 'Pendente', ?)
+                                    """, (cliente_ped, prod_nome, forn_nome, grupo_nome, qtd_item, val_unit, val_tot, data_agora))
+            
+                                    # 3. Atualiza o estoque
+                                    cursor.execute("""
+                                        UPDATE produtos 
+                                        SET quantidade = quantidade + ? 
+                                        WHERE produto = ?
+                                    """, (qtd_item, prod_nome))
+            
                                 conn.commit()
             
                                 if 'carrinho_admin' in st.session_state:
