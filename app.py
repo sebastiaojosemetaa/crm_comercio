@@ -423,6 +423,8 @@ st.sidebar.markdown("---")
 # AMBIENTE 1: PORTAL DO CLIENTE
 # ==========================================
 if perfil_selecionado == "📁 Portal do Cliente":
+    
+    # 1. Botão e fluxo de recuperação de senha na barra lateral
     if not st.session_state.get("ativar_recuperacao", False):
         if st.sidebar.button("🔑 Esqueci minha senha", key="btn_esqueci_senha_sidebar"):
             st.session_state.ativar_recuperacao = True
@@ -430,15 +432,19 @@ if perfil_selecionado == "📁 Portal do Cliente":
 
     if st.session_state.get("ativar_recuperacao", False):
         fluxo_recuperacao_cliente(conn)
-        
-    if not st.session_state.get("ativar_recuperacao", False):
-        if not st.session_state.client_autenticado: # Ou a sua validação atual de login de cliente
+    
+    else:
+        # 2. O SEU CÓDIGO ORIGINAL DO CLIENTE CONTINUA AQUI NORMALMENTE:
+        if 'cliente_autenticado' not in st.session_state:
+            st.session_state.cliente_autenticado = None
+
+        if not st.session_state.cliente_autenticado:
             st.title("🔒 Portal do Cliente")
             st.info("Por favor, selecione seu nome no menu à esquerda e insira sua senha para acessar seus pedidos.")
-            # ... restante do código original do cliente ...
         
-        # 1. Carrega todos os clientes registados de forma segura
+        # (Aqui continua o resto do código original que lê os clientes da base de dados e faz o login)
         df_cli_select = carregar_dados("SELECT * FROM clientes")
+        # ...
         lista_clientes = []
         
         if not df_cli_select.empty:
