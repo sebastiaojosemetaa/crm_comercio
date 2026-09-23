@@ -434,7 +434,7 @@ perfil_selecionado = st.sidebar.radio(
 # ==========================================
 # AMBIENTE 1: PORTAL DO CLIENTE
 # ==========================================
-elif perfil_selecionado == "Portal do Cliente":
+if perfil_selecionado == "Portal do Cliente":
 
   # Inicializa o estado de recuperação se não existir
   if "ativar_recuperacao" not in st.session_state:
