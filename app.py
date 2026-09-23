@@ -423,20 +423,43 @@ import datetime as dt
 import pandas as pd
 import streamlit as st
 
+# Configuração da página (deve ser a primeira instrução do Streamlit)
+st.set_page_config(
+    page_title="CRM Comércio", page_icon="🛍️", layout="wide"
+)
+
+# --- BARRA LATERAL: SELEÇÃO DE PERFIL ---
+st.sidebar.title("🔑 Acesso ao Sistema")
+st.sidebar.write("Selecione o Perfil:")
+
+perfil_selecionado = st.sidebar.radio(
+    "", ["Portal do Cliente", "Administração / Vendedor"], label_visibility="collapsed"
+)
+
 # ==========================================
 # AMBIENTE 1: PORTAL DO CLIENTE
 # ==========================================
 if perfil_selecionado == "Portal do Cliente":
 
+  # Inicializa a função de recuperação na sessão se não existir
+  if "ativar_recuperacao" not in st.session_state:
+    st.session_state.ativar_recuperacao = False
+
   # 1. Botão para acionar a recuperação na barra lateral
-  if not st.session_state.get("ativar_recuperacao", False):
+  if not st.session_state.ativar_recuperacao:
     if st.sidebar.button("🔑 Esqueci minha senha", key="btn_esqueci_senha_sidebar"):
       st.session_state.ativar_recuperacao = True
       st.rerun()
 
   # 2. Se a recuperação estiver ativa, mostra o formulário na barra lateral
-  if st.session_state.get("ativar_recuperacao", False):
-    fluxo_recuperacao_cliente(conn)
+  if st.session_state.ativar_recuperacao:
+    if "fluxo_recuperacao_cliente" in globals():
+      fluxo_recuperacao_cliente(conn)
+    else:
+      st.sidebar.warning("Função de recuperação não definida.")
+      if st.sidebar.button("Voltar ao Login"):
+        st.session_state.ativar_recuperacao = False
+        st.rerun()
 
   # 3. Se NÃO estiver em recuperação, gerencia a autenticação e o painel principal
   else:
@@ -451,23 +474,25 @@ if perfil_selecionado == "Portal do Cliente":
           " para acessar seus pedidos."
       )
 
-      # Carrega os clientes da base de dados
-      df_cli_select = carregar_dados("SELECT * FROM clientes")
-      lista_clientes = []
+      # Carrega os clientes da base de dados (substitua 'conn' pela sua conexão real)
+      try:
+        df_cli_select = carregar_dados("SELECT * FROM clientes")
+      except Exception:
+        df_cli_select = pd.DataFrame()
 
+      lista_clientes = []
       if not df_cli_select.empty:
         df_cli_select.columns = [c.lower() for c in df_cli_select.columns]
         for col_cand in ["cliente", "nome", "razao_social"]:
           if col_cand in df_cli_select.columns:
             vals = df_cli_select[col_cand].dropna().astype(str).str.strip()
             lista_clientes.extend(vals[vals != ""].unique().tolist())
-        # Remove duplicados mantendo a ordem
         lista_clientes = list(dict.fromkeys(lista_clientes))
 
       if not lista_clientes:
         lista_clientes = ["Carlos Alberto"]
 
-      # Exibe os campos de seleção e senha na barra lateral
+      # Campos de seleção e senha na barra lateral
       cliente_nome = st.sidebar.selectbox(
           "Identifique seu Nome/Empresa:", lista_clientes
       )
@@ -496,7 +521,7 @@ if perfil_selecionado == "Portal do Cliente":
           f" ({st.session_state.cliente_autenticado})"
       )
 
-      # Garantir a criação da tabela de pedidos se não existir
+      # O restante do código das abas (Criar Novo Pedido e Histórico) continua aqui...
       try:
         cursor = conn.cursor()
         cursor.execute("""
