@@ -414,11 +414,6 @@ if 'cliente_autenticado' not in st.session_state:
 if 'carrinho_pdv' not in st.session_state:
     st.session_state.carrinho_pdv = []
 
-st.sidebar.title("🔑 Acesso ao Sistema")
-opcoes_perfil = ["👤 Portal do Cliente", "🔒 Administração / Vendedor"]
-perfil_selecionado = st.sidebar.radio("Selecione o Perfil:", opcoes_perfil, key="perfil_principal_radio")
-st.sidebar.markdown("---")
-
 import datetime as dt
 import pandas as pd
 import streamlit as st
@@ -426,6 +421,14 @@ import streamlit as st
 # Configuração da página (deve ser a primeira instrução do Streamlit)
 st.set_page_config(
     page_title="CRM Comércio", page_icon="🛍️", layout="wide"
+)
+
+# --- BARRA LATERAL: SELEÇÃO DE PERFIL ---
+st.sidebar.title("🔑 Acesso ao Sistema")
+st.sidebar.write("Selecione o Perfil:")
+
+perfil_selecionado = st.sidebar.radio(
+    "", ["Portal do Cliente", "Administração / Vendedor"], label_visibility="collapsed"
 )
 
 # ==========================================
