@@ -370,6 +370,8 @@ if perfil_selecionado == "👤 Portal do Cliente":
         st.session_state.esqueci_senha_ativo = False
     if 'pass_checked' not in st.session_state:
         st.session_state.pass_checked = False
+    if 'cliente_id_para_resetar' not in st.session_state:
+        st.session_state.cliente_id_para_resetar = None
 
     if not st.session_state.cliente_autenticado:
         
@@ -388,16 +390,19 @@ if perfil_selecionado == "👤 Portal do Cliente":
                     if not df_cli_rec.empty:
                         df_cli_rec.columns = [c.lower() for c in df_cli_rec.columns]
                         
-                        # Verificação segura das colunas existentes para evitar KeyError
-                        condicao_match = False
-                        for col_cand in ['cliente', 'nome', 'razao_social']:
-                            if col_cand in df_cli_rec.columns:
-                                condicao_match = condicao_match | (df_cli_rec[col_cand].astype(str).str.strip().str.upper() == rec_nome.strip().upper())
-                        
-                        match = df_cli_rec[condicao_match] if isinstance(condicao_match, pd.Series) else pd.DataFrame()
+                        # Procura o cliente de forma segura utilizando o Pandas (lida perfeitamente com acentos)
+                        cliente_encontrado = None
+                        for _, row in df_cli_rec.iterrows():
+                            for col_cand in ['cliente', 'nome', 'razao_social']:
+                                if col_cand in df_cli_rec.columns and pd.notna(row[col_cand]):
+                                    if str(row[col_cand]).strip().upper() == rec_nome.strip().upper():
+                                        cliente_encontrado = row
+                                        break
+                            if cliente_encontrado is not None:
+                                break
 
-                        if not match.empty:
-                            st.session_state.cliente_para_resetar = rec_nome.strip().upper()
+                        if cliente_encontrado is not None:
+                            st.session_state.cliente_id_para_resetar = int(cliente_encontrado['id'])
                             st.success("✅ Dados confirmados com sucesso! Crie a sua nova senha abaixo.")
                             st.session_state.pass_checked = True
                         else:
@@ -424,13 +429,14 @@ if perfil_selecionado == "👤 Portal do Cliente":
                             cursor.execute("""
                                 UPDATE clientes 
                                 SET senha = ? 
-                                WHERE UPPER(TRIM(cliente)) = ? OR UPPER(TRIM(nome)) = ?
-                            """, (nova_senha_1.strip(), st.session_state.cliente_para_resetar, st.session_state.cliente_para_resetar))
+                                WHERE id = ?
+                            """, (nova_senha_1.strip(), st.session_state.cliente_id_para_resetar))
                             conn.commit()
                             
                             st.success("✅ Senha redefinida com sucesso! Pode fazer login com a nova senha.")
                             st.session_state.esqueci_senha_ativo = False
                             st.session_state.pass_checked = False
+                            st.session_state.cliente_id_para_resetar = None
                             st.rerun()
                         except Exception as e:
                             st.error(f"Erro ao atualizar senha: {e}")
@@ -460,11 +466,19 @@ if perfil_selecionado == "👤 Portal do Cliente":
             senha_cliente = st.sidebar.text_input("Digite a sua Senha:", type="password")
             
             if st.sidebar.button("Acessar Meus Pedidos"):
-                # Validação real da senha gravada na base de dados (ou "123" padrão se estiver vazia)
-                df_val = carregar_dados(f"SELECT senha FROM clientes WHERE UPPER(TRIM(cliente)) = '{cliente_nome.upper()}' OR UPPER(TRIM(nome)) = '{cliente_nome.upper()}'")
-                senha_cadastrada = "123" # Padrão caso não exista
-                if not df_val.empty and pd.notna(df_val.iloc[0].get('senha')):
-                    senha_cadastrada = str(df_val.iloc[0]['senha']).strip()
+                # Validação segura da senha gravada na base de dados (com suporte a acentos)
+                senha_cadastrada = "123"
+                if not df_cli_select.empty:
+                    for _, r in df_cli_select.iterrows():
+                        nome_reg = ""
+                        for col_c in ['cliente', 'nome', 'razao_social']:
+                            if col_c in df_cli_select.columns and pd.notna(r[col_c]):
+                                nome_reg = str(r[col_c]).strip()
+                                break
+                        if nome_reg.upper() == cliente_nome.strip().upper():
+                            if pd.notna(r.get('senha')) and str(r.get('senha')).strip() != "":
+                                senha_cadastrada = str(r['senha']).strip()
+                            break
                 
                 if senha_cliente == senha_cadastrada:
                     st.session_state.cliente_autenticado = cliente_nome
@@ -479,7 +493,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 st.rerun()
 
     else:
-        # Sessão já autenticada do cliente (Mostra o painel normal de pedidos)
+        # Sessão já autenticada do cliente
         st.sidebar.success(f"Logado como:\n**{st.session_state.cliente_autenticado}**")
         if st.sidebar.button("Sair / Trocar Cliente"):
             st.session_state.cliente_autenticado = None
