@@ -735,14 +735,24 @@ if perfil_selecionado == "👤 Portal do Cliente":
                                 cursor = conn.cursor()
                                 for index, row in df_editado.iterrows():
                                     novo_total = float(row['quantidade']) * float(row['valor_unitario'])
+                                    
+                                    # Atualiza na tabela vendas (Pedidos do Dia)
                                     cursor.execute("""
                                         UPDATE vendas
                                         SET quantidade = ?, valor_total = ?
                                         WHERE id = ?
                                     """, (row['quantidade'], novo_total, row['id']))
+                                    
+                                    # Atualiza também na tabela pedidos (Histórico) usando o cliente e o produto correspondente do dia
+                                    cursor.execute("""
+                                        UPDATE pedidos
+                                        SET quantidade = ?, valor_total = ?
+                                        WHERE cliente = ? AND produto = ? AND DATE(data) = DATE(?)
+                                    """, (row['quantidade'], novo_total, row['cliente'], row['produto'], row['data']))
+                    
                                 conn.commit()
                                 st.cache_data.clear()
-                                st.success("Pedidos atualizados com sucesso!")
+                                st.success("Pedidos atualizados com sucesso em ambas as tabelas!")
                                 st.rerun()
                             except Exception as ex:
                                 st.error(f"Erro ao atualizar os pedidos: {ex}")
