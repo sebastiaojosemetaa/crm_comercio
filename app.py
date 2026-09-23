@@ -1150,12 +1150,6 @@ elif perfil_selecionado == "Administração / Vendedor":
         "Bem-vindo ao painel administrativo! Aqui pode gerir produtos,"
         " clientes e relatórios."
     )
-
-    # Insira aqui as abas, tabelas ou funcionalidades do seu app (ex: st.tabs)
-    st.success(
-        "Bem-vindo ao painel administrativo! Adicione aqui a gestão de"
-        " produtos, clientes e relatórios."
-    )
    
     st.sidebar.subheader("🔒 Área Restrita")
     if st.sidebar.button("Sair do Modo Admin"):
