@@ -1123,11 +1123,6 @@ elif perfil_selecionado == "Administração / Vendedor":
     st.title("⚙️ Painel da Administração / Vendedor")
     st.info("Insira a senha de administrador na barra lateral para continuar.")
 
-    st.sidebar.subheader("🔒 Área Restrita")
-    senha_admin = st.sidebar.text_input(
-        "Digite a Senha do Admin:", type="password", key="senha_admin_input"
-    )
-
     if st.sidebar.button("Entrar como Admin", key="btn_login_admin"):
       if senha_admin == "123":  # Substitua pela sua senha real
         st.session_state.admin_autenticado = True
@@ -1138,7 +1133,11 @@ elif perfil_selecionado == "Administração / Vendedor":
   # --- FLUXO 2: SE JÁ ESTIVER AUTENTICADO ---
   else:
     st.sidebar.subheader("🔒 Área Restrita")
+    senha_admin = st.sidebar.text_input(
+        "Digite a Senha do Admin:", type="password", key="senha_admin_input"
+    )  
     st.sidebar.success("Sessão Ativa")
+      
 
     if st.sidebar.button("Sair do Modo Admin", key="btn_sair_admin_unico"):
       st.session_state.admin_autenticado = False
