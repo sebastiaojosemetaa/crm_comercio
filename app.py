@@ -465,7 +465,7 @@ if perfil_selecionado == "Portal do Cliente":
         st.success("Senha alterada com sucesso! Já pode voltar ao login.")
       else:
         st.error(
-            "Verifique os dados: preencha o e-mail, confirme se as senhas"
+            "Verifique os dados: preencha o e-mail e confirme se as senhas"
             " coincidem (mínimo de 4 carateres)."
         )
   else:
