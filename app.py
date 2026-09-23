@@ -388,11 +388,15 @@ if perfil_selecionado == "👤 Portal do Cliente":
                     df_cli_rec = carregar_dados("SELECT * FROM clientes")
                     if not df_cli_rec.empty:
                         df_cli_rec.columns = [c.lower() for c in df_cli_rec.columns]
-                        # Procura correspondência por nome e documento/telefone
-                        match = df_cli_rec[
-                            (df_cli_rec['cliente'].astype(str).str.strip().str.upper() == rec_nome.strip().upper()) |
-                            (df_cli_rec['nome'].astype(str).str.strip().str.upper() == rec_nome.strip().upper())
-                        ]
+                        
+                        # Verificação segura das colunas existentes para evitar KeyError
+                        condicao_match = False
+                        for col_cand in ['cliente', 'nome', 'razao_social']:
+                            if col_cand in df_cli_rec.columns:
+                                condicao_match = condicao_match | (df_cli_rec[col_cand].astype(str).str.strip().str.upper() == rec_nome.strip().upper())
+                        
+                        match = df_cli_rec[condicao_match] if isinstance(condicao_match, pd.Series) else pd.DataFrame()
+
                         if not match.empty:
                             st.session_state.cliente_para_resetar = rec_nome.strip().upper()
                             st.success("✅ Dados confirmados com sucesso! Crie a sua nova senha abaixo.")
