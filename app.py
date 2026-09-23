@@ -422,7 +422,7 @@ st.sidebar.markdown("---")
 # ==========================================
 # AMBIENTE 1: PORTAL DO CLIENTE
 # ==========================================
-if perfil_selecionado == "📁 Portal do Cliente":
+if perfil_selecionado == "Portal do Cliente":
     
     # 1. Botão para acionar a recuperação na barra lateral
     if not st.session_state.get("ativar_recuperacao", False):
@@ -436,15 +436,14 @@ if perfil_selecionado == "📁 Portal do Cliente":
 
     # 3. Se NÃO estiver em recuperação, mostra o painel normal do cliente
     if not st.session_state.get("ativar_recuperacao", False):
-        
-        # --- COLE AQUI O SEU CÓDIGO ORIGINAL DO CLIENTE ---
-        # (Exemplo: a parte que lê a base de dados de clientes, o selectbox, etc.)
         if 'cliente_autenticado' not in st.session_state:
             st.session_state.cliente_autenticado = None
 
         if not st.session_state.cliente_autenticado:
             st.title("🔒 Portal do Cliente")
             st.info("Por favor, selecione seu nome no menu à esquerda e insira sua senha para acessar seus pedidos.")
+            
+        # (O restante do seu código original do portal do cliente continua aqui embaixo normalmente)
             
             # Restante do seu código original que lista os clientes e valida a senha...
         df_cli_select = carregar_dados("SELECT * FROM clientes")
