@@ -1196,14 +1196,7 @@ elif perfil_selecionado == "Administração / Vendedor":
       st.session_state.admin_autenticado = False
       st.rerun()
 
-    # Conteúdo principal do Painel Administrativo
-    st.title("⚙️ Painel de Gestão - Administração / Vendedor")
-    st.success(
-        "Bem-vindo ao painel administrativo! Aqui pode gerir produtos,"
-        " clientes e relatórios."
-    )  
-        
-    # Menu lateral da administração devidamente estruturado
+    # 1. PRIMEIRO DE TUDO: Criamos o menu_admin aqui dentro para ele existir!
     menu_admin = st.sidebar.radio(
         "Menu Administrativo",
         [
@@ -1218,10 +1211,12 @@ elif perfil_selecionado == "Administração / Vendedor":
             "💾 Backup e Restauração",
         ],
     )
-            
+
+    # 2. DEPOIS verificamos qual a opção escolhida
     if menu_admin == "🛒 PDV – Frente de Caixa":
       st.title("🛒 PDV – Frente de Caixa (Múltiplos Produtos)")
-      # O restante do código do PDV continua aqui...
+
+      # [Aqui continua todo o seu código do PDV exatamente como o tem na imagem]
 
 df_caixa_aberto = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
 if df_caixa_aberto.empty:
