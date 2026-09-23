@@ -178,18 +178,18 @@ def adequar_banco_e_migrar():
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS clientes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                cliente TEXT,
-                nome TEXT,
-                cpf TEXT,
-                doc TEXT,
-                endereco TEXT,
-                email TEXT,
-                fone TEXT,
-                telefone TEXT,
-                cidade TEXT,
-                senha TEXT
+                cliente TEXT
             )
         """)
+        colunas_clientes = [
+            "cliente", "nome", "cpf", "doc", "endereco", 
+            "email", "fone", "telefone", "cidade", "senha"
+        ]
+        for col in colunas_clientes:
+            try:
+                cursor.execute(f"ALTER TABLE clientes ADD COLUMN {col} TEXT")
+            except Exception:
+                pass
 
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS vendas (
@@ -237,7 +237,6 @@ def adequar_banco_e_migrar():
         print(f"Aviso de migração: {e}")
 
 adequar_banco_e_migrar()
-
 def executar_limpeza_banco():
     try:
         cursor = conn.cursor()
