@@ -529,6 +529,9 @@ elif perfil_selecionado == "Administração / Vendedor":
       st.success("Acesso administrativo autorizado!")
       # Insira aqui o conteúdo do painel admin
     else:
+      st.sidebar.error("Senha de administrador incorreta!")
+  else:
+    pass  # Bloco else devidamente preenchido para evitar o erro de indentação
         
     else:
       st.sidebar.error("Senha de administrador incorreta!"
