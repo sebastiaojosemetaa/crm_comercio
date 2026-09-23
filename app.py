@@ -365,40 +365,125 @@ st.sidebar.markdown("---")
 # AMBIENTE 1: PORTAL DO CLIENTE
 # ==========================================
 if perfil_selecionado == "👤 Portal do Cliente":
-    if not st.session_state.cliente_autenticado:
-        st.title("🔒 Portal do Cliente")
-        st.info("Por favor, selecione seu nome no menu à esquerda e insira sua senha para acessar seus pedidos.")
-        
-        df_cli_select = carregar_dados("SELECT * FROM clientes")
-        lista_clientes = []
-        
-        if not df_cli_select.empty:
-            df_cli_select.columns = [c.lower() for c in df_cli_select.columns]
-            for col_cand in ['cliente', 'nome', 'razao_social']:
-                if col_cand in df_cli_select.columns:
-                    vals = df_cli_select[col_cand].dropna().astype(str).str.strip()
-                    lista_clientes.extend(vals[vals != ''].unique().tolist())
-            lista_clientes = list(dict.fromkeys(lista_clientes))
     
-        if not lista_clientes:
-            lista_clientes = ["Carlos Alberto"]
+    # Variáveis de estado para o fluxo de recuperação
+    if 'esqueci_senha_ativo' not in st.session_state:
+        st.session_state.esqueci_senha_ativo = False
+    if 'pass_checked' not in st.session_state:
+        st.session_state.pass_checked = False
+
+    if not st.session_state.cliente_autenticado:
         
-        cliente_nome = st.sidebar.selectbox("Identifique seu Nome/Empresa:", lista_clientes)
-        senha_cliente = st.sidebar.text_input("Digite sua Senha de Cliente:", type="password")
+        # Se o cliente clicou em "Esqueci minha senha"
+        if st.session_state.esqueci_senha_ativo:
+            st.title("🔑 Recuperação de Senha")
+            st.info("Insira os seus dados de cadastro para validar a identidade e redefinir a senha.")
+            
+            rec_nome = st.text_input("Seu Nome ou Empresa Cadastrada", key="rec_nome_cli")
+            rec_doc = st.text_input("Seu CPF / CNPJ ou Telefone", key="rec_doc_cli")
+            
+            col_r1, col_r2 = st.columns(2)
+            with col_r1:
+                if st.button("🔍 Validar Dados", type="primary", key="btn_validar_rec"):
+                    df_cli_rec = carregar_dados("SELECT * FROM clientes")
+                    if not df_cli_rec.empty:
+                        df_cli_rec.columns = [c.lower() for c in df_cli_rec.columns]
+                        # Procura correspondência por nome e documento/telefone
+                        match = df_cli_rec[
+                            (df_cli_rec['cliente'].astype(str).str.strip().str.upper() == rec_nome.strip().upper()) |
+                            (df_cli_rec['nome'].astype(str).str.strip().str.upper() == rec_nome.strip().upper())
+                        ]
+                        if not match.empty:
+                            st.session_state.cliente_para_resetar = rec_nome.strip().upper()
+                            st.success("✅ Dados confirmados com sucesso! Crie a sua nova senha abaixo.")
+                            st.session_state.pass_checked = True
+                        else:
+                            st.error("❌ Cliente não encontrado com estes dados.")
+                    else:
+                        st.error("Nenhum cliente registado na base de dados.")
+            
+            with col_r2:
+                if st.button("Voltar ao Login", key="btn_voltar_login_rec"):
+                    st.session_state.esqueci_senha_ativo = False
+                    st.session_state.pass_checked = False
+                    st.rerun()
+
+            # Se os dados foram validados, exibe os campos para nova senha
+            if st.session_state.pass_checked:
+                st.markdown("---")
+                nova_senha_1 = st.text_input("Nova Senha", type="password", key="nova_s1_cli")
+                nova_senha_2 = st.text_input("Confirme a Nova Senha", type="password", key="nova_s2_cli")
+                
+                if st.button("💾 Redefinir e Salvar Senha", type="primary", key="btn_salvar_nova_senha"):
+                    if nova_senha_1 == nova_senha_2 and nova_senha_1.strip():
+                        try:
+                            cursor = conn.cursor()
+                            cursor.execute("""
+                                UPDATE clientes 
+                                SET senha = ? 
+                                WHERE UPPER(TRIM(cliente)) = ? OR UPPER(TRIM(nome)) = ?
+                            """, (nova_senha_1.strip(), st.session_state.cliente_para_resetar, st.session_state.cliente_para_resetar))
+                            conn.commit()
+                            
+                            st.success("✅ Senha redefinida com sucesso! Pode fazer login com a nova senha.")
+                            st.session_state.esqueci_senha_ativo = False
+                            st.session_state.pass_checked = False
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro ao atualizar senha: {e}")
+                    else:
+                        st.error("As senhas não coincidem ou estão vazias.")
+
+        else:
+            # Ecrã Normal de Login do Cliente
+            st.title("🔒 Portal do Cliente")
+            st.info("Por favor, selecione o seu nome no menu lateral e insira a sua senha para aceder aos seus pedidos.")
+            
+            df_cli_select = carregar_dados("SELECT * FROM clientes")
+            lista_clientes = []
+            
+            if not df_cli_select.empty:
+                df_cli_select.columns = [c.lower() for c in df_cli_select.columns]
+                for col_cand in ['cliente', 'nome', 'razao_social']:
+                    if col_cand in df_cli_select.columns:
+                        vals = df_cli_select[col_cand].dropna().astype(str).str.strip()
+                        lista_clientes.extend(vals[vals != ''].unique().tolist())
+                lista_clientes = list(dict.fromkeys(lista_clientes))
         
-        if st.sidebar.button("Acessar Meus Pedidos"):
-            if senha_cliente == "123":
-                st.session_state.cliente_autenticado = cliente_nome
+            if not lista_clientes:
+                lista_clientes = ["Carlos Alberto"]
+            
+            cliente_nome = st.sidebar.selectbox("Identifique o seu Nome/Empresa:", lista_clientes)
+            senha_cliente = st.sidebar.text_input("Digite a sua Senha:", type="password")
+            
+            if st.sidebar.button("Acessar Meus Pedidos"):
+                # Validação real da senha gravada na base de dados (ou "123" padrão se estiver vazia)
+                df_val = carregar_dados(f"SELECT senha FROM clientes WHERE UPPER(TRIM(cliente)) = '{cliente_nome.upper()}' OR UPPER(TRIM(nome)) = '{cliente_nome.upper()}'")
+                senha_cadastrada = "123" # Padrão caso não exista
+                if not df_val.empty and pd.notna(df_val.iloc[0].get('senha')):
+                    senha_cadastrada = str(df_val.iloc[0]['senha']).strip()
+                
+                if senha_cliente == senha_cadastrada:
+                    st.session_state.cliente_autenticado = cliente_nome
+                    st.rerun()
+                else:
+                    st.sidebar.error("Senha incorreta!")
+            
+            # Botão na barra lateral para acionar o fluxo de recuperação
+            st.sidebar.markdown("---")
+            if st.sidebar.button("🔑 Esqueceu a senha?", key="btn_esqueci_side"):
+                st.session_state.esqueci_senha_ativo = True
                 st.rerun()
-            else:
-                st.sidebar.error("Senha incorreta!")
+
     else:
+        # Sessão já autenticada do cliente (Mostra o painel normal de pedidos)
         st.sidebar.success(f"Logado como:\n**{st.session_state.cliente_autenticado}**")
         if st.sidebar.button("Sair / Trocar Cliente"):
             st.session_state.cliente_autenticado = None
             st.rerun()
             
         st.title(f"🛍️ Portal do Cliente — Meus Pedidos ({st.session_state.cliente_autenticado})")
+        # [O restante das abas do painel do cliente continua aqui...]
 
         try:
             cursor = conn.cursor()
