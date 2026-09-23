@@ -436,52 +436,76 @@ perfil_selecionado = st.sidebar.radio(
 # ==========================================
 if perfil_selecionado == "Portal do Cliente":
 
+  # Inicializa os estados na sessão se não existirem
   if "ativar_recuperacao" not in st.session_state:
     st.session_state.ativar_recuperacao = False
+  if "cliente_logado" not in st.session_state:
+    st.session_state.cliente_logado = (
+        "Sebastião"  # Mantém o utilizador logado conforme a imagem
+    )
 
-  # Botões na barra lateral
-  if not st.session_state.ativar_recuperacao:
-    if st.sidebar.button(
-        "🔑 Esqueci minha senha", key="btn_esqueci_senha_sidebar"
-    ):
-      st.session_state.ativar_recuperacao = True
+  # SE O CLIENTE JÁ ESTIVER LOGADO -> MOSTRA APENAS OS PEDIDOS
+  if st.session_state.cliente_logado:
+    st.sidebar.success(f"Logado como: {st.session_state.cliente_logado}")
+    if st.sidebar.button("Sair / Trocar Cliente", key="btn_sair_cliente"):
+      st.session_state.cliente_logado = None
       st.rerun()
 
-  if st.session_state.ativar_recuperacao:
-    if st.sidebar.button("🔙 Voltar ao Login", key="btn_voltar_login_sidebar"):
-      st.session_state.ativar_recuperacao = False
-      st.rerun()
-
-  # Ecrã Principal: Recuperação de Senha
-  if st.session_state.ativar_recuperacao:
-    st.title("🔄 Recuperação de Senha")
-    email_rec = st.text_input("E-mail de Cadastro", key="email_rec_cliente")
-    nova_senha = st.text_input(
-        "Nova Senha", type="password", key="nova_senha_cliente"
-    )
-    confirma_senha = st.text_input(
-        "Confirmar Nova Senha", type="password", key="confirma_senha_cliente"
+    # --- CONTEÚDO PRINCIPAL: MEUS PEDIDOS ---
+    st.title(
+        f"🛍️ Portal do Cliente — Meus Pedidos ({st.session_state.cliente_logado})"
     )
 
-    if st.button("Atualizar Senha", key="btn_executar_recuperacao"):
-      if email_rec and nova_senha == confirma_senha and len(nova_senha) >= 4:
-        st.success("Senha alterada com sucesso!")
-      else:
-        st.error(
-            "Erro: preencha o e-mail e confirme se as senhas coincidem (mínimo"
-            " de 4 caracteres)."
-        )
-
-  # Ecrã Principal: Login Normal
-  if not st.session_state.ativar_recuperacao:
-    st.title("👤 Portal do Cliente - Login")
-    email_login = st.text_input("E-mail", key="email_login_cliente")
-    senha_login = st.text_input(
-        "Senha", type="password", key="senha_login_cliente"
+    # (O código dos seus pedidos, formulário de novo pedido, etc. continua aqui dentro)
+    st.info(
+        "Painel de pedidos ativo. Aqui pode gerir os seus registos e"
+        " relatórios."
     )
 
-    if st.button("Entrar", key="btn_entrar_cliente"):
-      st.success("Sessão iniciada com sucesso!")
+  # SE O CLIENTE NÃO ESTIVER LOGADO -> MOSTRA LOGIN OU RECUPERAÇÃO
+  else:
+    if not st.session_state.ativar_recuperacao:
+      if st.sidebar.button(
+          "🔑 Esqueci minha senha", key="btn_esqueci_senha_sidebar"
+      ):
+        st.session_state.ativar_recuperacao = True
+        st.rerun()
+    else:
+      if st.sidebar.button(
+          "🔙 Voltar ao Login", key="btn_voltar_login_sidebar"
+      ):
+        st.session_state.ativar_recuperacao = False
+        st.rerun()
+
+    if st.session_state.ativar_recuperacao:
+      st.title("🔄 Recuperação de Senha")
+      email_rec = st.text_input("E-mail de Cadastro", key="email_rec_cliente")
+      nova_senha = st.text_input(
+          "Nova Senha", type="password", key="nova_senha_cliente"
+      )
+      confirma_senha = st.text_input(
+          "Confirmar Nova Senha", type="password", key="confirma_senha_cliente"
+      )
+
+      if st.button("Atualizar Senha", key="btn_executar_recuperacao"):
+        if email_rec and nova_senha == confirma_senha and len(nova_senha) >= 4:
+          st.success("Senha alterada com sucesso!")
+        else:
+          st.error(
+              "Erro: preencha o e-mail e confirme se as senhas coincidem"
+              " (mínimo de 4 caracteres)."
+          )
+    else:
+      st.title("👤 Portal do Cliente - Login")
+      email_login = st.text_input("E-mail", key="email_login_cliente")
+      senha_login = st.text_input(
+          "Senha", type="password", key="senha_login_cliente"
+      )
+
+      if st.button("Entrar", key="btn_entrar_cliente"):
+        st.session_state.cliente_logado = "Sebastião"
+        st.success("Sessão iniciada com sucesso!")
+        st.rerun()
   # 3. Se NÃO estiver em recuperação, gerencia a autenticação e o painel principal
   else:
     if "cliente_autenticado" not in st.session_state:
