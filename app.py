@@ -1152,7 +1152,7 @@ elif perfil_selecionado == "Administração / Vendedor":
         "Bem-vindo ao painel administrativo! Adicione aqui a gestão de"
         " produtos, clientes e relatórios."
     )
-    else:
+   
         st.sidebar.subheader("🔒 Área Restrita")
         if st.sidebar.button("Sair do Modo Admin"):
             st.session_state.admin_logged = False
