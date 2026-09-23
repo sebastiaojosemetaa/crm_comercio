@@ -1114,40 +1114,44 @@ if perfil_selecionado == "Portal do Cliente":
 # ==========================================
 elif perfil_selecionado == "Administração / Vendedor":
 
-  # Inicializa o estado de autenticação do admin se não existir
+  # Inicializa o estado de sessão do admin se não existir
   if "admin_autenticado" not in st.session_state:
     st.session_state.admin_autenticado = False
 
-  # Se o administrador NÃO estiver autenticado, mostra o login na barra lateral
+  # --- FLUXO 1: SE NÃO ESTIVER AUTENTICADO ---
   if not st.session_state.admin_autenticado:
     st.title("⚙️ Painel da Administração / Vendedor")
-    st.info(
-        "Por favor, insira a senha de administrador na barra lateral para"
-        " aceder ao painel."
-    )
+    st.info("Insira a senha de administrador na barra lateral para continuar.")
 
+    st.sidebar.subheader("🔒 Área Restrita")
     senha_admin = st.sidebar.text_input(
         "Digite a Senha do Admin:", type="password", key="senha_admin_input"
     )
 
     if st.sidebar.button("Entrar como Admin", key="btn_login_admin"):
-      if senha_admin == "123":  # Substitua pela sua senha de admin real
+      if senha_admin == "123":  # Substitua pela sua senha real
         st.session_state.admin_autenticado = True
-        st.success("Acesso autorizado!")
         st.rerun()
       else:
-        st.sidebar.error("Senha de administrador incorreta!")
+        st.sidebar.error("Senha incorreta!")
 
-  # Se JÁ estiver autenticado, exibe o painel de administração completo
+  # --- FLUXO 2: SE JÁ ESTIVER AUTENTICADO ---
   else:
-    st.sidebar.success("Sessão: **Administrador Ativo**")
-    if st.sidebar.button("Sair da Administração", key="btn_logout_admin"):
+    st.sidebar.subheader("🔒 Área Restrita")
+    st.sidebar.success("Sessão Ativa")
+
+    if st.sidebar.button("Sair do Modo Admin", key="btn_sair_admin_unico"):
       st.session_state.admin_autenticado = False
       st.rerun()
 
+    # Conteúdo principal do Painel Administrativo
     st.title("⚙️ Painel de Gestão - Administração / Vendedor")
+    st.success(
+        "Bem-vindo ao painel administrativo! Aqui pode gerir produtos,"
+        " clientes e relatórios."
+    )
 
-    # Insira aqui as abas, tabelas e funcionalidades do painel administrativo
+    # Insira aqui as abas, tabelas ou funcionalidades do seu app (ex: st.tabs)
     st.success(
         "Bem-vindo ao painel administrativo! Adicione aqui a gestão de"
         " produtos, clientes e relatórios."
