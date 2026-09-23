@@ -1355,6 +1355,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     cursor.execute("INSERT INTO pedidos (cliente, produto, fornecedor, grupo, quantidade, valor_unitario, valor_total, status, data) VALUES (?, ?, ?, ?, ?, ?, ?, 'Pendente', ?)", (cliente_ped, prod_nome, item.get("fornecedor", ""), item.get("grupo", ""), qtd_item, float(item.get("valor_unitario", 0)), float(item.get("valor_total", 0)), data_agora))
                                     cursor.execute("UPDATE produtos SET quantidade = quantidade + ? WHERE produto = ?", (qtd_item, prod_nome))
             
+                                # COMANDO ESSENCIAL PARA SALVAR NO BANCO DE DADOS:
+                                conn.commit()
+            
                                 if 'carrinho_admin' in st.session_state:
                                     st.session_state.carrinho_admin = []
                                 if 'carrinho' in st.session_state:
