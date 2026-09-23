@@ -1196,7 +1196,7 @@ elif perfil_selecionado == "Administração / Vendedor":
       st.session_state.admin_autenticado = False
       st.rerun()
 
-    # 1. PRIMEIRO DE TUDO: Criamos o menu_admin aqui dentro para ele existir!
+    # 1. CRIAMOS O MENU PRIMEIRO (Isto define a variável 'menu_admin')
     menu_admin = st.sidebar.radio(
         "Menu Administrativo",
         [
@@ -1212,15 +1212,24 @@ elif perfil_selecionado == "Administração / Vendedor":
         ],
     )
 
-    # 2. DEPOIS verificamos qual a opção escolhida
+    # 2. AGORA VERIFICAMOS CADA OPÇÃO COM IF / ELIF
     if menu_admin == "🛒 PDV – Frente de Caixa":
       st.title("🛒 PDV – Frente de Caixa (Múltiplos Produtos)")
 
-      # [Aqui continua todo o seu código do PDV exatamente como o tem na imagem]
+      df_caixa_aberto = carregar_dados(
+          "SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'"
+      )
+      if df_caixa_aberto.empty:
+        st.warning(
+            "⚠️ Atenção: Não há nenhum caixa aberto no momento. Vá em '🔓"
+            " Abertura e Fechamento de Caixa' para abrir o caixa."
+        )
 
-df_caixa_aberto = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
-if df_caixa_aberto.empty:
-    st.warning("⚠️ Atenção: Não há nenhum caixa aberto no momento. Vá em '🔓 Abertura e Fechamento de Caixa' para abrir o caixa.")
+      # (Todo o resto do código do PDV fica indentado aqui dentro...)
+
+    elif menu_admin == "🔓 Abertura e Fechamento de Caixa":
+      st.title("🔓 Abertura e Fechamento de Caixa")
+      # (Código do caixa aqui...)
 
 clientes_opt = carregar_coluna("clientes", "nome") or ["Carlos Alberto"]
 fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
