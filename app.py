@@ -719,11 +719,10 @@ if perfil_selecionado == "👤 Portal do Cliente":
                         key="tabela_pedidos_do_dia_unica"
                     )
         
-                    # --- COLOCANDO OS BOTÕES LADO A LADO NA ADMINISTRAÇÃO ---
                     col_btn1, col_btn2, col_btn3 = st.columns(3)
                     
                     with col_btn1:
-                        if st.button("💾 Salvar Alterações", type="primary", key="btn_salvar_tabela_unica_admin"):
+                        if st.button("💾 Salvar Alterações", type="primary", key="btn_salvar_tabela_unica"):
                             try:
                                 cursor = conn.cursor()
                                 for index, row in df_editado.iterrows():
@@ -735,13 +734,13 @@ if perfil_selecionado == "👤 Portal do Cliente":
                                     """, (row['quantidade'], novo_total, row['id']))
                                 conn.commit()
                                 st.cache_data.clear()
-                                st.success("Alterações salvas com sucesso!")
+                                st.success("Pedidos atualizados com sucesso!")
                                 st.rerun()
                             except Exception as ex:
                                 st.error(f"Erro ao atualizar os pedidos: {ex}")
-            
+        
                     with col_btn2:
-                        if st.button("🗑️ Excluir Marcados", key="btn_excluir_selecionados_admin"):
+                        if st.button("🗑️ Excluir Marcados", key="btn_excluir_selecionados"):
                             try:
                                 cursor = conn.cursor()
                                 itens_para_excluir = df_editado[df_editado['Excluir'] == True]
@@ -766,20 +765,24 @@ if perfil_selecionado == "👤 Portal do Cliente":
                                     st.info("Nenhum item foi marcado para exclusão.")
                             except Exception as ex:
                                 st.error(f"Erro ao excluir os itens: {ex}")
-            
+
                     with col_btn3:
                         try:
-                            cliente_pdf_nome = cliente_filtro if cliente_filtro != "Todos" else "Geral"
-                            pdf_buffer = gerar_pdf_tabela_pedidos(df_editado, cliente_pdf_nome)
+                            pdf_buffer = gerar_pdf_tabela_pedidos(df_dia, st.session_state.cliente_autenticado)
                             st.download_button(
                                 label="📄 Baixar PDF do Dia",
                                 data=pdf_buffer,
-                                file_name=f"pedidos_{cliente_pdf_nome.replace(' ', '_')}.pdf",
+                                file_name=f"pedidos_{st.session_state.cliente_autenticado.replace(' ', '_')}.pdf",
                                 mime="application/pdf",
-                                key="btn_pdf_admin_dia"
+                                key="btn_pdf_cli_dia"
                             )
                         except Exception as e_pdf:
                             st.error(f"Erro ao gerar PDF: {e_pdf}")
+                else:
+                    st.info("Nenhum pedido registrado hoje para edição.")
+                    
+            except Exception as e:
+                st.error(f"Erro ao carregar pedidos do dia: {e}")
                     
             st.markdown("---")
             st.subheader("📚 Pedidos Anteriores (Histórico)")
