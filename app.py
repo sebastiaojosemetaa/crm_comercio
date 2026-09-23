@@ -1110,18 +1110,48 @@ if perfil_selecionado == "Portal do Cliente":
           st.error(f"Erro ao carregar histórico: {e_hist}")
 
 # ==========================================
-# AMBIENTE 2: ADMINISTRADOR / VENDEDOR
+# AMBIENTE 2: ADMINISTRAÇÃO / VENDEDOR
 # ==========================================
-elif perfil_selecionado == "🔒 Administração / Vendedor":
-    if not st.session_state.admin_logged:
-        st.title("🔑 Autenticação Administrativa")
-        senha_admin = st.sidebar.text_input("Digite a Senha do Admin:", type="password")
-        if st.sidebar.button("Entrar como Admin"):
-            if senha_admin == "1234":
-                st.session_state.admin_logged = True
-                st.rerun()
-            else:
-                st.sidebar.error("Senha incorreta!")
+elif perfil_selecionado == "Administração / Vendedor":
+
+  # Inicializa o estado de autenticação do admin se não existir
+  if "admin_autenticado" not in st.session_state:
+    st.session_state.admin_autenticado = False
+
+  # Se o administrador NÃO estiver autenticado, mostra o login na barra lateral
+  if not st.session_state.admin_autenticado:
+    st.title("⚙️ Painel da Administração / Vendedor")
+    st.info(
+        "Por favor, insira a senha de administrador na barra lateral para"
+        " aceder ao painel."
+    )
+
+    senha_admin = st.sidebar.text_input(
+        "Digite a Senha do Admin:", type="password", key="senha_admin_input"
+    )
+
+    if st.sidebar.button("Entrar como Admin", key="btn_login_admin"):
+      if senha_admin == "123":  # Substitua pela sua senha de admin real
+        st.session_state.admin_autenticado = True
+        st.success("Acesso autorizado!")
+        st.rerun()
+      else:
+        st.sidebar.error("Senha de administrador incorreta!")
+
+  # Se JÁ estiver autenticado, exibe o painel de administração completo
+  else:
+    st.sidebar.success("Sessão: **Administrador Ativo**")
+    if st.sidebar.button("Sair da Administração", key="btn_logout_admin"):
+      st.session_state.admin_autenticado = False
+      st.rerun()
+
+    st.title("⚙️ Painel de Gestão - Administração / Vendedor")
+
+    # Insira aqui as abas, tabelas e funcionalidades do painel administrativo
+    st.success(
+        "Bem-vindo ao painel administrativo! Adicione aqui a gestão de"
+        " produtos, clientes e relatórios."
+    )
     else:
         st.sidebar.subheader("🔒 Área Restrita")
         if st.sidebar.button("Sair do Modo Admin"):
