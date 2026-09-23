@@ -434,14 +434,30 @@ if perfil_selecionado == "Portal do Cliente":
     if st.session_state.get("ativar_recuperacao", False):
         fluxo_recuperacao_cliente(conn)
 
-    # 3. Se NÃO estiver em recuperação, mostra o portal do cliente normal
+    # 3. Se NÃO estiver em recuperação, desenha o painel normal do cliente na página principal
     if not st.session_state.get("ativar_recuperacao", False):
         if 'cliente_autenticado' not in st.session_state:
             st.session_state.cliente_autenticado = None
 
         if not st.session_state.cliente_autenticado:
             st.title("🔒 Portal do Cliente")
-            st.info("Por favor, selecione seu nome no menu à esquerda e insira sua senha para acessar seus pedidos.")
+            st.info("Por favor, selecione seu nome na barra lateral e insira sua senha para acessar seus pedidos.")
+            
+            # Carrega os clientes para garantir que os seletores aparecem no ecrã
+            df_cli_select = carregar_dados("SELECT * FROM clientes")
+            if not df_cli_select.empty:
+                df_cli_select.columns = [c.lower() for c in df_cli_select.columns]
+                for col_cand in ['cliente', 'nome', 'razao_social']:
+                    if col_cand in df_cli_select.columns:
+                        lista_clientes = df_cli_select[col_cand].dropna().unique().tolist()
+                        # Seletor na barra lateral ou principal dependendo do seu design original
+                        cliente_escolhido = st.sidebar.selectbox("Selecione o Cliente", [""] + lista_clientes)
+                        senha_cliente = st.sidebar.text_input("Senha", type="password")
+                        
+                        if st.sidebar.button("Entrar"):
+                            # Insira aqui a validação original da senha do cliente se necessário
+                            pass
+                        break
         
         # O seu código original de carregamento continua logo aqui abaixo:
         df_cli_select = carregar_dados("SELECT * FROM clientes")
