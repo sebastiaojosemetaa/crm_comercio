@@ -529,8 +529,7 @@ elif perfil_selecionado == "Administração / Vendedor":
       st.success("Acesso administrativo autorizado!")
       # Insira aqui o conteúdo do painel admin
     else:
-      st.sidebar.error("Senha de administrador incorreta!")
-    else:
+      st.sidebar.error("Senha de administrador incorreta!"
         st.sidebar.subheader("🔒 Área Restrita")
         if st.sidebar.button("Sair do Modo Admin"):
             st.session_state.admin_logged = False
