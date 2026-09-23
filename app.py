@@ -1149,7 +1149,7 @@ elif perfil_selecionado == "Administração / Vendedor":
     st.success(
         "Bem-vindo ao painel administrativo! Aqui pode gerir produtos,"
         " clientes e relatórios."
-    )    
+    )  
         
                 "🛒 PDV — Frente de Caixa",
                 "🔓 Abertura e Fechamento de Caixa",
