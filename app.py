@@ -414,6 +414,11 @@ if 'cliente_autenticado' not in st.session_state:
 if 'carrinho_pdv' not in st.session_state:
     st.session_state.carrinho_pdv = []
 
+st.sidebar.title("🔑 Acesso ao Sistema")
+opcoes_perfil = ["👤 Portal do Cliente", "🔒 Administração / Vendedor"]
+perfil_selecionado = st.sidebar.radio("Selecione o Perfil:", opcoes_perfil, key="perfil_principal_radio")
+st.sidebar.markdown("---")
+
 import datetime as dt
 import pandas as pd
 import streamlit as st
