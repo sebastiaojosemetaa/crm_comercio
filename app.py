@@ -522,13 +522,12 @@ if perfil_selecionado == "Portal do Cliente":
 elif perfil_selecionado == "Administração / Vendedor":
   st.title("⚙️ Painel da Administração / Vendedor")
 
-  # Certifique-se de que estas linhas estão alinhadas com exatamente 4 espaços (ou um nível de indentação consistente)
   senha_admin = st.sidebar.text_input("Digite a Senha do Admin:", type="password")
 
   if st.sidebar.button("Entrar como Admin"):
-    if senha_admin == "123":  # Substitua pela sua senha de admin real
+    if senha_admin == "123":
       st.success("Acesso administrativo autorizado!")
-      # Insira aqui o painel de administração
+      # Insira aqui o conteúdo do painel admin
     else:
       st.sidebar.error("Senha de administrador incorreta!")
     else:
