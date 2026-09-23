@@ -436,11 +436,9 @@ perfil_selecionado = st.sidebar.radio(
 # ==========================================
 if perfil_selecionado == "Portal do Cliente":
 
-  # Inicializa o estado de recuperação se não existir
   if "ativar_recuperacao" not in st.session_state:
     st.session_state.ativar_recuperacao = False
 
-  # Controlo do botão na barra lateral
   if not st.session_state.ativar_recuperacao:
     if st.sidebar.button(
         "🔑 Esqueci minha senha", key="btn_esqueci_senha_sidebar"
@@ -452,13 +450,8 @@ if perfil_selecionado == "Portal do Cliente":
       st.session_state.ativar_recuperacao = False
       st.rerun()
 
-  # Ecrã principal: Formulário de Recuperação ou de Login
   if st.session_state.ativar_recuperacao:
-    st.title("🔄 Recuperação de Senha - Portal do Cliente")
-    st.info(
-        "Insira o seu e-mail e defina uma nova senha para recuperar o acesso."
-    )
-
+    st.title("🔄 Recuperação de Senha")
     email_rec = st.text_input("E-mail de Cadastro", key="email_rec_cliente")
     nova_senha = st.text_input(
         "Nova Senha", type="password", key="nova_senha_cliente"
@@ -468,16 +461,12 @@ if perfil_selecionado == "Portal do Cliente":
     )
 
     if st.button("Atualizar Senha", key="btn_executar_recuperacao"):
-      if not email_rec:
-        st.warning("Por favor, preencha o e-mail.")
-      elif nova_senha != confirma_senha:
-        st.error("As senhas não coincidem.")
-      elif len(nova_senha) < 4:
-        st.warning("A senha deve ter pelo menos 4 caracteres.")
+      if email_rec and nova_senha == confirma_senha and len(nova_senha) >= 4:
+        st.success("Senha alterada com sucesso! Já pode voltar ao login.")
       else:
-        st.success(
-            "Senha alterada com sucesso! Clique em 'Voltar ao Login' na barra"
-            " lateral."
+        st.error(
+            "Verifique os dados: preencha o e-mail, confirme se as senhas"
+            " coincidem (mínimo de 4 carateres)."
         )
   else:
     st.title("👤 Portal do Cliente - Login")
