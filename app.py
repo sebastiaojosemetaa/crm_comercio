@@ -430,20 +430,23 @@ if perfil_selecionado == "📁 Portal do Cliente":
             st.session_state.ativar_recuperacao = True
             st.rerun()
 
-    # 2. Se a recuperação estiver ativa, mostra o formulário
+    # 2. Se a recuperação estiver ativa, mostra o formulário na barra lateral
     if st.session_state.get("ativar_recuperacao", False):
         fluxo_recuperacao_cliente(conn)
 
-    # 3. Se NÃO estiver em recuperação, mostra o portal do cliente normal
+    # 3. Se NÃO estiver em recuperação, mostra o painel normal do cliente
     if not st.session_state.get("ativar_recuperacao", False):
+        
+        # --- COLE AQUI O SEU CÓDIGO ORIGINAL DO CLIENTE ---
+        # (Exemplo: a parte que lê a base de dados de clientes, o selectbox, etc.)
         if 'cliente_autenticado' not in st.session_state:
             st.session_state.cliente_autenticado = None
 
         if not st.session_state.cliente_autenticado:
             st.title("🔒 Portal do Cliente")
             st.info("Por favor, selecione seu nome no menu à esquerda e insira sua senha para acessar seus pedidos.")
-        
-        # (O restante do seu código original do cliente continua aqui em baixo normalmente)
+            
+            # Restante do seu código original que lista os clientes e valida a senha...
         df_cli_select = carregar_dados("SELECT * FROM clientes")
         # ...
         lista_clientes = []
