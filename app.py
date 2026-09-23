@@ -1129,7 +1129,7 @@ elif perfil_selecionado == "Administração / Vendedor":
     )
 
     if st.sidebar.button("Entrar como Admin", key="btn_login_admin"):
-      if senha_admin == "123":  # Substitua pela sua senha real
+      if senha_admin == "123":
         st.session_state.admin_autenticado = True
         st.rerun()
       else:
@@ -1143,10 +1143,6 @@ elif perfil_selecionado == "Administração / Vendedor":
     if st.sidebar.button("Sair do Modo Admin", key="btn_sair_admin_unico"):
       st.session_state.admin_autenticado = False
       st.rerun()
-
-    menu_admin = st.sidebar.radio(
-        "Navegação Admin", ["Gestão de Clientes", "Gestão de Produtos"]
-    )
 
     # Conteúdo principal do Painel Administrativo
     st.title("⚙️ Painel de Gestão - Administração / Vendedor")
