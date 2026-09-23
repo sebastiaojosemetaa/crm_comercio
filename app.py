@@ -434,12 +434,13 @@ perfil_selecionado = st.sidebar.radio(
 # ==========================================
 # AMBIENTE 1: PORTAL DO CLIENTE
 # ==========================================
-if perfil_selecionado == "Portal do Cliente":
+elif perfil_selecionado == "Portal do Cliente":
+
   # Inicializa o estado de recuperação se não existir
   if "ativar_recuperacao" not in st.session_state:
     st.session_state.ativar_recuperacao = False
 
-  # Botão na barra lateral para ativar o modo de recuperação
+  # Controlo do botão na barra lateral
   if not st.session_state.ativar_recuperacao:
     if st.sidebar.button(
         "🔑 Esqueci minha senha", key="btn_esqueci_senha_sidebar"
@@ -451,7 +452,7 @@ if perfil_selecionado == "Portal do Cliente":
       st.session_state.ativar_recuperacao = False
       st.rerun()
 
-  # Ecrã principal: Se estiver em modo de recuperação, mostra o formulário de alteração
+  # Ecrã principal: Formulário de Recuperação ou de Login
   if st.session_state.ativar_recuperacao:
     st.title("🔄 Recuperação de Senha - Portal do Cliente")
     st.info(
@@ -474,13 +475,11 @@ if perfil_selecionado == "Portal do Cliente":
       elif len(nova_senha) < 4:
         st.warning("A senha deve ter pelo menos 4 caracteres.")
       else:
-        # Aqui pode integrar a query para atualizar na base de dados se necessário
         st.success(
             "Senha alterada com sucesso! Clique em 'Voltar ao Login' na barra"
             " lateral."
         )
   else:
-    # Ecrã normal de Login do Cliente
     st.title("👤 Portal do Cliente - Login")
     email_login = st.text_input("E-mail", key="email_login_cliente")
     senha_login = st.text_input(
@@ -489,7 +488,6 @@ if perfil_selecionado == "Portal do Cliente":
 
     if st.button("Entrar", key="btn_entrar_cliente"):
       st.success("Sessão iniciada com sucesso!")
-
   # 3. Se NÃO estiver em recuperação, gerencia a autenticação e o painel principal
   else:
     if "cliente_autenticado" not in st.session_state:
