@@ -439,17 +439,20 @@ if perfil_selecionado == "Portal do Cliente":
   if "ativar_recuperacao" not in st.session_state:
     st.session_state.ativar_recuperacao = False
 
+  # Botões na barra lateral
   if not st.session_state.ativar_recuperacao:
     if st.sidebar.button(
         "🔑 Esqueci minha senha", key="btn_esqueci_senha_sidebar"
     ):
       st.session_state.ativar_recuperacao = True
       st.rerun()
-  else:
+
+  if st.session_state.ativar_recuperacao:
     if st.sidebar.button("🔙 Voltar ao Login", key="btn_voltar_login_sidebar"):
       st.session_state.ativar_recuperacao = False
       st.rerun()
 
+  # Ecrã Principal: Recuperação de Senha
   if st.session_state.ativar_recuperacao:
     st.title("🔄 Recuperação de Senha")
     email_rec = st.text_input("E-mail de Cadastro", key="email_rec_cliente")
@@ -465,10 +468,12 @@ if perfil_selecionado == "Portal do Cliente":
         st.success("Senha alterada com sucesso!")
       else:
         st.error(
-            "Erro: verifique o e-mail e se as senhas coincidem (mínimo 4"
-            " carateres)."
+            "Erro: preencha o e-mail e confirme se as senhas coincidem (mínimo"
+            " de 4 caracteres)."
         )
-  else:
+
+  # Ecrã Principal: Login Normal
+  if not st.session_state.ativar_recuperacao:
     st.title("👤 Portal do Cliente - Login")
     email_login = st.text_input("E-mail", key="email_login_cliente")
     senha_login = st.text_input(
