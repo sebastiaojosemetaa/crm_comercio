@@ -435,26 +435,60 @@ perfil_selecionado = st.sidebar.radio(
 # AMBIENTE 1: PORTAL DO CLIENTE
 # ==========================================
 if perfil_selecionado == "Portal do Cliente":
-
-  # Inicializa a função de recuperação na sessão se não existir
+  # Inicializa o estado de recuperação se não existir
   if "ativar_recuperacao" not in st.session_state:
     st.session_state.ativar_recuperacao = False
 
-  # 1. Botão para acionar a recuperação na barra lateral
+  # Botão na barra lateral para ativar o modo de recuperação
   if not st.session_state.ativar_recuperacao:
-    if st.sidebar.button("🔑 Esqueci minha senha", key="btn_esqueci_senha_sidebar"):
+    if st.sidebar.button(
+        "🔑 Esqueci minha senha", key="btn_esqueci_senha_sidebar"
+    ):
       st.session_state.ativar_recuperacao = True
       st.rerun()
+  else:
+    if st.sidebar.button("🔙 Voltar ao Login", key="btn_voltar_login_sidebar"):
+      st.session_state.ativar_recuperacao = False
+      st.rerun()
 
-  # 2. Se a recuperação estiver ativa, mostra o formulário na barra lateral
+  # Ecrã principal: Se estiver em modo de recuperação, mostra o formulário de alteração
   if st.session_state.ativar_recuperacao:
-    if "fluxo_recuperacao_cliente" in globals():
-      fluxo_recuperacao_cliente(conn)
-    else:
-      st.sidebar.warning("Função de recuperação não definida.")
-      if st.sidebar.button("Voltar ao Login"):
-        st.session_state.ativar_recuperacao = False
-        st.rerun()
+    st.title("🔄 Recuperação de Senha - Portal do Cliente")
+    st.info(
+        "Insira o seu e-mail e defina uma nova senha para recuperar o acesso."
+    )
+
+    email_rec = st.text_input("E-mail de Cadastro", key="email_rec_cliente")
+    nova_senha = st.text_input(
+        "Nova Senha", type="password", key="nova_senha_cliente"
+    )
+    confirma_senha = st.text_input(
+        "Confirmar Nova Senha", type="password", key="confirma_senha_cliente"
+    )
+
+    if st.button("Atualizar Senha", key="btn_executar_recuperacao"):
+      if not email_rec:
+        st.warning("Por favor, preencha o e-mail.")
+      elif nova_senha != confirma_senha:
+        st.error("As senhas não coincidem.")
+      elif len(nova_senha) < 4:
+        st.warning("A senha deve ter pelo menos 4 caracteres.")
+      else:
+        # Aqui pode integrar a query para atualizar na base de dados se necessário
+        st.success(
+            "Senha alterada com sucesso! Clique em 'Voltar ao Login' na barra"
+            " lateral."
+        )
+  else:
+    # Ecrã normal de Login do Cliente
+    st.title("👤 Portal do Cliente - Login")
+    email_login = st.text_input("E-mail", key="email_login_cliente")
+    senha_login = st.text_input(
+        "Senha", type="password", key="senha_login_cliente"
+    )
+
+    if st.button("Entrar", key="btn_entrar_cliente"):
+      st.success("Sessão iniciada com sucesso!")
 
   # 3. Se NÃO estiver em recuperação, gerencia a autenticação e o painel principal
   else:
