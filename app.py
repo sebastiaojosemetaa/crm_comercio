@@ -462,11 +462,11 @@ if perfil_selecionado == "Portal do Cliente":
 
     if st.button("Atualizar Senha", key="btn_executar_recuperacao"):
       if email_rec and nova_senha == confirma_senha and len(nova_senha) >= 4:
-        st.success("Senha alterada com sucesso! Já pode voltar ao login.")
+        st.success("Senha alterada com sucesso!")
       else:
         st.error(
-            "Verifique os dados: preencha o e-mail e confirme se as senhas"
-            " coincidem (mínimo de 4 carateres)."
+            "Erro: verifique o e-mail e se as senhas coincidem (mínimo 4"
+            " carateres)."
         )
   else:
     st.title("👤 Portal do Cliente - Login")
