@@ -1144,7 +1144,6 @@ elif perfil_selecionado == "Administração / Vendedor":
       st.session_state.admin_autenticado = False
       st.rerun()
 
-    # Certifique-se de que estas linhas estão alinhadas com o mesmo nível de espaçamento
     menu_admin = st.sidebar.radio(
         "Navegação Admin", ["Gestão de Clientes", "Gestão de Produtos"]
     )
