@@ -432,9 +432,8 @@ if perfil_selecionado == "📁 Portal do Cliente":
 
     if st.session_state.get("ativar_recuperacao", False):
         fluxo_recuperacao_cliente(conn)
-    
     else:
-        # 2. O SEU CÓDIGO ORIGINAL DO CLIENTE CONTINUA AQUI NORMALMENTE:
+        # 2. O seu código original do cliente continua aqui:
         if 'cliente_autenticado' not in st.session_state:
             st.session_state.cliente_autenticado = None
 
