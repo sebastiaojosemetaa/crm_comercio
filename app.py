@@ -190,6 +190,19 @@ def adequar_banco_e_migrar():
                 cidade TEXT
             )
         """)
+        # Exemplo dentro da sua função de migração do banco:
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS clientes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                cliente TEXT,
+                cpf TEXT,
+                telefone TEXT,
+                endereco TEXT,
+                cidade TEXT,
+                email TEXT,
+                senha TEXT
+            )
+        """)
 
         # 3. Tabela de Vendas
         cursor.execute("""
@@ -409,10 +422,20 @@ st.sidebar.markdown("---")
 # ==========================================
 # AMBIENTE 1: PORTAL DO CLIENTE
 # ==========================================
-if perfil_selecionado == "👤 Portal do Cliente":
-    if not st.session_state.cliente_autenticado:
-        st.title("🔒 Portal do Cliente")
-        st.info("Por favor, selecione seu nome no menu à esquerda e insira sua senha para acessar seus pedidos.")
+if perfil_selecionado == "📁 Portal do Cliente":
+    if not st.session_state.get("ativar_recuperacao", False):
+        if st.sidebar.button("🔑 Esqueci minha senha", key="btn_esqueci_senha_sidebar"):
+            st.session_state.ativar_recuperacao = True
+            st.rerun()
+
+    if st.session_state.get("ativar_recuperacao", False):
+        fluxo_recuperacao_cliente(conn)
+        
+    if not st.session_state.get("ativar_recuperacao", False):
+        if not st.session_state.client_autenticado: # Ou a sua validação atual de login de cliente
+            st.title("🔒 Portal do Cliente")
+            st.info("Por favor, selecione seu nome no menu à esquerda e insira sua senha para acessar seus pedidos.")
+            # ... restante do código original do cliente ...
         
         # 1. Carrega todos os clientes registados de forma segura
         df_cli_select = carregar_dados("SELECT * FROM clientes")
