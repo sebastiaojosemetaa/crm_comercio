@@ -1241,12 +1241,14 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 
                 preco_sugerido_admin = 0.0
                 if not df_p_admin.empty and prod_item != "+ Cadastrar Novo Produto...":
+                    df_p_admin.columns = [c.lower() for c in df_p_admin.columns]
+                    col_nome_p = 'produto' if 'produto' in df_p_admin.columns else ('nome' if 'nome' in df_p_admin.columns else df_p_admin.columns[1])
                     df_p_admin['_nome_limpo'] = df_p_admin[col_nome_p].astype(str).str.strip().str.upper()
                     df_filtrado_admin = df_p_admin[df_p_admin['_nome_limpo'] == str(prod_item).strip().upper()]
                 
                     if not df_filtrado_admin.empty:
                         row_adm = df_filtrado_admin.iloc[0]
-                        for col_v in ['valor_venda', 'preco_venda', 'venda', 'valor_compra']:
+                        for col_v in ['valor_venda', 'preco_venda', 'venda', 'preco', 'valor']:
                             if col_v in df_p_admin.columns:
                                 try:
                                     val_aux = float(row_adm[col_v])
