@@ -428,14 +428,6 @@ st.set_page_config(
     page_title="CRM Comércio", page_icon="🛍️", layout="wide"
 )
 
-# --- BARRA LATERAL: SELEÇÃO DE PERFIL ---
-st.sidebar.title("🔑 Acesso ao Sistema")
-st.sidebar.write("Selecione o Perfil:")
-
-perfil_selecionado = st.sidebar.radio(
-    "", ["Portal do Cliente", "Administração / Vendedor"], label_visibility="collapsed"
-)
-
 # ==========================================
 # AMBIENTE 1: PORTAL DO CLIENTE
 # ==========================================
