@@ -423,7 +423,7 @@ import datetime as dt
 import pandas as pd
 import streamlit as st
 
-# Configuração da página (deve ser a primeira chamada do Streamlit)
+# Configuração inicial da página
 st.set_page_config(
     page_title="CRM Comércio - Rey da Cebola", page_icon="🛍️", layout="wide"
 )
@@ -434,7 +434,6 @@ st.set_page_config(
 st.sidebar.title("🔑 Acesso ao Sistema")
 st.sidebar.write("Selecione o Perfil:")
 
-# Apenas um único rádio para definir o perfil em todo o app
 perfil_selecionado = st.sidebar.radio(
     "Selecione o Perfil:",
     ["Portal do Cliente", "Administração / Vendedor"],
@@ -447,17 +446,14 @@ st.sidebar.markdown("---")
 # AMBIENTE 1: PORTAL DO CLIENTE
 # ==========================================
 if perfil_selecionado == "Portal do Cliente":
-
   if "ativar_recuperacao" not in st.session_state:
     st.session_state.ativar_recuperacao = False
 
-  # 1. Botão para acionar a recuperação na barra lateral
   if not st.session_state.ativar_recuperacao:
     if st.sidebar.button("🔑 Esqueci minha senha", key="btn_esqueci_senha_sidebar"):
       st.session_state.ativar_recuperacao = True
       st.rerun()
 
-  # 2. Se a recuperação estiver ativa, mostra o formulário na barra lateral
   if st.session_state.ativar_recuperacao:
     if "fluxo_recuperacao_cliente" in globals():
       fluxo_recuperacao_cliente(conn)
@@ -466,13 +462,10 @@ if perfil_selecionado == "Portal do Cliente":
       if st.sidebar.button("Voltar ao Login"):
         st.session_state.ativar_recuperacao = False
         st.rerun()
-
-  # 3. Se NÃO estiver em recuperação, gerencia a autenticação e o painel principal
   else:
     if "cliente_autenticado" not in st.session_state:
       st.session_state.cliente_autenticado = None
 
-    # Se não estiver autenticado, exibe a tela de login
     if not st.session_state.cliente_autenticado:
       st.title("🔒 Portal do Cliente")
       st.info(
@@ -480,7 +473,6 @@ if perfil_selecionado == "Portal do Cliente":
           " para acessar seus pedidos."
       )
 
-      # Carrega os clientes da base de dados
       try:
         df_cli_select = carregar_dados("SELECT * FROM clientes")
       except Exception:
@@ -498,7 +490,6 @@ if perfil_selecionado == "Portal do Cliente":
       if not lista_clientes:
         lista_clientes = ["Sebastião"]
 
-      # Campos de seleção e senha na barra lateral
       cliente_nome = st.sidebar.selectbox(
           "Identifique seu Nome/Empresa:", lista_clientes
       )
@@ -507,13 +498,11 @@ if perfil_selecionado == "Portal do Cliente":
       )
 
       if st.sidebar.button("Acessar Meus Pedidos"):
-        if senha_cliente == "123":  # Substitua pela validação real da senha
+        if senha_cliente == "123":
           st.session_state.cliente_autenticado = cliente_nome
           st.rerun()
         else:
           st.sidebar.error("Senha incorreta!")
-
-    # Se já estiver autenticado, exibe o painel principal do cliente
     else:
       st.sidebar.success(
           f"Logado como:\n**{st.session_state.cliente_autenticado}**"
@@ -527,15 +516,13 @@ if perfil_selecionado == "Portal do Cliente":
           f" ({st.session_state.cliente_autenticado})"
       )
 
-      # (Insira aqui o restante do código das abas de pedidos...)
-
 # ==========================================
 # AMBIENTE 2: ADMINISTRAÇÃO / VENDEDOR
 # ==========================================
 elif perfil_selecionado == "Administração / Vendedor":
   st.title("⚙️ Painel da Administração / Vendedor")
-  st.info("Área administrativa do sistema.")
-        senha_admin = st.sidebar.text_input("Digite a Senha do Admin:", type="password")
+  # Certifique-se de que a linha abaixo e quaisquer outras estejam perfeitamente alinhadas (sem espaços extras indesejados)
+  senha_admin = st.sidebar.text_input("Digite a Senha do Admin:", type="password")
         if st.sidebar.button("Entrar como Admin"):
             if senha_admin == "1234":
                 st.session_state.admin_logged = True
