@@ -1151,21 +1151,21 @@ elif perfil_selecionado == "Administração / Vendedor":
         " clientes e relatórios."
     )  
         
-                # Menu lateral da administração devidamente estruturado
-                menu_admin = st.sidebar.radio(
-                    "Menu Administrativo",
-                    [
-                        "🛒 PDV – Frente de Caixa",
-                        "🔓 Abertura e Fechamento de Caixa",
-                        "📊 Fechamento & Financeiro",
-                        "📦 Pedidos / Orçamentos",
-                        "💰 Registrar Venda",
-                        "🛍️ Entrada de Estoque (Compras)",
-                        "📋 Estoque de Produtos",
-                        "👥 Cadastros (Clientes / Fornecedores / Grupos)",
-                        "💾 Backup e Restauração",
-                    ],
-                )
+    # Menu lateral da administração devidamente estruturado
+    menu_admin = st.sidebar.radio(
+        "Menu Administrativo",
+        [
+            "🛒 PDV – Frente de Caixa",
+            "🔓 Abertura e Fechamento de Caixa",
+            "📊 Fechamento & Financeiro",
+            "📦 Pedidos / Orçamentos",
+            "💰 Registrar Venda",
+            "🛍️ Entrada de Estoque (Compras)",
+            "📋 Estoque de Produtos",
+            "👥 Cadastros (Clientes / Fornecedores / Grupos)",
+            "💾 Backup e Restauração",
+        ],
+    )
             
                 if menu_admin == "🛒 PDV – Frente de Caixa":
                   st.title("🛒 PDV – Frente de Caixa (Múltiplos Produtos)")
