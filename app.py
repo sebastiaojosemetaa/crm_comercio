@@ -75,9 +75,15 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
 
     if not df_dados.empty:
         df_proc = df_dados.copy()
-        col_qtd = 'quantidade' if 'quantidade' in df_proc.columns else df_proc.columns[3]
-        col_unit = 'valor_venda' if 'valor_venda' in df_proc.columns else ('Valor Unitário (R$)' if 'Valor Unitário (R$)' in df_proc.columns else df_proc.columns[4])
-        col_tot = 'valor_total' if 'valor_total' in df_proc.columns else ('Total (R$)' if 'Total (R$)' in df_proc.columns else df_proc.columns[5])
+        
+        # Remove a coluna 'Excluir' se ela vier na tabela para evitar conflitos de índices
+        if 'Excluir' in df_proc.columns:
+            df_proc = df_proc.drop(columns=['Excluir'])
+
+        # Busca segura dos nomes reais das colunas
+        col_qtd = next((c for c in ['quantidade', 'qtd'] if c in df_proc.columns), df_proc.columns[3] if len(df_proc.columns) > 3 else df_proc.columns[0])
+        col_unit = next((c for c in ['valor_venda', 'valor_unitario', 'preco_unitario', 'Valor Unitário (R$)'] if c in df_proc.columns), df_proc.columns[4] if len(df_proc.columns) > 4 else df_proc.columns[0])
+        col_tot = next((c for c in ['valor_total', 'total', 'Total (R$)'] if c in df_proc.columns), df_proc.columns[5] if len(df_proc.columns) > 5 else df_proc.columns[0])
 
         def tratar_num(val):
             if pd.isna(val) or val == '':
