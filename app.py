@@ -1679,7 +1679,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         
             cols_esperadas = ['id', 'produto', 'quantidade', 'valor_compra', 'valor_venda', 'grupo', 'fornecedor']
             for c in cols_esperadas:
-    
+                    ...
+
             cols_esperadas = ['id', 'produto', 'quantidade', 'valor_compra', 'valor_venda', 'grupo', 'fornecedor']
             for c in cols_esperadas:
                 if c not in df_produtos.columns:
