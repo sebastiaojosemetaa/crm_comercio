@@ -1646,20 +1646,35 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
-    
+            
             try:
                 df_produtos = pd.read_sql_query("SELECT * FROM produtos", conn)
             except Exception:
                 df_produtos = pd.DataFrame()
-    
+        
+            # Filtro de stock
+            filtro_estoque = st.selectbox(
+                "Filtrar por Status do Stock:",
+                ["Todos", "Com Stock (> 0)", "Zerados (= 0)"],
+                key="filtro_status_stock"
+            )
+        
             cols_esperadas = ['id', 'produto', 'quantidade', 'valor_compra', 'valor_venda', 'grupo', 'fornecedor']
             for c in cols_esperadas:
                 if c not in df_produtos.columns:
                     df_produtos[c] = 0.0 if ('valor' in c or 'quantidade' in c) else ""
-    
+        
             if not df_produtos.empty:
                 cols_finais = [c for c in cols_esperadas if c in df_produtos.columns]
                 df_produtos = df_produtos[cols_finais]
+                
+                # Aplica o filtro de quantidade de forma segura
+                df_produtos['quantidade'] = pd.to_numeric(df_produtos['quantidade'], errors='coerce').fillna(0)
+                
+                if filtro_estoque == "Com Stock (> 0)":
+                    df_produtos = df_produtos[df_produtos['quantidade'] > 0]
+                elif filtro_estoque == "Zerados (= 0)":
+                    df_produtos = df_produtos[df_produtos['quantidade'] == 0]
     
             df_estoque_editado = st.data_editor(df_produtos, use_container_width=True, hide_index=True, key="editor_estoque_produtos")
     
