@@ -1652,14 +1652,23 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             except Exception:
                 df_produtos = pd.DataFrame()
         
-            # --- COLOQUE O FILTRO AQUI ---
+            # Filtro de stock
             filtro_estoque = st.selectbox(
                 "Filtrar por Status do Stock:",
                 ["Todos", "Com Stock (> 0)", "Zerados (= 0)"],
                 key="filtro_status_stock"
             )
         
+            cols_esperadas = ['id', 'produto', 'quantidade', 'valor_compra', 'valor_venda', 'grupo', 'fornecedor']
+            for c in cols_esperadas:
+                if c not in df_produtos.columns:
+                    df_produtos[c] = 0.0 if ('valor' in c or 'quantidade' in c) else ""
+        
             if not df_produtos.empty:
+                cols_finais = [c for c in cols_esperadas if c in df_produtos.columns]
+                df_produtos = df_produtos[cols_finais]
+                
+                # Aplica o filtro de quantidade de forma segura
                 df_produtos['quantidade'] = pd.to_numeric(df_produtos['quantidade'], errors='coerce').fillna(0)
                 
                 if filtro_estoque == "Com Stock (> 0)":
