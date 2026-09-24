@@ -1646,67 +1646,44 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
-            
+    
             try:
                 df_produtos = pd.read_sql_query("SELECT * FROM produtos", conn)
             except Exception:
                 df_produtos = pd.DataFrame()
-        
-            # Filtro de stock
-            filtro_estoque = st.selectbox(
-                "Filtrar por Status do Stock:",
-                ["Todos", "Com Stock (> 0)", "Zerados (= 0)"],
-                key="filtro_status_stock"
-            )
-        
+    
             cols_esperadas = ['id', 'produto', 'quantidade', 'valor_compra', 'valor_venda', 'grupo', 'fornecedor']
             for c in cols_esperadas:
                 if c not in df_produtos.columns:
                     df_produtos[c] = 0.0 if ('valor' in c or 'quantidade' in c) else ""
-        
+    
             if not df_produtos.empty:
                 cols_finais = [c for c in cols_esperadas if c in df_produtos.columns]
                 df_produtos = df_produtos[cols_finais]
-                
-                # Converte quantidade para número de forma segura para o filtro funcionar
-                df_produtos['quantidade'] = pd.to_numeric(df_produtos['quantidade'], errors='coerce').fillna(0)
-                
-                if filtro_estoque == "Com Stock (> 0)":
-                    df_produtos = df_produtos[df_produtos['quantidade'] > 0]
-                elif filtro_estoque == "Zerados (= 0)":
-                    df_produtos = df_produtos[df_produtos['quantidade'] == 0]
-        
-            # Exibição da tabela editável
-            edited_df = st.data_editor(
-                df_produtos,
-                key="editor_estoque_produtos",
-                use_container_width=True,
-                num_rows="dynamic"
-            )
-        
-            col_btn_est1, col_btn_est2 = st.columns(2)
-            with col_btn_est1:
-                if st.button("💾 Salvar Alterações no Estoque", use_container_width=True):
+    
+            df_estoque_editado = st.data_editor(df_produtos, use_container_width=True, hide_index=True, key="editor_estoque_produtos")
+    
+            col_salvar, col_atualizar = st.columns([1, 1])
+    
+            with col_salvar:
+                if st.button("💾 Salvar Alterações no Estoque", type="primary", key="btn_salvar_estoque"):
                     try:
                         cursor = conn.cursor()
-                        for _, row in edited_df.iterrows():
-                            cursor.execute("""
-                                UPDATE produtos 
-                                SET quantidade = ?, valor_compra = ?, valor_venda = ?, grupo = ?, fornecedor = ?
-                                WHERE id = ?
-                            """, (
-                                float(row.get('quantidade', 0)),
-                                float(row.get('valor_compra', 0)),
-                                float(row.get('valor_venda', 0)),
-                                str(row.get('grupo', '')),
-                                str(row.get('fornecedor', '')),
-                                int(row.get('id', 0))
-                            ))
+                        for col in ["grupo", "fornecedor"]:
+                            try:
+                                cursor.execute(f"ALTER TABLE produtos ADD COLUMN {col} TEXT")
+                            except Exception:
+                                pass
+    
+                        for _, row in df_estoque_editado.iterrows():
+                            cursor.execute("UPDATE produtos SET produto = ?, quantidade = ?, valor_compra = ?, valor_venda = ?, grupo = ?, fornecedor = ? WHERE id = ?", (row['produto'], row['quantidade'], row['valor_compra'], row['valor_venda'], row.get('grupo', ''), row.get('fornecedor', ''), row['id']))
+    
                         conn.commit()
-                        st.success("✅ Estoque atualizado com sucesso!")
+                        st.cache_data.clear()
+                        st.success("✅ Alterações do estoque salvas com sucesso!")
                         st.rerun()
                     except Exception as e:
-                        st.error(f"Erro ao salvar alterações: {e}")
+                        st.error(f"Erro ao salvar: {e}")
     
             with col_atualizar:
                 if st.button("🔄 Atualizar Preços de Compra", key="btn_atualizar_precos"):
