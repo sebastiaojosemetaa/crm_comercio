@@ -842,7 +842,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         st.title("🔑 Autenticação Administrativa")
         senha_admin = st.sidebar.text_input("Digite a Senha do Admin:", type="password")
         if st.sidebar.button("Entrar como Admin"):
-            if senha_admin == "1234":
+            if senha_admin == "13142715Sa":
                 st.session_state.admin_logged = True
                 st.rerun()
             else:
