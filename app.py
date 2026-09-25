@@ -1705,7 +1705,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         
             st.markdown("---")
         
-            col_btn_est1, col_btn_est2 = st.columns(2)
+            # Botões de ação e definição correta de col_atualizar
+            col_btn_est1, col_atualizar = st.columns(2)
+            
             with col_btn_est1:
                 if st.button("💾 Salvar Alterações no Estoque", use_container_width=True):
                     try:
