@@ -638,21 +638,37 @@ if perfil_selecionado == "👤 Portal do Cliente":
             if "modo_edicao_cli" not in st.session_state:
                 st.session_state.modo_edicao_cli = False
 
-            if st.button("➕ Incluir Produto no Pedido", type="primary", key="btn_incluir_prod_cli"):
-                if prod_item == "+ Cadastrar Novo Produto...":
-                    st.error("Por favor, selecione ou cadastre o produto antes de incluir no pedido.")
-                else:
-                    st.session_state.carrinho_cliente.append({
-                        "produto": prod_item,
-                        "fornecedor": fornec_ped,
-                        "grupo": grupo_ped,
-                        "quantidade": float(qtd_ped),
-                        "valor_unitario": float(v_venda_ped),
-                        "preco_unitario": float(v_venda_ped),
-                        "valor_total": float(valor_total_item)
-                    })
-                    st.success(f"✅ '{prod_item}' adicionado ao pedido com sucesso!")
-                    st.rerun()
+            if st.button("➕ Incluir Produto no Pedido", use_container_width=True):
+                # Verifica se já existe um item com o mesmo produto na lista/dataframe do pedido atual
+                # (Substitua 'st.session_state.carrinho_pedido' pelo nome da variável que você usa para guardar os itens do pedido)
+                
+                item_encontrado = False
+                
+                if 'carrinho_pedido' not in st.session_state:
+                    st.session_state.carrinho_pedido = []
+            
+                for item in st.session_state.carrinho_pedido:
+                    if item['produto'] == produto_selecionado and item['fornecedor'] == fornecedor_selecionado:
+                        # Se já existe, apenas soma a quantidade e recalcula o total
+                        item['quantidade'] += qtd_informada
+                        item['valor_total'] = item['quantidade'] * item['valor_unitario']
+                        item_encontrado = True
+                        break
+                        
+                if not item_encontrado:
+                    # Se não existe, adiciona um novo item normalmente
+                    novo_item = {
+                        'produto': produto_selecionado,
+                        'fornecedor': fornecedor_selecionado,
+                        'grupo': grupo_selecionado,
+                        'quantidade': qtd_informada,
+                        'valor_unitario': preco_unitario,
+                        'valor_total': qtd_informada * preco_unitario
+                    }
+                    st.session_state.carrinho_pedido.append(novo_item)
+                    
+                st.success(f"Produto {produto_selecionado} incluído/atualizado no pedido com sucesso!")
+                st.rerun()
 
             st.markdown("---")
             st.subheader("📋 Itens Atuais no Pedido")
