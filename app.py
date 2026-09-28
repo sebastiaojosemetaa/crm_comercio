@@ -1322,125 +1322,127 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     valor_total_item = qtd_ped * v_venda_ped
                     st.info(f"**Valor Total do Item:** R$ {valor_total_item:.2f}")
                 
-                if st.button("➕ Incluir Produto no Pedido", type="primary", key="btn_incluir_prod_pedido"):
-                    if prod_item == "+ Cadastrar Novo Produto...":
-                        st.error("Por favor, selecione ou cadastre o produto antes de incluir no pedido.")
-                    else:
-                        if "carrinho_admin" not in st.session_state:
-                            st.session_state.carrinho_admin = []
-                
-                        st.session_state.carrinho_admin.append({
-                            "produto": prod_item,
-                            "fornecedor": fornec_ped,
-                            "grupo": grupo_ped,
-                            "quantidade": qtd_ped,
-                            "valor_unitario": v_venda_ped,
-                            "valor_total": valor_total_item
-                        })
-                        st.success(f"✅ '{prod_item}' adicionado ao pedido com sucesso!")
-                        st.rerun()
-        
+                # 1. Inicializa o carrinho do administrador como dicionário
+                if 'carrinho_admin' not in st.session_state or not isinstance(st.session_state.carrinho_admin, dict):
+                    st.session_state.carrinho_admin = {}
+            
+                # 2. Botão de Incluir Produto no Painel do Administrador
+                if st.button("➕ Incluir Produto no Pedido", use_container_width=True, key="btn_incluir_admin_unico"):
+                    # Certifique-se de usar os nomes exatos das variáveis dos inputs do admin (ex: prod_adm, fornecedor_adm, etc.)
+                    p_limpo = str(prod_item).strip().upper()     # Ajuste 'prod_item' se a variável do admin tiver outro nome
+                    f_limpo = str(fornecedor_cli).strip().upper() # Ajuste 'fornecedor_cli' se a variável do admin tiver outro nome
+                    chave_unica = f"{p_limpo}|{f_limpo}"
+                    
+                    qtd_add = float(qtd_cli)     # Ajuste para a variável de quantidade do admin
+                    val_unit = float(preco_cli)  # Ajuste para a variável de preço do admin
+            
+                    # Grava ou substitui diretamente o item no dicionário com o valor exato do input
+                    st.session_state.carrinho_admin[chave_unica] = {
+                        'produto': str(prod_item).strip(),
+                        'fornecedor': str(fornecedor_cli).strip(),
+                        'grupo': str(grupo_ped).strip(),
+                        'quantidade': qtd_add,
+                        'valor_unitario': val_unit,
+                        'valor_total': qtd_add * val_unit
+                    }
+                        
+                    st.success(f"Produto {prod_item} incluído com sucesso!")
+                    st.rerun()
+            
                 st.markdown("---")
-                st.subheader("📋 Itens Atuais no Pedido")
+                st.subheader("📋 Itens Atuais no Pedido (Administrador)")
             
-                if 'modo_edicao_carrinho' not in st.session_state:
-                    st.session_state.modo_edicao_carrinho = False
+                # 3. Exibição da Tabela do Carrinho do Admin
+                if st.session_state.carrinho_admin:
+                    lista_itens_admin = list(st.session_state.carrinho_admin.values())
+                    df_carrinho_admin = pd.DataFrame(lista_itens_admin)
             
-                carrinho_atual = st.session_state.get('carrinho_admin', st.session_state.get('carrinho', []))
+                    if 'modo_edicao_admin' not in st.session_state:
+                        st.session_state.modo_edicao_admin = False
             
-                if carrinho_atual:
-                    df_carrinho = pd.DataFrame(carrinho_atual)
-            
-                    if st.session_state.modo_edicao_carrinho:
-                        st.info("💡 **Modo de Edição Ativo:** Altere as quantidades ou valores diretamente na tabela abaixo e depois clique em **'💾 Salvar'**.")
-                        df_editado = st.data_editor(df_carrinho, use_container_width=True, key="editor_itens_carrinho")
+                    if st.session_state.modo_edicao_admin:
+                        st.info("💡 **Modo de Edição Ativo:** Altere as quantidades ou valores diretamente na tabela e clique em **'💾 Salvar'**.")
+                        df_editado_admin = st.data_editor(
+                            df_carrinho_admin,
+                            use_container_width=True,
+                            key="editor_itens_carrinho_admin"
+                        )
                     else:
-                        st.dataframe(df_carrinho, use_container_width=True)
+                        st.dataframe(df_carrinho_admin, use_container_width=True)
             
-                    col_btn1, col_btn2, col_btn3, col_btn4 = st.columns(4)
+                    col_b1, col_b2, col_b3, col_b4 = st.columns(4)
             
-                    with col_btn1:
-                        if st.button("🗑️ Limpar Carrinho", use_container_width=True, key="btn_limpar_carrinho_v2"):
-                            if 'carrinho_admin' in st.session_state:
-                                st.session_state.carrinho_admin = []
-                            if 'carrinho' in st.session_state:
-                                st.session_state.carrinho = []
-                            st.session_state.modo_edicao_carrinho = False
+                    with col_b1:
+                        if st.button("🗑️ Limpar Carrinho", use_container_width=True, key="btn_limpar_admin"):
+                            st.session_state.carrinho_admin = {}
+                            st.session_state.modo_edicao_admin = False
                             st.rerun()
             
-                    with col_btn2:
-                        if st.button("✏️ Alterar", use_container_width=True, key="btn_alterar_carrinho_v2"):
-                            st.session_state.modo_edicao_carrinho = True
+                    with col_b2:
+                        if st.button("✏️ Alterar", use_container_width=True, key="btn_alterar_admin"):
+                            st.session_state.modo_edicao_admin = True
                             st.rerun()
             
-                    with col_btn3:
-                        if st.button("💾 Salvar", use_container_width=True, key="btn_salvar_carrinho_v2"):
-                            if st.session_state.modo_edicao_carrinho and 'df_editado' in locals():
-                                if 'quantidade' in df_editado.columns and 'valor_unitario' in df_editado.columns:
-                                    df_editado['quantidade'] = pd.to_numeric(df_editado['quantidade'], errors='coerce').fillna(1)
-                                    df_editado['valor_unitario'] = pd.to_numeric(df_editado['valor_unitario'], errors='coerce').fillna(0)
-                                    df_editado['valor_total'] = df_editado['quantidade'] * df_editado['valor_unitario']
-            
-                                novos_itens = df_editado.to_dict('records')
-                                if 'carrinho_admin' in st.session_state:
-                                    st.session_state.carrinho_admin = novos_itens
-                                if 'carrinho' in st.session_state:
-                                    st.session_state.carrinho = novos_itens
-            
-                                st.session_state.modo_edicao_carrinho = False
-                                st.success("✅ Alterações do carrinho salvas!")
+                    with col_b3:
+                        if st.button("💾 Salvar", use_container_width=True, key="btn_salvar_admin"):
+                            if st.session_state.modo_edicao_admin and 'df_editado_admin' in locals():
+                                novo_dict_adm = {}
+                                for _, row in df_editado_admin.iterrows():
+                                    p = str(row['produto']).strip().upper()
+                                    f = str(row['fornecedor']).strip().upper()
+                                    chave = f"{p}|{f}"
+                                    qtd = float(row['quantidade'])
+                                    vu = float(row['valor_unitario'])
+                                    
+                                    novo_dict_adm[chave] = {
+                                        'produto': str(row['produto']).strip(),
+                                        'fornecedor': str(row['fornecedor']).strip(),
+                                        'grupo': str(row['grupo']).strip(),
+                                        'quantidade': qtd,
+                                        'valor_unitario': vu,
+                                        'valor_total': qtd * vu
+                                    }
+                                
+                                st.session_state.carrinho_admin = novo_dict_adm
+                                st.session_state.modo_edicao_admin = False
+                                st.success("✅ Pedido atualizado com sucesso!")
                                 st.rerun()
+            
+                    with col_b4:
+                        if st.button("🚀 Finalizar e Enviar", use_container_width=True, type="primary", key="btn_finalizar_admin"):
+                            if st.session_state.carrinho_admin:
+                                try:
+                                    cursor = conn.cursor()
+                                    import datetime
+                                    data_atual = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                    codigo_pedido = f"PED-ADM-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
+            
+                                    for chave, item in st.session_state.carrinho_admin.items():
+                                        cursor.execute("""
+                                            INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, fornecedor, grupo, data, status, codigo_pedido)
+                                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                        """, (
+                                            "Administração",
+                                            item['produto'],
+                                            item['quantidade'],
+                                            item['valor_unitario'],
+                                            item['valor_total'],
+                                            item['fornecedor'],
+                                            item['grupo'],
+                                            data_atual,
+                                            "Aprovado",
+                                            codigo_pedido
+                                        ))
+                                    conn.commit()
+                                    
+                                    st.session_state.carrinho_admin = {}
+                                    st.session_state.modo_edicao_admin = False
+                                    st.success(f"🎉 Pedido {codigo_pedido} gerado com sucesso pelo Administrador!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Erro ao salvar pedido: {e}")
                             else:
-                                st.warning("Clique em '✏️ Alterar' primeiro para editar a tabela.")
-            
-                    with col_btn4:
-                        if st.button("🔴 Finalizar e Enviar Pedido", type="primary", use_container_width=True, key="btn_finalizar_pedido_v2"):
-                            try:
-                                cursor = conn.cursor()
-                                data_agora = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            
-                                for item in carrinho_atual:
-                                    qtd_item = float(item.get("quantidade", 1))
-                                    prod_nome = str(item.get("produto", ""))
-                                    val_unit = float(item.get("valor_unitario", 0))
-                                    val_tot = float(item.get("valor_total", 0))
-                                    forn_nome = item.get("fornecedor", "")
-                                    grupo_nome = item.get("grupo", "")
-            
-                                    # 1. Grava no histórico de pedidos
-                                    cursor.execute("""
-                                        INSERT INTO pedidos (cliente, produto, fornecedor, grupo, quantidade, valor_unitario, valor_total, status, data)
-                                        VALUES (?, ?, ?, ?, ?, ?, ?, 'Pendente', ?)
-                                    """, (cliente_ped, prod_nome, forn_nome, grupo_nome, qtd_item, val_unit, val_tot, data_agora))
-            
-                                    # 2. Grava também nas vendas do dia (para aparecer idêntico ao portal do cliente)
-                                    cursor.execute("""
-                                        INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, status, data)
-                                        VALUES (?, ?, ?, ?, ?, ?, ?, 'Pendente', ?)
-                                    """, (cliente_ped, prod_nome, forn_nome, grupo_nome, qtd_item, val_unit, val_tot, data_agora))
-            
-                                    # 3. Atualiza o estoque
-                                    cursor.execute("""
-                                        UPDATE produtos 
-                                        SET quantidade = quantidade + ? 
-                                        WHERE produto = ?
-                                    """, (qtd_item, prod_nome))
-            
-                                conn.commit()
-            
-                                if 'carrinho_admin' in st.session_state:
-                                    st.session_state.carrinho_admin = []
-                                if 'carrinho' in st.session_state:
-                                    st.session_state.carrinho = []
-            
-                                st.session_state.modo_edicao_carrinho = False
-                                st.cache_data.clear()
-                                st.success("✅ Pedido enviado com sucesso!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro ao salvar pedido: {e}")
-                else:
-                    st.info("Nenhum item adicionado ao carrinho ainda.")
+                                st.warning("⚠️ O carrinho está vazio.")
         
             with aba_list:
                 st.subheader("🟢 Pedidos do Dia Pendentes (Editáveis)")
