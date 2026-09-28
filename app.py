@@ -47,20 +47,20 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
 
     # Estilos compactos sem espaçamento exagerado
     style_empresa = ParagraphStyle(
-        'Empresa', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=14, 
-        leading=16, alignment=1, textColor=colors.HexColor("#0f2a4a"), spaceAfter=2
+        'Empresa', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=10, 
+        leading=12, alignment=1, textColor=colors.HexColor("#0f2a4a"), spaceAfter=2
     )
     style_sub = ParagraphStyle(
-        'Sub', parent=styles['Normal'], fontName='Helvetica', fontSize=8, 
-        leading=10, alignment=1, spaceAfter=4
+        'Sub', parent=styles['Normal'], fontName='Helvetica', fontSize=7, 
+        leading=8, alignment=1, spaceAfter=2
     )
     style_titulo = ParagraphStyle(
-        'Titulo', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=10, 
+        'Titulo', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8, 
         leading=12, alignment=1, textColor=colors.HexColor("#0f2a4a"), spaceAfter=2
     )
     style_info = ParagraphStyle(
         'Info', parent=styles['Normal'], fontName='Helvetica', fontSize=8, 
-        leading=10, alignment=1, spaceAfter=6
+        leading=8, alignment=1, spaceAfter=2
     )
 
     story.append(Paragraph("REY DA CEBOLA", style_empresa))
