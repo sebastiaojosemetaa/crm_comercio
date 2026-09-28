@@ -40,7 +40,7 @@ def sanear_df_vendas(df):
 def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
     buffer = io.BytesIO()
     # topMargin reduzido para 5 (praticamente sem margem superior)
-    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=5, bottomMargin=30)
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=20, leftMargin=20, topMargin=5, bottomMargin=20)
     story = []
 
     styles = getSampleStyleSheet()
@@ -48,19 +48,19 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
     # Estilos compactos sem espaçamento exagerado
     style_empresa = ParagraphStyle(
         'Empresa', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=10, 
-        leading=12, alignment=1, textColor=colors.HexColor("#0f2a4a"), spaceAfter=2
+        leading=10, alignment=1, textColor=colors.HexColor("#0f2a4a"), spaceAfter=2
     )
     style_sub = ParagraphStyle(
         'Sub', parent=styles['Normal'], fontName='Helvetica', fontSize=7, 
-        leading=8, alignment=1, spaceAfter=2
+        leading=7, alignment=1, spaceAfter=2
     )
     style_titulo = ParagraphStyle(
-        'Titulo', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8, 
-        leading=12, alignment=1, textColor=colors.HexColor("#0f2a4a"), spaceAfter=2
+        'Titulo', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=7, 
+        leading=10, alignment=1, textColor=colors.HexColor("#0f2a4a"), spaceAfter=2
     )
     style_info = ParagraphStyle(
-        'Info', parent=styles['Normal'], fontName='Helvetica', fontSize=8, 
-        leading=8, alignment=1, spaceAfter=2
+        'Info', parent=styles['Normal'], fontName='Helvetica', fontSize=7, 
+        leading=7, alignment=1, spaceAfter=2
     )
 
     story.append(Paragraph("REY DA CEBOLA", style_empresa))
