@@ -40,7 +40,7 @@ def sanear_df_vendas(df):
 def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
     buffer = io.BytesIO()
     # topMargin reduzido para 5 (praticamente sem margem superior)
-    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=20, leftMargin=20, topMargin=5, bottomMargin=20)
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=10, leftMargin=10, topMargin=5, bottomMargin=10)
     story = []
 
     styles = getSampleStyleSheet()
