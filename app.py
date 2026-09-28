@@ -638,40 +638,49 @@ if perfil_selecionado == "👤 Portal do Cliente":
             if "modo_edicao_cli" not in st.session_state:
                 st.session_state.modo_edicao_cli = False
 
+            # Função auxiliar para limpar e fundir duplicados do carrinho
+            def limpar_duplicados_carrinho():
+                if 'carrinho_cliente' in st.session_state and st.session_state.carrinho_cliente:
+                    df_temp = pd.DataFrame(st.session_state.carrinho_cliente)
+                    if not df_temp.empty and 'produto' in df_temp.columns and 'fornecedor' in df_temp.columns:
+                        # Normaliza para maiúsculas e remove espaços extras para evitar duplicados por digitação
+                        df_temp['p_key'] = df_temp['produto'].astype(str).str.strip().str.upper()
+                        df_temp['f_key'] = df_temp['fornecedor'].astype(str).str.strip().str.upper()
+                        
+                        df_temp['quantidade'] = pd.to_numeric(df_temp['quantidade'], errors='coerce').fillna(0)
+                        df_temp['valor_unitario'] = pd.to_numeric(df_temp['valor_unitario'], errors='coerce').fillna(0)
+                        
+                        # Agrupa somando as quantidades dos itens repetidos
+                        df_agrupado = df_temp.groupby(['p_key', 'f_key'], as_index=False).agg({
+                            'produto': 'first',
+                            'fornecedor': 'first',
+                            'grupo': 'first',
+                            'quantidade': 'sum',
+                            'valor_unitario': 'first'
+                        })
+                        df_agrupado['valor_total'] = df_agrupado['quantidade'] * df_agrupado['valor_unitario']
+                        
+                        # Atualiza o carrinho com os dados limpos
+                        st.session_state.carrinho_cliente = df_agrupado[['produto', 'fornecedor', 'grupo', 'quantidade', 'valor_unitario', 'valor_total']].to_dict('records')
+        
+            # Botão de Incluir Produto
             if st.button("➕ Incluir Produto no Pedido", use_container_width=True):
                 if 'carrinho_cliente' not in st.session_state:
                     st.session_state.carrinho_cliente = []
                 
-                # Criar o novo item adicionado
                 novo_item = {
-                    'produto': produto_selecionado,
-                    'fornecedor': fornecedor_selecionado,
-                    'grupo': grupo_selecionado,
+                    'produto': str(produto_selecionado).strip(),
+                    'fornecedor': str(fornecedor_selecionado).strip(),
+                    'grupo': str(grupo_selecionado).strip(),
                     'quantidade': float(qtd_informada),
                     'valor_unitario': float(preco_unitario),
                     'valor_total': float(qtd_informada) * float(preco_unitario)
                 }
                 
-                # Adiciona à lista atual
                 st.session_state.carrinho_cliente.append(novo_item)
                 
-                # MÉTODO INFALÍVEL: Converte para DataFrame e agrupa por produto e fornecedor
-                df_temp = pd.DataFrame(st.session_state.carrinho_cliente)
-                if not df_temp.empty:
-                    df_temp['quantidade'] = pd.to_numeric(df_temp['quantidade'], errors='coerce').fillna(0)
-                    df_temp['valor_unitario'] = pd.to_numeric(df_temp['valor_unitario'], errors='coerce').fillna(0)
-                    
-                    # Agrupa combinando produto e fornecedor, somando as quantidades
-                    df_agrupado = df_temp.groupby(['produto', 'fornecedor'], as_index=False).agg({
-                        'grupo': 'first',
-                        'quantidade': 'sum',
-                        'valor_unitario': 'first'
-                    })
-                    # Recalcula o valor total correto da linha agrupada
-                    df_agrupado['valor_total'] = df_agrupado['quantidade'] * df_agrupado['valor_unitario']
-                    
-                    # Atualiza a sessão com a lista limpa e sem duplicados
-                    st.session_state.carrinho_cliente = df_agrupado.to_dict('records')
+                # Executa a limpeza imediatamente
+                limpar_duplicados_carrinho()
                     
                 st.success(f"Produto {produto_selecionado} incluído com sucesso!")
                 st.rerun()
@@ -679,7 +688,9 @@ if perfil_selecionado == "👤 Portal do Cliente":
             st.markdown("---")
             st.subheader("📋 Itens Atuais no Pedido")
         
-            # Exibição baseada exclusivamente em carrinho_cliente
+            # Garante que qualquer dado antigo seja limpo antes de desenhar a tabela
+            limpar_duplicados_carrinho()
+        
             if 'carrinho_cliente' in st.session_state and st.session_state.carrinho_cliente:
                 df_carrinho_cli = pd.DataFrame(st.session_state.carrinho_cliente)
         
@@ -717,6 +728,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                             df_editado_cli['valor_total'] = df_editado_cli['quantidade'] * df_editado_cli['valor_unitario']
         
                             st.session_state.carrinho_cliente = df_editado_cli.to_dict('records')
+                            limpar_duplicados_carrinho() # Limpa também ao salvar a tabela editável
                             st.session_state.modo_edicao_cli = False
                             st.success("✅ Pedido atualizado com sucesso!")
                             st.rerun()
