@@ -550,15 +550,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
             
             if "prod_selecionado_temp_cli" in st.session_state:
                 st.session_state["cli_select_produto"] = st.session_state.pop("prod_selecionado_temp_cli")
-            
-            opcoes_produtos_com_novo_cli = ["+ Cadastrar Novo Produto..."] + list(produtos_opt)
-            
-            col_cli_1, col_cli_2 = st.columns(2)
-            with col_cli_1:
-                prod_item = st.selectbox("Selecione o Produto", opcoes_produtos_com_novo_cli, key="cli_select_produto")
-            with col_cli_2:
-                grupo_ped = st.selectbox("Selecione o Grupo", grupos_opt, key="cli_grupo_ind")
-            
+                        
             if prod_item == "+ Cadastrar Novo Produto...":
                 st.warning("⚠️ Preencha os dados abaixo para cadastrar o novo produto:")
                 
