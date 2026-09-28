@@ -639,35 +639,36 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 st.session_state.modo_edicao_cli = False
 
             if st.button("➕ Incluir Produto no Pedido", use_container_width=True):
-                # Verifica se já existe um item com o mesmo produto na lista/dataframe do pedido atual
-                # (Substitua 'st.session_state.carrinho_pedido' pelo nome da variável que você usa para guardar os itens do pedido)
+                # Se ainda não existir a tabela de itens na sessão, cria um DataFrame vazio
+                if 'itens_pedido' not in st.session_state:
+                    st.session_state.itens_pedido = pd.DataFrame(columns=['produto', 'fornecedor', 'grupo', 'quantidade', 'valor_unitario', 'valor_total'])
                 
-                item_encontrado = False
+                df_atual = st.session_state.itens_pedido
                 
-                if 'carrinho_pedido' not in st.session_state:
-                    st.session_state.carrinho_pedido = []
-            
-                for item in st.session_state.carrinho_pedido:
-                    if item['produto'] == produto_selecionado and item['fornecedor'] == fornecedor_selecionado:
-                        # Se já existe, apenas soma a quantidade e recalcula o total
-                        item['quantidade'] += qtd_informada
-                        item['valor_total'] = item['quantidade'] * item['valor_unitario']
-                        item_encontrado = True
-                        break
-                        
-                if not item_encontrado:
-                    # Se não existe, adiciona um novo item normalmente
-                    novo_item = {
+                # Verifica se o produto com o mesmo fornecedor já está na tabela
+                condicao = (df_atual['produto'] == produto_selecionado) & (df_atual['fornecedor'] == fornecedor_selecionado)
+                
+                if not df_atual.empty and condicao.any():
+                    # Se já existe, atualiza a quantidade somando a nova e recalcula o valor total
+                    df_atual.loc[condicao, 'quantidade'] = pd.to_numeric(df_atual.loc[condicao, 'quantidade'], errors='coerce') + float(qtd_informada)
+                    
+                    # Recalcula o valor total daquela linha
+                    qtd_atualizada = float(df_atual.loc[condicao, 'quantidade'].values[0])
+                    val_unit = float(df_atual.loc[condicao, 'valor_unitario'].values[0])
+                    df_atual.loc[condicao, 'valor_total'] = qtd_atualizada * val_unit
+                else:
+                    # Se não existe, cria o novo item e adiciona ao DataFrame
+                    novo_dado = pd.DataFrame([{
                         'produto': produto_selecionado,
                         'fornecedor': fornecedor_selecionado,
                         'grupo': grupo_selecionado,
-                        'quantidade': qtd_informada,
-                        'valor_unitario': preco_unitario,
-                        'valor_total': qtd_informada * preco_unitario
-                    }
-                    st.session_state.carrinho_pedido.append(novo_item)
+                        'quantidade': float(qtd_informada),
+                        'valor_unitario': float(preco_unitario),
+                        'valor_total': float(qtd_informada) * float(preco_unitario)
+                    }])
+                    st.session_state.itens_pedido = pd.concat([df_atual, novo_dado], ignore_index=True)
                     
-                st.success(f"Produto {produto_selecionado} incluído/atualizado no pedido com sucesso!")
+                st.success(f"Produto {produto_selecionado} incluído/atualizado com sucesso!")
                 st.rerun()
 
             st.markdown("---")
