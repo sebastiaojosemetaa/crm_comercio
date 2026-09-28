@@ -685,40 +685,58 @@ if perfil_selecionado == "👤 Portal do Cliente":
             q_atual = locals().get('qtd_informada', locals().get('quantidade', 1.0))
             pu_atual = locals().get('preco_unitario', locals().get('preco', 0.0))
         
-            # Botão de Incluir Produto
+            # 1. Campos com 'keys' fixas para garantir que os valores são sempre capturados corretamente
+            produto_val = st.selectbox("Selecione o Produto", lista_produtos if 'lista_produtos' in locals() else [produto_selecionado] if 'produto_selecionado' in locals() else ["ABACATE"], key="input_produto_cli")
+            grupo_val = st.selectbox("Selecione o Grupo", lista_grupos if 'lista_grupos' in locals() else ["Geral"], key="input_grupo_cli")
+            fornecedor_val = st.selectbox("Selecione o Fornecedor", lista_fornecedores if 'lista_fornecedores' in locals() else ["BAHIA"], key="input_fornecedor_cli")
+            
+            col_q, col_p = st.columns(2)
+            with col_q:
+                qtd_val = st.number_input("Quantidade", min_value=0.01, value=1.0, step=1.0, key="input_qtd_cli")
+            with col_p:
+                preco_val = st.number_input("Preço Unitário (R$)", min_value=0.0, value=117.0, step=1.0, key="input_preco_cli")
+        
+            # Exibe o total do item em tempo real
+            st.info(f"Valor Total do Item: R$ {qtd_val * preco_val:.2f}")
+        
+            # 2. Inicializa o carrinho se não existir
+            if 'carrinho_cliente' not in st.session_state or not isinstance(st.session_state.carrinho_cliente, dict):
+                st.session_state.carrinho_cliente = {}
+        
+            # 3. Botão de Incluir Produto
             if st.button("➕ Incluir Produto no Pedido", use_container_width=True):
-                p_limpo = str(p_atual).strip().upper()
-                f_limpo = str(f_atual).strip().upper()
+                p_limpo = str(st.session_state.input_produto_cli).strip().upper()
+                f_limpo = str(st.session_state.input_fornecedor_cli).strip().upper()
                 chave_unica = f"{p_limpo}|{f_limpo}"
                 
-                qtd_add = float(q_atual)
-                val_unit = float(pu_atual)
+                qtd_add = float(st.session_state.input_qtd_cli)
+                val_unit = float(st.session_state.input_preco_cli)
         
-                # Se já existe no dicionário, soma a quantidade
+                # Se já existe o mesmo produto e fornecedor, soma a quantidade e atualiza o total
                 if chave_unica in st.session_state.carrinho_cliente:
                     st.session_state.carrinho_cliente[chave_unica]['quantidade'] += qtd_add
                     st.session_state.carrinho_cliente[chave_unica]['valor_total'] = (
                         st.session_state.carrinho_cliente[chave_unica]['quantidade'] * val_unit
                     )
                 else:
-                    # Se não existe, cria o novo item
+                    # Se não existe, cria um novo registo completo
                     st.session_state.carrinho_cliente[chave_unica] = {
-                        'produto': str(p_atual).strip(),
-                        'fornecedor': str(f_atual).strip(),
-                        'grupo': str(g_atual).strip(),
+                        'produto': str(st.session_state.input_produto_cli).strip(),
+                        'fornecedor': str(st.session_state.input_fornecedor_cli).strip(),
+                        'grupo': str(st.session_state.input_grupo_cli).strip(),
                         'quantidade': qtd_add,
                         'valor_unitario': val_unit,
                         'valor_total': qtd_add * val_unit
                     }
                     
-                st.success(f"Produto incluído com sucesso!")
+                st.success(f"Produto {st.session_state.input_produto_cli} incluído com sucesso!")
                 st.rerun()
         
             st.markdown("---")
             st.subheader("📋 Itens Atuais no Pedido")
         
-            # Exibição do Carrinho unificada
-            if st.session_state.get('carrinho_cliente'):
+            # 4. Exibição da Tabela do Carrinho
+            if st.session_state.carrinho_cliente:
                 lista_itens = list(st.session_state.carrinho_cliente.values())
                 df_carrinho_cli = pd.DataFrame(lista_itens)
         
@@ -735,7 +753,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 else:
                     st.dataframe(df_carrinho_cli, use_container_width=True)
         
-                col_btn1, col_btn2, col_btn3, col_btn4 = st.columns(4)
+                col_btn1, col_btn2, col_btn3 = st.columns(3)
         
                 with col_btn1:
                     if st.button("🗑️ Limpar Carrinho", use_container_width=True, key="btn_limpar_cli"):
