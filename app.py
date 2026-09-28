@@ -639,34 +639,41 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 st.session_state.modo_edicao_cli = False
 
             if st.button("➕ Incluir Produto no Pedido", use_container_width=True):
-                # Garante que a lista do carrinho existe na sessão
                 if 'carrinho_cliente' not in st.session_state:
                     st.session_state.carrinho_cliente = []
                 
-                # Verifica se o produto com o mesmo fornecedor já está no carrinho
-                item_encontrado = False
-                for item in st.session_state.carrinho_cliente:
-                    if item.get('produto') == produto_selecionado and item.get('fornecedor') == fornecedor_selecionado:
-                        # Se já existe, soma a quantidade e atualiza o valor total
-                        item['quantidade'] = float(item.get('quantidade', 0)) + float(qtd_informada)
-                        val_unit = float(item.get('valor_unitario', preco_unitario))
-                        item['valor_total'] = item['quantidade'] * val_unit
-                        item_encontrado = True
-                        break
-                        
-                # Se não existe, adiciona um novo item na lista
-                if not item_encontrado:
-                    novo_item = {
-                        'produto': produto_selecionado,
-                        'fornecedor': fornecedor_selecionado,
-                        'grupo': grupo_selecionado,
-                        'quantidade': float(qtd_informada),
-                        'valor_unitario': float(preco_unitario),
-                        'valor_total': float(qtd_informada) * float(preco_unitario)
-                    }
-                    st.session_state.carrinho_cliente.append(novo_item)
+                # Criar o novo item adicionado
+                novo_item = {
+                    'produto': produto_selecionado,
+                    'fornecedor': fornecedor_selecionado,
+                    'grupo': grupo_selecionado,
+                    'quantidade': float(qtd_informada),
+                    'valor_unitario': float(preco_unitario),
+                    'valor_total': float(qtd_informada) * float(preco_unitario)
+                }
+                
+                # Adiciona à lista atual
+                st.session_state.carrinho_cliente.append(novo_item)
+                
+                # MÉTODO INFALÍVEL: Converte para DataFrame e agrupa por produto e fornecedor
+                df_temp = pd.DataFrame(st.session_state.carrinho_cliente)
+                if not df_temp.empty:
+                    df_temp['quantidade'] = pd.to_numeric(df_temp['quantidade'], errors='coerce').fillna(0)
+                    df_temp['valor_unitario'] = pd.to_numeric(df_temp['valor_unitario'], errors='coerce').fillna(0)
                     
-                st.success(f"Produto {produto_selecionado} incluído/atualizado com sucesso!")
+                    # Agrupa combinando produto e fornecedor, somando as quantidades
+                    df_agrupado = df_temp.groupby(['produto', 'fornecedor'], as_index=False).agg({
+                        'grupo': 'first',
+                        'quantidade': 'sum',
+                        'valor_unitario': 'first'
+                    })
+                    # Recalcula o valor total correto da linha agrupada
+                    df_agrupado['valor_total'] = df_agrupado['quantidade'] * df_agrupado['valor_unitario']
+                    
+                    # Atualiza a sessão com a lista limpa e sem duplicados
+                    st.session_state.carrinho_cliente = df_agrupado.to_dict('records')
+                    
+                st.success(f"Produto {produto_selecionado} incluído com sucesso!")
                 st.rerun()
         
             st.markdown("---")
