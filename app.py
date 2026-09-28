@@ -663,7 +663,22 @@ if perfil_selecionado == "👤 Portal do Cliente":
                         # Atualiza o carrinho com os dados limpos
                         st.session_state.carrinho_cliente = df_agrupado[['produto', 'fornecedor', 'grupo', 'quantidade', 'valor_unitario', 'valor_total']].to_dict('records')
         
-            # Garante a captura segura das variáveis, independentemente da tela (Admin ou Portal do Cliente)
+            # Garante que o carrinho existe e é obrigatoriamente um dicionário
+            if 'carrinho_cliente' not in st.session_state:
+                st.session_state.carrinho_cliente = {}
+            elif isinstance(st.session_state.carrinho_cliente, list):
+                # Se por acaso ficou como lista de uma versão anterior, converte para dicionário automaticamente
+                novo_dict = {}
+                for item in st.session_state.carrinho_cliente:
+                    if isinstance(item, dict):
+                        p = str(item.get('produto', '')).strip().upper()
+                        f = str(item.get('fornecedor', '')).strip().upper()
+                        chave = f"{p}|{f}"
+                        if chave and chave != "|":
+                            novo_dict[chave] = item
+                st.session_state.carrinho_cliente = novo_dict
+        
+            # Captura segura das variáveis (Admin ou Portal do Cliente)
             p_atual = locals().get('produto_selecionado', locals().get('produto_cli', st.session_state.get('produto_selecionado', '')))
             f_atual = locals().get('fornecedor_selecionado', locals().get('fornecedor_cli', st.session_state.get('fornecedor_selecionado', '')))
             g_atual = locals().get('grupo_selecionado', locals().get('grupo_cli', st.session_state.get('grupo_selecionado', 'Geral')))
@@ -672,9 +687,6 @@ if perfil_selecionado == "👤 Portal do Cliente":
         
             # Botão de Incluir Produto
             if st.button("➕ Incluir Produto no Pedido", use_container_width=True):
-                if 'carrinho_cliente' not in st.session_state:
-                    st.session_state.carrinho_cliente = {}
-                
                 p_limpo = str(p_atual).strip().upper()
                 f_limpo = str(f_atual).strip().upper()
                 chave_unica = f"{p_limpo}|{f_limpo}"
