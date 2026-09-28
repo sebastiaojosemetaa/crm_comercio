@@ -774,10 +774,12 @@ if perfil_selecionado == "👤 Portal do Cliente":
             st.subheader("Histórico e Gestão de Meus Pedidos")
             
             try:
+                # Alterado para ler da tabela 'pedidos' onde o status é Pendente e a data é hoje
                 query_dia = """
-                    SELECT id, cliente, produto, quantidade, valor_venda AS valor_unitario, valor_total, fornecedor, grupo, data, status
-                    FROM vendas
-                    WHERE DATE(data) = DATE('now', 'localtime') AND cliente = ?
+                    SELECT id, produto, quantidade, valor_unitario, valor_total, status, data, fornecedor, grupo, codigo_pedido
+                    FROM pedidos
+                    WHERE DATE(data) = DATE('now', 'localtime') AND cliente = ? AND status = 'Pendente'
+                    ORDER BY id DESC
                 """
                 df_dia = pd.read_sql_query(query_dia, conn, params=(st.session_state.cliente_autenticado,))
         
@@ -790,7 +792,6 @@ if perfil_selecionado == "👤 Portal do Cliente":
                         column_config={
                             "Excluir": st.column_config.CheckboxColumn("❌ Excluir?", default=False),
                             "id": st.column_config.NumberColumn("ID", disabled=True),
-                            "cliente": st.column_config.TextColumn("Cliente", disabled=True),
                             "produto": st.column_config.TextColumn("Produto", disabled=True),
                             "quantidade": st.column_config.NumberColumn("Quantidade", min_value=0.01, step=0.01, format="%.2f"),
                             "valor_unitario": st.column_config.NumberColumn("Valor Unitário (R$)", disabled=True, format="R$ %.2f"),
@@ -799,6 +800,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                             "grupo": st.column_config.TextColumn("Grupo", disabled=True),
                             "data": st.column_config.TextColumn("Data", disabled=True),
                             "status": st.column_config.TextColumn("Status", disabled=True),
+                            "codigo_pedido": st.column_config.TextColumn("Cód. Pedido", disabled=True),
                         },
                         hide_index=True,
                         key="tabela_pedidos_do_dia_unica"
@@ -811,11 +813,10 @@ if perfil_selecionado == "👤 Portal do Cliente":
                                 cursor = conn.cursor()
                                 for _, row in df_editado.iterrows():
                                     novo_total = float(row['quantidade']) * float(row['valor_unitario'])
-                                    cursor.execute("UPDATE vendas SET quantidade = ?, valor_total = ? WHERE id = ?", (row['quantidade'], novo_total, row['id']))
-                                    cursor.execute("UPDATE pedidos SET quantidade = ?, valor_total = ? WHERE cliente = ? AND produto = ? AND DATE(data) = DATE(?)", (row['quantidade'], novo_total, row['cliente'], row['produto'], row['data']))
+                                    cursor.execute("UPDATE pedidos SET quantidade = ?, valor_total = ? WHERE id = ?", (row['quantidade'], novo_total, row['id']))
                                 conn.commit()
                                 st.cache_data.clear()
-                                st.success("Pedidos atualizados com sucesso em ambas as tabelas!")
+                                st.success("Pedidos atualizados com sucesso!")
                                 st.rerun()
                             except Exception as ex:
                                 st.error(f"Erro ao atualizar os pedidos: {ex}")
@@ -829,12 +830,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                                 if not itens_para_excluir.empty:
                                     for _, row in itens_para_excluir.iterrows():
                                         id_item = row['id']
-                                        cliente_item = row.get('cliente', '')
-                                        produto_item = row.get('produto', '')
-                                        
-                                        cursor.execute("DELETE FROM vendas WHERE id = ?", (id_item,))
-                                        if cliente_item and produto_item:
-                                            cursor.execute("DELETE FROM pedidos WHERE cliente = ? AND produto = ?", (cliente_item, produto_item))
+                                        cursor.execute("DELETE FROM pedidos WHERE id = ?", (id_item,))
                                     
                                     conn.commit()
                                     st.warning("Itens excluídos com sucesso!")
@@ -861,14 +857,15 @@ if perfil_selecionado == "👤 Portal do Cliente":
                     
             except Exception as e:
                 st.error(f"Erro ao carregar pedidos do dia: {e}")
-                        
+                
             st.markdown("---")
             st.subheader("📚 Pedidos Anteriores (Histórico)")
             try:
+                # Mostra no histórico apenas o que não é de hoje pendente (evitando duplicar com a tabela de cima)
                 query_hist_cliente = """
                     SELECT id, produto, quantidade, valor_unitario, valor_total, status, data, fornecedor, grupo, codigo_pedido
                     FROM pedidos
-                    WHERE cliente = ?
+                    WHERE cliente = ? AND (DATE(data) != DATE('now', 'localtime') OR status != 'Pendente')
                     ORDER BY id DESC
                 """
                 df_hist_cli = pd.read_sql_query(query_hist_cliente, conn, params=(st.session_state.cliente_autenticado,))
