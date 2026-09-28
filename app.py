@@ -1326,28 +1326,34 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 if 'carrinho_admin' not in st.session_state or not isinstance(st.session_state.carrinho_admin, dict):
                     st.session_state.carrinho_admin = {}
             
-                # 2. Botão de Incluir Produto no Painel do Administrador
+                # 2. Botão de Incluir Produto no Painel do Administrador (À prova de NameError)
                 if st.button("➕ Incluir Produto no Pedido", use_container_width=True, key="btn_incluir_admin_unico"):
-                    # Certifique-se de usar os nomes exatos das variáveis dos inputs do admin (ex: prod_adm, fornecedor_adm, etc.)
-                    p_limpo = str(prod_item).strip().upper()     # Ajuste 'prod_item' se a variável do admin tiver outro nome
-                    f_limpo = str(fornecedor_cli).strip().upper() # Ajuste 'fornecedor_cli' se a variável do admin tiver outro nome
-                    chave_unica = f"{p_limpo}|{f_limpo}"
-                    
-                    qtd_add = float(qtd_cli)     # Ajuste para a variável de quantidade do admin
-                    val_unit = float(preco_cli)  # Ajuste para a variável de preço do admin
+                    # Obtém de forma segura as variáveis independentemente de como foram nomeadas nos inputs acima
+                    prod_val = locals().get('prod_item', locals().get('produto_adm', locals().get('produto', '')))
+                    forn_val = locals().get('fornecedor', locals().get('fornecedor_adm', locals().get('fornecedor_cli', 'BAHIA')))
+                    grupo_val = locals().get('grupo_ped', locals().get('grupo_adm', locals().get('grupo', 'Geral')))
+                    qtd_val = float(locals().get('qtd_cli', locals().get('qtd_adm', locals().get('quantidade', 1.0))))
+                    preco_val = float(locals().get('preco_cli', locals().get('preco_adm', locals().get('preco', 0.0))))
             
-                    # Grava ou substitui diretamente o item no dicionário com o valor exato do input
-                    st.session_state.carrinho_admin[chave_unica] = {
-                        'produto': str(prod_item).strip(),
-                        'fornecedor': str(fornecedor_cli).strip(),
-                        'grupo': str(grupo_ped).strip(),
-                        'quantidade': qtd_add,
-                        'valor_unitario': val_unit,
-                        'valor_total': qtd_add * val_unit
-                    }
-                        
-                    st.success(f"Produto {prod_item} incluído com sucesso!")
-                    st.rerun()
+                    if prod_val == "+ Cadastrar Novo Produto...":
+                        st.warning("⚠️ Por favor, selecione um produto válido antes de incluir.")
+                    else:
+                        p_limpo = str(prod_val).strip().upper()
+                        f_limpo = str(forn_val).strip().upper()
+                        chave_unica = f"{p_limpo}|{f_limpo}"
+            
+                        # Grava ou substitui diretamente no dicionário sem duplicar
+                        st.session_state.carrinho_admin[chave_unica] = {
+                            'produto': str(prod_val).strip(),
+                            'fornecedor': str(forn_val).strip(),
+                            'grupo': str(grupo_val).strip(),
+                            'quantidade': qtd_val,
+                            'valor_unitario': preco_val,
+                            'valor_total': qtd_val * preco_val
+                        }
+                            
+                        st.success(f"Produto {prod_val} incluído com sucesso!")
+                        st.rerun()
             
                 st.markdown("---")
                 st.subheader("📋 Itens Atuais no Pedido (Administrador)")
