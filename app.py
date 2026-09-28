@@ -648,7 +648,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
             if 'carrinho_cliente' not in st.session_state or not isinstance(st.session_state.carrinho_cliente, dict):
                 st.session_state.carrinho_cliente = {}
     
-            # Botão de Incluir Produto
+            # Botão de Incluir Produto (Comportamento de Substituição / Atualização)
             if st.button("➕ Incluir Produto no Pedido", use_container_width=True, key="btn_incluir_cli_unico"):
                 if prod_item == "+ Cadastrar Novo Produto...":
                     st.warning("⚠️ Por favor, selecione um produto válido ou cadastre um novo antes de incluir.")
@@ -660,12 +660,11 @@ if perfil_selecionado == "👤 Portal do Cliente":
                     qtd_add = float(qtd_cli)
                     val_unit = float(preco_cli)
     
-                    # Se já existe o mesmo produto e fornecedor, soma a quantidade e atualiza o total
+                    # Se já existe no dicionário, ATUALIZA (substitui) a quantidade informada
                     if chave_unica in st.session_state.carrinho_cliente:
-                        st.session_state.carrinho_cliente[chave_unica]['quantidade'] += qtd_add
-                        st.session_state.carrinho_cliente[chave_unica]['valor_total'] = (
-                            st.session_state.carrinho_cliente[chave_unica]['quantidade'] * val_unit
-                        )
+                        st.session_state.carrinho_cliente[chave_unica]['quantidade'] = qtd_add
+                        st.session_state.carrinho_cliente[chave_unica]['valor_unitario'] = val_unit
+                        st.session_state.carrinho_cliente[chave_unica]['valor_total'] = qtd_add * val_unit
                     else:
                         # Se não existe, cria um novo registo completo
                         st.session_state.carrinho_cliente[chave_unica] = {
@@ -677,7 +676,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                             'valor_total': qtd_add * val_unit
                         }
                         
-                    st.success(f"Produto {prod_item} incluído com sucesso!")
+                    st.success(f"Produto {prod_item} atualizado/incluído com sucesso!")
                     st.rerun()
     
             st.markdown("---")
