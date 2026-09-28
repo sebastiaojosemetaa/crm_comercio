@@ -685,8 +685,8 @@ if perfil_selecionado == "👤 Portal do Cliente":
             q_atual = locals().get('qtd_informada', locals().get('quantidade', 1.0))
             pu_atual = locals().get('preco_unitario', locals().get('preco', 0.0))
         
-            # 1. Campos com 'keys' fixas para garantir que os valores são sempre capturados corretamente
-            produto_val = st.selectbox("Selecione o Produto", lista_produtos if 'lista_produtos' in locals() else [produto_selecionado] if 'produto_selecionado' in locals() else ["ABACATE"], key="input_produto_cli")
+            # 1. Campos de seleção únicos (com keys fixas para o Portal do Cliente / Admin)
+            produto_val = st.selectbox("Selecione o Produto", lista_produtos if 'lista_produtos' in locals() else ["ABACATE"], key="input_produto_cli")
             grupo_val = st.selectbox("Selecione o Grupo", lista_grupos if 'lista_grupos' in locals() else ["Geral"], key="input_grupo_cli")
             fornecedor_val = st.selectbox("Selecione o Fornecedor", lista_fornecedores if 'lista_fornecedores' in locals() else ["BAHIA"], key="input_fornecedor_cli")
             
@@ -699,7 +699,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
             # Exibe o total do item em tempo real
             st.info(f"Valor Total do Item: R$ {qtd_val * preco_val:.2f}")
         
-            # 2. Inicializa o carrinho se não existir
+            # 2. Inicializa o carrinho como dicionário para evitar duplicados
             if 'carrinho_cliente' not in st.session_state or not isinstance(st.session_state.carrinho_cliente, dict):
                 st.session_state.carrinho_cliente = {}
         
