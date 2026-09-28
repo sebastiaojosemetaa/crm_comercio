@@ -1242,123 +1242,63 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 
                 cliente_ped = st.selectbox("Cliente", clientes_opt, key="ped_cli_ind")
                 
-                col_l2_1, col_l2_2 = st.columns(2)
-                with col_l2_1:
+                col_12_1, col_12_2 = st.columns(2)
+                with col_12_1:
                     prod_item = st.selectbox("Selecione o Produto", opcoes_produtos_com_novo, key="ped_select_produto")
-                with col_l2_2:
+                with col_12_2:
                     grupo_ped = st.selectbox("Grupo", grupos_opt, key="ped_grupo_ind")
-                
-                if prod_item == "+ Cadastrar Novo Produto...":
-                    st.warning("⚠️ Preencha os dados abaixo para cadastrar o novo produto:")
-                
-                    c_cad1, c_cad2, c_cad3 = st.columns([2, 1, 1])
-                    with c_cad1:
-                        novo_nome_prod = st.text_input("Nome do Novo Produto", key="cad_novo_nome_ped").strip().upper()
-                    with c_cad2:
-                        c_g_r = st.selectbox("Grupo", grupos_opt, key="cad_g_rapido")
-                    with c_cad3:
-                        c_f_r = st.selectbox("Fornecedor", fornecedores_opt, key="cad_f_rapido")
-                
-                    c_cad4, c_cad5, c_cad6 = st.columns([1, 1, 1])
-                    with c_cad4:
-                        c_qtd_r = st.number_input("Qtd Inicial em Estoque", min_value=0.0, value=0.0, key="cad_q_rapido")
-                    with c_cad5:
-                        c_compra_r = st.number_input("Preço de Compra (R$)", min_value=0.0, value=0.0, key="cad_c_rapido")
-                    with c_cad6:
-                        c_venda_r = st.number_input("Preço de Venda (R$)", min_value=0.0, value=0.0, key="cad_v_rapido")
-                
-                    if st.button("💾 Salvar e Selecionar Produto", key="btn_salvar_novo_prod_ped"):
-                        if novo_nome_prod:
-                            try:
-                                cursor = conn.cursor()
-                                cursor.execute("SELECT id FROM produtos WHERE UPPER(produto) = UPPER(?)", (novo_nome_prod,))
-                                existe = cursor.fetchone()
-                
-                                if existe:
-                                    st.warning(f"⚠️ O produto '{novo_nome_prod}' já está cadastrado!")
-                                    st.session_state["prod_selecionado_temp"] = novo_nome_prod
-                                    st.rerun()
-                                else:
-                                    cursor.execute("INSERT INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda) VALUES (?, ?, ?, ?, ?, ?)", (novo_nome_prod, c_g_r, c_f_r, c_qtd_r, c_compra_r, c_venda_r))
-                                    conn.commit()
-                                    st.cache_data.clear()
-                                    st.session_state["prod_selecionado_temp"] = novo_nome_prod
-                                    st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro ao cadastrar: {e}")
-                        else:
-                            st.error("Digite o nome do produto.")
-                        st.stop()
-                
-                preco_sugerido_admin = 0.0
-                if not df_p_admin.empty and prod_item != "+ Cadastrar Novo Produto...":
-                    df_p_admin.columns = [c.lower() for c in df_p_admin.columns]
-                    col_nome_p = 'produto' if 'produto' in df_p_admin.columns else ('nome' if 'nome' in df_p_admin.columns else df_p_admin.columns[1])
-                    df_p_admin['_nome_limpo'] = df_p_admin[col_nome_p].astype(str).str.strip().str.upper()
-                    df_filtrado_admin = df_p_admin[df_p_admin['_nome_limpo'] == str(prod_item).strip().upper()]
-                
-                    if not df_filtrado_admin.empty:
-                        row_adm = df_filtrado_admin.iloc[0]
-                        for col_v in ['valor_venda', 'preco_venda', 'venda', 'preco', 'valor']:
-                            if col_v in df_p_admin.columns:
-                                try:
-                                    val_aux = float(row_adm[col_v])
-                                    if val_aux > 0:
-                                        preco_sugerido_admin = val_aux
+            
+                # Campos de Fornecedor, Quantidade e Preço Unitário
+                col_adm_3, col_adm_4, col_adm_5 = st.columns(3)
+                with col_adm_3:
+                    fornecedor_cli = st.selectbox("Selecione o Fornecedor", fornecedores_opt, key="adm_select_fornecedor")
+                with col_adm_4:
+                    qtd_cli = st.number_input("Quantidade", min_value=0.01, value=1.0, step=1.0, key="adm_qtd_input")
+                with col_adm_5:
+                    preco_sugerido = 117.0
+                    try:
+                        if 'df_p_cli' in locals() and not df_p_cli.empty and prod_item != "+ Cadastrar Novo Produto...":
+                            match_p = df_p_cli[df_p_cli[col_nome_p].astype(str).str.strip().str.upper() == prod_item.strip().upper()]
+                            if not match_p.empty:
+                                for cp in ['valor_venda', 'preco', 'valor']:
+                                    if cp in match_p.columns:
+                                        preco_sugerido = float(match_p.iloc[0][cp])
                                         break
-                                except:
-                                    pass
-                
-                col_l3_1, col_l3_2 = st.columns(2)
-                with col_l3_1:
-                    fornec_ped = st.selectbox("Fornecedor", fornecedores_opt, key="ped_forn_ind")
-                with col_l3_2:
-                    qtd_ped = st.number_input("Quantidade", min_value=0.01, step=1.0, value=1.0, key="ped_qtd_ind")
-                
-                col_l4_1, col_l4_2 = st.columns(2)
-                with col_l4_1:
-                    v_venda_ped = st.number_input("Preço Unitário (R$)", min_value=0.0, value=float(preco_sugerido_admin), key=f"ped_v_ind_{prod_item}")
-                with col_l4_2:
-                    valor_total_item = qtd_ped * v_venda_ped
-                    st.info(f"**Valor Total do Item:** R$ {valor_total_item:.2f}")
-                
-                # 1. Inicializa o carrinho do administrador como dicionário
+                    except Exception:
+                        pass
+                    preco_cli = st.number_input("Preço Unitário (R$)", min_value=0.0, value=preco_sugerido, step=1.0, key="adm_preco_input")
+            
+                st.info(f"Valor Total do Item: R$ {qtd_cli * preco_cli:.2f}")
+            
+                # Inicializa o carrinho do administrador como dicionário
                 if 'carrinho_admin' not in st.session_state or not isinstance(st.session_state.carrinho_admin, dict):
                     st.session_state.carrinho_admin = {}
             
-                # 2. Botão de Incluir Produto no Painel do Administrador (À prova de NameError)
+                # Botão de Incluir Produto no Painel do Administrador
                 if st.button("➕ Incluir Produto no Pedido", use_container_width=True, key="btn_incluir_admin_unico"):
-                    # Obtém de forma segura as variáveis independentemente de como foram nomeadas nos inputs acima
-                    prod_val = locals().get('prod_item', locals().get('produto_adm', locals().get('produto', '')))
-                    forn_val = locals().get('fornecedor', locals().get('fornecedor_adm', locals().get('fornecedor_cli', 'BAHIA')))
-                    grupo_val = locals().get('grupo_ped', locals().get('grupo_adm', locals().get('grupo', 'Geral')))
-                    qtd_val = float(locals().get('qtd_cli', locals().get('qtd_adm', locals().get('quantidade', 1.0))))
-                    preco_val = float(locals().get('preco_cli', locals().get('preco_adm', locals().get('preco', 0.0))))
-            
-                    if prod_val == "+ Cadastrar Novo Produto...":
+                    if prod_item == "+ Cadastrar Novo Produto...":
                         st.warning("⚠️ Por favor, selecione um produto válido antes de incluir.")
                     else:
-                        p_limpo = str(prod_val).strip().upper()
-                        f_limpo = str(forn_val).strip().upper()
+                        p_limpo = str(prod_item).strip().upper()
+                        f_limpo = str(fornecedor_cli).strip().upper()
                         chave_unica = f"{p_limpo}|{f_limpo}"
             
-                        # Grava ou substitui diretamente no dicionário sem duplicar
                         st.session_state.carrinho_admin[chave_unica] = {
-                            'produto': str(prod_val).strip(),
-                            'fornecedor': str(forn_val).strip(),
-                            'grupo': str(grupo_val).strip(),
-                            'quantidade': qtd_val,
-                            'valor_unitario': preco_val,
-                            'valor_total': qtd_val * preco_val
+                            'produto': str(prod_item).strip(),
+                            'fornecedor': str(fornecedor_cli).strip(),
+                            'grupo': str(grupo_ped).strip(),
+                            'quantidade': float(qtd_cli),
+                            'valor_unitario': float(preco_cli),
+                            'valor_total': float(qtd_cli) * float(preco_cli)
                         }
                             
-                        st.success(f"Produto {prod_val} incluído com sucesso!")
+                        st.success(f"Produto {prod_item} incluído com sucesso!")
                         st.rerun()
             
                 st.markdown("---")
                 st.subheader("📋 Itens Atuais no Pedido (Administrador)")
             
-                # 3. Exibição da Tabela do Carrinho do Admin
+                # Exibição da Tabela do Carrinho do Admin
                 if st.session_state.carrinho_admin:
                     lista_itens_admin = list(st.session_state.carrinho_admin.values())
                     df_carrinho_admin = pd.DataFrame(lista_itens_admin)
@@ -1422,13 +1362,14 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     import datetime
                                     data_atual = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                                     codigo_pedido = f"PED-ADM-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
+                                    nome_cliente_pedido = str(locals().get('cliente_ped', 'Administração'))
             
                                     for chave, item in st.session_state.carrinho_admin.items():
                                         cursor.execute("""
                                             INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, fornecedor, grupo, data, status, codigo_pedido)
                                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                                         """, (
-                                            "Administração",
+                                            nome_cliente_pedido,
                                             item['produto'],
                                             item['quantidade'],
                                             item['valor_unitario'],
@@ -1436,14 +1377,14 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                             item['fornecedor'],
                                             item['grupo'],
                                             data_atual,
-                                            "Aprovado",
+                                            "Pendente",  # Gravado como Pendente para aparecer logo nas tabelas!
                                             codigo_pedido
                                         ))
                                     conn.commit()
                                     
                                     st.session_state.carrinho_admin = {}
                                     st.session_state.modo_edicao_admin = False
-                                    st.success(f"🎉 Pedido {codigo_pedido} gerado com sucesso pelo Administrador!")
+                                    st.success(f"🎉 Pedido {codigo_pedido} gerado com sucesso!")
                                     st.rerun()
                                 except Exception as e:
                                     st.error(f"Erro ao salvar pedido: {e}")
