@@ -619,130 +619,78 @@ if perfil_selecionado == "👤 Portal do Cliente":
                             except:
                                 pass
             
-            col_cli_3, col_cli_4 = st.columns(2)
+            # Seleção de Fornecedor, Quantidade e Preço Unitário para o item atual
+            col_cli_3, col_cli_4, col_cli_5 = st.columns(3)
             with col_cli_3:
-                fornec_ped = st.selectbox("Selecione o Fornecedor", fornecedores_opt, key="cli_forn_ind")
+                fornecedor_cli = st.selectbox("Selecione o Fornecedor", fornecedores_opt, key="cli_select_fornecedor")
             with col_cli_4:
-                qtd_ped = st.number_input("Quantidade", min_value=0.01, step=1.0, value=1.0, key="cli_qtd_ind")
-            
-            col_cli_5, col_cli_6 = st.columns(2)
+                qtd_cli = st.number_input("Quantidade", min_value=0.01, value=1.0, step=1.0, key="cli_qtd_input")
             with col_cli_5:
-                v_venda_ped = st.number_input("Preço Unitário (R$)", min_value=0.0, value=float(preco_sugerido_cli), key=f"cli_v_ind_{prod_item}")
-            with col_cli_6:
-                valor_total_item = qtd_ped * v_venda_ped
-                st.info(f"**Valor Total do Item:** R$ {valor_total_item:.2f}")
-            
-            if "carrinho_cliente" not in st.session_state:
-                st.session_state.carrinho_cliente = []
-            
-            if "modo_edicao_cli" not in st.session_state:
-                st.session_state.modo_edicao_cli = False
-
-            # Função auxiliar para limpar e fundir duplicados do carrinho
-            def limpar_duplicados_carrinho():
-                if 'carrinho_cliente' in st.session_state and st.session_state.carrinho_cliente:
-                    df_temp = pd.DataFrame(st.session_state.carrinho_cliente)
-                    if not df_temp.empty and 'produto' in df_temp.columns and 'fornecedor' in df_temp.columns:
-                        # Normaliza para maiúsculas e remove espaços extras para evitar duplicados por digitação
-                        df_temp['p_key'] = df_temp['produto'].astype(str).str.strip().str.upper()
-                        df_temp['f_key'] = df_temp['fornecedor'].astype(str).str.strip().str.upper()
-                        
-                        df_temp['quantidade'] = pd.to_numeric(df_temp['quantidade'], errors='coerce').fillna(0)
-                        df_temp['valor_unitario'] = pd.to_numeric(df_temp['valor_unitario'], errors='coerce').fillna(0)
-                        
-                        # Agrupa somando as quantidades dos itens repetidos
-                        df_agrupado = df_temp.groupby(['p_key', 'f_key'], as_index=False).agg({
-                            'produto': 'first',
-                            'fornecedor': 'first',
-                            'grupo': 'first',
-                            'quantidade': 'sum',
-                            'valor_unitario': 'first'
-                        })
-                        df_agrupado['valor_total'] = df_agrupado['quantidade'] * df_agrupado['valor_unitario']
-                        
-                        # Atualiza o carrinho com os dados limpos
-                        st.session_state.carrinho_cliente = df_agrupado[['produto', 'fornecedor', 'grupo', 'quantidade', 'valor_unitario', 'valor_total']].to_dict('records')
-        
-            # Garante que o carrinho existe e é obrigatoriamente um dicionário
-            if 'carrinho_cliente' not in st.session_state:
-                st.session_state.carrinho_cliente = {}
-            elif isinstance(st.session_state.carrinho_cliente, list):
-                # Se por acaso ficou como lista de uma versão anterior, converte para dicionário automaticamente
-                novo_dict = {}
-                for item in st.session_state.carrinho_cliente:
-                    if isinstance(item, dict):
-                        p = str(item.get('produto', '')).strip().upper()
-                        f = str(item.get('fornecedor', '')).strip().upper()
-                        chave = f"{p}|{f}"
-                        if chave and chave != "|":
-                            novo_dict[chave] = item
-                st.session_state.carrinho_cliente = novo_dict
-        
-            # Captura segura das variáveis (Admin ou Portal do Cliente)
-            p_atual = locals().get('produto_selecionado', locals().get('produto_cli', st.session_state.get('produto_selecionado', '')))
-            f_atual = locals().get('fornecedor_selecionado', locals().get('fornecedor_cli', st.session_state.get('fornecedor_selecionado', '')))
-            g_atual = locals().get('grupo_selecionado', locals().get('grupo_cli', st.session_state.get('grupo_selecionado', 'Geral')))
-            q_atual = locals().get('qtd_informada', locals().get('quantidade', 1.0))
-            pu_atual = locals().get('preco_unitario', locals().get('preco', 0.0))
-        
-            # 1. Campos de seleção únicos (com keys fixas para o Portal do Cliente / Admin)
-            produto_val = st.selectbox("Selecione o Produto", lista_produtos if 'lista_produtos' in locals() else ["ABACATE"], key="input_produto_cli")
-            grupo_val = st.selectbox("Selecione o Grupo", lista_grupos if 'lista_grupos' in locals() else ["Geral"], key="input_grupo_cli")
-            fornecedor_val = st.selectbox("Selecione o Fornecedor", lista_fornecedores if 'lista_fornecedores' in locals() else ["BAHIA"], key="input_fornecedor_cli")
-            
-            col_q, col_p = st.columns(2)
-            with col_q:
-                qtd_val = st.number_input("Quantidade", min_value=0.01, value=1.0, step=1.0, key="input_qtd_cli")
-            with col_p:
-                preco_val = st.number_input("Preço Unitário (R$)", min_value=0.0, value=117.0, step=1.0, key="input_preco_cli")
-        
+                # Tenta buscar o preço unitário do produto selecionado de forma automática
+                preco_sugerido = 0.0
+                try:
+                    if not df_p_cli.empty and prod_item != "+ Cadastrar Novo Produto...":
+                        match_prod = df_p_cli[df_p_cli[col_nome_p].astype(str).str.strip().str.upper() == prod_item.strip().upper()]
+                        if not match_prod.empty:
+                            for col_preco in ['valor_venda', 'preco', 'valor']:
+                                if col_preco in match_prod.columns:
+                                    preco_sugerido = float(match_prod.iloc[0][col_preco])
+                                    break
+                except Exception:
+                    pass
+                
+                preco_cli = st.number_input("Preço Unitário (R$)", min_value=0.0, value=preco_sugerido if preco_sugerido > 0 else 117.0, step=1.0, key="cli_preco_input")
+    
             # Exibe o total do item em tempo real
-            st.info(f"Valor Total do Item: R$ {qtd_val * preco_val:.2f}")
-        
-            # 2. Inicializa o carrinho como dicionário para evitar duplicados
+            st.info(f"Valor Total do Item: R$ {qtd_cli * preco_cli:.2f}")
+    
+            # Inicializa o carrinho do cliente como dicionário se não existir ou se for lista antiga
             if 'carrinho_cliente' not in st.session_state or not isinstance(st.session_state.carrinho_cliente, dict):
                 st.session_state.carrinho_cliente = {}
-        
-            # 3. Botão de Incluir Produto
-            if st.button("➕ Incluir Produto no Pedido", use_container_width=True):
-                p_limpo = str(st.session_state.input_produto_cli).strip().upper()
-                f_limpo = str(st.session_state.input_fornecedor_cli).strip().upper()
-                chave_unica = f"{p_limpo}|{f_limpo}"
-                
-                qtd_add = float(st.session_state.input_qtd_cli)
-                val_unit = float(st.session_state.input_preco_cli)
-        
-                # Se já existe o mesmo produto e fornecedor, soma a quantidade e atualiza o total
-                if chave_unica in st.session_state.carrinho_cliente:
-                    st.session_state.carrinho_cliente[chave_unica]['quantidade'] += qtd_add
-                    st.session_state.carrinho_cliente[chave_unica]['valor_total'] = (
-                        st.session_state.carrinho_cliente[chave_unica]['quantidade'] * val_unit
-                    )
+    
+            # Botão de Incluir Produto
+            if st.button("➕ Incluir Produto no Pedido", use_container_width=True, key="btn_incluir_cli_unico"):
+                if prod_item == "+ Cadastrar Novo Produto...":
+                    st.warning("⚠️ Por favor, selecione um produto válido ou cadastre um novo antes de incluir.")
                 else:
-                    # Se não existe, cria um novo registo completo
-                    st.session_state.carrinho_cliente[chave_unica] = {
-                        'produto': str(st.session_state.input_produto_cli).strip(),
-                        'fornecedor': str(st.session_state.input_fornecedor_cli).strip(),
-                        'grupo': str(st.session_state.input_grupo_cli).strip(),
-                        'quantidade': qtd_add,
-                        'valor_unitario': val_unit,
-                        'valor_total': qtd_add * val_unit
-                    }
+                    p_limpo = str(prod_item).strip().upper()
+                    f_limpo = str(fornecedor_cli).strip().upper()
+                    chave_unica = f"{p_limpo}|{f_limpo}"
                     
-                st.success(f"Produto {st.session_state.input_produto_cli} incluído com sucesso!")
-                st.rerun()
-        
+                    qtd_add = float(qtd_cli)
+                    val_unit = float(preco_cli)
+    
+                    # Se já existe o mesmo produto e fornecedor, soma a quantidade e atualiza o total
+                    if chave_unica in st.session_state.carrinho_cliente:
+                        st.session_state.carrinho_cliente[chave_unica]['quantidade'] += qtd_add
+                        st.session_state.carrinho_cliente[chave_unica]['valor_total'] = (
+                            st.session_state.carrinho_cliente[chave_unica]['quantidade'] * val_unit
+                        )
+                    else:
+                        # Se não existe, cria um novo registo completo
+                        st.session_state.carrinho_cliente[chave_unica] = {
+                            'produto': str(prod_item).strip(),
+                            'fornecedor': str(fornecedor_cli).strip(),
+                            'grupo': str(grupo_ped).strip(),
+                            'quantidade': qtd_add,
+                            'valor_unitario': val_unit,
+                            'valor_total': qtd_add * val_unit
+                        }
+                        
+                    st.success(f"Produto {prod_item} incluído com sucesso!")
+                    st.rerun()
+    
             st.markdown("---")
             st.subheader("📋 Itens Atuais no Pedido")
-        
-            # 4. Exibição da Tabela do Carrinho
+    
+            # Exibição da Tabela do Carrinho
             if st.session_state.carrinho_cliente:
                 lista_itens = list(st.session_state.carrinho_cliente.values())
                 df_carrinho_cli = pd.DataFrame(lista_itens)
-        
+    
                 if 'modo_edicao_cli' not in st.session_state:
                     st.session_state.modo_edicao_cli = False
-        
+    
                 if st.session_state.modo_edicao_cli:
                     st.info("💡 **Modo de Edição Ativo:** Altere as quantidades ou valores diretamente na tabela abaixo e clique em **'💾 Salvar'**.")
                     df_editado_cli = st.data_editor(
@@ -752,20 +700,20 @@ if perfil_selecionado == "👤 Portal do Cliente":
                     )
                 else:
                     st.dataframe(df_carrinho_cli, use_container_width=True)
-        
+    
                 col_btn1, col_btn2, col_btn3 = st.columns(3)
-        
+    
                 with col_btn1:
                     if st.button("🗑️ Limpar Carrinho", use_container_width=True, key="btn_limpar_cli"):
                         st.session_state.carrinho_cliente = {}
                         st.session_state.modo_edicao_cli = False
                         st.rerun()
-        
+    
                 with col_btn2:
                     if st.button("✏️ Alterar", use_container_width=True, key="btn_alterar_cli"):
                         st.session_state.modo_edicao_cli = True
                         st.rerun()
-        
+    
                 with col_btn3:
                     if st.button("💾 Salvar", use_container_width=True, key="btn_salvar_cli"):
                         if st.session_state.modo_edicao_cli and 'df_editado_cli' in locals():
