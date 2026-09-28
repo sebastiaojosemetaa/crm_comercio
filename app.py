@@ -701,19 +701,19 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 else:
                     st.dataframe(df_carrinho_cli, use_container_width=True)
     
-                col_btn1, col_btn2, col_btn3 = st.columns(3)
-    
+                col_btn1, col_btn2, col_btn3, col_btn4 = st.columns(4)
+
                 with col_btn1:
                     if st.button("🗑️ Limpar Carrinho", use_container_width=True, key="btn_limpar_cli"):
                         st.session_state.carrinho_cliente = {}
                         st.session_state.modo_edicao_cli = False
                         st.rerun()
-    
+        
                 with col_btn2:
                     if st.button("✏️ Alterar", use_container_width=True, key="btn_alterar_cli"):
                         st.session_state.modo_edicao_cli = True
                         st.rerun()
-    
+        
                 with col_btn3:
                     if st.button("💾 Salvar", use_container_width=True, key="btn_salvar_cli"):
                         if st.session_state.modo_edicao_cli and 'df_editado_cli' in locals():
@@ -738,36 +738,44 @@ if perfil_selecionado == "👤 Portal do Cliente":
                             st.session_state.modo_edicao_cli = False
                             st.success("✅ Pedido atualizado com sucesso!")
                             st.rerun()
-
+        
                 with col_btn4:
-                    if st.button("🔴 Finalizar e Enviar Pedido", type="primary", use_container_width=True, key="btn_finalizar_cli"):
-                        try:
-                            cursor = conn.cursor()
-                            data_agora = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            cliente_logado = st.session_state.get('cliente_autenticado', 'Cliente')
-
-                            for item in st.session_state.carrinho_cliente:
-                                qtd_item = float(item.get("quantidade", 1))
-                                prod_nome = str(item.get("produto", ""))
-                                val_unit = float(item.get("valor_unitario", 0))
-                                val_tot = float(item.get("valor_total", 0))
-                                forn_nome = item.get("fornecedor", "")
-                                grupo_nome = item.get("grupo", "")
-
-                                cursor.execute("INSERT INTO pedidos (cliente, produto, fornecedor, grupo, quantidade, valor_unitario, valor_total, status, data) VALUES (?, ?, ?, ?, ?, ?, ?, 'Pendente', ?)", (cliente_logado, prod_nome, forn_nome, grupo_nome, qtd_item, val_unit, val_tot, data_agora))
-                                cursor.execute("INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, status, data) VALUES (?, ?, ?, ?, ?, ?, ?, 'Pendente', ?)", (cliente_logado, prod_nome, forn_nome, grupo_nome, qtd_item, val_unit, val_tot, data_agora))
-                                cursor.execute("UPDATE produtos SET quantidade = quantidade + ? WHERE produto = ?", (qtd_item, prod_nome))
-
-                            conn.commit()
-                            st.session_state.carrinho_cliente = []
-                            st.session_state.modo_edicao_cli = False
-                            st.cache_data.clear()
-                            st.success("✅ Pedido enviado com sucesso!")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Erro ao enviar pedido: {e}")
-            else:
-                st.info("Nenhum item adicionado ao carrinho ainda.")
+                    if st.button("🚀 Finalizar e Enviar", use_container_width=True, type="primary", key="btn_finalizar_cli"):
+                        if st.session_state.carrinho_cliente:
+                            try:
+                                cursor = conn.cursor()
+                                import datetime
+                                data_atual = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                codigo_pedido = f"PED-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
+                                cliente_atual = st.session_state.cliente_autenticado
+        
+                                for chave, item in st.session_state.carrinho_cliente.items():
+                                    cursor.execute("""
+                                        INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, fornecedor, grupo, data, status, codigo_pedido)
+                                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                    """, (
+                                        cliente_atual,
+                                        item['produto'],
+                                        item['quantidade'],
+                                        item['valor_unitario'],
+                                        item['valor_total'],
+                                        item['fornecedor'],
+                                        item['grupo'],
+                                        data_atual,
+                                        "Pendente",
+                                        codigo_pedido
+                                    ))
+                                conn.commit()
+                                
+                                # Limpa o carrinho após enviar
+                                st.session_state.carrinho_cliente = {}
+                                st.session_state.modo_edicao_cli = False
+                                st.success(f"🎉 Pedido {codigo_pedido} enviado com sucesso!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao salvar pedido: {e}")
+                        else:
+                            st.warning("⚠️ O carrinho está vazio.")
     
         with aba_historico:
             st.subheader("Histórico e Gestão de Meus Pedidos")
