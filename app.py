@@ -639,23 +639,23 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 st.session_state.modo_edicao_cli = False
 
             if st.button("➕ Incluir Produto no Pedido", use_container_width=True):
-                # Garante que o carrinho_cliente existe na sessão
+                # Garante que a lista do carrinho existe na sessão
                 if 'carrinho_cliente' not in st.session_state:
                     st.session_state.carrinho_cliente = []
                 
-                # Procura se o produto com o mesmo fornecedor já está no carrinho
+                # Verifica se o produto com o mesmo fornecedor já está no carrinho
                 item_encontrado = False
                 for item in st.session_state.carrinho_cliente:
                     if item.get('produto') == produto_selecionado and item.get('fornecedor') == fornecedor_selecionado:
-                        # Se já existe, apenas soma a quantidade e recalcula o total da linha
+                        # Se já existe, soma a quantidade e atualiza o valor total
                         item['quantidade'] = float(item.get('quantidade', 0)) + float(qtd_informada)
                         val_unit = float(item.get('valor_unitario', preco_unitario))
                         item['valor_total'] = item['quantidade'] * val_unit
                         item_encontrado = True
                         break
                         
+                # Se não existe, adiciona um novo item na lista
                 if not item_encontrado:
-                    # Se não existe, adiciona o novo item como um dicionário na lista
                     novo_item = {
                         'produto': produto_selecionado,
                         'fornecedor': fornecedor_selecionado,
@@ -668,13 +668,17 @@ if perfil_selecionado == "👤 Portal do Cliente":
                     
                 st.success(f"Produto {produto_selecionado} incluído/atualizado com sucesso!")
                 st.rerun()
-
+        
             st.markdown("---")
             st.subheader("📋 Itens Atuais no Pedido")
-
-            if st.session_state.carrinho_cliente:
+        
+            # Exibição baseada exclusivamente em carrinho_cliente
+            if 'carrinho_cliente' in st.session_state and st.session_state.carrinho_cliente:
                 df_carrinho_cli = pd.DataFrame(st.session_state.carrinho_cliente)
-
+        
+                if 'modo_edicao_cli' not in st.session_state:
+                    st.session_state.modo_edicao_cli = False
+        
                 if st.session_state.modo_edicao_cli:
                     st.info("💡 **Modo de Edição Ativo:** Altere as quantidades ou valores diretamente na tabela abaixo e clique em **'💾 Salvar'**.")
                     df_editado_cli = st.data_editor(
@@ -684,27 +688,27 @@ if perfil_selecionado == "👤 Portal do Cliente":
                     )
                 else:
                     st.dataframe(df_carrinho_cli, use_container_width=True)
-
+        
                 col_btn1, col_btn2, col_btn3, col_btn4 = st.columns(4)
-
+        
                 with col_btn1:
                     if st.button("🗑️ Limpar Carrinho", use_container_width=True, key="btn_limpar_cli"):
                         st.session_state.carrinho_cliente = []
                         st.session_state.modo_edicao_cli = False
                         st.rerun()
-
+        
                 with col_btn2:
                     if st.button("✏️ Alterar", use_container_width=True, key="btn_alterar_cli"):
                         st.session_state.modo_edicao_cli = True
                         st.rerun()
-
+        
                 with col_btn3:
                     if st.button("💾 Salvar", use_container_width=True, key="btn_salvar_cli"):
                         if st.session_state.modo_edicao_cli and 'df_editado_cli' in locals():
                             df_editado_cli['quantidade'] = pd.to_numeric(df_editado_cli['quantidade'], errors='coerce').fillna(1)
                             df_editado_cli['valor_unitario'] = pd.to_numeric(df_editado_cli['valor_unitario'], errors='coerce').fillna(0)
                             df_editado_cli['valor_total'] = df_editado_cli['quantidade'] * df_editado_cli['valor_unitario']
-
+        
                             st.session_state.carrinho_cliente = df_editado_cli.to_dict('records')
                             st.session_state.modo_edicao_cli = False
                             st.success("✅ Pedido atualizado com sucesso!")
