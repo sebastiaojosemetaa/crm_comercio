@@ -39,26 +39,28 @@ def sanear_df_vendas(df):
 # -----------------------------------------------------------------------------
 def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=15, bottomMargin=30)
+    # topMargin reduzido para 5 (praticamente sem margem superior)
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=5, bottomMargin=30)
     story = []
 
     styles = getSampleStyleSheet()
 
+    # Estilos compactos sem espaçamento exagerado
     style_empresa = ParagraphStyle(
-        'Empresa', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=16, 
-        leading=20, alignment=1, textColor=colors.HexColor("#0f2a4a"), spaceAfter=4
+        'Empresa', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=14, 
+        leading=16, alignment=1, textColor=colors.HexColor("#0f2a4a"), spaceAfter=2
     )
     style_sub = ParagraphStyle(
-        'Sub', parent=styles['Normal'], fontName='Helvetica', fontSize=9, 
-        leading=12, alignment=1, spaceAfter=10
+        'Sub', parent=styles['Normal'], fontName='Helvetica', fontSize=8, 
+        leading=10, alignment=1, spaceAfter=4
     )
     style_titulo = ParagraphStyle(
-        'Titulo', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=12, 
-        leading=15, alignment=1, textColor=colors.HexColor("#0f2a4a"), spaceAfter=4
+        'Titulo', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=10, 
+        leading=12, alignment=1, textColor=colors.HexColor("#0f2a4a"), spaceAfter=2
     )
     style_info = ParagraphStyle(
-        'Info', parent=styles['Normal'], fontName='Helvetica', fontSize=9, 
-        leading=12, alignment=1, spaceAfter=15
+        'Info', parent=styles['Normal'], fontName='Helvetica', fontSize=8, 
+        leading=10, alignment=1, spaceAfter=6
     )
 
     story.append(Paragraph("REY DA CEBOLA", style_empresa))
@@ -135,7 +137,9 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#1f4e8c")),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),  # Fonte reduzida para 8 em toda a tabela
+        ('TOPPADDING', (0, 0), (-1, -1), 3),   # Padding reduzido para poupar espaço vertical
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
         ('ALIGN', (1, 0), (-1, -1), 'CENTER'),
         ('ALIGN', (0, 0), (0, -1), 'LEFT'),
         ('GRID', (0, 0), (-1, -2), 0.5, colors.HexColor("#d3d3d3")),
@@ -151,7 +155,6 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
     doc.build(story)
     buffer.seek(0)
     return buffer
-
 # -----------------------------------------------------------------------------
 # CONEXÃO E MIGRAÇÃO DO BANCO DE DADOS
 # -----------------------------------------------------------------------------
