@@ -1873,7 +1873,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 df_fin_cliente = pd.read_sql_query(query_financeiro, conn, params=(nome_atual,))
 
                                 if not df_fin_cliente.empty:
-                                    # Padroniza status e forma de pagamento para análise correta
+                                    # Padroniza status e forma de pagamento
                                     if 'status' in df_fin_cliente.columns:
                                         df_fin_cliente['status_limpo'] = df_fin_cliente['status'].astype(str).str.strip().str.capitalize()
                                     else:
@@ -1884,10 +1884,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     else:
                                         df_fin_cliente['pag_lower'] = ''
 
-                                    # Vendas em aberto: Crediário, Fiado ou Prazo cujo status ainda NÃO seja 'Quitado'
-                                    is_fiado_ou_crediario = df_fin_cliente['pag_lower'].str.contains('crediário|fiado|prazo|crediario', na=False)
+                                    # Identifica vendas a prazo/crediário/fiado de forma robusta
+                                    is_fiado_ou_crediario = df_fin_cliente['pag_lower'].str.contains('crediário|crediario|fiado|prazo|p1:', na=False, case=False)
                                     ja_quitado = df_fin_cliente['status_limpo'] == 'Quitado'
 
+                                    # Vendas em aberto: São as de crediário/fiado/prazo cujo status AINDA NÃO foi marcado como 'Quitado'
                                     mask_aberto = is_fiado_ou_crediario & (~ja_quitado)
                                     df_abertos = df_fin_cliente[mask_aberto]
                                     df_quitados = df_fin_cliente[~mask_aberto]
@@ -1932,7 +1933,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                                         st.success("🎉 Vendas marcadas como quitadas com sucesso!")
                                                         st.rerun()
                                                     else:
-                                                        st.warning("⚠️️ Marque pelo menos uma venda na coluna 'Quitar?' para dar baixa.")
+                                                        st.warning("⚠️ Marque pelo menos uma venda na coluna 'Quitar?' para dar baixa.")
                                                 except Exception as e_quitar:
                                                     st.error(f"Erro ao quitar vendas: {e_quitar}")
                                         else:
