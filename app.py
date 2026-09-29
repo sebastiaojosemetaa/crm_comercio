@@ -1912,45 +1912,42 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
                                     with aba_aberto:
                                         if not df_abertos.empty:
-                                            with st.form("form_dar_baixa_vendas"):
-                                                st.info("💡 Aqui constam todas as compras pendentes ou em aberto deste cliente.")
-                                                df_abertos_ex = df_abertos.copy()
-                                                df_abertos_ex.insert(0, "Quitar?", False)
-                                
-                                                cols_drop = [c for c in ['status_limpo', 'is_aberto'] if c in df_abertos_ex.columns]
-                                                df_edit_abertos = st.data_editor(
-                                                    df_abertos_ex.drop(columns=cols_drop),
-                                                    use_container_width=True,
-                                                    hide_index=True,
-                                                    key="editor_vendas_abertas_cliente"
-                                                )
-                                
-                                                st.markdown("---")
-                                                forma_recebimento = st.selectbox(
-                                                    "💳 Selecione a Forma de Recebimento para a Baixa:",
-                                                    ["Dinheiro", "Pix", "Cartão de Crédito", "Cartão de Débito", "Transferência", "Outros"],
-                                                    key="select_forma_recebimento_baixa"
-                                                )
-                                
-                                                submitted_baixa = st.form_submit_button("✅ Dar Baixa / Marcar Selecionados como Quitados", type="primary")
-                                
-                                                if submitted_baixa:
-                                                    try:
-                                                        cursor = conn.cursor()
-                                                        marcados = df_edit_abertos[df_edit_abertos['Quitar?'] == True]
-                                                        if not marcados.empty:
-                                                            for _, row_m in marcados.iterrows():
-                                                                cursor.execute(
-                                                                    "UPDATE vendas SET status = 'Quitado', forma_pagamento = ? WHERE id = ?",
-                                                                    (f"Quitado ({forma_recebimento})", row_m['id'])
-                                                                )
-                                                            conn.commit()
-                                                            st.success("🎉 Vendas marcadas como quitadas com sucesso!")
-                                                            st.rerun()
-                                                        else:
-                                                            st.warning("⚠️ Marque pelo menos uma venda na coluna 'Quitar?' para dar baixa.")
-                                                    except Exception as e_quitar:
-                                                        st.error(f"Erro ao quitar vendas: {e_quitar}")
+                                            st.info("💡 Aqui constam todas as compras pendentes ou em aberto deste cliente.")
+                                            df_abertos_ex = df_abertos.copy()
+                                            df_abertos_ex.insert(0, "Quitar?", False)
+
+                                            cols_drop = [c for c in ['status_limpo', 'is_aberto'] if c in df_abertos_ex.columns]
+                                            df_edit_abertos = st.data_editor(
+                                                df_abertos_ex.drop(columns=cols_drop),
+                                                use_container_width=True,
+                                                hide_index=True,
+                                                key="editor_vendas_abertas_cliente"
+                                            )
+
+                                            st.markdown("---")
+                                            forma_recebimento = st.selectbox(
+                                                "💳 Selecione a Forma de Recebimento para a Baixa:",
+                                                ["Dinheiro", "Pix", "Cartão de Crédito", "Cartão de Débito", "Transferência", "Outros"],
+                                                key="select_forma_recebimento_baixa"
+                                            )
+
+                                            if st.button("✅ Dar Baixa / Marcar Selecionados como Quitados", type="primary", key="btn_dar_baixa_vendas_direto"):
+                                                try:
+                                                    cursor = conn.cursor()
+                                                    marcados = df_edit_abertos[df_edit_abertos['Quitar?'] == True]
+                                                    if not marcados.empty:
+                                                        for _, row_m in marcados.iterrows():
+                                                            cursor.execute(
+                                                                "UPDATE vendas SET status = 'Quitado', forma_pagamento = ? WHERE id = ?",
+                                                                (f"Quitado ({forma_recebimento})", row_m['id'])
+                                                            )
+                                                        conn.commit()
+                                                        st.success("🎉 Vendas marcadas como quitadas com sucesso!")
+                                                        st.rerun()
+                                                    else:
+                                                        st.warning("⚠️ Marque pelo menos uma venda na coluna 'Quitar?' para dar baixa.")
+                                                except Exception as e_quitar:
+                                                    st.error(f"Erro ao quitar vendas: {e_quitar}")
                                         else:
                                             st.success("✨ Este cliente não possui nenhuma venda em aberto no momento!")
 
