@@ -914,7 +914,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         )
         
         if menu_admin == "🛒 PDV — Frente de Caixa":
-            # Cabeçalho estilo PDV Profissional (inspirado na referência)
+            # Cabeçalho estilo PDV Profissional
             st.markdown("""
                 <div style="background-color: #0f2a4a; padding: 12px 20px; border-radius: 8px; color: white; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                     <span style="font-size: 18px; font-weight: bold;">🖥️ Caixa Livre — PDV Profissional</span>
@@ -938,7 +938,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             else:
                 produtos_opt = ["AMEIXA IMPORTADA", "ABACATE"]
         
-            # Linha superior de identificação do cliente
             col_cab1, col_cab2 = st.columns([2, 1])
             with col_cab1:
                 cliente_pdv = st.selectbox("👤 Cliente do Atendimento", clientes_opt)
@@ -993,7 +992,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         
                     valor_total_item = qtd_item * v_unit_item
                     
-                    # Caixa em destaque para o valor total do item atual
                     st.markdown(f"""
                         <div style="background-color: #eef2f7; padding: 10px; border-radius: 6px; text-align: center; margin-top: 10px; margin-bottom: 10px;">
                             <span style="font-size: 13px; color: #555;">Valor Total do Item:</span><br>
@@ -1013,15 +1011,15 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.success(f"Item '{prod_item}' adicionado!")
                         st.rerun()
         
-                # Barra de atalhos simulando teclas de função do PDV
-                st.markdown("#### ⌨️ Atalhos Rápidos")
-                cols_at = st.columns(3)
-                with cols_at[0]:
-                    st.caption("[F3] Localizar Prod.")
-                with cols_at[1]:
-                    st.caption("[F9] Finalizar Venda")
-                with cols_at[2]:
-                    st.caption("[ESC] Cancelar")
+                # Botões de Ações Rápidas / Cupom (Substituindo os atalhos de teclado)
+                st.markdown("#### 🖨️️ Ações e Impressão de Cupom")
+                cols_cup = st.columns(2)
+                with cols_cup[0]:
+                    if st.button("📄 Imprimir Cupom 58mm", use_container_width=True):
+                        st.info("🖨️ Envie a última venda para a impressora térmica 58mm.")
+                with cols_cup[1]:
+                    if st.button("📄 Imprimir Cupom 80mm", use_container_width=True):
+                        st.info("🖨️ Envie a última venda para a impressora térmica 80mm.")
         
             with col_pdv_dir:
                 st.markdown("### 🛒 Carrinho de Compras / Itens Atuais")
@@ -1034,7 +1032,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.info("O carrinho está vazio. Adicione produtos ao lado.")
                     total_geral_carrinho = 0.0
         
-                if st.button("🗑️ Limpar Carrinho Inteiro"):
+                if st.button("🗑️ Limpar Carrinho Inteiro", use_container_width=True):
                     st.session_state.carrinho_pdv = []
                     st.rerun()
         
@@ -1049,7 +1047,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     with col_pg2:
                         troco = v_rec - total_geral_carrinho if v_rec > total_geral_carrinho else 0.0
                         
-                        # Bloco de destaque gigante para o Total Líquido (igual à referência)
+                        # Bloco de destaque para o Total Líquido
                         st.markdown(f"""
                             <div style="background-color: #0f2a4a; padding: 15px; border-radius: 8px; color: white; text-align: center; margin-top: 5px;">
                                 <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">TOTAL LÍQUIDO</span><br>
