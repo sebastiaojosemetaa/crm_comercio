@@ -1986,8 +1986,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 
                                 except Exception as e_fin:
                                     st.warning(f"Extrato financeiro indisponível no momento: {e_fin}")
-                else:
-                    st.info("Nenhum cliente cadastrado ainda.")
+                            else:
+                                st.info("Nenhum cliente cadastrado ainda.")
 
         elif menu_admin == "💾 Backup e Restauração":
             st.title("💾 Central de Backup e Restauração")
