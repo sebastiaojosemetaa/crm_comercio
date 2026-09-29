@@ -1873,25 +1873,27 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 df_fin_cliente = pd.read_sql_query(query_financeiro, conn, params=(nome_atual,))
 
                                 if not df_fin_cliente.empty:
-                                    # Padroniza status e forma de pagamento
+                                    # Padroniza o status se existir
                                     if 'status' in df_fin_cliente.columns:
                                         df_fin_cliente['status_limpo'] = df_fin_cliente['status'].astype(str).str.strip().str.capitalize()
                                     else:
                                         df_fin_cliente['status_limpo'] = 'Concluído'
 
-                                    if 'forma_pagamento' in df_fin_cliente.columns:
-                                        df_fin_cliente['pag_lower'] = df_fin_cliente['forma_pagamento'].astype(str).str.lower()
-                                    else:
-                                        df_fin_cliente['pag_lower'] = ''
+                                    # Função segura para detetar crediário, fiado, prazo ou parcelas (P1, P2...)
+                                    def verificar_em_aberto(row):
+                                        status = str(row.get('status_limpo', '')).lower()
+                                        if status == 'quitado':
+                                            return False # Se já estiver quitado, não está em aberto
+                                        
+                                        fp = str(row.get('forma_pagamento', '')).lower()
+                                        termos = ['crediário', 'crediario', 'fiado', 'prazo', 'p1:', 'p1']
+                                        return any(termo in fp for termo in termos)
 
-                                    # Identifica vendas a prazo/crediário/fiado de forma robusta
-                                    is_fiado_ou_crediario = df_fin_cliente['pag_lower'].str.contains('crediário|crediario|fiado|prazo|p1:', na=False, case=False)
-                                    ja_quitado = df_fin_cliente['status_limpo'] == 'Quitado'
+                                    # Aplica a regra linha a linha de forma totalmente segura
+                                    df_fin_cliente['is_aberto'] = df_fin_cliente.apply(verificar_em_aberto, axis=1)
 
-                                    # Vendas em aberto: São as de crediário/fiado/prazo cujo status AINDA NÃO foi marcado como 'Quitado'
-                                    mask_aberto = is_fiado_ou_crediario & (~ja_quitado)
-                                    df_abertos = df_fin_cliente[mask_aberto]
-                                    df_quitados = df_fin_cliente[~mask_aberto]
+                                    df_abertos = df_fin_cliente[df_fin_cliente['is_aberto'] == True]
+                                    df_quitados = df_fin_cliente[df_fin_cliente['is_aberto'] == False]
 
                                     total_devido = df_abertos['valor_total'].sum() if 'valor_total' in df_abertos.columns and not df_abertos.empty else 0.0
                                     total_pago = df_quitados['valor_total'].sum() if 'valor_total' in df_quitados.columns and not df_quitados.empty else 0.0
@@ -1914,7 +1916,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                             df_abertos_ex = df_abertos.copy()
                                             df_abertos_ex.insert(0, "Quitar?", False)
 
-                                            cols_drop = [c for c in ['status_limpo', 'pag_lower'] if c in df_abertos_ex.columns]
+                                            cols_drop = [c for c in ['status_limpo', 'is_aberto'] if c in df_abertos_ex.columns]
                                             df_edit_abertos = st.data_editor(
                                                 df_abertos_ex.drop(columns=cols_drop),
                                                 use_container_width=True,
@@ -1941,7 +1943,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
                                     with aba_pago:
                                         if not df_quitados.empty:
-                                            cols_drop = [c for c in ['status_limpo', 'pag_lower'] if c in df_quitados.columns]
+                                            cols_drop = [c for c in ['status_limpo', 'is_aberto'] if c in df_quitados.columns]
                                             st.dataframe(df_quitados.drop(columns=cols_drop), use_container_width=True, hide_index=True)
                                         else:
                                             st.info("Nenhum histórico de pagamento quitado encontrado para este cliente.")
