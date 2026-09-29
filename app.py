@@ -1958,12 +1958,6 @@ try:
             else:
                 st.info("Nenhum histórico de pagamento quitado encontrado para este cliente.")
 
-    else:
-        st.info(f"ℹ️ Não há registos de vendas ou pedidos associados ao cliente '{nome_atual}'.")
-
-except Exception as e_fin:
-    st.warning(f"Extrato financeiro indisponível no momento: {e_fin}")
-
                 else:
                     st.info("Nenhum cliente cadastrado ainda.")
 
