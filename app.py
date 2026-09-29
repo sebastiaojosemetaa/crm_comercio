@@ -1856,107 +1856,110 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 conn.commit()
                                 st.success("Cliente excluído com sucesso!")
                                 st.rerun()
-else:
-    st.info("Nenhum cliente cadastrado ainda.")
 
-    # =============================================================================
-    # O FORMULÁRIO DE CLIENTES TERMINOU ACIMA. 
-    # O EXTRATO FINANCEIRO FICA TOTALMENTE FORA, PERMITINDO O USO DE st.button:
-    # =============================================================================
-    st.markdown("---")
-    st.markdown(f"### 💰 Extrato Financeiro & Histórico: {nome_atual}")
-    
-    try:
-        query_financeiro = """
-            SELECT *
-            FROM vendas
-            WHERE cliente = ?
-            ORDER BY id DESC
-        """
-        df_fin_cliente = pd.read_sql_query(query_financeiro, conn, params=(nome_atual,))
-    
-        if not df_fin_cliente.empty:
-            if 'status' in df_fin_cliente.columns:
-                df_fin_cliente['status_limpo'] = df_fin_cliente['status'].astype(str).str.strip().str.capitalize()
-            else:
-                df_fin_cliente['status_limpo'] = 'Concluído'
-    
-            def verificar_em_aberto(row):
-                status = str(row.get('status_limpo', '')).lower()
-                if status == 'quitado':
-                    return False
-                
-                fp = str(row.get('forma_pagamento', '')).lower()
-                termos = ['crediário', 'crediario', 'fiado', 'prazo', 'p1:', 'p1']
-                return any(termo in fp for termo in termos)
-    
-            df_fin_cliente['is_aberto'] = df_fin_cliente.apply(verificar_em_aberto, axis=1)
-    
-            df_abertos = df_fin_cliente[df_fin_cliente['is_aberto'] == True]
-            df_quitados = df_fin_cliente[df_fin_cliente['is_aberto'] == False]
-    
-            total_devido = df_abertos['valor_total'].sum() if 'valor_total' in df_abertos.columns and not df_abertos.empty else 0.0
-            total_pago = df_quitados['valor_total'].sum() if 'valor_total' in df_quitados.columns and not df_quitados.empty else 0.0
-    
-            col_m1, col_m2, col_m3 = st.columns(3)
-            with col_m1:
-                st.metric("🔴 Total em Aberto (Débito)", f"R$ {total_devido:.2f}")
-            with col_m2:
-                st.metric("🟢 Total Quitado / Pago", f"R$ {total_pago:.2f}")
-            with col_m3:
-                st.metric("📊 Volume Total Geral", f"R$ {total_devido + total_pago:.2f}")
-    
-            st.markdown("---")
-    
-            aba_aberto, aba_pago = st.tabs(["🔴 Vendas em Aberto (Devedor)", "🟢 Vendas Quitadas / Pagas"])
-    
-            with aba_aberto:
-                if not df_abertos.empty:
-                    st.info("💡 Aqui constam todas as compras pendentes ou em aberto deste cliente.")
-                    df_abertos_ex = df_abertos.copy()
-                    df_abertos_ex.insert(0, "Quitar?", False)
-    
-                    cols_drop = [c for c in ['status_limpo', 'is_aberto'] if c in df_abertos_ex.columns]
-                    df_edit_abertos = st.data_editor(
-                        df_abertos_ex.drop(columns=cols_drop),
-                        use_container_width=True,
-                        hide_index=True,
-                        key="editor_vendas_abertas_cliente"
-                    )
-    
-                    st.markdown("---")
-                    forma_recebimento = st.selectbox(
-                        "💳 Selecione a Forma de Recebimento para a Baixa:",
-                        ["Dinheiro", "Pix", "Cartão de Crédito", "Cartão de Débito", "Transferência", "Outros"],
-                        key="select_forma_recebimento_baixa"
-                    )
-    
-                    if st.button("✅ Dar Baixa / Marcar Selecionados como Quitados", type="primary", key="btn_dar_baixa_vendas_direto"):
-                        try:
-                            cursor = conn.cursor()
-                            marcados = df_edit_abertos[df_edit_abertos['Quitar?'] == True]
-                            if not marcados.empty:
-                                for _, row_m in marcados.iterrows():
-                                    cursor.execute(
-                                        "UPDATE vendas SET status = 'Quitado', forma_pagamento = ? WHERE id = ?",
-                                        (f"Quitado ({forma_recebimento})", row_m['id'])
-                                    )
-                                conn.commit()
-                                st.success("🎉 Vendas marcadas como quitadas com sucesso!")
-                                st.rerun()
-                            else:
-                                st.warning("⚠️ Marque pelo menos uma venda na coluna 'Quitar?' para dar baixa.")
-                        except Exception as e_quitar:
-                            st.error(f"Erro ao quitar vendas: {e_quitar}")
-                else:
-                    st.success("✨ Este cliente não possui nenhuma venda em aberto no momento!")
-    
-            with aba_pago:
-                if not df_quitados.empty:
-                    cols_drop = [c for c in ['status_limpo', 'is_aberto'] if c in df_quitados.columns]
-                    st.dataframe(df_quitados.drop(columns=cols_drop), use_container_width=True, hide_index=True)
-                else:
-                    st.info("Nenhum histórico de pagamento quitado encontrado para este cliente.")
+                            # -----------------------------------------------------------------------------
+                            # EXTRATO FINANCEIRO E DE VENDAS DO CLIENTE SELECIONADO (FORA DO FORMULÁRIO)
+                            # -----------------------------------------------------------------------------
+                            st.markdown("---")
+                            st.markdown(f"### 💰 Extrato Financeiro & Histórico: {nome_atual}")
+                            
+                            try:
+                                query_financeiro = """
+                                    SELECT *
+                                    FROM vendas
+                                    WHERE cliente = ?
+                                    ORDER BY id DESC
+                                """
+                                df_fin_cliente = pd.read_sql_query(query_financeiro, conn, params=(nome_atual,))
+                            
+                                if not df_fin_cliente.empty:
+                                    if 'status' in df_fin_cliente.columns:
+                                        df_fin_cliente['status_limpo'] = df_fin_cliente['status'].astype(str).str.strip().str.capitalize()
+                                    else:
+                                        df_fin_cliente['status_limpo'] = 'Concluído'
+                            
+                                    def verificar_em_aberto(row):
+                                        status = str(row.get('status_limpo', '')).lower()
+                                        if status == 'quitado':
+                                            return False
+                                        
+                                        fp = str(row.get('forma_pagamento', '')).lower()
+                                        termos = ['crediário', 'crediario', 'fiado', 'prazo', 'p1:', 'p1']
+                                        return any(termo in fp for termo in termos)
+                            
+                                    df_fin_cliente['is_aberto'] = df_fin_cliente.apply(verificar_em_aberto, axis=1)
+                            
+                                    df_abertos = df_fin_cliente[df_fin_cliente['is_aberto'] == True]
+                                    df_quitados = df_fin_cliente[df_fin_cliente['is_aberto'] == False]
+                            
+                                    total_devido = df_abertos['valor_total'].sum() if 'valor_total' in df_abertos.columns and not df_abertos.empty else 0.0
+                                    total_pago = df_quitados['valor_total'].sum() if 'valor_total' in df_quitados.columns and not df_quitados.empty else 0.0
+                            
+                                    col_m1, col_m2, col_m3 = st.columns(3)
+                                    with col_m1:
+                                        st.metric("🔴 Total em Aberto (Débito)", f"R$ {total_devido:.2f}")
+                                    with col_m2:
+                                        st.metric("🟢 Total Quitado / Pago", f"R$ {total_pago:.2f}")
+                                    with col_m3:
+                                        st.metric("📊 Volume Total Geral", f"R$ {total_devido + total_pago:.2f}")
+                            
+                                    st.markdown("---")
+                            
+                                    aba_aberto, aba_pago = st.tabs(["🔴 Vendas em Aberto (Devedor)", "🟢 Vendas Quitadas / Pagas"])
+                            
+                                    with aba_aberto:
+                                        if not df_abertos.empty:
+                                            st.info("💡 Aqui constam todas as compras pendentes ou em aberto deste cliente.")
+                                            df_abertos_ex = df_abertos.copy()
+                                            df_abertos_ex.insert(0, "Quitar?", False)
+                            
+                                            cols_drop = [c for c in ['status_limpo', 'is_aberto'] if c in df_abertos_ex.columns]
+                                            df_edit_abertos = st.data_editor(
+                                                df_abertos_ex.drop(columns=cols_drop),
+                                                use_container_width=True,
+                                                hide_index=True,
+                                                key="editor_vendas_abertas_cliente"
+                                            )
+                            
+                                            st.markdown("---")
+                                            forma_recebimento = st.selectbox(
+                                                "💳 Selecione a Forma de Recebimento para a Baixa:",
+                                                ["Dinheiro", "Pix", "Cartão de Crédito", "Cartão de Débito", "Transferência", "Outros"],
+                                                key="select_forma_recebimento_baixa"
+                                            )
+                            
+                                            if st.button("✅ Dar Baixa / Marcar Selecionados como Quitados", type="primary", key="btn_dar_baixa_vendas_direto"):
+                                                try:
+                                                    cursor = conn.cursor()
+                                                    marcados = df_edit_abertos[df_edit_abertos['Quitar?'] == True]
+                                                    if not marcados.empty:
+                                                        for _, row_m in marcados.iterrows():
+                                                            cursor.execute(
+                                                                "UPDATE vendas SET status = 'Quitado', forma_pagamento = ? WHERE id = ?",
+                                                                (f"Quitado ({forma_recebimento})", row_m['id'])
+                                                            )
+                                                        conn.commit()
+                                                        st.success("🎉 Vendas marcadas como quitadas com sucesso!")
+                                                        st.rerun()
+                                                    else:
+                                                        st.warning("⚠️ Marque pelo menos uma venda na coluna 'Quitar?' para dar baixa.")
+                                                except Exception as e_quitar:
+                                                    st.error(f"Erro ao quitar vendas: {e_quitar}")
+                                        else:
+                                            st.success("✨ Este cliente não possui nenhuma venda em aberto no momento!")
+                            
+                                    with aba_pago:
+                                        if not df_quitados.empty:
+                                            cols_drop = [c for c in ['status_limpo', 'is_aberto'] if c in df_quitados.columns]
+                                            st.dataframe(df_quitados.drop(columns=cols_drop), use_container_width=True, hide_index=True)
+                                        else:
+                                            st.info("Nenhum histórico de pagamento quitado encontrado para este cliente.")
+                            
+                                else:
+                                    st.info(f"ℹ️ Não há registos de vendas ou pedidos associados ao cliente '{nome_atual}'.")
+                            
+                            except Exception as e_fin:
+                                st.warning(f"Extrato financeiro indisponível no momento: {e_fin}")
 
                 else:
                     st.info("Nenhum cliente cadastrado ainda.")
