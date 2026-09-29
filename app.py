@@ -1906,7 +1906,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     st.markdown("---")
                             
                                     aba_aberto, aba_pago = st.tabs(["🔴 Vendas em Aberto (Devedor)", "🟢 Vendas Quitadas / Pagas"])
-                            
+
                                     with aba_aberto:
                                         if not df_abertos.empty:
                                             st.info("💡 Aqui constam todas as compras pendentes ou em aberto deste cliente.")
@@ -1922,24 +1922,50 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                             )
                             
                                             st.markdown("---")
-                                            forma_recebimento = st.selectbox(
-                                                "💳 Selecione a Forma de Recebimento para a Baixa:",
-                                                ["Dinheiro", "Pix", "Cartão de Crédito", "Cartão de Débito", "Transferência", "Outros"],
-                                                key="select_forma_recebimento_baixa"
-                                            )
+                                            col_b1, col_b2 = st.columns(2)
+                                            with col_b1:
+                                                forma_recebimento = st.selectbox(
+                                                    "💳 Forma de Recebimento:",
+                                                    ["Dinheiro", "Pix", "Cartão de Crédito", "Cartão de Débito", "Transferência", "Outros"],
+                                                    key="select_forma_recebimento_baixa"
+                                                )
+                                            with col_b2:
+                                                valor_recebido_input = st.number_input(
+                                                    "💵 Valor Recebido (R$):",
+                                                    min_value=0.0,
+                                                    value=0.0,
+                                                    step=1.0,
+                                                    key="input_valor_recebido_baixa"
+                                                )
                             
-                                            if st.button("✅ Dar Baixa / Marcar Selecionados como Quitados", type="primary", key="btn_dar_baixa_vendas_direto"):
+                                            if st.button("✅ Confirmar Recebimento e Quitar Selecionados", type="primary", key="btn_dar_baixa_vendas_direto"):
                                                 try:
                                                     cursor = conn.cursor()
                                                     marcados = df_edit_abertos[df_edit_abertos['Quitar?'] == True]
                                                     if not marcados.empty:
                                                         for _, row_m in marcados.iterrows():
+                                                            v_total = float(row_m.get('valor_total', 0.0))
+                                                            troco = max(0.0, valor_recebido_input - v_total) if valor_recebido_input > 0 else 0.0
+                                                            restante = max(0.0, v_total - valor_recebido_input) if valor_recebido_input > 0 and valor_recebido_input < v_total else 0.0
+                                                            
                                                             cursor.execute(
-                                                                "UPDATE vendas SET status = 'Quitado', forma_pagamento = ? WHERE id = ?",
-                                                                (f"Quitado ({forma_recebimento})", row_m['id'])
+                                                                """UPDATE vendas 
+                                                                   SET status = 'Quitado', 
+                                                                       forma_pagamento = ?, 
+                                                                       valor_recebido = ?, 
+                                                                       troco = ?, 
+                                                                       restante = ? 
+                                                                   WHERE id = ?""",
+                                                                (
+                                                                    f"Quitado ({forma_recebimento})", 
+                                                                    float(valor_recebido_input), 
+                                                                    float(troco), 
+                                                                    float(restante), 
+                                                                    row_m['id']
+                                                                )
                                                             )
                                                         conn.commit()
-                                                        st.success("🎉 Vendas marcadas como quitadas com sucesso!")
+                                                        st.success("🎉 Pagamento confirmado e vendas marcadas como quitadas com sucesso!")
                                                         st.rerun()
                                                     else:
                                                         st.warning("⚠️ Marque pelo menos uma venda na coluna 'Quitar?' para dar baixa.")
