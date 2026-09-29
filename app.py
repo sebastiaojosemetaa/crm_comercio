@@ -1864,7 +1864,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             st.markdown(f"### 💰 Extrato Financeiro & Histórico: {nome_atual}")
 
                             try:
-                                # Carrega todas as colunas da tabela de vendas para evitar erros de colunas específicas
                                 query_financeiro = """
                                     SELECT *
                                     FROM vendas
@@ -1874,13 +1873,22 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 df_fin_cliente = pd.read_sql_query(query_financeiro, conn, params=(nome_atual,))
 
                                 if not df_fin_cliente.empty:
-                                    # Padroniza o status
+                                    # Padroniza status e forma de pagamento para análise correta
                                     if 'status' in df_fin_cliente.columns:
                                         df_fin_cliente['status_limpo'] = df_fin_cliente['status'].astype(str).str.strip().str.capitalize()
                                     else:
-                                        df_fin_cliente['status_limpo'] = 'Pendente'
+                                        df_fin_cliente['status_limpo'] = 'Concluído'
 
-                                    mask_aberto = df_fin_cliente['status_limpo'].isin(['Pendente', 'Em aberto', 'Fiado'])
+                                    if 'forma_pagamento' in df_fin_cliente.columns:
+                                        df_fin_cliente['pag_lower'] = df_fin_cliente['forma_pagamento'].astype(str).str.lower()
+                                    else:
+                                        df_fin_cliente['pag_lower'] = ''
+
+                                    # Vendas em aberto: Crediário, Fiado ou Prazo cujo status ainda NÃO seja 'Quitado'
+                                    is_fiado_ou_crediario = df_fin_cliente['pag_lower'].str.contains('crediário|fiado|prazo|crediario', na=False)
+                                    ja_quitado = df_fin_cliente['status_limpo'] == 'Quitado'
+
+                                    mask_aberto = is_fiado_ou_crediario & (~ja_quitado)
                                     df_abertos = df_fin_cliente[mask_aberto]
                                     df_quitados = df_fin_cliente[~mask_aberto]
 
@@ -1905,8 +1913,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                             df_abertos_ex = df_abertos.copy()
                                             df_abertos_ex.insert(0, "Quitar?", False)
 
+                                            cols_drop = [c for c in ['status_limpo', 'pag_lower'] if c in df_abertos_ex.columns]
                                             df_edit_abertos = st.data_editor(
-                                                df_abertos_ex.drop(columns=['status_limpo']),
+                                                df_abertos_ex.drop(columns=cols_drop),
                                                 use_container_width=True,
                                                 hide_index=True,
                                                 key="editor_vendas_abertas_cliente"
@@ -1923,7 +1932,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                                         st.success("🎉 Vendas marcadas como quitadas com sucesso!")
                                                         st.rerun()
                                                     else:
-                                                        st.warning("⚠️ Marque pelo menos uma venda na coluna 'Quitar?' para dar baixa.")
+                                                        st.warning("⚠️️ Marque pelo menos uma venda na coluna 'Quitar?' para dar baixa.")
                                                 except Exception as e_quitar:
                                                     st.error(f"Erro ao quitar vendas: {e_quitar}")
                                         else:
@@ -1931,7 +1940,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
                                     with aba_pago:
                                         if not df_quitados.empty:
-                                            st.dataframe(df_quitados.drop(columns=['status_limpo']), use_container_width=True, hide_index=True)
+                                            cols_drop = [c for c in ['status_limpo', 'pag_lower'] if c in df_quitados.columns]
+                                            st.dataframe(df_quitados.drop(columns=cols_drop), use_container_width=True, hide_index=True)
                                         else:
                                             st.info("Nenhum histórico de pagamento quitado encontrado para este cliente.")
 
