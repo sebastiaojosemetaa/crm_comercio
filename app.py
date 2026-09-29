@@ -1912,12 +1912,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
                                     with aba_aberto:
                                         if not df_abertos.empty:
-                                            # Envolvemos a tabela e a baixa num formulário próprio do Streamlit para evitar erros
                                             with st.form("form_dar_baixa_vendas"):
                                                 st.info("💡 Aqui constam todas as compras pendentes ou em aberto deste cliente.")
                                                 df_abertos_ex = df_abertos.copy()
                                                 df_abertos_ex.insert(0, "Quitar?", False)
-
+                                
                                                 cols_drop = [c for c in ['status_limpo', 'is_aberto'] if c in df_abertos_ex.columns]
                                                 df_edit_abertos = st.data_editor(
                                                     df_abertos_ex.drop(columns=cols_drop),
@@ -1925,17 +1924,16 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                                     hide_index=True,
                                                     key="editor_vendas_abertas_cliente"
                                                 )
-
+                                
                                                 st.markdown("---")
                                                 forma_recebimento = st.selectbox(
                                                     "💳 Selecione a Forma de Recebimento para a Baixa:",
                                                     ["Dinheiro", "Pix", "Cartão de Crédito", "Cartão de Débito", "Transferência", "Outros"],
                                                     key="select_forma_recebimento_baixa"
                                                 )
-
-                                                # Usamos st.form_submit_button para submeter dentro do form sem erros
+                                
                                                 submitted_baixa = st.form_submit_button("✅ Dar Baixa / Marcar Selecionados como Quitados", type="primary")
-
+                                
                                                 if submitted_baixa:
                                                     try:
                                                         cursor = conn.cursor()
