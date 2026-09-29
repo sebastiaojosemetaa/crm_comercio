@@ -1864,8 +1864,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             st.markdown(f"### 💰 Extrato Financeiro & Histórico: {nome_atual}")
 
                             try:
+                                # Carrega todas as colunas da tabela de vendas para evitar erros de colunas específicas
                                 query_financeiro = """
-                                    SELECT id, produto, quantidade, valor_unitario, valor_total, forma_pagamento, status, data, tipo
+                                    SELECT *
                                     FROM vendas
                                     WHERE cliente = ?
                                     ORDER BY id DESC
@@ -1873,6 +1874,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 df_fin_cliente = pd.read_sql_query(query_financeiro, conn, params=(nome_atual,))
 
                                 if not df_fin_cliente.empty:
+                                    # Padroniza o status
                                     if 'status' in df_fin_cliente.columns:
                                         df_fin_cliente['status_limpo'] = df_fin_cliente['status'].astype(str).str.strip().str.capitalize()
                                     else:
@@ -1882,8 +1884,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     df_abertos = df_fin_cliente[mask_aberto]
                                     df_quitados = df_fin_cliente[~mask_aberto]
 
-                                    total_devido = df_abertos['valor_total'].sum() if not df_abertos.empty else 0.0
-                                    total_pago = df_quitados['valor_total'].sum() if not df_quitados.empty else 0.0
+                                    total_devido = df_abertos['valor_total'].sum() if 'valor_total' in df_abertos.columns and not df_abertos.empty else 0.0
+                                    total_pago = df_quitados['valor_total'].sum() if 'valor_total' in df_quitados.columns and not df_quitados.empty else 0.0
 
                                     col_m1, col_m2, col_m3 = st.columns(3)
                                     with col_m1:
