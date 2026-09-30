@@ -1858,7 +1858,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         st.rerun()
         
                                 # -----------------------------------------------------------------------------
-                                # EXTRATO FINANCEIRO & HISTÓRICO DO CLIENTE (HORÁRIO DO BRASIL)
+                                # EXTRATO FINANCEIRO & HISTÓRICO DO CLIENTE (COM GERAÇÃO DE PDF)
                                 # -----------------------------------------------------------------------------
                                 st.markdown("---")
                                 st.markdown(f"### 💰 Extrato Financeiro: {nome_atual}")
@@ -1866,6 +1866,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 try:
                                     from datetime import datetime
                                     from zoneinfo import ZoneInfo
+                                    from fpdf import FPDF
                                     
                                     query_financeiro = """
                                         SELECT *
@@ -1911,10 +1912,85 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                             st.metric("🔴 Saldo Devedor (Falta Pagar)", f"R$ {total_falta_pagar:.2f}")
                                         with col_m2:
                                             st.metric("🟢 Total Já Pago pelo Cliente", f"R$ {total_ja_pago:.2f}")
-                                
-                                        st.markdown("---")
-                                
-                                        aba_aberto, aba_pago = st.tabs(["🔴 Compras Pendentes (Em Aberto)", "🟢 Histórico de Pagamentos (Quitados)"])
+        
+                                        # -----------------------------------------------------------------------------
+                                        # CLASSE PARA GERAR O PDF COM O CABEÇALHO PADRÃO
+                                        # -----------------------------------------------------------------------------
+                                        class PDFComprovante(FPDF):
+                                            def __init__(self, cliente_nome):
+                                                super().__init__()
+                                                self.cliente_nome = cliente_nome
+        
+                                            def header(self):
+                                                self.set_font('Arial', 'B', 14)
+                                                self.set_text_color(20, 70, 140)
+                                                self.cell(0, 6, "REY DA CEBOLA", 0, 1, 'C')
+                                                
+                                                self.set_font('Arial', '', 9)
+                                                self.set_text_color(50, 50, 50)
+                                                self.cell(0, 4, "CNPJ: 194.174.39/000-42   INSC.EST.: 12.426725-4", 0, 1, 'C')
+                                                self.cell(0, 4, "CONTATO: (99) 98814-9722 OU (99) 98414-3943", 0, 1, 'C')
+                                                
+                                                self.set_font('Arial', 'B', 11)
+                                                self.cell(0, 6, "Extrato Financeiro / Comprovante do Cliente", 0, 1, 'C')
+                                                
+                                                self.set_font('Arial', 'B', 10)
+                                                data_atual_str = datetime.now(ZoneInfo("America/Sao_Paulo")).strftime('%Y-%m-%d %H:%M:%S')
+                                                self.cell(0, 6, f"Cliente: {self.cliente_nome} | Gerado em: {data_atual_str}", 0, 1, 'L')
+                                                self.ln(2)
+                                                self.set_draw_color(20, 70, 140)
+                                                self.line(10, self.get_y(), 200, self.get_y())
+                                                self.ln(4)
+        
+                                            def footer(self):
+                                                self.set_y(-15)
+                                                self.set_font('Arial', 'I', 8)
+                                                self.cell(0, 10, f"Página {self.page_no()}", 0, 0, 'C')
+        
+                                        def gerar_pdf_bytes(nome_cli, df_completo):
+                                            pdf = PDFComprovante(nome_cli)
+                                            pdf.add_page()
+                                            pdf.set_font('Arial', '', 10)
+                                            
+                                            pdf.set_font('Arial', 'B', 10)
+                                            pdf.cell(0, 6, "Histórico de Transações:", 0, 1, 'L')
+                                            pdf.ln(2)
+                                            
+                                            # Cabeçalho da Tabela no PDF
+                                            pdf.set_fill_color(230, 230, 230)
+                                            pdf.cell(12, 6, "ID", 1, 0, 'C', True)
+                                            pdf.cell(68, 6, "Produto", 1, 0, 'L', True)
+                                            pdf.cell(20, 6, "Qtd", 1, 0, 'C', True)
+                                            pdf.cell(25, 6, "Total (R$)", 1, 0, 'R', True)
+                                            pdf.cell(35, 6, "Status", 1, 0, 'C', True)
+                                            pdf.cell(30, 6, "Data", 1, 1, 'C', True)
+                                            
+                                            pdf.set_font('Arial', '', 9)
+                                            for _, row in df_completo.iterrows():
+                                                pdf.cell(12, 6, str(row.get('id', '')), 1, 0, 'C')
+                                                pdf.cell(68, 6, str(row.get('produto', ''))[:32], 1, 0, 'L')
+                                                pdf.cell(20, 6, str(row.get('quantidade', '')), 1, 0, 'C')
+                                                val_tot = f"R$ {float(row.get('valor_total', 0.0) or 0.0):.2f}"
+                                                pdf.cell(25, 6, val_tot, 1, 0, 'R')
+                                                pdf.cell(35, 6, str(row.get('status', ''))[:18], 1, 0, 'C')
+                                                data_val = str(row.get('data', ''))[:16]
+                                                pdf.cell(30, 6, data_val, 1, 1, 'C')
+                                                
+                                            return pdf.output(dest='S').encode('latin1')
+        
+                        # Botão para descarregar o PDF do cliente selecionado
+                        st.markdown("---")
+                        pdf_data = gerar_pdf_bytes(nome_atual, df_fin_cliente)
+                        st.download_button(
+                            label="📥 Descarregar Comprovante / Extrato em PDF",
+                            data=pdf_data,
+                            file_name=f"comprovante_{nome_atual.replace(' ', '_')}.pdf",
+                            mime="application/pdf",
+                            type="secondary"
+                        )
+        
+                        st.markdown("---")
+                        aba_aberto, aba_pago = st.tabs(["🔴 Compras Pendentes (Em Aberto)", "🟢 Histórico de Pagamentos (Quitados)"])
                                 
                                         with aba_aberto:
                                             if not df_abertos.empty:
@@ -1955,7 +2031,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                                         marcados = df_edit_abertos[df_edit_abertos['Quitar?'] == True]
                                                         if not marcados.empty:
                                                             dinheiro_disponivel = float(valor_recebido_input)
-                                                            # Ajuste exato para o fuso horário do Brasil (America/Sao_Paulo)
                                                             data_agora = datetime.now(ZoneInfo("America/Sao_Paulo")).strftime('%Y-%m-%d %H:%M:%S')
                                                             
                                                             for _, row_m in marcados.iterrows():
@@ -2000,10 +2075,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                                                     break
                                                             
                                                             conn.commit()
-                                                            st.success("🎉 Pagamento registrado no horário do Brasil com sucesso!")
+                                                            st.success("🎉 Pagamento registado no horário do Brasil com sucesso!")
                                                             st.rerun()
                                                         else:
-                                                            st.warning("⚠️ Marque pelo menos uma compra na coluna 'Quitar?' para registrar o pagamento.")
+                                                            st.warning("⚠️ Marque pelo menos uma compra na coluna 'Quitar?' para registar o pagamento.")
                                                     except Exception as e_quitar:
                                                         st.error(f"Erro ao processar recebimento: {e_quitar}")
                                             else:
