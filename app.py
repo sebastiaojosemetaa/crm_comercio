@@ -1858,7 +1858,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         st.rerun()
         
                                 # -----------------------------------------------------------------------------
-                                # EXTRATO FINANCEIRO & HISTÓRICO DO CLIENTE (COM PDF E HORÁRIO DO BRASIL)
+                                # EXTRATO FINANCEIRO & HISTÓRICO DO CLIENTE (CORRIGIDO PARA PDF)
                                 # -----------------------------------------------------------------------------
                                 st.markdown("---")
                                 st.markdown(f"### 💰 Extrato Financeiro: {nome_atual}")
@@ -1975,7 +1975,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                                 data_val = str(row.get('data', ''))[:16]
                                                 pdf.cell(30, 6, data_val, 1, 1, 'C')
                                                 
-                                            return pdf.output(dest='S').encode('latin1')
+                                            return bytes(pdf.output())
                                 
                                         st.markdown("---")
                                         pdf_data = gerar_pdf_bytes(nome_atual, df_fin_cliente)
