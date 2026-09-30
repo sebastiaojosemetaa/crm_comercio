@@ -1714,6 +1714,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 df_produtos['valor_compra'] = pd.to_numeric(df_produtos['valor_compra'], errors='coerce').fillna(0)
                 df_produtos['valor_venda'] = pd.to_numeric(df_produtos['valor_venda'], errors='coerce').fillna(0)
                 
+                # ORDENAÇÃO SEMPRE DE A a Z PELO NOME DO PRODUTO
+                df_produtos = df_produtos.sort_values(by='produto', ascending=True, key=lambda col: col.str.lower())
+                
                 # Aplicar filtro de pesquisa por nome do produto
                 if termo_busca.strip():
                     df_produtos = df_produtos[df_produtos['produto'].astype(str).str.contains(termo_busca, case=False, na=False)]
@@ -1775,6 +1778,18 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.rerun()
                     except Exception as e:
                         st.error(f"Erro ao salvar alterações: {e}")
+    
+            with col_atualizar:
+                if st.button("🔄 Atualizar Preços de Compra", key="btn_atualizar_precos"):
+                    try:
+                        with conn:
+                            cursor = conn.cursor()
+                            cursor.execute("UPDATE produtos SET valor_compra = (SELECT valor_compra FROM compras WHERE compras.produto = produtos.produto ORDER BY id DESC LIMIT 1) WHERE EXISTS (SELECT 1 FROM compras WHERE compras.produto = produtos.produto)")
+                        st.cache_data.clear()
+                        st.success("✅ Preços de compra atualizados com sucesso!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao atualizar preço: {e}")
     
             with col_atualizar:
                 if st.button("🔄 Atualizar Preços de Compra", key="btn_atualizar_precos"):
