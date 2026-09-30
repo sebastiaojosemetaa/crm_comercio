@@ -1858,10 +1858,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         st.rerun()
         
                                 # -----------------------------------------------------------------------------
-                                # EXTRATO FINANCEIRO & HISTÓRICO DO CLIENTE SELECIONADO (COM HAVER / PAGAMENTO PARCIAL)
+                                # EXTRATO FINANCEIRO & HISTÓRICO DO CLIENTE (VERSÃO SIMPLIFICADA)
                                 # -----------------------------------------------------------------------------
                                 st.markdown("---")
-                                st.markdown(f"### 💰 Extrato Financeiro & Histórico: {nome_atual}")
+                                st.markdown(f"### 💰 Extrato Financeiro: {nome_atual}")
                                 
                                 try:
                                     query_financeiro = """
@@ -1895,36 +1895,38 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         df_abertos = df_fin_cliente[df_fin_cliente['is_aberto'] == True]
                                         df_quitados = df_fin_cliente[df_fin_cliente['is_aberto'] == False]
                                 
-                                        # Calcula o total em aberto considerando o saldo restante das vendas parciais
-                                        total_devido = 0.0
+                                        # Cálculos limpos e diretos
+                                        total_falta_pagar = 0.0
                                         for _, r_row in df_abertos.iterrows():
                                             v_tot = float(r_row.get('valor_total', 0.0) or 0.0)
                                             v_res = float(r_row.get('restante', 0.0) or 0.0)
-                                            total_devido += v_res if v_res > 0 else v_tot
+                                            total_falta_pagar += v_res if v_res > 0 else v_tot
         
-                                        total_pago = df_quitados['valor_total'].sum() if not df_quitados.empty else 0.0
+                                        total_ja_pago = df_fin_cliente['valor_recebido'].sum() if 'valor_recebido' in df_fin_cliente.columns else 0.0
                                 
-                                        col_m1, col_m2, col_m3 = st.columns(3)
+                                        # Métricas simplificadas e sem confusão
+                                        col_m1, col_m2 = st.columns(2)
                                         with col_m1:
-                                            st.metric("🔴 Total em Aberto (Débito)", f"R$ {total_devido:.2f}")
+                                            st.metric("🔴 Saldo Devedor (Falta Pagar)", f"R$ {total_falta_pagar:.2f}")
                                         with col_m2:
-                                            st.metric("🟢 Total Quitado / Pago", f"R$ {total_pago:.2f}")
-                                        with col_m3:
-                                            st.metric("📊 Volume Total Geral", f"R$ {total_devido + total_pago:.2f}")
+                                            st.metric("🟢 Total Já Pago pelo Cliente", f"R$ {total_ja_pago:.2f}")
                                 
                                         st.markdown("---")
                                 
-                                        aba_aberto, aba_pago = st.tabs(["🔴 Vendas em Aberto (Devedor)", "🟢 Vendas Quitadas / Pagas"])
+                                        aba_aberto, aba_pago = st.tabs(["🔴 Compras Pendentes (Em Aberto)", "🟢 Histórico de Pagamentos (Quitados)"])
                                 
                                         with aba_aberto:
                                             if not df_abertos.empty:
-                                                st.info("💡 Aqui constam as compras pendentes. Se o cliente pagar apenas uma parte (Haver / Pagamento Parcial), digite o valor recebido e o saldo restante continuará em aberto.")
+                                                st.info("💡 Marque as compras que o cliente deseja pagar. Se ele pagar apenas uma parte (Haver), o restante continuará guardado automaticamente.")
+                                                
                                                 df_abertos_ex = df_abertos.copy()
                                                 df_abertos_ex.insert(0, "Quitar?", False)
                                 
-                                                cols_drop = [c for c in ['status_limpo', 'is_aberto'] if c in df_abertos_ex.columns]
+                                                # Deixar apenas as colunas mais importantes visíveis para limpar a tabela
+                                                colunas_desejadas = [c for c in ['Quitar?', 'id', 'produto', 'quantidade', 'valor_total', 'valor_recebido', 'restante', 'data'] if c in df_abertos_ex.columns]
+                                                
                                                 df_edit_abertos = st.data_editor(
-                                                    df_abertos_ex.drop(columns=cols_drop),
+                                                    df_abertos_ex[colunas_desejadas],
                                                     use_container_width=True,
                                                     hide_index=True,
                                                     key="editor_vendas_abertas_cliente"
@@ -1940,14 +1942,14 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                                     )
                                                 with col_b2:
                                                     valor_recebido_input = st.number_input(
-                                                        "💵 Valor Recebido (R$ - Total ou Parcial / Haver):",
+                                                        "💵 Valor que o Cliente está Pagando Agora (R$):",
                                                         min_value=0.0,
-                                                        value=float(total_devido),
+                                                        value=float(total_falta_pagar),
                                                         step=1.0,
                                                         key="input_valor_recebido_baixa"
                                                     )
                                 
-                                                if st.button("✅ Confirmar Recebimento (Total ou Haver)", type="primary", key="btn_dar_baixa_vendas_direto"):
+                                                if st.button("✅ Confirmar Recebimento", type="primary", key="btn_dar_baixa_vendas_direto"):
                                                     try:
                                                         cursor = conn.cursor()
                                                         marcados = df_edit_abertos[df_edit_abertos['Quitar?'] == True]
@@ -1960,7 +1962,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                                                 v_restante_atual = float(row_m.get('restante', 0.0) or 0.0)
                                                                 debito_alvo = v_restante_atual if v_restante_atual > 0 else v_total
                                                                 
+                                                                # Quanto já tinha sido pago antes nesta específica venda
+                                                                ja_pago_anterior = float(row_m.get('valor_recebido', 0.0) or 0.0)
+        
                                                                 if dinheiro_disponivel >= debito_alvo:
+                                                                    novo_valor_recebido = ja_pago_anterior + debito_alvo
                                                                     cursor.execute(
                                                                         """UPDATE vendas 
                                                                            SET status = 'Quitado', 
@@ -1969,12 +1975,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                                                                troco = 0.0, 
                                                                                restante = 0.0 
                                                                            WHERE id = ?""",
-                                                                        (f"Quitado ({forma_recebimento})", debito_alvo, v_id)
+                                                                        (f"Quitado ({forma_recebimento})", novo_valor_recebido, v_id)
                                                                     )
                                                                     dinheiro_disponivel -= debito_alvo
                                                                 elif dinheiro_disponivel > 0:
-                                                                    v_pago_parcial = dinheiro_disponivel
-                                                                    v_novo_restante = debito_alvo - v_pago_parcial
+                                                                    v_pago_agora = dinheiro_disponivel
+                                                                    novo_valor_recebido = ja_pago_anterior + v_pago_agora
+                                                                    v_novo_restante = debito_alvo - v_pago_agora
                                                                     cursor.execute(
                                                                         """UPDATE vendas 
                                                                            SET status = 'Parcial', 
@@ -1983,21 +1990,21 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                                                                troco = 0.0, 
                                                                                restante = ? 
                                                                            WHERE id = ?""",
-                                                                        (f"Parcial ({forma_recebimento})", v_pago_parcial, v_novo_restante, v_id)
+                                                                        (f"Parcial ({forma_recebimento})", novo_valor_recebido, v_novo_restante, v_id)
                                                                     )
                                                                     dinheiro_disponivel = 0.0
                                                                 else:
                                                                     break
                                                             
                                                             conn.commit()
-                                                            st.success("🎉 Pagamento (total ou parcial/haver) registrado com sucesso!")
+                                                            st.success("🎉 Pagamento registrado com sucesso!")
                                                             st.rerun()
                                                         else:
-                                                            st.warning("⚠️ Marque pelo menos uma venda na coluna 'Quitar?' para registrar o recebimento.")
+                                                            st.warning("⚠️ Marque pelo menos uma compra na coluna 'Quitar?' para registrar o pagamento.")
                                                     except Exception as e_quitar:
                                                         st.error(f"Erro ao processar recebimento: {e_quitar}")
                                             else:
-                                                st.success("✨ Este cliente não possui nenhuma venda em aberto no momento!")
+                                                st.success("✨ Este cliente não possui nenhuma compra em aberto no momento!")
                                 
                                         with aba_pago:
                                             if not df_quitados.empty:
