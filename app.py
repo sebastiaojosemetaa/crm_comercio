@@ -1858,12 +1858,14 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         st.rerun()
         
                                 # -----------------------------------------------------------------------------
-                                # EXTRATO FINANCEIRO & HISTÓRICO DO CLIENTE (VERSÃO SIMPLIFICADA)
+                                # EXTRATO FINANCEIRO & HISTÓRICO DO CLIENTE (COM REGISTO DE DATA DE PAGAMENTO)
                                 # -----------------------------------------------------------------------------
                                 st.markdown("---")
                                 st.markdown(f"### 💰 Extrato Financeiro: {nome_atual}")
                                 
                                 try:
+                                    from datetime import datetime
+                                    
                                     query_financeiro = """
                                         SELECT *
                                         FROM vendas
@@ -1895,7 +1897,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         df_abertos = df_fin_cliente[df_fin_cliente['is_aberto'] == True]
                                         df_quitados = df_fin_cliente[df_fin_cliente['is_aberto'] == False]
                                 
-                                        # Cálculos limpos e diretos
                                         total_falta_pagar = 0.0
                                         for _, r_row in df_abertos.iterrows():
                                             v_tot = float(r_row.get('valor_total', 0.0) or 0.0)
@@ -1904,7 +1905,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         
                                         total_ja_pago = df_fin_cliente['valor_recebido'].sum() if 'valor_recebido' in df_fin_cliente.columns else 0.0
                                 
-                                        # Métricas simplificadas e sem confusão
                                         col_m1, col_m2 = st.columns(2)
                                         with col_m1:
                                             st.metric("🔴 Saldo Devedor (Falta Pagar)", f"R$ {total_falta_pagar:.2f}")
@@ -1917,12 +1917,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 
                                         with aba_aberto:
                                             if not df_abertos.empty:
-                                                st.info("💡 Marque as compras que o cliente deseja pagar. Se ele pagar apenas uma parte (Haver), o restante continuará guardado automaticamente.")
+                                                st.info("💡 Marque as compras que o cliente deseja pagar. A data da última movimentação será atualizada automaticamente.")
                                                 
                                                 df_abertos_ex = df_abertos.copy()
                                                 df_abertos_ex.insert(0, "Quitar?", False)
                                 
-                                                # Deixar apenas as colunas mais importantes visíveis para limpar a tabela
                                                 colunas_desejadas = [c for c in ['Quitar?', 'id', 'produto', 'quantidade', 'valor_total', 'valor_recebido', 'restante', 'data'] if c in df_abertos_ex.columns]
                                                 
                                                 df_edit_abertos = st.data_editor(
@@ -1955,6 +1954,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                                         marcados = df_edit_abertos[df_edit_abertos['Quitar?'] == True]
                                                         if not marcados.empty:
                                                             dinheiro_disponivel = float(valor_recebido_input)
+                                                            data_agora = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                                                             
                                                             for _, row_m in marcados.iterrows():
                                                                 v_id = row_m['id']
@@ -1962,7 +1962,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                                                 v_restante_atual = float(row_m.get('restante', 0.0) or 0.0)
                                                                 debito_alvo = v_restante_atual if v_restante_atual > 0 else v_total
                                                                 
-                                                                # Quanto já tinha sido pago antes nesta específica venda
                                                                 ja_pago_anterior = float(row_m.get('valor_recebido', 0.0) or 0.0)
         
                                                                 if dinheiro_disponivel >= debito_alvo:
@@ -1973,9 +1972,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                                                                forma_pagamento = ?, 
                                                                                valor_recebido = ?, 
                                                                                troco = 0.0, 
-                                                                               restante = 0.0 
+                                                                               restante = 0.0,
+                                                                               data = ?
                                                                            WHERE id = ?""",
-                                                                        (f"Quitado ({forma_recebimento})", novo_valor_recebido, v_id)
+                                                                        (f"Quitado ({forma_recebimento})", novo_valor_recebido, data_agora, v_id)
                                                                     )
                                                                     dinheiro_disponivel -= debito_alvo
                                                                 elif dinheiro_disponivel > 0:
@@ -1988,16 +1988,17 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                                                                forma_pagamento = ?, 
                                                                                valor_recebido = ?, 
                                                                                troco = 0.0, 
-                                                                               restante = ? 
+                                                                               restante = ?,
+                                                                               data = ?
                                                                            WHERE id = ?""",
-                                                                        (f"Parcial ({forma_recebimento})", novo_valor_recebido, v_novo_restante, v_id)
+                                                                        (f"Parcial ({forma_recebimento})", novo_valor_recebido, v_novo_restante, data_agora, v_id)
                                                                     )
                                                                     dinheiro_disponivel = 0.0
                                                                 else:
                                                                     break
                                                             
                                                             conn.commit()
-                                                            st.success("🎉 Pagamento registrado com sucesso!")
+                                                            st.success("🎉 Pagamento e data atualizados com sucesso!")
                                                             st.rerun()
                                                         else:
                                                             st.warning("⚠️ Marque pelo menos uma compra na coluna 'Quitar?' para registrar o pagamento.")
