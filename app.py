@@ -1858,17 +1858,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         st.rerun()
         
                                 # -----------------------------------------------------------------------------
-                                # EXTRATO FINANCEIRO & HISTÓRICO DO CLIENTE (STATUS CORRIGIDO)
+                                # EXTRATO FINANCEIRO & HISTÓRICO DO CLIENTE SELECIONADO (FORA DO FORMULÁRIO)
                                 # -----------------------------------------------------------------------------
                                 st.markdown("---")
-                                st.markdown(f"### 💰 Extrato Financeiro: {nome_atual}")
+                                st.markdown(f"### 💰 Extrato Financeiro & Histórico: {nome_atual}")
                                 
                                 try:
-                                    from datetime import datetime
-                                    from zoneinfo import ZoneInfo
-                                    from fpdf import FPDF
-                                    import pandas as pd
-                                    
                                     query_financeiro = """
                                         SELECT *
                                         FROM vendas
@@ -1887,12 +1882,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                             status = str(row.get('status_limpo', '')).lower()
                                             if status == 'quitado':
                                                 return False
-                                            if status == 'parcial':
-                                                restante_val = float(row.get('restante', 0.0) or 0.0)
-                                                return restante_val > 0
                                             
                                             fp = str(row.get('forma_pagamento', '')).lower()
-                                            termos = ['crediário', 'crediario', 'fiado', 'prazo', 'p1:', 'p1', 'parcial']
+                                            termos = ['crediário', 'crediario', 'fiado', 'prazo', 'p1:', 'p1']
                                             return any(termo in fp for termo in termos)
                                 
                                         df_fin_cliente['is_aberto'] = df_fin_cliente.apply(verificar_em_aberto, axis=1)
@@ -1900,117 +1892,30 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         df_abertos = df_fin_cliente[df_fin_cliente['is_aberto'] == True]
                                         df_quitados = df_fin_cliente[df_fin_cliente['is_aberto'] == False]
                                 
-                                        total_falta_pagar = 0.0
-                                        for _, r_row in df_abertos.iterrows():
-                                            v_tot = float(r_row.get('valor_total', 0.0) or 0.0)
-                                            v_res = float(r_row.get('restante', 0.0) or 0.0)
-                                            total_falta_pagar += v_res if v_res > 0 else v_tot
+                                        total_devido = df_abertos['valor_total'].sum() if 'valor_total' in df_abertos.columns and not df_abertos.empty else 0.0
+                                        total_pago = df_quitados['valor_total'].sum() if 'valor_total' in df_quitados.columns and not df_quitados.empty else 0.0
                                 
-                                        total_ja_pago = df_fin_cliente['valor_recebido'].sum() if 'valor_recebido' in df_fin_cliente.columns else 0.0
-                                
-                                        col_m1, col_m2 = st.columns(2)
+                                        col_m1, col_m2, col_m3 = st.columns(3)
                                         with col_m1:
-                                            st.metric("🔴 Saldo Devedor (Falta Pagar)", f"R$ {total_falta_pagar:.2f}")
+                                            st.metric("🔴 Total em Aberto (Débito)", f"R$ {total_devido:.2f}")
                                         with col_m2:
-                                            st.metric("🟢 Total Já Pago pelo Cliente", f"R$ {total_ja_pago:.2f}")
-                                
-                                        # -----------------------------------------------------------------------------
-                                        # CLASSE PARA GERAR O PDF COM O CABEÇALHO PADRÃO DO REY DA CEBOLA
-                                        # -----------------------------------------------------------------------------
-                                        class PDFComprovante(FPDF):
-                                            def __init__(self, cliente_nome):
-                                                super().__init__()
-                                                self.cliente_nome = cliente_nome
-                                
-                                            def header(self):
-                                                self.set_font('Arial', 'B', 14)
-                                                self.set_text_color(20, 70, 140)
-                                                self.cell(0, 6, "REY DA CEBOLA", 0, 1, 'C')
-                                                
-                                                self.set_font('Arial', '', 9)
-                                                self.set_text_color(50, 50, 50)
-                                                self.cell(0, 4, "CNPJ: 194.174.39/000-42   INSC.EST.: 12.426725-4", 0, 1, 'C')
-                                                self.cell(0, 4, "CONTATO: (99) 98814-9722 OU (99) 98414-3943", 0, 1, 'C')
-                                                
-                                                self.set_font('Arial', 'B', 11)
-                                                self.cell(0, 6, "Extrato Financeiro / Comprovante do Cliente", 0, 1, 'C')
-                                                
-                                                self.set_font('Arial', 'B', 10)
-                                                data_atual_str = datetime.now(ZoneInfo("America/Sao_Paulo")).strftime('%Y-%m-%d %H:%M:%S')
-                                                self.cell(0, 6, f"Cliente: {self.cliente_nome} | Gerado em: {data_atual_str}", 0, 1, 'L')
-                                                self.ln(2)
-                                                self.set_draw_color(20, 70, 140)
-                                                self.line(10, self.get_y(), 200, self.get_y())
-                                                self.ln(4)
-                                
-                                            def footer(self):
-                                                self.set_y(-15)
-                                                self.set_font('Arial', 'I', 8)
-                                                self.cell(0, 10, f"Página {self.page_no()}", 0, 0, 'C')
-                                
-                                        def gerar_pdf_bytes(nome_cli, df_completo):
-                                            pdf = PDFComprovante(nome_cli)
-                                            pdf.add_page()
-                                            pdf.set_font('Arial', '', 10)
-                                            
-                                            pdf.set_font('Arial', 'B', 10)
-                                            pdf.cell(0, 6, "Histórico de Transações:", 0, 1, 'L')
-                                            pdf.ln(2)
-                                            
-                                            pdf.set_fill_color(230, 230, 230)
-                                            pdf.cell(12, 6, "ID", 1, 0, 'C', True)
-                                            pdf.cell(68, 6, "Produto", 1, 0, 'L', True)
-                                            pdf.cell(20, 6, "Qtd", 1, 0, 'C', True)
-                                            pdf.cell(25, 6, "Total (R$)", 1, 0, 'R', True)
-                                            pdf.cell(35, 6, "Status", 1, 0, 'C', True)
-                                            pdf.cell(30, 6, "Data", 1, 1, 'C', True)
-                                            
-                                            pdf.set_font('Arial', '', 9)
-                                            for _, row in df_completo.iterrows():
-                                                pdf.cell(12, 6, str(row.get('id', '')), 1, 0, 'C')
-                                                pdf.cell(68, 6, str(row.get('produto', ''))[:32], 1, 0, 'L')
-                                                pdf.cell(20, 6, str(row.get('quantidade', '')), 1, 0, 'C')
-                                                val_tot = f"R$ {float(row.get('valor_total', 0.0) or 0.0):.2f}"
-                                                pdf.cell(25, 6, val_tot, 1, 0, 'R')
-                                                
-                                                # Tratamento do status para evitar 'nan' e exibir em português
-                                                st_val = str(row.get('status', ''))
-                                                if st_val.lower() in ['nan', 'none', '']:
-                                                    status_exibicao = "Pendente" if row.get('is_aberto', True) else "Quitado"
-                                                else:
-                                                    status_exibicao = st_val.capitalize()
-                                
-                                                pdf.cell(35, 6, status_exibicao[:18], 1, 0, 'C')
-                                                data_val = str(row.get('data', ''))[:16]
-                                                pdf.cell(30, 6, data_val, 1, 1, 'C')
-                                                
-                                            return bytes(pdf.output())
-                                
-                                        st.markdown("---")
-                                        pdf_data = gerar_pdf_bytes(nome_atual, df_fin_cliente)
-                                        st.download_button(
-                                            label="📥 Descarregar Comprovante / Extrato em PDF",
-                                            data=pdf_data,
-                                            file_name=f"comprovante_{nome_atual.replace(' ', '_')}.pdf",
-                                            mime="application/pdf",
-                                            type="secondary"
-                                        )
+                                            st.metric("🟢 Total Quitado / Pago", f"R$ {total_pago:.2f}")
+                                        with col_m3:
+                                            st.metric("📊 Volume Total Geral", f"R$ {total_devido + total_pago:.2f}")
                                 
                                         st.markdown("---")
                                 
-                                        aba_aberto, aba_pago = st.tabs(["🔴 Compras Pendentes (Em Aberto)", "🟢 Histórico de Pagamentos (Quitados)"])
+                                        aba_aberto, aba_pago = st.tabs(["🔴 Vendas em Aberto (Devedor)", "🟢 Vendas Quitadas / Pagas"])
                                 
                                         with aba_aberto:
                                             if not df_abertos.empty:
-                                                st.info("💡 Marque as compras que o cliente deseja pagar. A data e a hora serão gravadas no horário do Brasil.")
-                                                
+                                                st.info("💡 Aqui constam todas as compras pendentes ou em aberto deste cliente.")
                                                 df_abertos_ex = df_abertos.copy()
                                                 df_abertos_ex.insert(0, "Quitar?", False)
                                 
-                                                colunas_desejadas = [c for c in ['Quitar?', 'id', 'produto', 'quantidade', 'valor_total', 'valor_recebido', 'restante', 'data'] if c in df_abertos_ex.columns]
-                                                
+                                                cols_drop = [c for c in ['status_limpo', 'is_aberto'] if c in df_abertos_ex.columns]
                                                 df_edit_abertos = st.data_editor(
-                                                    df_abertos_ex[colunas_desejadas],
+                                                    df_abertos_ex.drop(columns=cols_drop),
                                                     use_container_width=True,
                                                     hide_index=True,
                                                     key="editor_vendas_abertas_cliente"
@@ -2026,71 +1931,48 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                                     )
                                                 with col_b2:
                                                     valor_recebido_input = st.number_input(
-                                                        "💵 Valor que o Cliente está Pagando Agora (R$):",
+                                                        "💵 Valor Recebido (R$):",
                                                         min_value=0.0,
-                                                        value=float(total_falta_pagar),
+                                                        value=float(total_devido),
                                                         step=1.0,
                                                         key="input_valor_recebido_baixa"
                                                     )
                                 
-                                                if st.button("✅ Confirmar Recebimento", type="primary", key="btn_dar_baixa_vendas_direto"):
+                                                if st.button("✅ Confirmar Recebimento e Quitar Selecionados", type="primary", key="btn_dar_baixa_vendas_direto"):
                                                     try:
                                                         cursor = conn.cursor()
                                                         marcados = df_edit_abertos[df_edit_abertos['Quitar?'] == True]
                                                         if not marcados.empty:
-                                                            dinheiro_disponivel = float(valor_recebido_input)
-                                                            data_agora = datetime.now(ZoneInfo("America/Sao_Paulo")).strftime('%Y-%m-%d %H:%M:%S')
-                                                            
                                                             for _, row_m in marcados.iterrows():
-                                                                v_id = row_m['id']
-                                                                v_total = float(row_m.get('valor_total', 0.0) or 0.0)
-                                                                v_restante_atual = float(row_m.get('restante', 0.0) or 0.0)
-                                                                debito_alvo = v_restante_atual if v_restante_atual > 0 else v_total
+                                                                v_total = float(row_m.get('valor_total', 0.0))
+                                                                troco = max(0.0, valor_recebido_input - v_total) if valor_recebido_input > 0 else 0.0
+                                                                restante = max(0.0, v_total - valor_recebido_input) if valor_recebido_input > 0 and valor_recebido_input < v_total else 0.0
                                                                 
-                                                                ja_pago_anterior = float(row_m.get('valor_recebido', 0.0) or 0.0)
-                                
-                                                                if dinheiro_disponivel >= debito_alvo:
-                                                                    novo_valor_recebido = ja_pago_anterior + debito_alvo
-                                                                    cursor.execute(
-                                                                        """UPDATE vendas 
-                                                                           SET status = 'Quitado', 
-                                                                               forma_pagamento = ?, 
-                                                                               valor_recebido = ?, 
-                                                                               troco = 0.0, 
-                                                                               restante = 0.0,
-                                                                               data = ?
-                                                                           WHERE id = ?""",
-                                                                        (f"Quitado ({forma_recebimento})", novo_valor_recebido, data_agora, v_id)
+                                                                cursor.execute(
+                                                                    """UPDATE vendas 
+                                                                       SET status = 'Quitado', 
+                                                                           forma_pagamento = ?, 
+                                                                           valor_recebido = ?, 
+                                                                           troco = ?, 
+                                                                           restante = ? 
+                                                                       WHERE id = ?""",
+                                                                    (
+                                                                        f"Quitado ({forma_recebimento})", 
+                                                                        float(valor_recebido_input), 
+                                                                        float(troco), 
+                                                                        float(restante), 
+                                                                        row_m['id']
                                                                     )
-                                                                    dinheiro_disponivel -= debito_alvo
-                                                                elif dinheiro_disponivel > 0:
-                                                                    v_pago_agora = dinheiro_disponivel
-                                                                    novo_valor_recebido = ja_pago_anterior + v_pago_agora
-                                                                    v_novo_restante = debito_alvo - v_pago_agora
-                                                                    cursor.execute(
-                                                                        """UPDATE vendas 
-                                                                           SET status = 'Parcial', 
-                                                                               forma_pagamento = ?, 
-                                                                               valor_recebido = ?, 
-                                                                               troco = 0.0, 
-                                                                               restante = ?,
-                                                                               data = ?
-                                                                           WHERE id = ?""",
-                                                                        (f"Parcial ({forma_recebimento})", novo_valor_recebido, v_novo_restante, data_agora, v_id)
-                                                                    )
-                                                                    dinheiro_disponivel = 0.0
-                                                                else:
-                                                                    break
-                                                            
+                                                                )
                                                             conn.commit()
-                                                            st.success("🎉 Pagamento registado no horário do Brasil com sucesso!")
+                                                            st.success("🎉 Pagamento confirmado e vendas marcadas como quitadas com sucesso!")
                                                             st.rerun()
                                                         else:
-                                                            st.warning("⚠️ Marque pelo menos uma compra na coluna 'Quitar?' para registar o pagamento.")
+                                                            st.warning("⚠️ Marque pelo menos uma venda na coluna 'Quitar?' para dar baixa.")
                                                     except Exception as e_quitar:
-                                                        st.error(f"Erro ao processar recebimento: {e_quitar}")
+                                                        st.error(f"Erro ao quitar vendas: {e_quitar}")
                                             else:
-                                                st.success("✨ Este cliente não possui nenhuma compra em aberto no momento!")
+                                                st.success("✨ Este cliente não possui nenhuma venda em aberto no momento!")
                                 
                                         with aba_pago:
                                             if not df_quitados.empty:
@@ -2104,8 +1986,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 
                                 except Exception as e_fin:
                                     st.warning(f"Extrato financeiro indisponível no momento: {e_fin}")
-                            else:
-                                st.info("Nenhum cliente cadastrado ainda.")
+                else:
+                    st.info("Nenhum cliente cadastrado ainda.")
 
         elif menu_admin == "💾 Backup e Restauração":
             st.title("💾 Central de Backup e Restauração")
