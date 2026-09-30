@@ -1858,7 +1858,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         st.rerun()
         
                                 # -----------------------------------------------------------------------------
-                                # EXTRATO FINANCEIRO & HISTÓRICO DO CLIENTE (COM GERAÇÃO DE PDF)
+                                # EXTRATO FINANCEIRO & HISTÓRICO DO CLIENTE (COM PDF E HORÁRIO DO BRASIL)
                                 # -----------------------------------------------------------------------------
                                 st.markdown("---")
                                 st.markdown(f"### 💰 Extrato Financeiro: {nome_atual}")
@@ -1904,7 +1904,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                             v_tot = float(r_row.get('valor_total', 0.0) or 0.0)
                                             v_res = float(r_row.get('restante', 0.0) or 0.0)
                                             total_falta_pagar += v_res if v_res > 0 else v_tot
-        
+                                
                                         total_ja_pago = df_fin_cliente['valor_recebido'].sum() if 'valor_recebido' in df_fin_cliente.columns else 0.0
                                 
                                         col_m1, col_m2 = st.columns(2)
@@ -1912,15 +1912,15 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                             st.metric("🔴 Saldo Devedor (Falta Pagar)", f"R$ {total_falta_pagar:.2f}")
                                         with col_m2:
                                             st.metric("🟢 Total Já Pago pelo Cliente", f"R$ {total_ja_pago:.2f}")
-        
+                                
                                         # -----------------------------------------------------------------------------
-                                        # CLASSE PARA GERAR O PDF COM O CABEÇALHO PADRÃO
+                                        # CLASSE PARA GERAR O PDF COM O CABEÇALHO PADRÃO DO REY DA CEBOLA
                                         # -----------------------------------------------------------------------------
                                         class PDFComprovante(FPDF):
                                             def __init__(self, cliente_nome):
                                                 super().__init__()
                                                 self.cliente_nome = cliente_nome
-        
+                                
                                             def header(self):
                                                 self.set_font('Arial', 'B', 14)
                                                 self.set_text_color(20, 70, 140)
@@ -1941,12 +1941,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                                 self.set_draw_color(20, 70, 140)
                                                 self.line(10, self.get_y(), 200, self.get_y())
                                                 self.ln(4)
-        
+                                
                                             def footer(self):
                                                 self.set_y(-15)
                                                 self.set_font('Arial', 'I', 8)
                                                 self.cell(0, 10, f"Página {self.page_no()}", 0, 0, 'C')
-        
+                                
                                         def gerar_pdf_bytes(nome_cli, df_completo):
                                             pdf = PDFComprovante(nome_cli)
                                             pdf.add_page()
@@ -1977,20 +1977,20 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                                 pdf.cell(30, 6, data_val, 1, 1, 'C')
                                                 
                                             return pdf.output(dest='S').encode('latin1')
-        
-                        # Botão para descarregar o PDF do cliente selecionado
-                        st.markdown("---")
-                        pdf_data = gerar_pdf_bytes(nome_atual, df_fin_cliente)
-                        st.download_button(
-                            label="📥 Descarregar Comprovante / Extrato em PDF",
-                            data=pdf_data,
-                            file_name=f"comprovante_{nome_atual.replace(' ', '_')}.pdf",
-                            mime="application/pdf",
-                            type="secondary"
-                        )
-        
-                        st.markdown("---")
-                        aba_aberto, aba_pago = st.tabs(["🔴 Compras Pendentes (Em Aberto)", "🟢 Histórico de Pagamentos (Quitados)"])
+                                
+                                        st.markdown("---")
+                                        pdf_data = gerar_pdf_bytes(nome_atual, df_fin_cliente)
+                                        st.download_button(
+                                            label="📥 Descarregar Comprovante / Extrato em PDF",
+                                            data=pdf_data,
+                                            file_name=f"comprovante_{nome_atual.replace(' ', '_')}.pdf",
+                                            mime="application/pdf",
+                                            type="secondary"
+                                        )
+                                
+                                        st.markdown("---")
+                                
+                                        aba_aberto, aba_pago = st.tabs(["🔴 Compras Pendentes (Em Aberto)", "🟢 Histórico de Pagamentos (Quitados)"])
                                 
                                         with aba_aberto:
                                             if not df_abertos.empty:
@@ -2040,7 +2040,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                                                 debito_alvo = v_restante_atual if v_restante_atual > 0 else v_total
                                                                 
                                                                 ja_pago_anterior = float(row_m.get('valor_recebido', 0.0) or 0.0)
-        
+                                
                                                                 if dinheiro_disponivel >= debito_alvo:
                                                                     novo_valor_recebido = ja_pago_anterior + debito_alvo
                                                                     cursor.execute(
