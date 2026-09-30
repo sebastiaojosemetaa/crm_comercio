@@ -1858,13 +1858,14 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         st.rerun()
         
                                 # -----------------------------------------------------------------------------
-                                # EXTRATO FINANCEIRO & HISTÓRICO DO CLIENTE (COM REGISTO DE DATA DE PAGAMENTO)
+                                # EXTRATO FINANCEIRO & HISTÓRICO DO CLIENTE (HORÁRIO DO BRASIL)
                                 # -----------------------------------------------------------------------------
                                 st.markdown("---")
                                 st.markdown(f"### 💰 Extrato Financeiro: {nome_atual}")
                                 
                                 try:
                                     from datetime import datetime
+                                    from zoneinfo import ZoneInfo
                                     
                                     query_financeiro = """
                                         SELECT *
@@ -1917,7 +1918,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 
                                         with aba_aberto:
                                             if not df_abertos.empty:
-                                                st.info("💡 Marque as compras que o cliente deseja pagar. A data da última movimentação será atualizada automaticamente.")
+                                                st.info("💡 Marque as compras que o cliente deseja pagar. A data e a hora serão gravadas no horário do Brasil.")
                                                 
                                                 df_abertos_ex = df_abertos.copy()
                                                 df_abertos_ex.insert(0, "Quitar?", False)
@@ -1954,7 +1955,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                                         marcados = df_edit_abertos[df_edit_abertos['Quitar?'] == True]
                                                         if not marcados.empty:
                                                             dinheiro_disponivel = float(valor_recebido_input)
-                                                            data_agora = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                                                            # Ajuste exato para o fuso horário do Brasil (America/Sao_Paulo)
+                                                            data_agora = datetime.now(ZoneInfo("America/Sao_Paulo")).strftime('%Y-%m-%d %H:%M:%S')
                                                             
                                                             for _, row_m in marcados.iterrows():
                                                                 v_id = row_m['id']
@@ -1998,7 +2000,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                                                     break
                                                             
                                                             conn.commit()
-                                                            st.success("🎉 Pagamento e data atualizados com sucesso!")
+                                                            st.success("🎉 Pagamento registrado no horário do Brasil com sucesso!")
                                                             st.rerun()
                                                         else:
                                                             st.warning("⚠️ Marque pelo menos uma compra na coluna 'Quitar?' para registrar o pagamento.")
