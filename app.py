@@ -1922,12 +1922,14 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                             st.metric("🟢 Total Já Pago pelo Cliente", f"R$ {total_ja_pago:.2f}")
                                 
                                         # -----------------------------------------------------------------------------
-                                        # CLASSE PARA GERAR O PDF COM O CABEÇALHO PADRÃO DO REY DA CEBOLA
+                                        # CLASSE PARA GERAR O PDF COM O CABEÇALHO, RESUMO E VALOR UNITÁRIO
                                         # -----------------------------------------------------------------------------
                                         class PDFComprovante(FPDF):
-                                            def __init__(self, cliente_nome):
+                                            def __init__(self, cliente_nome, saldo_devedor, total_pago):
                                                 super().__init__()
                                                 self.cliente_nome = cliente_nome
+                                                self.saldo_devedor = saldo_devedor
+                                                self.total_pago = total_pago
                                 
                                             def header(self):
                                                 self.set_font('Arial', 'B', 14)
@@ -1945,6 +1947,14 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                                 self.set_font('Arial', 'B', 10)
                                                 data_atual_str = datetime.now(ZoneInfo("America/Sao_Paulo")).strftime('%Y-%m-%d %H:%M:%S')
                                                 self.cell(0, 6, f"Cliente: {self.cliente_nome} | Gerado em: {data_atual_str}", 0, 1, 'L')
+                                                
+                                                # Quadro de Resumo Financeiro no Topo do PDF
+                                                self.ln(2)
+                                                self.set_fill_color(240, 240, 240)
+                                                self.set_font('Arial', 'B', 9)
+                                                self.cell(95, 6, f"Saldo Devedor (Falta Pagar): R$ {self.saldo_devedor:.2f}", 1, 0, 'L', True)
+                                                self.cell(95, 6, f"Total Ja Pago: R$ {self.total_pago:.2f}", 1, 1, 'L', True)
+                                                
                                                 self.ln(2)
                                                 self.set_draw_color(20, 70, 140)
                                                 self.line(10, self.get_y(), 200, self.get_y())
@@ -1953,48 +1963,58 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                             def footer(self):
                                                 self.set_y(-15)
                                                 self.set_font('Arial', 'I', 8)
-                                                self.cell(0, 10, f"Página {self.page_no()}", 0, 0, 'C')
+                                                self.cell(0, 10, f"Pagina {self.page_no()}", 0, 0, 'C')
                                 
-                                        def gerar_pdf_bytes(nome_cli, df_completo):
-                                            pdf = PDFComprovante(nome_cli)
+                                        def gerar_pdf_bytes(nome_cli, df_completo, s_dev, t_pag):
+                                            pdf = PDFComprovante(nome_cli, s_dev, t_pag)
                                             pdf.add_page()
                                             pdf.set_font('Arial', '', 10)
                                             
                                             pdf.set_font('Arial', 'B', 10)
-                                            pdf.cell(0, 6, "Histórico de Transações:", 0, 1, 'L')
+                                            pdf.cell(0, 6, "Historico de Transacoes:", 0, 1, 'L')
                                             pdf.ln(2)
                                             
+                                            # Cabeçalho da Tabela no PDF (Com a coluna Valor Unit.)
                                             pdf.set_fill_color(230, 230, 230)
-                                            pdf.cell(12, 6, "ID", 1, 0, 'C', True)
-                                            pdf.cell(68, 6, "Produto", 1, 0, 'L', True)
-                                            pdf.cell(20, 6, "Qtd", 1, 0, 'C', True)
-                                            pdf.cell(25, 6, "Total (R$)", 1, 0, 'R', True)
-                                            pdf.cell(35, 6, "Status", 1, 0, 'C', True)
-                                            pdf.cell(30, 6, "Data", 1, 1, 'C', True)
+                                            pdf.cell(10, 6, "ID", 1, 0, 'C', True)
+                                            pdf.cell(58, 6, "Produto", 1, 0, 'L', True)
+                                            pdf.cell(15, 6, "Qtd", 1, 0, 'C', True)
+                                            pdf.cell(24, 6, "Vlr. Unit.", 1, 0, 'R', True)
+                                            pdf.cell(24, 6, "Total (R$)", 1, 0, 'R', True)
+                                            pdf.cell(32, 6, "Status", 1, 0, 'C', True)
+                                            pdf.cell(27, 6, "Data", 1, 1, 'C', True)
                                             
                                             pdf.set_font('Arial', '', 9)
                                             for _, row in df_completo.iterrows():
-                                                pdf.cell(12, 6, str(row.get('id', '')), 1, 0, 'C')
-                                                pdf.cell(68, 6, str(row.get('produto', ''))[:32], 1, 0, 'L')
-                                                pdf.cell(20, 6, str(row.get('quantidade', '')), 1, 0, 'C')
-                                                val_tot = f"R$ {float(row.get('valor_total', 0.0) or 0.0):.2f}"
-                                                pdf.cell(25, 6, val_tot, 1, 0, 'R')
+                                                pdf.cell(10, 6, str(row.get('id', '')), 1, 0, 'C')
+                                                pdf.cell(58, 6, str(row.get('produto', ''))[:26], 1, 0, 'L')
                                                 
-                                                # Tratamento do status para evitar 'nan' e exibir em português
+                                                qtd = float(row.get('quantidade', 0) or 0)
+                                                pdf.cell(15, 6, str(int(qtd) if qtd.is_integer() else qtd), 1, 0, 'C')
+                                                
+                                                val_tot = float(row.get('valor_total', 0.0) or 0.0)
+                                                # Calcula o valor unitário com segurança para evitar divisão por zero
+                                                val_unit = (val_tot / qtd) if qtd > 0 else float(row.get('valor_venda', 0.0) or 0.0)
+                                                
+                                                pdf.cell(24, 6, f"R$ {val_unit:.2f}", 1, 0, 'R')
+                                                pdf.cell(24, 6, f"R$ {val_tot:.2f}", 1, 0, 'R')
+                                                
+                                                # Tratamento do status em português
                                                 st_val = str(row.get('status', ''))
                                                 if st_val.lower() in ['nan', 'none', '']:
                                                     status_exibicao = "Pendente" if row.get('is_aberto', True) else "Quitado"
                                                 else:
                                                     status_exibicao = st_val.capitalize()
                                 
-                                                pdf.cell(35, 6, status_exibicao[:18], 1, 0, 'C')
+                                                pdf.cell(32, 6, status_exibicao[:15], 1, 0, 'C')
                                                 data_val = str(row.get('data', ''))[:16]
-                                                pdf.cell(30, 6, data_val, 1, 1, 'C')
+                                                pdf.cell(27, 6, data_val, 1, 1, 'C')
                                                 
                                             return bytes(pdf.output())
                                 
                                         st.markdown("---")
-                                        pdf_data = gerar_pdf_bytes(nome_atual, df_fin_cliente)
+                                        # Chamada da função passando os totais calculados
+                                        pdf_data = gerar_pdf_bytes(nome_atual, df_fin_cliente, total_falta_pagar, total_ja_pago)
                                         st.download_button(
                                             label="📥 Descarregar Comprovante / Extrato em PDF",
                                             data=pdf_data,
