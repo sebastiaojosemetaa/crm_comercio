@@ -1682,7 +1682,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 else:
                     st.info("Nenhum registro encontrado.")
             
-        elif menu_admin == "📦 Estoque de Produtos":
+       elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
             
             # Barra de pesquisa de produtos
@@ -1757,7 +1757,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             col_btn_est1, col_atualizar = st.columns(2)
             
             with col_btn_est1:
-                if st.button("💾 Salvar Alterações no Estoque", use_container_width=True):
+                if st.button("💾 Salvar Alterações no Estoque", key="btn_salvar_alt_estoque", use_container_width=True):
                     try:
                         cursor = conn.cursor()
                         for _, row in edited_df.iterrows():
@@ -1780,7 +1780,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.error(f"Erro ao salvar alterações: {e}")
     
             with col_atualizar:
-                if st.button("🔄 Atualizar Preços de Compra", key="btn_atualizar_precos"):
+                if st.button("🔄 Atualizar Preços de Compra", key="btn_atualizar_precos_estoque"):
                     try:
                         with conn:
                             cursor = conn.cursor()
