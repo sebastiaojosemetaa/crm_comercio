@@ -1683,7 +1683,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.info("Nenhum registro encontrado.")
             
        elif menu_admin == "📦 Estoque de Produtos":
-            st.title("📦 Estoque de Produtos e Preços")
+           st.title("📦 Estoque de Produtos e Preços")
             
             # Barra de pesquisa de produtos
             termo_busca = st.text_input("🔍 Procurar Produto por Nome:", placeholder="Digite o nome do produto para filtrar...", key="busca_produto_estoque_dinamica")
