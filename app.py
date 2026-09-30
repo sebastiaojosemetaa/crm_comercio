@@ -1956,7 +1956,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                             pdf.cell(0, 6, "Histórico de Transações:", 0, 1, 'L')
                                             pdf.ln(2)
                                             
-                                            # Cabeçalho da Tabela no PDF
                                             pdf.set_fill_color(230, 230, 230)
                                             pdf.cell(12, 6, "ID", 1, 0, 'C', True)
                                             pdf.cell(68, 6, "Produto", 1, 0, 'L', True)
