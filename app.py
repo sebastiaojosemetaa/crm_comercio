@@ -1858,7 +1858,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         st.rerun()
         
                                 # -----------------------------------------------------------------------------
-                                # EXTRATO FINANCEIRO & HISTÓRICO DO CLIENTE (CORRIGIDO PARA PDF)
+                                # EXTRATO FINANCEIRO & HISTÓRICO DO CLIENTE (STATUS CORRIGIDO)
                                 # -----------------------------------------------------------------------------
                                 st.markdown("---")
                                 st.markdown(f"### 💰 Extrato Financeiro: {nome_atual}")
@@ -1867,6 +1867,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     from datetime import datetime
                                     from zoneinfo import ZoneInfo
                                     from fpdf import FPDF
+                                    import pandas as pd
                                     
                                     query_financeiro = """
                                         SELECT *
@@ -1971,7 +1972,15 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                                 pdf.cell(20, 6, str(row.get('quantidade', '')), 1, 0, 'C')
                                                 val_tot = f"R$ {float(row.get('valor_total', 0.0) or 0.0):.2f}"
                                                 pdf.cell(25, 6, val_tot, 1, 0, 'R')
-                                                pdf.cell(35, 6, str(row.get('status', ''))[:18], 1, 0, 'C')
+                                                
+                                                # Tratamento do status para evitar 'nan' e exibir em português
+                                                st_val = str(row.get('status', ''))
+                                                if st_val.lower() in ['nan', 'none', '']:
+                                                    status_exibicao = "Pendente" if row.get('is_aberto', True) else "Quitado"
+                                                else:
+                                                    status_exibicao = st_val.capitalize()
+                                
+                                                pdf.cell(35, 6, status_exibicao[:18], 1, 0, 'C')
                                                 data_val = str(row.get('data', ''))[:16]
                                                 pdf.cell(30, 6, data_val, 1, 1, 'C')
                                                 
