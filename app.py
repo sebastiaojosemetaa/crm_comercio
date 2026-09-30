@@ -1778,7 +1778,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.rerun()
                     except Exception as e:
                         st.error(f"Erro ao salvar alterações: {e}")
-    
+        
             with col_atualizar:
                 if st.button("🔄 Atualizar Preços de Compra", key="btn_atualizar_precos_estoque"):
                     try:
