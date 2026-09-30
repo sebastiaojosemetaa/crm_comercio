@@ -1682,8 +1682,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 else:
                     st.info("Nenhum registro encontrado.")
             
-       elif menu_admin == "📦 Estoque de Produtos":
-           st.title("📦 Estoque de Produtos e Preços")
+        elif menu_admin == "📦 Estoque de Produtos":
+            st.title("📦 Estoque de Produtos e Preços")
             
             # Barra de pesquisa de produtos
             termo_busca = st.text_input("🔍 Procurar Produto por Nome:", placeholder="Digite o nome do produto para filtrar...", key="busca_produto_estoque_dinamica")
@@ -1692,19 +1692,19 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 df_produtos = pd.read_sql_query("SELECT * FROM produtos", conn)
             except Exception:
                 df_produtos = pd.DataFrame()
-        
+            
             # Filtro de stock
             filtro_estoque = st.selectbox(
                 "Filtrar por Status do Stock:",
                 ["Todos", "Com Stock (> 0)", "Zerados (= 0)"],
                 key="filtro_status_stock"
             )
-        
+            
             cols_esperadas = ['id', 'produto', 'quantidade', 'valor_compra', 'valor_venda', 'grupo', 'fornecedor']
             for c in cols_esperadas:
                 if c not in df_produtos.columns:
                     df_produtos[c] = 0.0 if ('valor' in c or 'quantidade' in c) else ""
-        
+            
             if not df_produtos.empty:
                 cols_finais = [c for c in cols_esperadas if c in df_produtos.columns]
                 df_produtos = df_produtos[cols_finais]
@@ -1725,7 +1725,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     df_produtos = df_produtos[df_produtos['quantidade'] > 0]
                 elif filtro_estoque == "Zerados (= 0)":
                     df_produtos = df_produtos[df_produtos['quantidade'] == 0]
-        
+            
             # Exibição da tabela editável
             edited_df = st.data_editor(
                 df_produtos,
@@ -1733,7 +1733,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 use_container_width=True,
                 num_rows="dynamic"
             )
-        
+            
             # Cálculo dos valores totais (respeitando o filtro atual da tabela)
             if not edited_df.empty:
                 total_compra = (edited_df['quantidade'] * edited_df['valor_compra']).sum()
@@ -1741,7 +1741,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             else:
                 total_compra = 0.0
                 total_venda = 0.0
-        
+            
             st.markdown("---")
             
             # Exibir os totais em métricas lado a lado logo acima dos botões
@@ -1750,9 +1750,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.metric("💰 Valor Total em Estoque (Compra)", f"R$ {total_compra:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
             with col_m2:
                 st.metric("🏷️ Valor Total em Estoque (Venda)", f"R$ {total_venda:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-        
+            
             st.markdown("---")
-        
+            
             # Botões de ação e definição correta de col_atualizar
             col_btn_est1, col_atualizar = st.columns(2)
             
@@ -1778,21 +1778,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.rerun()
                     except Exception as e:
                         st.error(f"Erro ao salvar alterações: {e}")
-        
+            
             with col_atualizar:
                 if st.button("🔄 Atualizar Preços de Compra", key="btn_atualizar_precos_estoque"):
-                    try:
-                        with conn:
-                            cursor = conn.cursor()
-                            cursor.execute("UPDATE produtos SET valor_compra = (SELECT valor_compra FROM compras WHERE compras.produto = produtos.produto ORDER BY id DESC LIMIT 1) WHERE EXISTS (SELECT 1 FROM compras WHERE compras.produto = produtos.produto)")
-                        st.cache_data.clear()
-                        st.success("✅ Preços de compra atualizados com sucesso!")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Erro ao atualizar preço: {e}")
-    
-            with col_atualizar:
-                if st.button("🔄 Atualizar Preços de Compra", key="btn_atualizar_precos"):
                     try:
                         with conn:
                             cursor = conn.cursor()
