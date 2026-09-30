@@ -1685,9 +1685,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
             
-            # Barra de pesquisa de produtos
-            termo_busca = st.text_input("🔍 Procurar Produto por Nome:", placeholder="Digite o nome do produto para filtrar...", key="busca_produto_estoque_dinamica")
-            
             try:
                 df_produtos = pd.read_sql_query("SELECT * FROM produtos", conn)
             except Exception:
@@ -1713,10 +1710,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 df_produtos['quantidade'] = pd.to_numeric(df_produtos['quantidade'], errors='coerce').fillna(0)
                 df_produtos['valor_compra'] = pd.to_numeric(df_produtos['valor_compra'], errors='coerce').fillna(0)
                 df_produtos['valor_venda'] = pd.to_numeric(df_produtos['valor_venda'], errors='coerce').fillna(0)
-                
-                # Aplicar filtro de pesquisa por nome do produto
-                if termo_busca.strip():
-                    df_produtos = df_produtos[df_produtos['produto'].astype(str).str.contains(termo_busca, case=False, na=False)]
                 
                 if filtro_estoque == "Com Stock (> 0)":
                     df_produtos = df_produtos[df_produtos['quantidade'] > 0]
