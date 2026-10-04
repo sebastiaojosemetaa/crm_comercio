@@ -833,13 +833,13 @@ if perfil_selecionado == "👤 Portal do Cliente":
                     st.info("Nenhum pedido anterior encontrado.")
             except Exception as e_hist:
                 st.error(f"Erro ao carregar histórico: {e_hist}")
-                            st.download_button(
-                                label="📄 Baixar PDF do Dia",
-                                data=pdf_buf.getvalue(),
-                                file_name=nome_arq,
-                                mime="application/pdf",
-                                key="btn_pdf_dia_admin_v7"
-                            )
+                st.download_button(
+                    label="📄 Baixar PDF do Dia",
+                    data=pdf_buf.getvalue(),
+                    file_name=nome_arq,
+                    mime="application/pdf",
+                    key="btn_pdf_dia_admin_v7"
+                )
                         except Exception as e:
                             st.error(f"Erro ao gerar PDF: {e}")
 # ==========================================
