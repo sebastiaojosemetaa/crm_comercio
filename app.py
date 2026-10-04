@@ -837,11 +837,11 @@ if perfil_selecionado == "👤 Portal do Cliente":
             try:
                 pdf_buffer = gerar_pdf_tabela_pedidos(df_dia, st.session_state.cliente_autenticado)
                 st.download_button(
-                    label="📄 Baixar PDF do Dia",
+                    label="📄 Baixar PDF Pedidos Anteriores (Histórico)",
                     data=pdf_buf.getvalue(),
-                    file_name=nome_arq,
+                    file_name=f"pedidos_{st.session_state.cliente_autenticado.replace(' ', '_')}.pdf",
                     mime="application/pdf",
-                    key="btn_pdf_dia_admin_v7"
+                    key="btn_pdf_cli_dia"
                 )
             except Exception as e:
                 st.error(f"Erro ao gerar PDF: {e}")
