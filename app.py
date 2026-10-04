@@ -759,7 +759,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                         key="tabela_pedidos_do_dia_unica"
                     )
         
-                    col_btn1, col_btn2, col_btn3, col_btn4 = st.columns(4)
+                    col_btn1, col_btn2, col_btn3, = st.columns(3)
                     with col_btn1:
                         if st.button("💾 Salvar Alterações", type="primary", key="btn_salvar_tabela_unica"):
                             try:
@@ -833,18 +833,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                     st.info("Nenhum pedido anterior encontrado.")
             except Exception as e_hist:
                 st.error(f"Erro ao carregar histórico: {e_hist}")
-        with col_btn4:
-            try:
-                pdf_buffer = gerar_pdf_tabela_pedidos(df_dia, st.session_state.cliente_autenticado)
-                st.download_button(
-                    label="📄 Baixar PDF Pedidos Anteriores (Histórico)",
-                    data=pdf_buf.getvalue(),
-                    file_name=f"pedidos_{st.session_state.cliente_autenticado.replace(' ', '_')}.pdf",
-                    mime="application/pdf",
-                    key="btn_pdf_cli_dia"
-                )
-            except Exception as e:
-                st.error(f"Erro ao gerar PDF: {e}")
+       
 # ==========================================
 # AMBIENTE 2: ADMINISTRADOR / VENDEDOR
 # ==========================================
