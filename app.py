@@ -840,8 +840,8 @@ if perfil_selecionado == "👤 Portal do Cliente":
                     mime="application/pdf",
                     key="btn_pdf_dia_admin_v7"
                 )
-                        except Exception as e:
-                            st.error(f"Erro ao gerar PDF: {e}")
+            except Exception as e:
+                st.error(f"Erro ao gerar PDF: {e}")
 # ==========================================
 # AMBIENTE 2: ADMINISTRADOR / VENDEDOR
 # ==========================================
