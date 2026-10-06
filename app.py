@@ -1846,12 +1846,14 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     st.metric("🟢 Total Já Pago pelo Cliente", f"R$ {total_ja_pago:.2f}")
                         
                                 # -----------------------------------------------------------------------------
-                                # CLASSE PARA GERAR O PDF COM O CABEÇALHO PADRÃO DO REY DA CEBOLA
+                                # CLASSE PARA GERAR O PDF COM O CABEÇALHO, RESUMO E VALOR UNITÁRIO
                                 # -----------------------------------------------------------------------------
                                 class PDFComprovante(FPDF):
-                                    def __init__(self, cliente_nome):
+                                    def __init__(self, cliente_nome, saldo_devedor, total_pago):
                                         super().__init__()
                                         self.cliente_nome = cliente_nome
+                                        self.saldo_devedor = saldo_devedor
+                                        self.total_pago = total_pago
                         
                                     def header(self):
                                         self.set_font('Arial', 'B', 14)
@@ -1869,6 +1871,14 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         self.set_font('Arial', 'B', 10)
                                         data_atual_str = datetime.now(ZoneInfo("America/Sao_Paulo")).strftime('%Y-%m-%d %H:%M:%S')
                                         self.cell(0, 6, f"Cliente: {self.cliente_nome} | Gerado em: {data_atual_str}", 0, 1, 'L')
+                                        
+                                        # Quadro de Resumo Financeiro no Topo do PDF
+                                        self.ln(2)
+                                        self.set_fill_color(240, 240, 240)
+                                        self.set_font('Arial', 'B', 9)
+                                        self.cell(95, 6, f"Saldo Devedor (Falta Pagar): R$ {self.saldo_devedor:.2f}", 1, 0, 'L', True)
+                                        self.cell(95, 6, f"Total Ja Pago: R$ {self.total_pago:.2f}", 1, 1, 'L', True)
+                                        
                                         self.ln(2)
                                         self.set_draw_color(20, 70, 140)
                                         self.line(10, self.get_y(), 200, self.get_y())
@@ -1877,7 +1887,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     def footer(self):
                                         self.set_y(-15)
                                         self.set_font('Arial', 'I', 8)
-                                        self.cell(0, 10, f"Página {self.page_no()}", 0, 0, 'C')
+                                        self.cell(0, 10, f"Pagina {self.page_no()}", 0, 0, 'C')
                         
                                 def gerar_pdf_bytes(nome_cli, df_completo, s_dev, t_pag):
                                     pdf = PDFComprovante(nome_cli, s_dev, t_pag)
@@ -1922,14 +1932,14 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         data_val = str(row.get('data', ''))[:16]
                                         pdf.cell(27, 6, data_val, 1, 1, 'C')
                                         
-                                    # Tratamento seguro para retornar os bytes do PDF sem erros
                                     output_pdf = pdf.output()
                                     if isinstance(output_pdf, str):
                                         return output_pdf.encode('latin1')
                                     return bytes(output_pdf)
                         
                                 st.markdown("---")
-                                pdf_data = gerar_pdf_bytes(nome_atual, df_fin_cliente)
+                                # Chamada correta passando todos os 4 argumentos necessários
+                                pdf_data = gerar_pdf_bytes(nome_atual, df_fin_cliente, total_falta_pagar, total_ja_pago)
                                 st.download_button(
                                     label="📥 Descarregar Comprovante / Extrato em PDF",
                                     data=pdf_data,
