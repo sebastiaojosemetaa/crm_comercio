@@ -1932,21 +1932,42 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         data_val = str(row.get('data', ''))[:16]
                                         pdf.cell(27, 6, data_val, 1, 1, 'C')
                                         
-                                    output_pdf = pdf.output()
-                                    if isinstance(output_pdf, str):
-                                        return output_pdf.encode('latin1')
-                                    return bytes(output_pdf)
+                                    # Tratamento robusto para extrair os bytes do PDF sem corromper
+                                    try:
+                                        res = pdf.output(dest='S')
+                                        if isinstance(res, str):
+                                            return res.encode('latin1', errors='replace')
+                                        elif isinstance(res, (bytes, bytearray)):
+                                            return bytes(res)
+                                    except Exception:
+                                        pass
+                                    
+                                    try:
+                                        res2 = pdf.output()
+                                        if isinstance(res2, bytes):
+                                            return res2
+                                        elif isinstance(res2, bytearray):
+                                            return bytes(res2)
+                                        elif isinstance(res2, str):
+                                            return res2.encode('latin1', errors='replace')
+                                    except Exception:
+                                        pass
+                                        
+                                    return b""
                         
                                 st.markdown("---")
-                                # Chamada correta passando todos os 4 argumentos necessários
                                 pdf_data = gerar_pdf_bytes(nome_atual, df_fin_cliente, total_falta_pagar, total_ja_pago)
-                                st.download_button(
-                                    label="📥 Descarregar Comprovante / Extrato em PDF",
-                                    data=pdf_data,
-                                    file_name=f"comprovante_{nome_atual.replace(' ', '_')}.pdf",
-                                    mime="application/pdf",
-                                    type="secondary"
-                                )
+                                
+                                if pdf_data:
+                                    st.download_button(
+                                        label="📥 Descarregar Comprovante / Extrato em PDF",
+                                        data=pdf_data,
+                                        file_name=f"comprovante_{nome_atual.replace(' ', '_')}.pdf",
+                                        mime="application/pdf",
+                                        type="secondary"
+                                    )
+                                else:
+                                    st.error("Erro ao gerar o ficheiro PDF.")
                         
                                 st.markdown("---")
                         
