@@ -1646,87 +1646,87 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 else:
                     st.info("Nenhum registro encontrado.")
         elif menu_admin == "Contas a Receber":
-            st.title("💸 Contas a Receber")
-            st.markdown("Gerencie de forma centralizada todos os valores pendentes e saldos devedores dos clientes.")
-            
-            # Bloco para carregar os dados de pedidos/vendas pendentes do banco de dados
+        st.title("💸 Contas a Receber")
+        st.markdown("Gerencie de forma centralizada todos os valores pendentes e saldos devedores dos clientes.")
+        
+        # Bloco para carregar os dados de pedidos/vendas pendentes do banco de dados
+        try:
+            # Tenta carregar os dados onde o status seja pendente ou em aberto
+            query = "SELECT * FROM pedidos WHERE status = 'Pendente' OR status = 'ABERTO' OR status IS NULL"
+            df_contas = pd.read_sql_query(query, conn)
+        except Exception:
             try:
-                # Tenta carregar os dados onde o status seja pendente ou em aberto
-                query = "SELECT * FROM pedidos WHERE status = 'Pendente' OR status = 'ABERTO' OR status IS NULL"
-                df_contas = pd.read_sql_query(query, conn)
+                # Fallback caso a tabela tenha outra estrutura
+                df_contas = pd.read_sql_query("SELECT * FROM pedidos", conn)
             except Exception:
-                try:
-                    # Fallback caso a tabela tenha outra estrutura
-                    df_contas = pd.read_sql_query("SELECT * FROM pedidos", conn)
-                except Exception:
-                    df_contas = pd.DataFrame()
-        
-            if not df_contas.empty:
-                # Padroniza colunas numéricas de forma segura
-                for col in ['valor_total', 'valor_recebido', 'restante', 'quantidade', 'valor_unitario']:
-                    if col in df_contas.columns:
-                        df_contas[col] = pd.to_numeric(df_contas[col], errors='coerce').fillna(0.0)
-        
-                # Se existir a coluna restante ou valor_total, calculamos o saldo devedor real
-                if 'restante' in df_contas.columns:
-                    df_contas['valor_devedor'] = df_contas['restante']
-                elif 'valor_total' in df_contas.columns and 'valor_recebido' in df_contas.columns:
-                    df_contas['valor_devedor'] = df_contas['valor_total'] - df_contas['valor_recebido']
-                elif 'valor_total' in df_contas.columns:
-                    df_contas['valor_devedor'] = df_contas['valor_total']
-                else:
-                    df_contas['valor_devedor'] = 0.0
-        
-                # Filtro por nome do cliente
-                col_f1, col_f2 = st.columns(2)
-                with col_f1:
-                    clientes_disponiveis = ["Todos"] + sorted(df_contas['cliente'].dropna().unique().tolist()) if 'cliente' in df_contas.columns else ["Todos"]
-                    filtro_cliente_cr = st.selectbox("Filtrar por Cliente:", clientes_disponiveis, key="select_cliente_contas_receber")
-                
-                with col_f2:
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    termo_busca_cr = st.text_input("🔍 Pesquisa rápida:", placeholder="Digite o produto ou detalhe...", key="busca_cr_livre")
-        
-                # Aplicar filtros ao DataFrame
-                df_filtrado = df_contas.copy()
-                if filtro_cliente_cr != "Todos" and 'cliente' in df_filtrado.columns:
-                    df_filtrado = df_filtrado[df_filtrado['cliente'] == filtro_cliente_cr]
-                    
-                if termo_busca_cr.strip() and 'produto' in df_filtrado.columns:
-                    df_filtrado = df_filtrado[df_filtrado['produto'].astype(str).str.contains(termo_busca_cr, case=False, na=False)]
-        
-                # Métricas de Resumo Financeiro
-                total_a_receber = df_filtrado['valor_devedor'].sum()
-                total_clientes_devedores = df_filtrado['cliente'].nunique() if 'cliente' in df_filtrado.columns else 0
-        
-                st.markdown("---")
-                col_m1, col_m2 = st.columns(2)
-                with col_m1:
-                    st.metric("💰 Total Geral a Receber", f"R$ {total_a_receber:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-                with col_m2:
-                    st.metric("👥 Clientes com Pendências", str(total_clientes_devedores))
-        
-                st.markdown("---")
-                st.subheader("📋 Lista de Contas Pendentes")
-        
-                # Selecionar colunas principais para exibição limpa
-                colunas_exibir = [c for c in ['id', 'cliente', 'produto', 'quantidade', 'valor_total', 'valor_devedor', 'data', 'status'] if c in df_filtrado.columns]
-                
-                if not colunas_exibir:
-                    colunas_exibir = df_filtrado.columns.tolist()
-        
-                st.dataframe(
-                    df_filtrado[colunas_exibir],
-                    use_container_width=True,
-                    hide_index=True
-                )
-        
-                # Botão para exportar ou atualizar
-                if st.button("🔄 Atualizar Dados de Contas a Receber", key="btn_refresh_cr"):
-                    st.rerun()
-        
+                df_contas = pd.DataFrame()
+    
+        if not df_contas.empty:
+            # Padroniza colunas numéricas de forma segura
+            for col in ['valor_total', 'valor_recebido', 'restante', 'quantidade', 'valor_unitario']:
+                if col in df_contas.columns:
+                    df_contas[col] = pd.to_numeric(df_contas[col], errors='coerce').fillna(0.0)
+    
+            # Se existir a coluna restante ou valor_total, calculamos o saldo devedor real
+            if 'restante' in df_contas.columns:
+                df_contas['valor_devedor'] = df_contas['restante']
+            elif 'valor_total' in df_contas.columns and 'valor_recebido' in df_contas.columns:
+                df_contas['valor_devedor'] = df_contas['valor_total'] - df_contas['valor_recebido']
+            elif 'valor_total' in df_contas.columns:
+                df_contas['valor_devedor'] = df_contas['valor_total']
             else:
-                st.info("ℹ️ Não existem contas a receber registadas ou a tabela de pedidos está vazia no momento.")    
+                df_contas['valor_devedor'] = 0.0
+    
+            # Filtro por nome do cliente
+            col_f1, col_f2 = st.columns(2)
+            with col_f1:
+                clientes_disponiveis = ["Todos"] + sorted(df_contas['cliente'].dropna().unique().tolist()) if 'cliente' in df_contas.columns else ["Todos"]
+                filtro_cliente_cr = st.selectbox("Filtrar por Cliente:", clientes_disponiveis, key="select_cliente_contas_receber")
+            
+            with col_f2:
+                st.markdown("<br>", unsafe_allow_html=True)
+                termo_busca_cr = st.text_input("🔍 Pesquisa rápida:", placeholder="Digite o produto ou detalhe...", key="busca_cr_livre")
+    
+            # Aplicar filtros ao DataFrame
+            df_filtrado = df_contas.copy()
+            if filtro_cliente_cr != "Todos" and 'cliente' in df_filtrado.columns:
+                df_filtrado = df_filtrado[df_filtrado['cliente'] == filtro_cliente_cr]
+                
+            if termo_busca_cr.strip() and 'produto' in df_filtrado.columns:
+                df_filtrado = df_filtrado[df_filtrado['produto'].astype(str).str.contains(termo_busca_cr, case=False, na=False)]
+    
+            # Métricas de Resumo Financeiro
+            total_a_receber = df_filtrado['valor_devedor'].sum()
+            total_clientes_devedores = df_filtrado['cliente'].nunique() if 'cliente' in df_filtrado.columns else 0
+    
+            st.markdown("---")
+            col_m1, col_m2 = st.columns(2)
+            with col_m1:
+                st.metric("💰 Total Geral a Receber", f"R$ {total_a_receber:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+            with col_m2:
+                st.metric("👥 Clientes com Pendências", str(total_clientes_devedores))
+    
+            st.markdown("---")
+            st.subheader("📋 Lista de Contas Pendentes")
+    
+            # Selecionar colunas principais para exibição limpa
+            colunas_exibir = [c for c in ['id', 'cliente', 'produto', 'quantidade', 'valor_total', 'valor_devedor', 'data', 'status'] if c in df_filtrado.columns]
+            
+            if not colunas_exibir:
+                colunas_exibir = df_filtrado.columns.tolist()
+    
+            st.dataframe(
+                df_filtrado[colunas_exibir],
+                use_container_width=True,
+                hide_index=True
+            )
+    
+            # Botão para exportar ou atualizar
+            if st.button("🔄 Atualizar Dados de Contas a Receber", key="btn_refresh_cr"):
+                st.rerun()
+    
+        else:
+            st.info("ℹ️ Não existem contas a receber registadas ou a tabela de pedidos está vazia no momento.")    
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
             
