@@ -864,7 +864,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 "📥 Entrada de Estoque (Compras)",
                 "📦 Estoque de Produtos",
                 "👥 Cadastros (Clientes / Fornecedores / Grupos)",
-                "💾 Backup e Restauração"
+                "💾 Backup e Restauração",
                 "📋 Contas a Receber"
             ]
         )
