@@ -2490,11 +2490,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.info("ℹ️ Nenhum pagamento registado até o momento.")
         
             # -------------------------------------------------------------------------
-            # ABA 3: SALÁRIOS PENDENTES E A VENCER (COM EDIÇÃO E SALVAMENTO)
+            # ABA 3: SALÁRIOS PENDENTES E A VENCER (COM SUPORTE TOTAL A EDIÇÃO E SALVAMENTO)
             # -------------------------------------------------------------------------
             with aba_pendentes:
                 st.subheader("📅 Controlo Automático de Salários Pendentes e a Vencer")
-                st.markdown("Edite os status ou valores diretamente na tabela abaixo[cite: 17] e clique em salvar para atualizar os registos.")
+                st.markdown("Edite o status ou o valor diretamente na tabela abaixo e clique em salvar para atualizar o sistema.")
         
                 try:
                     df_f = pd.read_sql_query("SELECT * FROM funcionarios", conn)
@@ -2560,15 +2560,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     df_pendentes_final = pd.DataFrame(competencias_geradas)
         
                     if not df_pendentes_final.empty:
-                        # Filtro rápido de visualização
                         filtro_status = st.selectbox("Filtrar por Status:", ["Todos", "🔴 Pendente (Em Aberto)", "🟢 A Vencer", "✅ Pago"], key="filtro_status_pend")
                         if filtro_status != "Todos":
                             df_pendentes_final = df_pendentes_final[df_pendentes_final['Status'] == filtro_status]
         
-                        # Tabela interativa com suporte a edição (Editar valores e status)
                         edited_pendentes = st.data_editor(
                             df_pendentes_final,
-                            key="editor_tabela_salarios_pendentes",
+                            key="editor_tabela_salarios_pendentes_v3",
                             use_container_width=True,
                             hide_index=True,
                             column_config={
@@ -2589,12 +2587,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         
                         st.markdown("---")
                         
-                        # Botões de Ação: Salvar Alterações e Efetivar Pagamentos
-                        col_b1, col_b2 = st.columns(2)
-                        with col_b1:
-                            if st.button("💾 Salvar Alterações e Registar Pagamentos", key="btn_salvar_alteracoes_pend", use_container_width=True):
-                                try:
-                                    cursor = conn.cursor()
+                        if st.button("💾 Salvar Alterações e Registar Pagamentos", key="btn_salvar_alteracoes_pend_v3", use_container_width=True):
+                            try:
+                                cursor = conn.cursor()
+                                with conn:
                                     for _, row in edited_pendentes.iterrows():
                                         collab = row['Colaborador']
                                         comp = row['Competência (Mês/Ano)']
@@ -2603,36 +2599,42 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         
                                         mes_competencia, ano_competencia = comp.split('/')
                                         
-                                        # Se o utilizador marcou como "Pago", grava/atualiza na tabela de pagamentos
+                                        # Atualiza o salário base na tabela de funcionários
+                                        cursor.execute("""
+                                            UPDATE funcionarios SET salario = ? WHERE nome = ?
+                                        """, (val, collab))
+        
+                                        # Verifica se já existe um registo de pagamento para este mês/ano
+                                        cursor.execute("""
+                                            SELECT id FROM pagamentos_funcionarios 
+                                            WHERE colaborador = ? AND tipo = 'Salário' AND data_pagamento LIKE ?
+                                        """, (collab, f"{ano_competencia}-{mes_competencia}%"))
+                                        registo_existente = cursor.fetchone()
+        
                                         if "Pago" in status_mod:
-                                            cursor.execute("""
-                                                SELECT id FROM pagamentos_funcionarios 
-                                                WHERE colaborador = ? AND tipo = 'Salário' AND data_pagamento LIKE ?
-                                            """, (collab, f"%{ano_competencia}-{mes_competencia}%"))
-                                            existe = cursor.fetchone()
-                                            
-                                            if not existe:
-                                                data_registo_padrao = f"{ano_competencia}-{mes_competencia}-05"
+                                            if not registo_existente:
+                                                data_padrao = f"{ano_competencia}-{mes_competencia}-05"
                                                 cursor.execute("""
                                                     INSERT INTO pagamentos_funcionarios (colaborador, tipo, valor, data_pagamento)
                                                     VALUES (?, 'Salário', ?, ?)
-                                                """, (collab, val, data_registo_padrao))
+                                                """, (collab, val, data_padrao))
+                                            else:
+                                                cursor.execute("""
+                                                    UPDATE pagamentos_funcionarios SET valor = ? 
+                                                    WHERE colaborador = ? AND tipo = 'Salário' AND data_pagamento LIKE ?
+                                                """, (val, collab, f"{ano_competencia}-{mes_competencia}%"))
                                         else:
-                                            # Se mudou para Pendente ou A Vencer, removemos o registo de pagamento correspondente caso exista
-                                            cursor.execute("""
-                                                DELETE FROM pagamentos_funcionarios 
-                                                WHERE colaborador = ? AND tipo = 'Salário' AND data_pagamento LIKE ?
-                                            """, (collab, f"%{ano_competencia}-{mes_competencia}%"))
+                                            # Se alterou para Pendente ou A Vencer, remove o registo de pagamento (exclui/estorna)
+                                            if registo_existente:
+                                                cursor.execute("""
+                                                    DELETE FROM pagamentos_funcionarios 
+                                                    WHERE colaborador = ? AND tipo = 'Salário' AND data_pagamento LIKE ?
+                                                """, (collab, f"{ano_competencia}-{mes_competencia}%"))
         
-                                    conn.commit()
-                                    st.success("✅ Alterações guardadas e pagamentos atualizados com sucesso!")
-                                    st.rerun()
-                                except Exception as e:
-                                    st.error(f"Erro ao salvar alterações: {e}")
-        
-                        with col_b2:
-                            if st.button("🔄 Atualizar / Recarregar Tabela", key="btn_refresh_pendentes", use_container_width=True):
+                                st.success("✅ Alterações e registos guardados com sucesso!")
                                 st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao salvar alterações: {e}")
                     else:
                         st.info("ℹ️ Não foram encontradas competências para exibir.")
                 else:
