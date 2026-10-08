@@ -1352,8 +1352,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         if st.button("🔴 Finalizar e Enviar Pedido", type="primary", use_container_width=True, key="btn_finalizar_pedido_v2"):
                             try:
                                 cursor = conn.cursor()
-                                import zoneinfo
-                                data_agora = dt.datetime.now(zoneinfo.ZoneInfo("America/Sao_Paulo")).strftime("%Y-%m-%d %H:%M:%S")
+                                data_agora = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             
                                 for item in carrinho_atual:
                                     qtd_item = float(item.get("quantidade", 1))
