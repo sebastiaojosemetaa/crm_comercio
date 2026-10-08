@@ -2490,11 +2490,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.info("ℹ️ Nenhum pagamento registado até o momento.")
         
             # -------------------------------------------------------------------------
-            # ABA 3: SALÁRIOS PENDENTES E A VENCER (GERADO AUTOMATICAMENTE)
+            # ABA 3: SALÁRIOS PENDENTES E A VENCER (COM EDIÇÃO E SALVAMENTO)
             # -------------------------------------------------------------------------
             with aba_pendentes:
                 st.subheader("📅 Controlo Automático de Salários Pendentes e a Vencer")
-                st.markdown("O sistema analisa a data de admissão de cada funcionário e gera automaticamente as competências mensais devidas.")
+                st.markdown("Edite os status ou valores diretamente na tabela abaixo[cite: 17] e clique em salvar para atualizar os registos.")
         
                 try:
                     df_f = pd.read_sql_query("SELECT * FROM funcionarios", conn)
@@ -2505,13 +2505,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         
                 if not df_f.empty:
                     from datetime import datetime
-                    import pandas as pd
         
-                    # Lista para acumular os salários gerados automaticamente
                     competencias_geradas = []
                     hoje = datetime.now().date()
         
-                    for _, func in df_f.iterrows().iterrows() if hasattr(df_f.iterrows(), 'iterrows') else df_f.iterrows():
+                    for _, func in df_f.iterrows():
                         nome_func = func.get('nome')
                         salario_base = float(func.get('salario', 0) or 0)
                         admissao_str = str(func.get('admissao', ''))
@@ -2521,21 +2519,15 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         except Exception:
                             data_adm = hoje
         
-                        # Gera os meses desde a admissão até o mês atual + 1 (para o mês a vencer)
                         ano_atual, mes_atual = hoje.year, hoje.month
-                        
-                        # Vamos percorrer mês a mês desde a data de admissão
                         cur_year, cur_month = data_adm.year, data_adm.month
                         
-                        # Limite final: próximo mês (para abranger o salário a vencer)
                         limite_year = ano_atual + (1 if mes_atual == 12 else 0)
                         limite_month = 1 if mes_atual == 12 else mes_atual + 1
         
                         while (cur_year < limite_year) or (cur_year == limite_year and cur_month <= limite_month):
-                            # Formato competência (Ex: Outubro/2026)
                             competencia_str = f"{cur_month:02d}/{cur_year}"
                             
-                            # Verifica se já existe pagamento de salário registado para este colaborador neste mês/ano
                             ja_pago = False
                             if not df_p.empty:
                                 pag_func = df_p[df_p['colaborador'] == nome_func]
@@ -2545,7 +2537,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         ja_pago = True
                                         break
         
-                            # Define o status
                             if cur_year > ano_atual or (cur_year == ano_atual and cur_month > mes_atual):
                                 status_competencia = "🟢 A Vencer"
                             elif not ja_pago:
@@ -2553,7 +2544,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             else:
                                 status_competencia = "✅ Pago"
         
-                            # Adiciona à lista se estiver pendente ou a vencer (ou exibe tudo)
                             competencias_geradas.append({
                                 "Colaborador": nome_func,
                                 "Cargo": func.get('cargo', ''),
@@ -2562,7 +2552,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 "Status": status_competencia
                             })
         
-                            # Avança para o próximo mês
                             cur_month += 1
                             if cur_month > 12:
                                 cur_month = 1
@@ -2572,15 +2561,82 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         
                     if not df_pendentes_final.empty:
                         # Filtro rápido de visualização
-                        filtro_status = st.selectbox("Filtrar por Status:", ["Todos", "🔴 Pendente (Em Aberto)", "🟢 A Vencer", "✅ Pago"])
+                        filtro_status = st.selectbox("Filtrar por Status:", ["Todos", "🔴 Pendente (Em Aberto)", "🟢 A Vencer", "✅ Pago"], key="filtro_status_pend")
                         if filtro_status != "Todos":
                             df_pendentes_final = df_pendentes_final[df_pendentes_final['Status'] == filtro_status]
         
-                        st.dataframe(df_pendentes_final, use_container_width=True, hide_index=True)
+                        # Tabela interativa com suporte a edição (Editar valores e status)
+                        edited_pendentes = st.data_editor(
+                            df_pendentes_final,
+                            key="editor_tabela_salarios_pendentes",
+                            use_container_width=True,
+                            hide_index=True,
+                            column_config={
+                                "Status": st.column_config.SelectboxColumn(
+                                    "Status do Pagamento",
+                                    options=["🔴 Pendente (Em Aberto)", "🟢 A Vencer", "✅ Pago"],
+                                    required=True
+                                ),
+                                "Valor Devido (R$)": st.column_config.NumberColumn(
+                                    "Valor (R$)",
+                                    min_value=0.0,
+                                    step=50.0,
+                                    format="R$ %.2f"
+                                )
+                            },
+                            num_rows="fixed"
+                        )
+        
+                        st.markdown("---")
+                        
+                        # Botões de Ação: Salvar Alterações e Efetivar Pagamentos
+                        col_b1, col_b2 = st.columns(2)
+                        with col_b1:
+                            if st.button("💾 Salvar Alterações e Registar Pagamentos", key="btn_salvar_alteracoes_pend", use_container_width=True):
+                                try:
+                                    cursor = conn.cursor()
+                                    for _, row in edited_pendentes.iterrows():
+                                        collab = row['Colaborador']
+                                        comp = row['Competência (Mês/Ano)']
+                                        val = float(row['Valor Devido (R$)'])
+                                        status_mod = row['Status']
+                                        
+                                        mes_competencia, ano_competencia = comp.split('/')
+                                        
+                                        # Se o utilizador marcou como "Pago", grava/atualiza na tabela de pagamentos
+                                        if "Pago" in status_mod:
+                                            cursor.execute("""
+                                                SELECT id FROM pagamentos_funcionarios 
+                                                WHERE colaborador = ? AND tipo = 'Salário' AND data_pagamento LIKE ?
+                                            """, (collab, f"%{ano_competencia}-{mes_competencia}%"))
+                                            existe = cursor.fetchone()
+                                            
+                                            if not existe:
+                                                data_registo_padrao = f"{ano_competencia}-{mes_competencia}-05"
+                                                cursor.execute("""
+                                                    INSERT INTO pagamentos_funcionarios (colaborador, tipo, valor, data_pagamento)
+                                                    VALUES (?, 'Salário', ?, ?)
+                                                """, (collab, val, data_registo_padrao))
+                                        else:
+                                            # Se mudou para Pendente ou A Vencer, removemos o registo de pagamento correspondente caso exista
+                                            cursor.execute("""
+                                                DELETE FROM pagamentos_funcionarios 
+                                                WHERE colaborador = ? AND tipo = 'Salário' AND data_pagamento LIKE ?
+                                            """, (collab, f"%{ano_competencia}-{mes_competencia}%"))
+        
+                                    conn.commit()
+                                    st.success("✅ Alterações guardadas e pagamentos atualizados com sucesso!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Erro ao salvar alterações: {e}")
+        
+                        with col_b2:
+                            if st.button("🔄 Atualizar / Recarregar Tabela", key="btn_refresh_pendentes", use_container_width=True):
+                                st.rerun()
                     else:
                         st.info("ℹ️ Não foram encontradas competências para exibir.")
                 else:
-                    st.info("ℹ️ Registe colaboradores na primeira aba para gerar os salários automáticos.")
+                    st.info("ℹ️ Registre colaboradores na primeira aba para gerar os salários automáticos.")
         elif menu_admin == "📥 Entrada de Estoque (Compras)":
             st.title("📥 Entrada de Estoque (Compras)")
             st.subheader("Registrar Entrada de Estoque")
