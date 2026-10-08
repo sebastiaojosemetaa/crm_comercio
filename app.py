@@ -864,6 +864,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 "📥 Entrada de Estoque (Compras)",
                 "📦 Estoque de Produtos",
                 "👥 Cadastros (Clientes / Fornecedores / Grupos)",
+                "👥 Gestão de Recursos Humanos (RH)",
                 "💾 Backup e Restauração",
                 "💸 Contas a Receber"
             ]
@@ -2314,6 +2315,115 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         except Exception as e:
                             st.error(f"Erro ao restaurar o backup: {e}")            
 
+        elif "RH" in str(menu_admin) or "Recursos Humanos" in str(menu_admin):
+            st.title("👥 Gestão de Recursos Humanos (RH)")
+            st.markdown("Faça o registo e a gestão dos colaboradores, cargos, contactos e salários.")
+        
+            # Garante que a tabela de funcionários existe no banco de dados
+            try:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS funcionarios (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        nome TEXT,
+                        cargo TEXT,
+                        telefone TEXT,
+                        salario REAL,
+                        admissao TEXT
+                    )
+                """)
+                conn.commit()
+            except Exception:
+                pass
+        
+            # Formulário para Adicionar Novo Colaborador
+            with st.expander("➕ Adicionar Novo Colaborador"):
+                with st.form("form_novo_funcionario", clear_on_submit=True):
+                    col_f1, col_f2 = st.columns(2)
+                    with col_f1:
+                        novo_nome = st.text_input("Nome Completo do Colaborador")
+                        novo_cargo = st.text_input("Cargo / Função")
+                        novo_tel = st.text_input("Telefone / Telemóvel")
+                    with col_f2:
+                        novo_salario = st.number_input("Salário (R$)", min_value=0.0, value=1412.0, step=50.0)
+                        nova_admissao = st.date_input("Data de Admissão")
+                    
+                    btn_salvar_func = st.form_submit_button("💾 Guardar Colaborador", use_container_width=True)
+                    if btn_salvar_func:
+                        if novo_nome.strip():
+                            try:
+                                cursor = conn.cursor()
+                                cursor.execute("""
+                                    INSERT INTO funcionarios (nome, cargo, telefone, salario, admissao)
+                                    VALUES (?, ?, ?, ?, ?)
+                                """, (novo_nome, novo_cargo, novo_tel, novo_salario, str(nova_admissao)))
+                                conn.commit()
+                                st.success("✅ Colaborador registado com sucesso!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao guardar colaborador: {e}")
+                        else:
+                            st.warning("⚠️ O nome do colaborador é obrigatório.")
+        
+            st.markdown("---")
+        
+            # Carregar dados dos funcionários
+            try:
+                df_func = pd.read_sql_query("SELECT * FROM funcionarios", conn)
+            except Exception:
+                df_func = pd.DataFrame()
+        
+            if not df_func.empty:
+                # Métricas de RH
+                total_colaboradores = len(df_func)
+                folha_salarial = pd.to_numeric(df_func['salario'], errors='coerce').sum()
+        
+                col_m1, col_m2 = st.columns(2)
+                with col_m1:
+                    st.metric("👨‍💼 Total de Colaboradores", str(total_colaboradores))
+                with col_m2:
+                    st.metric("💵 Folha Salarial Total", f"R$ {folha_salarial:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+        
+                st.markdown("---")
+                st.subheader("📋 Lista de Colaboradores (Editável)")
+        
+                # Tabela editável para atualizar dados diretamente
+                df_func['salario'] = pd.to_numeric(df_func['salario'], errors='coerce').fillna(0.0)
+                edited_func = st.data_editor(
+                    df_func,
+                    key="editor_tabela_funcionarios",
+                    use_container_width=True,
+                    num_rows="dynamic"
+                )
+        
+                col_b1, col_b2 = st.columns(2)
+                with col_b1:
+                    if st.button("💾 Atualizar Alterações no RH", key="btn_salvar_rh", use_container_width=True):
+                        try:
+                            cursor = conn.cursor()
+                            for _, row in edited_func.iterrows():
+                                cursor.execute("""
+                                    UPDATE funcionarios 
+                                    SET nome = ?, cargo = ?, telefone = ?, salario = ?, admissao = ?
+                                    WHERE id = ?
+                                """, (
+                                    str(row.get('nome', '')),
+                                    str(row.get('cargo', '')),
+                                    str(row.get('telefone', '')),
+                                    float(row.get('salario', 0)),
+                                    str(row.get('admissao', '')),
+                                    int(row.get('id', 0))
+                                ))
+                            conn.commit()
+                            st.success("✅ Dados de RH atualizados com sucesso!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro ao atualizar dados: {e}")
+                with col_b2:
+                    if st.button("🔄 Atualizar Lista", key="btn_refresh_rh", use_container_width=True):
+                        st.rerun()
+            else:
+                st.info("ℹ️ Ainda não existem colaboradores registados no sistema. Utilize o formulário acima para adicionar o primeiro.")
         elif menu_admin == "📥 Entrada de Estoque (Compras)":
             st.title("📥 Entrada de Estoque (Compras)")
             st.subheader("Registrar Entrada de Estoque")
