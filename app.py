@@ -2693,7 +2693,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         col_p1, col_p2 = st.columns(2)
                         with col_p1:
                             colaborador_selecionado = st.selectbox("Selecione o Colaborador", lista_nomes)
-                            tipo_lancamento = st.selectbox("Descrição / Tipo", ["Salário", "Vale", "Adiantamento", "Bónus"])
+                            tipo_lancamento = st.selectbox("Descrição / Tipo", ["Diárista", "Salário", "Vale", "Adiantamento", "Bónus"])
                             valor_lancamento = st.number_input("Valor Bruto (R$)", min_value=0.0, value=0.0, step=10.0)
                         with col_p2:
                             inss_lancamento = st.number_input("Desconto INSS (R$)", min_value=0.0, value=0.0, step=10.0)
