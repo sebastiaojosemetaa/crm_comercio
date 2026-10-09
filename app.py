@@ -862,11 +862,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 "📋 Pedidos / Orçamentos",
                 "🛒 Registrar Venda",
                 "📥 Entrada de Estoque (Compras)",
-                "📦 Estoque de Produtos",
                 "👥 Cadastros (Clientes / Fornecedores / Grupos)",
                 "👥 Gestão de Recursos Humanos (RH)",
                 "💾 Backup e Restauração",
-                "💸 Contas a Receber"
+                "💸 Contas a Receber",
+                "📦 Estoque de Produtos"
             ]
         )
         
