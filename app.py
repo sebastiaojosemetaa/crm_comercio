@@ -2387,158 +2387,156 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         
             from datetime import datetime
         
-            # Função simples e 100% segura para gerar o Holerite sem erros de biblioteca
+            # Função ultra-segura para gerar o PDF do Holerite
             def gerar_bytes_pdf(dados_func, dados_pag):
-                from fpdf import FPDF
-                pdf = FPDF(orientation='P', unit='mm', format='A4')
-                pdf.add_page()
-                
-                # Desenha o Recibo
-                pdf.rect(10, 10, 190, 132)
-                pdf.rect(10, 10, 130, 20)
-                pdf.rect(140, 10, 60, 20)
-                
-                pdf.set_xy(12, 11)
-                pdf.set_font("Arial", "B", 7)
-                pdf.cell(126, 4, "EMPREGADOR:", 0, 1)
-                pdf.set_font("Arial", "", 7)
-                pdf.set_x(12)
-                pdf.cell(126, 3.5, "Nome: REY DA CEBOLA", 0, 1)
-                pdf.set_x(12)
-                pdf.cell(126, 3.5, "Endereço: Rua Principal, S/N - BA", 0, 1)
-                pdf.set_x(12)
-                pdf.cell(126, 3.5, "CNPJ: 194.174.39/000-42", 0, 1)
-                
-                pdf.set_xy(142, 12)
-                pdf.set_font("Arial", "B", 9)
-                pdf.cell(56, 5, "Recibo de Pagamento", 0, 1, 'C')
-                pdf.set_xy(142, 17)
-                pdf.set_font("Arial", "B", 8)
-                pdf.cell(56, 4, "de Salário", 0, 1, 'C')
-                pdf.set_xy(142, 23)
-                pdf.set_font("Arial", "", 7)
-                ref_mes = dados_pag.get('referencia', datetime.now().strftime('%m/%Y'))
-                pdf.cell(56, 4, f"Referente ao Mês/Ano: {ref_mes}", 0, 1, 'C')
-        
-                pdf.rect(10, 30, 190, 12)
-                pdf.set_xy(12, 31)
-                pdf.set_font("Arial", "B", 7)
-                pdf.cell(20, 3, "CÓDIGO", 0, 0)
-                pdf.cell(85, 3, "NOME DO FUNCIONÁRIO", 0, 0)
-                pdf.cell(35, 3, "CBO", 0, 0)
-                pdf.cell(50, 3, "FUNÇÃO", 0, 1)
-                
-                pdf.set_xy(12, 35)
-                pdf.set_font("Arial", "", 8)
-                func_id = int(dados_func.get('id', 1))
-                pdf.cell(20, 5, f"{func_id:05d}", 0, 0)
-                pdf.cell(85, 5, str(dados_func.get('nome', '')), 0, 0)
-                pdf.cell(35, 5, str(dados_func.get('cbo', '-')), 0, 0)
-                pdf.cell(50, 5, str(dados_func.get('cargo', '-')), 0, 1)
-        
-                pdf.rect(10, 42, 190, 7)
-                pdf.set_xy(12, 43)
-                pdf.set_font("Arial", "B", 7)
-                pdf.cell(15, 5, "Cód.", 0, 0)
-                pdf.cell(75, 5, "Descrição", 0, 0)
-                pdf.cell(25, 5, "Referência", 0, 0, 'C')
-                pdf.cell(37, 5, "Proventos", 0, 0, 'R')
-                pdf.cell(38, 5, "Descontos", 0, 1, 'R')
-        
-                pdf.rect(10, 49, 190, 58)
-                pdf.set_xy(12, 51)
-                pdf.set_font("Arial", "", 8)
-                
-                valor_salario = float(dados_pag.get('valor', 0.0))
-                tipo_pag = str(dados_pag.get('tipo', 'Salário')).upper()
-                inss_val = float(dados_pag.get('inss', 0.0))
-                faltas_qtd = float(dados_pag.get('faltas', 0.0))
-                desc_faltas = float(dados_pag.get('desconto_faltas', 0.0))
-        
-                pdf.cell(15, 5, "001", 0, 0)
-                pdf.cell(75, 5, f"{tipo_pag} BASE", 0, 0)
-                pdf.cell(25, 5, "220.00", 0, 0, 'C')
-                pdf.cell(37, 5, f"R$ {valor_salario:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 0, 'R')
-                pdf.cell(38, 5, "R$ 0,00", 0, 1, 'R')
-        
-                curr_y = 56
-                if faltas_qtd > 0 or desc_faltas > 0:
-                    pdf.set_xy(12, 10 + curr_y)
-                    pdf.cell(15, 5, "450", 0, 0)
-                    pdf.cell(75, 5, f"FALTAS ({faltas_qtd} dia(s))", 0, 0)
-                    pdf.cell(25, 5, f"{faltas_qtd:.1f}", 0, 0, 'C')
-                    pdf.cell(37, 5, "R$ 0,00", 0, 0, 'R')
-                    pdf.cell(38, 5, f"R$ {desc_faltas:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 1, 'R')
-                    curr_y += 5
-        
-                if inss_val > 0:
-                    pdf.set_xy(12, 10 + curr_y)
-                    pdf.cell(15, 5, "903", 0, 0)
-                    pdf.cell(75, 5, "INSS", 0, 0)
-                    pdf.cell(25, 5, "", 0, 0, 'C')
-                    pdf.cell(37, 5, "R$ 0,00", 0, 0, 'R')
-                    pdf.cell(38, 5, f"R$ {inss_val:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 1, 'R')
-        
-                total_venc = valor_salario
-                total_desc = inss_val + desc_faltas
-                liquido = total_venc - total_desc
-        
-                pdf.rect(10, 107, 130, 17)
-                pdf.rect(140, 107, 60, 17)
-                
-                pdf.set_xy(12, 108)
-                pdf.set_font("Arial", "B", 7)
-                pdf.cell(126, 3, "MENSAGENS:", 0, 1)
-                pdf.set_font("Arial", "", 7)
-                pdf.set_x(12)
-                pdf.cell(126, 3, "Documento gerado automaticamente pelo Sistema CRM Comércio.", 0, 1)
-        
-                pdf.set_xy(142, 108)
-                pdf.set_font("Arial", "B", 7)
-                pdf.cell(28, 4, "Total Vencimentos:", 0, 0)
-                pdf.cell(28, 4, f"R$ {total_venc:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 1, 'R')
-                
-                pdf.set_x(142)
-                pdf.cell(28, 4, "Total Descontos:", 0, 0)
-                pdf.cell(28, 4, f"R$ {total_desc:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 1, 'R')
-                
-                pdf.set_x(142)
-                pdf.set_font("Arial", "B", 8)
-                pdf.cell(28, 5, "Líquido a Receber:", 0, 0)
-                pdf.cell(28, 5, f"R$ {liquido:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 1, 'R')
-        
-                pdf.rect(10, 124, 190, 18)
-                pdf.set_xy(12, 125)
-                pdf.set_font("Arial", "B", 6)
-                pdf.cell(31, 3, "Salário Base", 0, 0)
-                pdf.cell(31, 3, "Base Cálc. INSS", 0, 0)
-                pdf.cell(31, 3, "Base Cálc. FGTS", 0, 0)
-                pdf.cell(31, 3, "FGTS do Mês", 0, 0)
-                pdf.cell(32, 3, "Base Cálc. IRRF", 0, 0)
-                pdf.cell(32, 3, "Faixa IRRF", 0, 1)
-        
-                pdf.set_xy(12, 130)
-                pdf.set_font("Arial", "", 7)
-                pdf.cell(31, 4, f"R$ {valor_salario:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 0)
-                base_inss = max(0.0, valor_salario - desc_faltas)
-                pdf.cell(31, 4, f"R$ {base_inss:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 0)
-                pdf.cell(31, 4, f"R$ {valor_salario:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 0)
-                fgts_val = valor_salario * 0.08
-                pdf.cell(31, 4, f"R$ {fgts_val:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 0)
-                pdf.cell(32, 4, "R$ 0,00", 0, 0)
-                pdf.cell(32, 4, "0", 0, 1)
-        
                 try:
+                    from fpdf import FPDF
+                    pdf = FPDF(orientation='P', unit='mm', format='A4')
+                    pdf.add_page()
+                    
+                    # Desenha o Recibo
+                    pdf.rect(10, 10, 190, 132)
+                    pdf.rect(10, 10, 130, 20)
+                    pdf.rect(140, 10, 60, 20)
+                    
+                    pdf.set_xy(12, 11)
+                    pdf.set_font("Arial", "B", 7)
+                    pdf.cell(126, 4, "EMPREGADOR:", 0, 1)
+                    pdf.set_font("Arial", "", 7)
+                    pdf.set_x(12)
+                    pdf.cell(126, 3.5, "Nome: REY DA CEBOLA", 0, 1)
+                    pdf.set_x(12)
+                    pdf.cell(126, 3.5, "Endereço: Rua Principal, S/N - BA", 0, 1)
+                    pdf.set_x(12)
+                    pdf.cell(126, 3.5, "CNPJ: 194.174.39/000-42", 0, 1)
+                    
+                    pdf.set_xy(142, 12)
+                    pdf.set_font("Arial", "B", 9)
+                    pdf.cell(56, 5, "Recibo de Pagamento", 0, 1, 'C')
+                    pdf.set_xy(142, 17)
+                    pdf.set_font("Arial", "B", 8)
+                    pdf.cell(56, 4, "de Salário", 0, 1, 'C')
+                    pdf.set_xy(142, 23)
+                    pdf.set_font("Arial", "", 7)
+                    ref_mes = dados_pag.get('referencia', datetime.now().strftime('%m/%Y'))
+                    pdf.cell(56, 4, f"Referente ao Mês/Ano: {ref_mes}", 0, 1, 'C')
+        
+                    pdf.rect(10, 30, 190, 12)
+                    pdf.set_xy(12, 31)
+                    pdf.set_font("Arial", "B", 7)
+                    pdf.cell(20, 3, "CÓDIGO", 0, 0)
+                    pdf.cell(85, 3, "NOME DO FUNCIONÁRIO", 0, 0)
+                    pdf.cell(35, 3, "CBO", 0, 0)
+                    pdf.cell(50, 3, "FUNÇÃO", 0, 1)
+                    
+                    pdf.set_xy(12, 35)
+                    pdf.set_font("Arial", "", 8)
+                    func_id = int(dados_func.get('id', 1))
+                    pdf.cell(20, 5, f"{func_id:05d}", 0, 0)
+                    pdf.cell(85, 5, str(dados_func.get('nome', '')), 0, 0)
+                    pdf.cell(35, 5, str(dados_func.get('cbo', '-')), 0, 0)
+                    pdf.cell(50, 5, str(dados_func.get('cargo', '-')), 0, 1)
+        
+                    pdf.rect(10, 42, 190, 7)
+                    pdf.set_xy(12, 43)
+                    pdf.set_font("Arial", "B", 7)
+                    pdf.cell(15, 5, "Cód.", 0, 0)
+                    pdf.cell(75, 5, "Descrição", 0, 0)
+                    pdf.cell(25, 5, "Referência", 0, 0, 'C')
+                    pdf.cell(37, 5, "Proventos", 0, 0, 'R')
+                    pdf.cell(38, 5, "Descontos", 0, 1, 'R')
+        
+                    pdf.rect(10, 49, 190, 58)
+                    pdf.set_xy(12, 51)
+                    pdf.set_font("Arial", "", 8)
+                    
+                    valor_salario = float(dados_pag.get('valor', 0.0))
+                    tipo_pag = str(dados_pag.get('tipo', 'Salário')).upper()
+                    inss_val = float(dados_pag.get('inss', 0.0))
+                    faltas_qtd = float(dados_pag.get('faltas', 0.0))
+                    desc_faltas = float(dados_pag.get('desconto_faltas', 0.0))
+        
+                    pdf.cell(15, 5, "001", 0, 0)
+                    pdf.cell(75, 5, f"{tipo_pag} BASE", 0, 0)
+                    pdf.cell(25, 5, "220.00", 0, 0, 'C')
+                    pdf.cell(37, 5, f"R$ {valor_salario:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 0, 'R')
+                    pdf.cell(38, 5, "R$ 0,00", 0, 1, 'R')
+        
+                    curr_y = 56
+                    if faltas_qtd > 0 or desc_faltas > 0:
+                        pdf.set_xy(12, curr_y)
+                        pdf.cell(15, 5, "450", 0, 0)
+                        pdf.cell(75, 5, f"FALTAS ({faltas_qtd} dia(s))", 0, 0)
+                        pdf.cell(25, 5, f"{faltas_qtd:.1f}", 0, 0, 'C')
+                        pdf.cell(37, 5, "R$ 0,00", 0, 0, 'R')
+                        pdf.cell(38, 5, f"R$ {desc_faltas:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 1, 'R')
+                        curr_y += 5
+        
+                    if inss_val > 0:
+                        pdf.set_xy(12, curr_y)
+                        pdf.cell(15, 5, "903", 0, 0)
+                        pdf.cell(75, 5, "INSS", 0, 0)
+                        pdf.cell(25, 5, "", 0, 0, 'C')
+                        pdf.cell(37, 5, "R$ 0,00", 0, 0, 'R')
+                        pdf.cell(38, 5, f"R$ {inss_val:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 1, 'R')
+        
+                    total_venc = valor_salario
+                    total_desc = inss_val + desc_faltas
+                    liquido = total_venc - total_desc
+        
+                    pdf.rect(10, 107, 130, 17)
+                    pdf.rect(140, 107, 60, 17)
+                    
+                    pdf.set_xy(12, 108)
+                    pdf.set_font("Arial", "B", 7)
+                    pdf.cell(126, 3, "MENSAGENS:", 0, 1)
+                    pdf.set_font("Arial", "", 7)
+                    pdf.set_x(12)
+                    pdf.cell(126, 3, "Documento gerado automaticamente pelo Sistema CRM Comércio.", 0, 1)
+        
+                    pdf.set_xy(142, 108)
+                    pdf.set_font("Arial", "B", 7)
+                    pdf.cell(28, 4, "Total Vencimentos:", 0, 0)
+                    pdf.cell(28, 4, f"R$ {total_venc:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 1, 'R')
+                    
+                    pdf.set_x(142)
+                    pdf.cell(28, 4, "Total Descontos:", 0, 0)
+                    pdf.cell(28, 4, f"R$ {total_desc:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 1, 'R')
+                    
+                    pdf.set_x(142)
+                    pdf.set_font("Arial", "B", 8)
+                    pdf.cell(28, 5, "Líquido a Receber:", 0, 0)
+                    pdf.cell(28, 5, f"R$ {liquido:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 1, 'R')
+        
+                    pdf.rect(10, 124, 190, 18)
+                    pdf.set_xy(12, 125)
+                    pdf.set_font("Arial", "B", 6)
+                    pdf.cell(31, 3, "Salário Base", 0, 0)
+                    pdf.cell(31, 3, "Base Cálc. INSS", 0, 0)
+                    pdf.cell(31, 3, "Base Cálc. FGTS", 0, 0)
+                    pdf.cell(31, 3, "FGTS do Mês", 0, 0)
+                    pdf.cell(32, 3, "Base Cálc. IRRF", 0, 0)
+                    pdf.cell(32, 3, "Faixa IRRF", 0, 1)
+        
+                    pdf.set_xy(12, 130)
+                    pdf.set_font("Arial", "", 7)
+                    pdf.cell(31, 4, f"R$ {valor_salario:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 0)
+                    base_inss = max(0.0, valor_salario - desc_faltas)
+                    pdf.cell(31, 4, f"R$ {base_inss:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 0)
+                    pdf.cell(31, 4, f"R$ {valor_salario:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 0)
+                    fgts_val = valor_salario * 0.08
+                    pdf.cell(31, 4, f"R$ {fgts_val:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 0)
+                    pdf.cell(32, 4, "R$ 0,00", 0, 0)
+                    pdf.cell(32, 4, "0", 0, 1)
+        
                     res = pdf.output(dest='S')
                     if isinstance(res, str):
                         return res.encode('latin1', errors='replace')
                     return bytes(res)
-                except Exception:
-                    res = pdf.output()
-                    if isinstance(res, str):
-                        return res.encode('latin1', errors='replace')
-                    return bytes(res)
+                except Exception as e:
+                    return f"Erro PDF: {str(e)}".encode('utf-8')
         
+            # Garantir tabelas
             try:
                 cursor = conn.cursor()
                 cursor.execute("""
@@ -2846,13 +2844,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     df_pendentes_final = pd.DataFrame(competencias_geradas)
         
                     if not df_pendentes_final.empty:
-                        filtro_status = st.selectbox("Filtrar por Status:", ["Todos", "🔴 Pendente (Em Aberto)", "🟢 A Vencer", "✅ Pago"], key="filtro_status_pend_v9")
+                        filtro_status = st.selectbox("Filtrar por Status:", ["Todos", "🔴 Pendente (Em Aberto)", "🟢 A Vencer", "✅ Pago"], key="filtro_status_pend_v10")
                         if filtro_status != "Todos":
                             df_pendentes_final = df_pendentes_final[df_pendentes_final['Status'] == filtro_status]
         
                         edited_pendentes = st.data_editor(
                             df_pendentes_final,
-                            key="editor_tabela_salarios_pendentes_v9",
+                            key="editor_tabela_salarios_pendentes_v10",
                             use_container_width=True,
                             hide_index=True,
                             column_config={
@@ -2874,7 +2872,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         
                         st.markdown("---")
                         
-                        if st.button("💾 Salvar Alterações e Registar Pagamentos", key="btn_salvar_pend_v9", use_container_width=True):
+                        if st.button("💾 Salvar Alterações e Registar Pagamentos", key="btn_salvar_pend_v10", use_container_width=True):
                             try:
                                 cursor = conn.cursor()
                                 with conn:
