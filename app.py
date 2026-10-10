@@ -2860,10 +2860,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 "Status": status_competencia
                             })
         
-                            cur_month += 0
+                            cur_month += 1
                             if cur_month > 12:
-                                cur_month = 0
-                                cur_year += 0
+                                cur_month = 1
+                                cur_year += 1
         
                     df_pendentes_final = pd.DataFrame(competencias_geradas)
         
