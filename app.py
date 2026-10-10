@@ -2381,7 +2381,546 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         except Exception as e:
                             st.error(f"Erro ao restaurar o backup: {e}")            
 
-        
+    elif "RH" in str(menu_admin) or "Recursos Humanos" in str(menu_admin):
+        st.title("👥 Gestão de Recursos Humanos (RH)")
+        st.markdown("Faça a gestão de colaboradores, registos com descontos e emissão de Holerites em PDF.")
+    
+        from datetime import datetime
+    
+        # Função ultra-segura para gerar o PDF do Holerite
+        def gerar_bytes_pdf(dados_func, dados_pag):
+            try:
+                from fpdf import FPDF
+                pdf = FPDF(orientation='P', unit='mm', format='A4')
+                pdf.add_page()
+                
+                # Desenha o Recibo
+                pdf.rect(10, 10, 190, 132)
+                pdf.rect(10, 10, 130, 20)
+                pdf.rect(140, 10, 60, 20)
+                
+                pdf.set_xy(12, 11)
+                pdf.set_font("Arial", "B", 7)
+                pdf.cell(126, 4, "EMPREGADOR:", 0, 1)
+                pdf.set_font("Arial", "", 7)
+                pdf.set_x(12)
+                pdf.cell(126, 3.5, "Nome: REY DA CEBOLA", 0, 1)
+                pdf.set_x(12)
+                pdf.cell(126, 3.5, "Endereço: Rua Principal, S/N - BA", 0, 1)
+                pdf.set_x(12)
+                pdf.cell(126, 3.5, "CNPJ: 194.174.39/000-42", 0, 1)
+                
+                pdf.set_xy(142, 12)
+                pdf.set_font("Arial", "B", 9)
+                pdf.cell(56, 5, "Recibo de Pagamento", 0, 1, 'C')
+                pdf.set_xy(142, 17)
+                pdf.set_font("Arial", "B", 8)
+                pdf.cell(56, 4, "de Salário", 0, 1, 'C')
+                pdf.set_xy(142, 23)
+                pdf.set_font("Arial", "", 7)
+                ref_mes = dados_pag.get('referencia', datetime.now().strftime('%m/%Y'))
+                pdf.cell(56, 4, f"Referente ao Mês/Ano: {ref_mes}", 0, 1, 'C')
+    
+                pdf.rect(10, 30, 190, 12)
+                pdf.set_xy(12, 31)
+                pdf.set_font("Arial", "B", 7)
+                pdf.cell(20, 3, "CÓDIGO", 0, 0)
+                pdf.cell(85, 3, "NOME DO FUNCIONÁRIO", 0, 0)
+                pdf.cell(35, 3, "CBO", 0, 0)
+                pdf.cell(50, 3, "FUNÇÃO", 0, 1)
+                
+                pdf.set_xy(12, 35)
+                pdf.set_font("Arial", "", 8)
+                func_id = int(dados_func.get('id', 1))
+                pdf.cell(20, 5, f"{func_id:05d}", 0, 0)
+                pdf.cell(85, 5, str(dados_func.get('nome', '')), 0, 0)
+                pdf.cell(35, 5, str(dados_func.get('cbo', '-')), 0, 0)
+                pdf.cell(50, 5, str(dados_func.get('cargo', '-')), 0, 1)
+    
+                pdf.rect(10, 42, 190, 7)
+                pdf.set_xy(12, 43)
+                pdf.set_font("Arial", "B", 7)
+                pdf.cell(15, 5, "Cód.", 0, 0)
+                pdf.cell(75, 5, "Descrição", 0, 0)
+                pdf.cell(25, 5, "Referência", 0, 0, 'C')
+                pdf.cell(37, 5, "Proventos", 0, 0, 'R')
+                pdf.cell(38, 5, "Descontos", 0, 1, 'R')
+    
+                pdf.rect(10, 49, 190, 58)
+                pdf.set_xy(12, 51)
+                pdf.set_font("Arial", "", 8)
+                
+                valor_salario = float(dados_pag.get('valor', 0.0))
+                tipo_pag = str(dados_pag.get('tipo', 'Salário')).upper()
+                inss_val = float(dados_pag.get('inss', 0.0))
+                faltas_qtd = float(dados_pag.get('faltas', 0.0))
+                desc_faltas = float(dados_pag.get('desconto_faltas', 0.0))
+    
+                pdf.cell(15, 5, "001", 0, 0)
+                pdf.cell(75, 5, f"{tipo_pag} BASE", 0, 0)
+                pdf.cell(25, 5, "220.00", 0, 0, 'C')
+                pdf.cell(37, 5, f"R$ {valor_salario:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 0, 'R')
+                pdf.cell(38, 5, "R$ 0,00", 0, 1, 'R')
+    
+                curr_y = 56
+                if faltas_qtd > 0 or desc_faltas > 0:
+                    pdf.set_xy(12, curr_y)
+                    pdf.cell(15, 5, "450", 0, 0)
+                    pdf.cell(75, 5, f"FALTAS ({faltas_qtd} dia(s))", 0, 0)
+                    pdf.cell(25, 5, f"{faltas_qtd:.1f}", 0, 0, 'C')
+                    pdf.cell(37, 5, "R$ 0,00", 0, 0, 'R')
+                    pdf.cell(38, 5, f"R$ {desc_faltas:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 1, 'R')
+                    curr_y += 5
+    
+                if inss_val > 0:
+                    pdf.set_xy(12, curr_y)
+                    pdf.cell(15, 5, "903", 0, 0)
+                    pdf.cell(75, 5, "INSS", 0, 0)
+                    pdf.cell(25, 5, "", 0, 0, 'C')
+                    pdf.cell(37, 5, "R$ 0,00", 0, 0, 'R')
+                    pdf.cell(38, 5, f"R$ {inss_val:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 1, 'R')
+    
+                total_venc = valor_salario
+                total_desc = inss_val + desc_faltas
+                liquido = total_venc - total_desc
+    
+                pdf.rect(10, 107, 130, 17)
+                pdf.rect(140, 107, 60, 17)
+                
+                pdf.set_xy(12, 108)
+                pdf.set_font("Arial", "B", 7)
+                pdf.cell(126, 3, "MENSAGENS:", 0, 1)
+                pdf.set_font("Arial", "", 7)
+                pdf.set_x(12)
+                pdf.cell(126, 3, "Documento gerado automaticamente pelo Sistema CRM Comércio.", 0, 1)
+    
+                pdf.set_xy(142, 108)
+                pdf.set_font("Arial", "B", 7)
+                pdf.cell(28, 4, "Total Vencimentos:", 0, 0)
+                pdf.cell(28, 4, f"R$ {total_venc:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 1, 'R')
+                
+                pdf.set_x(142)
+                pdf.cell(28, 4, "Total Descontos:", 0, 0)
+                pdf.cell(28, 4, f"R$ {total_desc:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 1, 'R')
+                
+                pdf.set_x(142)
+                pdf.set_font("Arial", "B", 8)
+                pdf.cell(28, 5, "Líquido a Receber:", 0, 0)
+                pdf.cell(28, 5, f"R$ {liquido:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 1, 'R')
+    
+                pdf.rect(10, 124, 190, 18)
+                pdf.set_xy(12, 125)
+                pdf.set_font("Arial", "B", 6)
+                pdf.cell(31, 3, "Salário Base", 0, 0)
+                pdf.cell(31, 3, "Base Cálc. INSS", 0, 0)
+                pdf.cell(31, 3, "Base Cálc. FGTS", 0, 0)
+                pdf.cell(31, 3, "FGTS do Mês", 0, 0)
+                pdf.cell(32, 3, "Base Cálc. IRRF", 0, 0)
+                pdf.cell(32, 3, "Faixa IRRF", 0, 1)
+    
+                pdf.set_xy(12, 130)
+                pdf.set_font("Arial", "", 7)
+                pdf.cell(31, 4, f"R$ {valor_salario:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 0)
+                base_inss = max(0.0, valor_salario - desc_faltas)
+                pdf.cell(31, 4, f"R$ {base_inss:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 0)
+                pdf.cell(31, 4, f"R$ {valor_salario:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 0)
+                fgts_val = valor_salario * 0.08
+                pdf.cell(31, 4, f"R$ {fgts_val:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 0)
+                pdf.cell(32, 4, "R$ 0,00", 0, 0)
+                pdf.cell(32, 4, "0", 0, 1)
+    
+                res = pdf.output(dest='S')
+                if isinstance(res, str):
+                    return res.encode('latin1', errors='replace')
+                return bytes(res)
+            except Exception as e:
+                return f"Erro PDF: {str(e)}".encode('utf-8')
+    
+        # Garantir tabelas
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS funcionarios (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    nome TEXT,
+                    cargo TEXT,
+                    telefone TEXT,
+                    salario REAL,
+                    admissao TEXT,
+                    cbo TEXT
+                )
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS pagamentos_funcionarios (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    colaborador TEXT,
+                    tipo TEXT,
+                    valor REAL,
+                    data_pagamento TEXT,
+                    inss REAL DEFAULT 0.0,
+                    faltas REAL DEFAULT 0.0,
+                    desconto_faltas REAL DEFAULT 0.0
+                )
+            """)
+            for col_def in [("inss", "REAL DEFAULT 0.0"), ("faltas", "REAL DEFAULT 0.0"), ("desconto_faltas", "REAL DEFAULT 0.0")]:
+                try:
+                    cursor.execute(f"ALTER TABLE pagamentos_funcionarios ADD COLUMN {col_def[0]} {col_def[1]}")
+                except Exception:
+                    pass
+            conn.commit()
+        except Exception:
+            pass
+    
+        aba_colab, aba_pagamentos, aba_pendentes = st.tabs([
+            "👥 Colaboradores", 
+            "💸 Registar Pagamentos / Vales", 
+            "📅 Salários Pendentes e a Vencer"
+        ])
+    
+        with aba_colab:
+            with st.expander("➕ Adicionar Novo Colaborador"):
+                with st.form("form_novo_funcionario", clear_on_submit=True):
+                    col_f1, col_f2 = st.columns(2)
+                    with col_f1:
+                        novo_nome = st.text_input("Nome Completo do Colaborador")
+                        novo_cargo = st.text_input("Cargo / Função")
+                        novo_cbo = st.text_input("CBO (Ex: 5211-10)", value="5211-10")
+                    with col_f2:
+                        novo_tel = st.text_input("Telefone / Telemóvel")
+                        novo_salario = st.number_input("Salário Base (R$)", min_value=0.0, value=1412.0, step=50.0)
+                        nova_admissao = st.date_input("Data de Admissão")
+                    
+                    btn_salvar_func = st.form_submit_button("💾 Guardar Colaborador", use_container_width=True)
+                    if btn_salvar_func:
+                        if novo_nome.strip():
+                            try:
+                                cursor = conn.cursor()
+                                cursor.execute("""
+                                    INSERT INTO funcionarios (nome, cargo, telefone, salario, admissao, cbo)
+                                    VALUES (?, ?, ?, ?, ?, ?)
+                                """, (novo_nome, novo_cargo, novo_tel, novo_salario, str(nova_admissao), novo_cbo))
+                                conn.commit()
+                                st.success("✅ Colaborador registado com sucesso!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro: {e}")
+                        else:
+                            st.warning("⚠️ O nome do colaborador é obrigatório.")
+    
+            st.markdown("---")
+    
+            try:
+                df_func = pd.read_sql_query("SELECT * FROM funcionarios", conn)
+            except Exception:
+                df_func = pd.DataFrame()
+    
+            if not df_func.empty:
+                total_colaboradores = len(df_func)
+                folha_salarial = pd.to_numeric(df_func['salario'], errors='coerce').sum()
+    
+                col_m1, col_m2 = st.columns(2)
+                with col_m1:
+                    st.metric("👨‍💼 Total de Colaboradores", str(total_colaboradores))
+                with col_m2:
+                    st.metric("💵 Folha Salarial Total Base", f"R$ {folha_salarial:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+    
+                st.markdown("---")
+                st.subheader("📋 Lista de Colaboradores (Editável)")
+    
+                df_func['salario'] = pd.to_numeric(df_func['salario'], errors='coerce').fillna(0.0)
+                edited_func = st.data_editor(
+                    df_func,
+                    key="editor_tabela_funcionarios",
+                    use_container_width=True,
+                    num_rows="dynamic"
+                )
+    
+                if st.button("💾 Atualizar Alterações no RH", key="btn_salvar_rh", use_container_width=True):
+                    try:
+                        cursor = conn.cursor()
+                        for _, row in edited_func.iterrows():
+                            cursor.execute("""
+                                UPDATE funcionarios 
+                                SET nome = ?, cargo = ?, telefone = ?, salario = ?, admissao = ?, cbo = ?
+                                WHERE id = ?
+                            """, (
+                                str(row.get('nome', '')),
+                                str(row.get('cargo', '')),
+                                str(row.get('telefone', '')),
+                                float(row.get('salario', 0)),
+                                str(row.get('admissao', '')),
+                                str(row.get('cbo', '-')),
+                                int(row.get('id', 0))
+                            ))
+                        conn.commit()
+                        st.success("✅ Dados atualizados com sucesso!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro: {e}")
+            else:
+                st.info("ℹ️ Ainda não existem colaboradores registados.")
+    
+        with aba_pagamentos:
+            st.subheader("💸 Registar Pagamento, Salário ou Vale")
+            
+            try:
+                df_func_list = pd.read_sql_query("SELECT id, nome, cargo, cbo FROM funcionarios", conn)
+                lista_nomes = df_func_list['nome'].tolist() if not df_func_list.empty else []
+            except Exception:
+                df_func_list = pd.DataFrame()
+                lista_nomes = []
+    
+            if lista_nomes:
+                with st.form("form_registo_pagamento", clear_on_submit=True):
+                    col_p1, col_p2 = st.columns(2)
+                    with col_p1:
+                        colaborador_selecionado = st.selectbox("Selecione o Colaborador", lista_nomes)
+                        tipo_lancamento = st.selectbox("Descrição / Tipo", ["Salário", "Vale", "Adiantamento", "Bónus"])
+                        valor_lancamento = st.number_input("Valor Bruto (R$)", min_value=0.0, value=0.0, step=10.0)
+                    with col_p2:
+                        inss_lancamento = st.number_input("Desconto INSS (R$)", min_value=0.0, value=0.0, step=10.0)
+                        faltas_qtd = st.number_input("Quantidade de Faltas (Dias)", min_value=0.0, value=0.0, step=1.0)
+                        desc_faltas_val = st.number_input("Desconto por Faltas (R$)", min_value=0.0, value=0.0, step=10.0)
+                        data_lancamento = st.date_input("Data do Recebimento")
+                    
+                    btn_gravar_pagamento = st.form_submit_button("💾 Registar Lançamento e Liberar Holerite", use_container_width=True)
+                    if btn_gravar_pagamento:
+                        if valor_lancamento > 0:
+                            try:
+                                cursor = conn.cursor()
+                                cursor.execute("""
+                                    INSERT INTO pagamentos_funcionarios (colaborador, tipo, valor, data_pagamento, inss, faltas, desconto_faltas)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                                """, (colaborador_selecionado, tipo_lancamento, valor_lancamento, str(data_lancamento), inss_lancamento, faltas_qtd, desc_faltas_val))
+                                conn.commit()
+                                st.success("✅ Lançamento registado com sucesso!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro: {e}")
+                        else:
+                            st.warning("⚠️ Insira um valor superior a zero.")
+            else:
+                st.warning("⚠️ Registe primeiro um colaborador na aba 'Colaboradores'.")
+    
+            st.markdown("---")
+            st.subheader("📊 Histórico de Pagamentos e Edição de Holerites")
+    
+            try:
+                df_historico_pag = pd.read_sql_query("SELECT * FROM pagamentos_funcionarios ORDER BY id DESC", conn)
+            except Exception:
+                df_historico_pag = pd.DataFrame()
+    
+            if not df_historico_pag.empty:
+                for _, row_pag in df_historico_pag.iterrows():
+                    p_id = row_pag['id']
+                    p_collab = row_pag['colaborador']
+                    p_tipo = row_pag['tipo']
+                    p_valor = float(row_pag['valor'] or 0)
+                    p_data = str(row_pag['data_pagamento'])[:10]
+                    p_inss = float(row_pag.get('inss', 0) or 0)
+                    p_faltas = float(row_pag.get('faltas', 0) or 0)
+                    p_desc_faltas = float(row_pag.get('desconto_faltas', 0) or 0)
+                    
+                    f_info = df_func_list[df_func_list['nome'] == p_collab]
+                    f_dict = f_info.iloc[0].to_dict() if not f_info.empty else {'id': 1, 'cargo': 'Funcionário', 'cbo': '-'}
+    
+                    with st.expander(f"📄 {p_collab} — {p_tipo}: R$ {p_valor:,.2f} ( Líquido: R$ {p_valor - p_inss - p_desc_faltas:,.2f} ) em {p_data}"):
+                        with st.form(f"form_edite_holerite_{p_id}"):
+                            ce1, ce2, ce3 = st.columns(3)
+                            with ce1:
+                                novo_val_pag = st.number_input("Valor Bruto (R$)", value=p_valor, step=10.0, key=f"val_{p_id}")
+                            with ce2:
+                                novo_inss = st.number_input("INSS (R$)", value=p_inss, step=5.0, key=f"inss_{p_id}")
+                            with ce3:
+                                nova_qtd_faltas = st.number_input("Qtd Faltas", value=p_faltas, step=1.0, key=f"faltas_{p_id}")
+                            
+                            ce4, ce5 = st.columns(2)
+                            with ce4:
+                                novo_desc_faltas = st.number_input("Desc. Faltas (R$)", value=p_desc_faltas, step=10.0, key=f"desc_f_{p_id}")
+                            with ce5:
+                                st.markdown("<br>", unsafe_allow_html=True)
+                                btn_atualiza_reg = st.form_submit_button("💾 Atualizar Dados do Holerite", use_container_width=True)
+    
+                            if btn_atualiza_reg:
+                                try:
+                                    cursor = conn.cursor()
+                                    cursor.execute("""
+                                        UPDATE pagamentos_funcionarios 
+                                        SET valor = ?, inss = ?, faltas = ?, desconto_faltas = ?
+                                        WHERE id = ?
+                                    """, (novo_val_pag, novo_inss, nova_qtd_faltas, novo_desc_faltas, p_id))
+                                    conn.commit()
+                                    st.success("✅ Holerite atualizado com sucesso!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Erro: {e}")
+    
+                        pdf_bytes = gerar_bytes_pdf(
+                            dados_func=f_dict,
+                            dados_pagamento={
+                                'referencia': p_data[:7],
+                                'valor': p_valor,
+                                'tipo': p_tipo,
+                                'inss': p_inss,
+                                'faltas': p_faltas,
+                                'desconto_faltas': p_desc_faltas
+                            }
+                        )
+                        
+                        st.download_button(
+                            label="📥 Descarregar / Imprimir Holerite em PDF",
+                            data=pdf_bytes,
+                            file_name=f"holerite_{p_collab.replace(' ', '_')}_{p_data[:7]}.pdf",
+                            mime="application/pdf",
+                            key=f"btn_pdf_pag_{p_id}"
+                        )
+            else:
+                st.info("ℹ️ Nenhum pagamento registado até o momento.")
+    
+        with aba_pendentes:
+            st.subheader("📅 Controlo Automático de Salários Pendentes e a Vencer")
+            st.markdown("Marque como '✅ Pago' para dar baixa e gerar os registos salariais.")
+    
+            try:
+                df_f = pd.read_sql_query("SELECT * FROM funcionarios", conn)
+                df_p = pd.read_sql_query("SELECT * FROM pagamentos_funcionarios WHERE tipo = 'Salário'", conn)
+            except Exception:
+                df_f = pd.DataFrame()
+                df_p = pd.DataFrame()
+    
+            if not df_f.empty:
+                competencias_geradas = []
+                hoje = datetime.now().date()
+    
+                for _, func in df_f.iterrows():
+                    nome_func = func.get('nome')
+                    salario_base = float(func.get('salario', 0) or 0)
+                    admissao_str = str(func.get('admissao', ''))
+    
+                    try:
+                        data_adm = datetime.strptime(admissao_str[:10], '%Y-%m-%d').date()
+                    except Exception:
+                        data_adm = hoje
+    
+                    ano_atual, mes_atual = hoje.year, hoje.month
+                    cur_year, cur_month = data_adm.year, data_adm.month
+                    
+                    limite_year = ano_atual + (1 if mes_atual == 12 else 0)
+                    limite_month = 1 if mes_atual == 12 else mes_atual + 1
+    
+                    while (cur_year < limite_year) or (cur_year == limite_year and cur_month <= limite_month):
+                        competencia_str = f"{cur_month:02d}/{cur_year}"
+                        
+                        ja_pago = False
+                        if not df_p.empty:
+                            pag_func = df_p[df_p['colaborador'] == nome_func]
+                            for _, pag in pag_func.iterrows():
+                                data_pag_str = str(pag.get('data_pagamento', ''))
+                                if f"{cur_year:04d}-{cur_month:02d}" in data_pag_str:
+                                    ja_pago = True
+                                    break
+    
+                        if cur_year > ano_atual or (cur_year == ano_atual and cur_month > mes_atual):
+                            status_competencia = "🟢 A Vencer"
+                        elif not ja_pago:
+                            status_competencia = "🔴 Pendente (Em Aberto)"
+                        else:
+                            status_competencia = "✅ Pago"
+    
+                        competencias_geradas.append({
+                            "Excluir": False,
+                            "Colaborador": nome_func,
+                            "Cargo": func.get('cargo', ''),
+                            "Competência (Mês/Ano)": competencia_str,
+                            "Valor Devido (R$)": salario_base,
+                            "Status": status_competencia
+                        })
+    
+                        cur_month += 1
+                        if cur_month > 12:
+                            cur_month = 1
+                            cur_year += 1
+    
+                df_pendentes_final = pd.DataFrame(competencias_geradas)
+    
+                if not df_pendentes_final.empty:
+                    filtro_status = st.selectbox("Filtrar por Status:", ["Todos", "🔴 Pendente (Em Aberto)", "🟢 A Vencer", "✅ Pago"], key="filtro_status_pend_v10")
+                    if filtro_status != "Todos":
+                        df_pendentes_final = df_pendentes_final[df_pendentes_final['Status'] == filtro_status]
+    
+                    edited_pendentes = st.data_editor(
+                        df_pendentes_final,
+                        key="editor_tabela_salarios_pendentes_v10",
+                        use_container_width=True,
+                        hide_index=True,
+                        column_config={
+                            "Excluir": st.column_config.CheckboxColumn("Excluir", default=False),
+                            "Status": st.column_config.SelectboxColumn(
+                                "Status do Pagamento",
+                                options=["🔴 Pendente (Em Aberto)", "🟢 A Vencer", "✅ Pago"],
+                                required=True
+                            ),
+                            "Valor Devido (R$)": st.column_config.NumberColumn(
+                                "Valor (R$)",
+                                min_value=0.0,
+                                step=50.0,
+                                format="R$ %.2f"
+                            )
+                        },
+                        num_rows="fixed"
+                    )
+    
+                    st.markdown("---")
+                    
+                    if st.button("💾 Salvar Alterações e Registar Pagamentos", key="btn_salvar_pend_v10", use_container_width=True):
+                        try:
+                            cursor = conn.cursor()
+                            with conn:
+                                for _, row in edited_pendentes.iterrows():
+                                    collab = row['Colaborador']
+                                    comp = row['Competência (Mês/Ano)']
+                                    val = float(row['Valor Devido (R$)'])
+                                    status_mod = row['Status']
+                                    
+                                    mes_competencia, ano_competencia = comp.split('/')
+                                    
+                                    cursor.execute("""
+                                        UPDATE funcionarios SET salario = ? WHERE nome = ?
+                                    """, (val, collab))
+    
+                                    cursor.execute("""
+                                        SELECT id FROM pagamentos_funcionarios 
+                                        WHERE colaborador = ? AND tipo = 'Salário' AND data_pagamento LIKE ?
+                                    """, (collab, f"{ano_competencia}-{mes_competencia}%"))
+                                    registo_existente = cursor.fetchone()
+    
+                                    if "Pago" in status_mod:
+                                        if not registo_existente:
+                                            data_padrao = f"{ano_competencia}-{mes_competencia}-05"
+                                            cursor.execute("""
+                                                INSERT INTO pagamentos_funcionarios (colaborador, tipo, valor, data_pagamento)
+                                                VALUES (?, 'Salário', ?, ?)
+                                            """, (collab, val, data_padrao))
+                                        else:
+                                            cursor.execute("""
+                                                UPDATE pagamentos_funcionarios SET valor = ? 
+                                                WHERE colaborador = ? AND tipo = 'Salário' AND data_pagamento LIKE ?
+                                            """, (val, collab, f"{ano_competencia}-{mes_competencia}%"))
+                                    else:
+                                        if registo_existente:
+                                            cursor.execute("""
+                                                DELETE FROM pagamentos_funcionarios 
+                                                WHERE colaborador = ? AND tipo = 'Salário' AND data_pagamento LIKE ?
+                                            """, (collab, f"{ano_competencia}-{mes_competencia}%"))
+    
+                            st.success("✅ Alterações guardadas com sucesso!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro: {e}")
+                else:
+                    st.info("ℹ️ Não foram encontradas competências para exibir.")
+            else:
+                st.info("ℹ️ Registe colaboradores na primeira aba.")
         elif menu_admin == "📥 Entrada de Estoque (Compras)":
             st.title("📥 Entrada de Estoque (Compras)")
             st.subheader("Registrar Entrada de Estoque")
