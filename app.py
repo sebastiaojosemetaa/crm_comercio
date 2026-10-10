@@ -2389,7 +2389,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             from datetime import datetime
         
             # -------------------------------------------------------------------------
-            # CLASSE PARA GERAR O HOLERITE COM INSS E FALTAS
+            # CLASSE PARA GERAR O HOLERITE COM COMPATIBILIDADE GARANTIDA
             # -------------------------------------------------------------------------
             class PDFHolerite(FPDF):
                 def __init__(self, dados_func, dados_pagamento):
@@ -2400,12 +2400,31 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 def criar_holerite(self):
                     self.add_page()
                     self.desenhar_recibo(10, 10)
-                    output = self.output()
-                    if isinstance(output, str):
-                        return output.encode('latin1', errors='replace')
-                    elif isinstance(output, bytearray):
-                        return bytes(output)
-                    return output
+                    
+                    # Compatibilidade universal para extrair os bytes do PDF sem erros
+                    try:
+                        res = self.output(dest='S')
+                        if isinstance(res, str):
+                            return res.encode('latin1', errors='replace')
+                        elif isinstance(res, bytes):
+                            return res
+                        elif isinstance(res, bytearray):
+                            return bytes(res)
+                    except Exception:
+                        pass
+        
+                    try:
+                        res = self.output()
+                        if isinstance(res, bytes):
+                            return res
+                        elif isinstance(res, bytearray):
+                            return bytes(res)
+                        elif isinstance(res, str):
+                            return res.encode('latin1', errors='replace')
+                    except Exception:
+                        pass
+                    
+                    return b""
         
                 def desenhar_recibo(self, x, y):
                     self.rect(x, y, 190, 132)
@@ -2459,7 +2478,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     self.cell(37, 5, "Proventos", 0, 0, 'R')
                     self.cell(38, 5, "Descontos", 0, 1, 'R')
         
-                    # Corpo da Tabela
                     self.rect(x, y + 39, 190, 58)
                     self.set_xy(x + 2, y + 41)
                     self.set_font("Arial", "", 8)
@@ -2470,7 +2488,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     faltas_qtd = float(self.dados_pagamento.get('faltas', 0.0))
                     desc_faltas = float(self.dados_pagamento.get('desconto_faltas', 0.0))
         
-                    # Salário Base
                     self.cell(15, 5, "001", 0, 0)
                     self.cell(75, 5, f"{tipo_pag} BASE", 0, 0)
                     self.cell(25, 5, "220.00", 0, 0, 'C')
@@ -2478,7 +2495,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     self.cell(38, 5, "R$ 0,00", 0, 1, 'R')
         
                     current_y = 46
-                    # Faltas (se houver)
                     if faltas_qtd > 0 or desc_faltas > 0:
                         self.set_xy(x + 2, y + current_y)
                         self.cell(15, 5, "450", 0, 0)
@@ -2488,7 +2504,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         self.cell(38, 5, f"R$ {desc_faltas:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 1, 'R')
                         current_y += 5
         
-                    # INSS (se houver)
                     if inss_val > 0:
                         self.set_xy(x + 2, y + current_y)
                         self.cell(15, 5, "903", 0, 0)
@@ -2511,7 +2526,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     self.set_x(x + 2)
                     self.cell(126, 3, "Documento gerado automaticamente pelo Sistema CRM Comércio.", 0, 1)
         
-                    # Totais
                     self.set_xy(x + 132, y + 98)
                     self.set_font("Arial", "B", 7)
                     self.cell(28, 4, "Total Vencimentos:", 0, 0)
@@ -2526,7 +2540,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     self.cell(28, 5, "Líquido a Receber:", 0, 0)
                     self.cell(28, 5, f"R$ {liquido:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 1, 'R')
         
-                    # Rodapé
                     self.rect(x, y + 114, 190, 18)
                     self.set_xy(x + 2, y + 115)
                     self.set_font("Arial", "B", 6)
@@ -2573,7 +2586,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         desconto_faltas REAL DEFAULT 0.0
                     )
                 """)
-                # Garante colunas caso a tabela já exista
                 for col_def in [("inss", "REAL DEFAULT 0.0"), ("faltas", "REAL DEFAULT 0.0"), ("desconto_faltas", "REAL DEFAULT 0.0")]:
                     try:
                         cursor.execute(f"ALTER TABLE pagamentos_funcionarios ADD COLUMN {col_def[0]} {col_def[1]}")
@@ -2589,9 +2601,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 "📅 Salários Pendentes e a Vencer"
             ])
         
-            # -------------------------------------------------------------------------
-            # ABA 1: COLABORADORES
-            # -------------------------------------------------------------------------
             with aba_colab:
                 with st.expander("➕ Adicionar Novo Colaborador"):
                     with st.form("form_novo_funcionario", clear_on_submit=True):
@@ -2675,9 +2684,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 else:
                     st.info("ℹ️ Ainda não existem colaboradores registados.")
         
-            # -------------------------------------------------------------------------
-            # ABA 2: REGISTO DE PAGAMENTOS COM CAMPOS EDITÁVEIS DE INSS E FALTAS
-            # -------------------------------------------------------------------------
             with aba_pagamentos:
                 st.subheader("💸 Registar Pagamento, Salário ou Vale")
                 
@@ -2693,7 +2699,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         col_p1, col_p2 = st.columns(2)
                         with col_p1:
                             colaborador_selecionado = st.selectbox("Selecione o Colaborador", lista_nomes)
-                            tipo_lancamento = st.selectbox("Descrição / Tipo", ["Diárista", "Salário", "Vale", "Adiantamento", "Bónus"])
+                            tipo_lancamento = st.selectbox("Descrição / Tipo", ["Salário", "Vale", "Adiantamento", "Bónus"])
                             valor_lancamento = st.number_input("Valor Bruto (R$)", min_value=0.0, value=0.0, step=10.0)
                         with col_p2:
                             inss_lancamento = st.number_input("Desconto INSS (R$)", min_value=0.0, value=0.0, step=10.0)
@@ -2743,7 +2749,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         f_dict = f_info.iloc[0].to_dict() if not f_info.empty else {'id': 1, 'cargo': 'Funcionário', 'cbo': '-'}
         
                         with st.expander(f"📄 {p_collab} — {p_tipo}: R$ {p_valor:,.2f} ( Líquido: R$ {p_valor - p_inss - p_desc_faltas:,.2f} ) em {p_data}"):
-                            # Formulário para editar os valores do holerite diretamente antes de imprimir
                             with st.form(f"form_edite_holerite_{p_id}"):
                                 ce1, ce2, ce3 = st.columns(3)
                                 with ce1:
@@ -2774,7 +2779,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     except Exception as e:
                                         st.error(f"Erro ao atualizar: {e}")
         
-                            # Botão para descarregar o PDF com os valores atualizados
                             pdf_obj = PDFHolerite(
                                 dados_func=f_dict,
                                 dados_pagamento={
@@ -2798,9 +2802,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 else:
                     st.info("ℹ️ Nenhum pagamento registado até o momento.")
         
-            # -------------------------------------------------------------------------
-            # ABA 3: SALÁRIOS PENDENTES E A VENCER
-            # -------------------------------------------------------------------------
             with aba_pendentes:
                 st.subheader("📅 Controlo Automático de Salários Pendentes e a Vencer")
                 st.markdown("Marque como '✅ Pago' para dar baixa e gerar os registos salariais.")
@@ -2868,13 +2869,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     df_pendentes_final = pd.DataFrame(competencias_geradas)
         
                     if not df_pendentes_final.empty:
-                        filtro_status = st.selectbox("Filtrar por Status:", ["Todos", "🔴 Pendente (Em Aberto)", "🟢 A Vencer", "✅ Pago"], key="filtro_status_pend_v6")
+                        filtro_status = st.selectbox("Filtrar por Status:", ["Todos", "🔴 Pendente (Em Aberto)", "🟢 A Vencer", "✅ Pago"], key="filtro_status_pend_v7")
                         if filtro_status != "Todos":
                             df_pendentes_final = df_pendentes_final[df_pendentes_final['Status'] == filtro_status]
         
                         edited_pendentes = st.data_editor(
                             df_pendentes_final,
-                            key="editor_tabela_salarios_pendentes_v6",
+                            key="editor_tabela_salarios_pendentes_v7",
                             use_container_width=True,
                             hide_index=True,
                             column_config={
@@ -2896,7 +2897,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         
                         st.markdown("---")
                         
-                        if st.button("💾 Salvar Alterações e Registar Pagamentos", key="btn_salvar_pend_v6", use_container_width=True):
+                        if st.button("💾 Salvar Alterações e Registar Pagamentos", key="btn_salvar_pend_v7", use_container_width=True):
                             try:
                                 cursor = conn.cursor()
                                 with conn:
