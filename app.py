@@ -39,26 +39,28 @@ def sanear_df_vendas(df):
 # -----------------------------------------------------------------------------
 def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=15, bottomMargin=30)
+    # topMargin reduzido para 5 (praticamente sem margem superior)
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=10, leftMargin=10, topMargin=5, bottomMargin=10)
     story = []
 
     styles = getSampleStyleSheet()
 
+    # Estilos compactos sem espaçamento exagerado
     style_empresa = ParagraphStyle(
-        'Empresa', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=16, 
-        leading=20, alignment=1, textColor=colors.HexColor("#0f2a4a"), spaceAfter=4
+        'Empresa', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=10, 
+        leading=10, alignment=1, textColor=colors.HexColor("#0f2a4a"), spaceAfter=1
     )
     style_sub = ParagraphStyle(
-        'Sub', parent=styles['Normal'], fontName='Helvetica', fontSize=9, 
-        leading=12, alignment=1, spaceAfter=10
+        'Sub', parent=styles['Normal'], fontName='Helvetica', fontSize=7, 
+        leading=7, alignment=1, spaceAfter=2
     )
     style_titulo = ParagraphStyle(
-        'Titulo', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=12, 
-        leading=15, alignment=1, textColor=colors.HexColor("#0f2a4a"), spaceAfter=4
+        'Titulo', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=7, 
+        leading=8, alignment=1, textColor=colors.HexColor("#0f2a4a"), spaceAfter=1
     )
     style_info = ParagraphStyle(
-        'Info', parent=styles['Normal'], fontName='Helvetica', fontSize=9, 
-        leading=12, alignment=1, spaceAfter=15
+        'Info', parent=styles['Normal'], fontName='Helvetica', fontSize=7, 
+        leading=7, alignment=1, spaceAfter=1
     )
 
     story.append(Paragraph("REY DA CEBOLA", style_empresa))
@@ -135,7 +137,9 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#1f4e8c")),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),  # Fonte reduzida para 8 em toda a tabela
+        ('TOPPADDING', (0, 0), (-1, -1), 3),   # Padding reduzido para poupar espaço vertical
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
         ('ALIGN', (1, 0), (-1, -1), 'CENTER'),
         ('ALIGN', (0, 0), (0, -1), 'LEFT'),
         ('GRID', (0, 0), (-1, -2), 0.5, colors.HexColor("#d3d3d3")),
@@ -151,7 +155,6 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
     doc.build(story)
     buffer.seek(0)
     return buffer
-
 # -----------------------------------------------------------------------------
 # CONEXÃO E MIGRAÇÃO DO BANCO DE DADOS
 # -----------------------------------------------------------------------------
@@ -619,47 +622,71 @@ if perfil_selecionado == "👤 Portal do Cliente":
                             except:
                                 pass
             
-            col_cli_3, col_cli_4 = st.columns(2)
+            # Seleção de Fornecedor, Quantidade e Preço Unitário para o item atual
+            col_cli_3, col_cli_4, col_cli_5 = st.columns(3)
             with col_cli_3:
-                fornec_ped = st.selectbox("Selecione o Fornecedor", fornecedores_opt, key="cli_forn_ind")
+                fornecedor_cli = st.selectbox("Selecione o Fornecedor", fornecedores_opt, key="cli_select_fornecedor")
             with col_cli_4:
-                qtd_ped = st.number_input("Quantidade", min_value=0.01, step=1.0, value=1.0, key="cli_qtd_ind")
-            
-            col_cli_5, col_cli_6 = st.columns(2)
+                qtd_cli = st.number_input("Quantidade", min_value=0.01, value=1.0, step=1.0, key="cli_qtd_input")
             with col_cli_5:
-                v_venda_ped = st.number_input("Preço Unitário (R$)", min_value=0.0, value=float(preco_sugerido_cli), key=f"cli_v_ind_{prod_item}")
-            with col_cli_6:
-                valor_total_item = qtd_ped * v_venda_ped
-                st.info(f"**Valor Total do Item:** R$ {valor_total_item:.2f}")
-            
-            if "carrinho_cliente" not in st.session_state:
-                st.session_state.carrinho_cliente = []
-            
-            if "modo_edicao_cli" not in st.session_state:
-                st.session_state.modo_edicao_cli = False
-
-            if st.button("➕ Incluir Produto no Pedido", type="primary", key="btn_incluir_prod_cli"):
+                # Tenta buscar o preço unitário do produto selecionado de forma automática
+                preco_sugerido = 0.0
+                try:
+                    if not df_p_cli.empty and prod_item != "+ Cadastrar Novo Produto...":
+                        match_prod = df_p_cli[df_p_cli[col_nome_p].astype(str).str.strip().str.upper() == prod_item.strip().upper()]
+                        if not match_prod.empty:
+                            for col_preco in ['valor_venda', 'preco', 'valor']:
+                                if col_preco in match_prod.columns:
+                                    preco_sugerido = float(match_prod.iloc[0][col_preco])
+                                    break
+                except Exception:
+                    pass
+                
+                preco_cli = st.number_input("Preço Unitário (R$)", min_value=0.0, value=preco_sugerido if preco_sugerido > 0 else 117.0, step=1.0, key="cli_preco_input")
+    
+            # Exibe o total do item em tempo real
+            st.info(f"Valor Total do Item: R$ {qtd_cli * preco_cli:.2f}")
+    
+            # Inicializa o carrinho do cliente como dicionário se não existir ou se for lista antiga
+            if 'carrinho_cliente' not in st.session_state or not isinstance(st.session_state.carrinho_cliente, dict):
+                st.session_state.carrinho_cliente = {}
+    
+            # Botão de Incluir Produto (Substituição Direta - Impossível Somar)
+            if st.button("➕ Incluir Produto no Pedido", use_container_width=True, key="btn_incluir_cli_unico"):
                 if prod_item == "+ Cadastrar Novo Produto...":
-                    st.error("Por favor, selecione ou cadastre o produto antes de incluir no pedido.")
+                    st.warning("⚠️ Por favor, selecione um produto válido ou cadastre um novo antes de incluir.")
                 else:
-                    st.session_state.carrinho_cliente.append({
-                        "produto": prod_item,
-                        "fornecedor": fornec_ped,
-                        "grupo": grupo_ped,
-                        "quantidade": float(qtd_ped),
-                        "valor_unitario": float(v_venda_ped),
-                        "preco_unitario": float(v_venda_ped),
-                        "valor_total": float(valor_total_item)
-                    })
-                    st.success(f"✅ '{prod_item}' adicionado ao pedido com sucesso!")
+                    p_limpo = str(prod_item).strip().upper()
+                    f_limpo = str(fornecedor_cli).strip().upper()
+                    chave_unica = f"{p_limpo}|{f_limpo}"
+                    
+                    qtd_add = float(qtd_cli)
+                    val_unit = float(preco_cli)
+    
+                    # Grava ou substitui diretamente o item no dicionário com o valor exato do input
+                    st.session_state.carrinho_cliente[chave_unica] = {
+                        'produto': str(prod_item).strip(),
+                        'fornecedor': str(fornecedor_cli).strip(),
+                        'grupo': str(grupo_ped).strip(),
+                        'quantidade': qtd_add,
+                        'valor_unitario': val_unit,
+                        'valor_total': qtd_add * val_unit
+                    }
+                        
+                    st.success(f"Produto {prod_item} atualizado com sucesso!")
                     st.rerun()
-
+    
             st.markdown("---")
             st.subheader("📋 Itens Atuais no Pedido")
-
+    
+            # Exibição da Tabela do Carrinho
             if st.session_state.carrinho_cliente:
-                df_carrinho_cli = pd.DataFrame(st.session_state.carrinho_cliente)
-
+                lista_itens = list(st.session_state.carrinho_cliente.values())
+                df_carrinho_cli = pd.DataFrame(lista_itens)
+    
+                if 'modo_edicao_cli' not in st.session_state:
+                    st.session_state.modo_edicao_cli = False
+    
                 if st.session_state.modo_edicao_cli:
                     st.info("💡 **Modo de Edição Ativo:** Altere as quantidades ou valores diretamente na tabela abaixo e clique em **'💾 Salvar'**.")
                     df_editado_cli = st.data_editor(
@@ -669,70 +696,93 @@ if perfil_selecionado == "👤 Portal do Cliente":
                     )
                 else:
                     st.dataframe(df_carrinho_cli, use_container_width=True)
-
+    
                 col_btn1, col_btn2, col_btn3, col_btn4 = st.columns(4)
 
                 with col_btn1:
                     if st.button("🗑️ Limpar Carrinho", use_container_width=True, key="btn_limpar_cli"):
-                        st.session_state.carrinho_cliente = []
+                        st.session_state.carrinho_cliente = {}
                         st.session_state.modo_edicao_cli = False
                         st.rerun()
-
+        
                 with col_btn2:
                     if st.button("✏️ Alterar", use_container_width=True, key="btn_alterar_cli"):
                         st.session_state.modo_edicao_cli = True
                         st.rerun()
-
+        
                 with col_btn3:
                     if st.button("💾 Salvar", use_container_width=True, key="btn_salvar_cli"):
                         if st.session_state.modo_edicao_cli and 'df_editado_cli' in locals():
-                            df_editado_cli['quantidade'] = pd.to_numeric(df_editado_cli['quantidade'], errors='coerce').fillna(1)
-                            df_editado_cli['valor_unitario'] = pd.to_numeric(df_editado_cli['valor_unitario'], errors='coerce').fillna(0)
-                            df_editado_cli['valor_total'] = df_editado_cli['quantidade'] * df_editado_cli['valor_unitario']
-
-                            st.session_state.carrinho_cliente = df_editado_cli.to_dict('records')
+                            novo_dict = {}
+                            for _, row in df_editado_cli.iterrows():
+                                p = str(row['produto']).strip().upper()
+                                f = str(row['fornecedor']).strip().upper()
+                                chave = f"{p}|{f}"
+                                qtd = float(row['quantidade'])
+                                vu = float(row['valor_unitario'])
+                                
+                                novo_dict[chave] = {
+                                    'produto': str(row['produto']).strip(),
+                                    'fornecedor': str(row['fornecedor']).strip(),
+                                    'grupo': str(row['grupo']).strip(),
+                                    'quantidade': qtd,
+                                    'valor_unitario': vu,
+                                    'valor_total': qtd * vu
+                                }
+                            
+                            st.session_state.carrinho_cliente = novo_dict
                             st.session_state.modo_edicao_cli = False
                             st.success("✅ Pedido atualizado com sucesso!")
                             st.rerun()
-
+        
                 with col_btn4:
-                    if st.button("🔴 Finalizar e Enviar Pedido", type="primary", use_container_width=True, key="btn_finalizar_cli"):
-                        try:
-                            cursor = conn.cursor()
-                            data_agora = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            cliente_logado = st.session_state.get('cliente_autenticado', 'Cliente')
-
-                            for item in st.session_state.carrinho_cliente:
-                                qtd_item = float(item.get("quantidade", 1))
-                                prod_nome = str(item.get("produto", ""))
-                                val_unit = float(item.get("valor_unitario", 0))
-                                val_tot = float(item.get("valor_total", 0))
-                                forn_nome = item.get("fornecedor", "")
-                                grupo_nome = item.get("grupo", "")
-
-                                cursor.execute("INSERT INTO pedidos (cliente, produto, fornecedor, grupo, quantidade, valor_unitario, valor_total, status, data) VALUES (?, ?, ?, ?, ?, ?, ?, 'Pendente', ?)", (cliente_logado, prod_nome, forn_nome, grupo_nome, qtd_item, val_unit, val_tot, data_agora))
-                                cursor.execute("INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, status, data) VALUES (?, ?, ?, ?, ?, ?, ?, 'Pendente', ?)", (cliente_logado, prod_nome, forn_nome, grupo_nome, qtd_item, val_unit, val_tot, data_agora))
-                                cursor.execute("UPDATE produtos SET quantidade = quantidade + ? WHERE produto = ?", (qtd_item, prod_nome))
-
-                            conn.commit()
-                            st.session_state.carrinho_cliente = []
-                            st.session_state.modo_edicao_cli = False
-                            st.cache_data.clear()
-                            st.success("✅ Pedido enviado com sucesso!")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Erro ao enviar pedido: {e}")
-            else:
-                st.info("Nenhum item adicionado ao carrinho ainda.")
+                    if st.button("🚀 Finalizar e Enviar", use_container_width=True, type="primary", key="btn_finalizar_cli"):
+                        if st.session_state.carrinho_cliente:
+                            try:
+                                cursor = conn.cursor()
+                                import datetime
+                                data_atual = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                codigo_pedido = f"PED-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
+                                cliente_atual = st.session_state.cliente_autenticado
+        
+                                for chave, item in st.session_state.carrinho_cliente.items():
+                                    cursor.execute("""
+                                        INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, fornecedor, grupo, data, status, codigo_pedido)
+                                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                    """, (
+                                        cliente_atual,
+                                        item['produto'],
+                                        item['quantidade'],
+                                        item['valor_unitario'],
+                                        item['valor_total'],
+                                        item['fornecedor'],
+                                        item['grupo'],
+                                        data_atual,
+                                        "Pendente",
+                                        codigo_pedido
+                                    ))
+                                conn.commit()
+                                
+                                # Limpa o carrinho após enviar
+                                st.session_state.carrinho_cliente = {}
+                                st.session_state.modo_edicao_cli = False
+                                st.success(f"🎉 Pedido {codigo_pedido} enviado com sucesso!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao salvar pedido: {e}")
+                        else:
+                            st.warning("⚠️ O carrinho está vazio.")
     
         with aba_historico:
             st.subheader("Histórico e Gestão de Meus Pedidos")
             
             try:
+                # Alterado para ler da tabela 'pedidos' onde o status é Pendente e a data é hoje
                 query_dia = """
-                    SELECT id, cliente, produto, quantidade, valor_venda AS valor_unitario, valor_total, fornecedor, grupo, data, status
-                    FROM vendas
-                    WHERE DATE(data) = DATE('now', 'localtime') AND cliente = ?
+                    SELECT id, produto, quantidade, valor_unitario, valor_total, status, data, fornecedor, grupo, codigo_pedido
+                    FROM pedidos
+                    WHERE DATE(data) = DATE('now', 'localtime') AND cliente = ? AND status = 'Pendente'
+                    ORDER BY id DESC
                 """
                 df_dia = pd.read_sql_query(query_dia, conn, params=(st.session_state.cliente_autenticado,))
         
@@ -745,7 +795,6 @@ if perfil_selecionado == "👤 Portal do Cliente":
                         column_config={
                             "Excluir": st.column_config.CheckboxColumn("❌ Excluir?", default=False),
                             "id": st.column_config.NumberColumn("ID", disabled=True),
-                            "cliente": st.column_config.TextColumn("Cliente", disabled=True),
                             "produto": st.column_config.TextColumn("Produto", disabled=True),
                             "quantidade": st.column_config.NumberColumn("Quantidade", min_value=0.01, step=0.01, format="%.2f"),
                             "valor_unitario": st.column_config.NumberColumn("Valor Unitário (R$)", disabled=True, format="R$ %.2f"),
@@ -754,23 +803,23 @@ if perfil_selecionado == "👤 Portal do Cliente":
                             "grupo": st.column_config.TextColumn("Grupo", disabled=True),
                             "data": st.column_config.TextColumn("Data", disabled=True),
                             "status": st.column_config.TextColumn("Status", disabled=True),
+                            "codigo_pedido": st.column_config.TextColumn("Cód. Pedido", disabled=True),
                         },
                         hide_index=True,
                         key="tabela_pedidos_do_dia_unica"
                     )
         
-                    col_btn1, col_btn2, col_btn3, = st.columns(3)
+                    col_btn1, col_btn2, col_btn3 = st.columns(3)
                     with col_btn1:
                         if st.button("💾 Salvar Alterações", type="primary", key="btn_salvar_tabela_unica"):
                             try:
                                 cursor = conn.cursor()
                                 for _, row in df_editado.iterrows():
                                     novo_total = float(row['quantidade']) * float(row['valor_unitario'])
-                                    cursor.execute("UPDATE vendas SET quantidade = ?, valor_total = ? WHERE id = ?", (row['quantidade'], novo_total, row['id']))
-                                    cursor.execute("UPDATE pedidos SET quantidade = ?, valor_total = ? WHERE cliente = ? AND produto = ? AND DATE(data) = DATE(?)", (row['quantidade'], novo_total, row['cliente'], row['produto'], row['data']))
+                                    cursor.execute("UPDATE pedidos SET quantidade = ?, valor_total = ? WHERE id = ?", (row['quantidade'], novo_total, row['id']))
                                 conn.commit()
                                 st.cache_data.clear()
-                                st.success("Pedidos atualizados com sucesso em ambas as tabelas!")
+                                st.success("Pedidos atualizados com sucesso!")
                                 st.rerun()
                             except Exception as ex:
                                 st.error(f"Erro ao atualizar os pedidos: {ex}")
@@ -784,12 +833,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                                 if not itens_para_excluir.empty:
                                     for _, row in itens_para_excluir.iterrows():
                                         id_item = row['id']
-                                        cliente_item = row.get('cliente', '')
-                                        produto_item = row.get('produto', '')
-                                        
-                                        cursor.execute("DELETE FROM vendas WHERE id = ?", (id_item,))
-                                        if cliente_item and produto_item:
-                                            cursor.execute("DELETE FROM pedidos WHERE cliente = ? AND produto = ?", (cliente_item, produto_item))
+                                        cursor.execute("DELETE FROM pedidos WHERE id = ?", (id_item,))
                                     
                                     conn.commit()
                                     st.warning("Itens excluídos com sucesso!")
@@ -816,14 +860,15 @@ if perfil_selecionado == "👤 Portal do Cliente":
                     
             except Exception as e:
                 st.error(f"Erro ao carregar pedidos do dia: {e}")
-                        
+                
             st.markdown("---")
             st.subheader("📚 Pedidos Anteriores (Histórico)")
             try:
+                # Mostra no histórico apenas o que não é de hoje pendente (evitando duplicar com a tabela de cima)
                 query_hist_cliente = """
                     SELECT id, produto, quantidade, valor_unitario, valor_total, status, data, fornecedor, grupo, codigo_pedido
                     FROM pedidos
-                    WHERE cliente = ?
+                    WHERE cliente = ? AND (DATE(data) != DATE('now', 'localtime') OR status != 'Pendente')
                     ORDER BY id DESC
                 """
                 df_hist_cli = pd.read_sql_query(query_hist_cliente, conn, params=(st.session_state.cliente_autenticado,))
@@ -833,7 +878,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                     st.info("Nenhum pedido anterior encontrado.")
             except Exception as e_hist:
                 st.error(f"Erro ao carregar histórico: {e_hist}")
-       
+
 # ==========================================
 # AMBIENTE 2: ADMINISTRADOR / VENDEDOR
 # ==========================================
@@ -842,7 +887,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         st.title("🔑 Autenticação Administrativa")
         senha_admin = st.sidebar.text_input("Digite a Senha do Admin:", type="password")
         if st.sidebar.button("Entrar como Admin"):
-            if senha_admin == "1234":
+            if senha_admin == "13142715Sa":
                 st.session_state.admin_logged = True
                 st.rerun()
             else:
@@ -862,25 +907,29 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 "📋 Pedidos / Orçamentos",
                 "🛒 Registrar Venda",
                 "📥 Entrada de Estoque (Compras)",
+                "📦 Estoque de Produtos",
                 "👥 Cadastros (Clientes / Fornecedores / Grupos)",
-                "👥 Gestão de Recursos Humanos (RH)",
-                "💾 Backup e Restauração",
-                "💸 Contas a Receber",
-                "📦 Estoque de Produtos"
+                "💾 Backup e Restauração"
             ]
         )
         
         if menu_admin == "🛒 PDV — Frente de Caixa":
-            st.title("🛒 PDV — Frente de Caixa (Múltiplos Produtos)")
-    
+            # Cabeçalho estilo PDV Profissional
+            st.markdown("""
+                <div style="background-color: #0f2a4a; padding: 12px 20px; border-radius: 8px; color: white; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <span style="font-size: 18px; font-weight: bold;">🖥️ Caixa Livre — PDV Profissional</span>
+                    <span style="font-size: 14px; background: #1f4e8c; padding: 4px 10px; border-radius: 4px;">Status: Caixa Aberto</span>
+                </div>
+            """, unsafe_allow_html=True)
+        
             df_caixa_aberto = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
             if df_caixa_aberto.empty:
                 st.warning("⚠️ Atenção: Não há nenhum caixa aberto no momento. Vá em '🔓 Abertura e Fechamento de Caixa' para abrir o caixa.")
-    
+        
             clientes_opt = carregar_coluna("clientes", "nome") or ["Carlos Alberto"]
             fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
             grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
-    
+        
             df_p = carregar_dados("SELECT * FROM produtos")
             if not df_p.empty:
                 df_p.columns = [c.lower() for c in df_p.columns]
@@ -888,136 +937,174 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 produtos_opt = df_p[col_nome_p].dropna().astype(str).str.strip().unique().tolist()
             else:
                 produtos_opt = ["AMEIXA IMPORTADA", "ABACATE"]
-    
-            cliente_pdv = st.selectbox("Selecione o Cliente do Atendimento", clientes_opt)
+        
+            col_cab1, col_cab2 = st.columns([2, 1])
+            with col_cab1:
+                cliente_pdv = st.selectbox("👤 Cliente do Atendimento", clientes_opt)
+            with col_cab2:
+                st.text_input("Nr. Venda / Atendimento", value="000124", disabled=True)
+        
+            st.markdown("---")
+        
             col_pdv_esq, col_pdv_dir = st.columns([1.1, 1.9])
-    
+        
             with col_pdv_esq:
-                st.markdown("#### ➕ Adicionar Item ao Carrinho")
-                prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto")
-                
-                preco_sugerido = 0.0
-                forn_sugerido = fornecedores_opt[0]
-                grupo_sugerido = grupos_opt[0]
-    
-                if not df_p.empty:
-                    df_p['nome_limpo'] = df_p[col_nome_p].astype(str).str.strip().str.upper()
-                    target_nome = str(prod_item).strip().upper()
-                    df_filtrado_p = df_p[df_p['nome_limpo'] == target_nome]
-    
-                    if not df_filtrado_p.empty:
-                        row_p = df_filtrado_p.iloc[0]
-                        for col_v in ['valor_venda', 'preco_venda', 'venda']:
-                            if col_v in df_p.columns:
-                                try:
-                                    val_aux = float(row_p[col_v])
-                                    if val_aux > 0:
-                                        preco_sugerido = val_aux
-                                        break
-                                except:
-                                    pass
-    
-                        if 'fornecedor' in df_p.columns and pd.notna(row_p['fornecedor']):
-                            forn_sugerido = str(row_p['fornecedor'])
-                        if 'grupo' in df_p.columns and pd.notna(row_p['grupo']):
-                            grupo_sugerido = str(row_p['grupo'])
-    
-                col_s1, col_s2 = st.columns(2)
-                with col_s1:
-                    idx_f = fornecedores_opt.index(forn_sugerido) if fornecedores_opt and forn_sugerido in fornecedores_opt else 0
-                    forn_item = st.selectbox("Fornecedor", fornecedores_opt, index=idx_f, key="pdv_forn_input")
-                    idx_g = grupos_opt.index(grupo_sugerido) if grupos_opt and grupo_sugerido in grupos_opt else 0
-                    grupo_item = st.selectbox("Grupo", grupos_opt, index=idx_g, key="pdv_grupo_input")
-    
-                with col_s2:
-                    qtd_item = st.number_input("Quantidade", min_value=0.1, step=1.0, value=1.0, key="pdv_qtd")
-                    v_unit_item = st.number_input("Preço de Venda (R$)", min_value=0.0, step=1.0, value=float(preco_sugerido), key=f"vunit_{prod_item}")
-    
-                valor_total_item = qtd_item * v_unit_item
-                st.metric("Valor Total do Item", f"R$ {valor_total_item:.2f}")
-    
-                if st.button("➕ Incluir Produto no Carrinho", type="primary"):
-                    st.session_state.carrinho_pdv.append({
-                        "produto": prod_item,
-                        "fornecedor": forn_item,
-                        "grupo": grupo_item,
-                        "quantidade": qtd_item,
-                        "valor_venda": v_unit_item,
-                        "valor_total": valor_total_item
-                    })
-                    st.success(f"Item '{prod_item}' adicionado ao carrinho!")
-                    st.rerun()
-    
+                st.markdown("### 📦 Descrição do Produto")
+                with st.container(border=True):
+                    prod_item = st.selectbox("Selecione o Produto", produtos_opt, key="pdv_select_produto")
+                    
+                    preco_sugerido = 0.0
+                    forn_sugerido = fornecedores_opt[0]
+                    grupo_sugerido = grupos_opt[0]
+        
+                    if not df_p.empty:
+                        df_p['nome_limpo'] = df_p[col_nome_p].astype(str).str.strip().str.upper()
+                        target_nome = str(prod_item).strip().upper()
+                        df_filtrado_p = df_p[df_p['nome_limpo'] == target_nome]
+        
+                        if not df_filtrado_p.empty:
+                            row_p = df_filtrado_p.iloc[0]
+                            for col_v in ['valor_venda', 'preco_venda', 'venda']:
+                                if col_v in df_p.columns:
+                                    try:
+                                        val_aux = float(row_p[col_v])
+                                        if val_aux > 0:
+                                            preco_sugerido = val_aux
+                                            break
+                                    except:
+                                        pass
+        
+                            if 'fornecedor' in df_p.columns and pd.notna(row_p['fornecedor']):
+                                forn_sugerido = str(row_p['fornecedor'])
+                            if 'grupo' in df_p.columns and pd.notna(row_p['grupo']):
+                                grupo_sugerido = str(row_p['grupo'])
+        
+                    col_s1, col_s2 = st.columns(2)
+                    with col_s1:
+                        idx_f = fornecedores_opt.index(forn_sugerido) if fornecedores_opt and forn_sugerido in fornecedores_opt else 0
+                        forn_item = st.selectbox("Fornecedor", fornecedores_opt, index=idx_f, key="pdv_forn_input")
+                        idx_g = grupos_opt.index(grupo_sugerido) if grupos_opt and grupo_sugerido in grupos_opt else 0
+                        grupo_item = st.selectbox("Grupo", grupos_opt, index=idx_g, key="pdv_grupo_input")
+        
+                    with col_s2:
+                        qtd_item = st.number_input("🔢 Quantidade", min_value=0.1, step=1.0, value=1.0, key="pdv_qtd")
+                        v_unit_item = st.number_input("💲 Valor Unitário (R$)", min_value=0.0, step=1.0, value=float(preco_sugerido), key=f"vunit_{prod_item}")
+        
+                    valor_total_item = qtd_item * v_unit_item
+                    
+                    st.markdown(f"""
+                        <div style="background-color: #eef2f7; padding: 10px; border-radius: 6px; text-align: center; margin-top: 10px; margin-bottom: 10px;">
+                            <span style="font-size: 13px; color: #555;">Valor Total do Item:</span><br>
+                            <span style="font-size: 20px; font-weight: bold; color: #0f2a4a;">R$ {valor_total_item:.2f}</span>
+                        </div>
+                    """, unsafe_allow_html=True)
+        
+                    if st.button("➕ Incluir Produto no Carrinho", type="primary", use_container_width=True):
+                        st.session_state.carrinho_pdv.append({
+                            "produto": prod_item,
+                            "fornecedor": forn_item,
+                            "grupo": grupo_item,
+                            "quantidade": qtd_item,
+                            "valor_venda": v_unit_item,
+                            "valor_total": valor_total_item
+                        })
+                        st.success(f"Item '{prod_item}' adicionado!")
+                        st.rerun()
+        
+                # Botões de Ações Rápidas / Cupom (Substituindo os atalhos de teclado)
+                st.markdown("#### 🖨️️ Ações e Impressão de Cupom")
+                cols_cup = st.columns(2)
+                with cols_cup[0]:
+                    if st.button("📄 Imprimir Cupom 58mm", use_container_width=True):
+                        st.info("🖨️ Envie a última venda para a impressora térmica 58mm.")
+                with cols_cup[1]:
+                    if st.button("📄 Imprimir Cupom 80mm", use_container_width=True):
+                        st.info("🖨️ Envie a última venda para a impressora térmica 80mm.")
+        
             with col_pdv_dir:
-                st.markdown("#### 🛒 Itens Atuais no Carrinho")
+                st.markdown("### 🛒 Carrinho de Compras / Itens Atuais")
+                
                 if len(st.session_state.carrinho_pdv) > 0:
                     df_carrinho = pd.DataFrame(st.session_state.carrinho_pdv)
                     st.dataframe(df_carrinho, use_container_width=True, hide_index=True)
                     total_geral_carrinho = df_carrinho['valor_total'].sum()
                 else:
-                    st.info("O carrinho está vazio.")
+                    st.info("O carrinho está vazio. Adicione produtos ao lado.")
                     total_geral_carrinho = 0.0
-    
-                if st.button("🗑️ Limpar Carrinho"):
+        
+                if st.button("🗑️ Limpar Carrinho Inteiro", use_container_width=True):
                     st.session_state.carrinho_pdv = []
                     st.rerun()
-    
+        
                 st.markdown("---")
-                st.markdown("#### 💳 Forma de Pagamento e Finalização")
+                st.markdown("### 💳 Pagamento & Total Líquido")
                 
-                f_pag = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito", "Cartão de Débito", "Fiado / Prazo"], key="pdv_forma_pagto")
-                v_rec = st.number_input("Valor Recebido (R$)", min_value=0.0, step=1.0, value=float(total_geral_carrinho), key="pdv_val_rec")
-                troco = v_rec - total_geral_carrinho if v_rec > total_geral_carrinho else 0.0
-    
-                col_t1, col_t2 = st.columns(2)
-                with col_t1:
-                    st.metric("Valor Total da Venda", f"R$ {total_geral_carrinho:.2f}")
-                with col_t2:
-                    st.metric("Troco", f"R$ {troco:.2f}")
-    
-                if st.button("Finalizar Venda no PDV", type="primary"):
-                    if not df_caixa_aberto.empty and len(st.session_state.carrinho_pdv) > 0:
-                        cursor = conn.cursor()
-                        sessao_id = int(df_caixa_aberto.iloc[0]['id'])
-                        data_venda = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                
-                        for item in st.session_state.carrinho_pdv:
+                with st.container(border=True):
+                    col_pg1, col_pg2 = st.columns(2)
+                    with col_pg1:
+                        f_pag = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito", "Cartão de Débito", "Fiado / Prazo"], key="pdv_forma_pagto")
+                        v_rec = st.number_input("Valor Recebido (R$)", min_value=0.0, step=1.0, value=float(total_geral_carrinho), key="pdv_val_rec")
+                    with col_pg2:
+                        troco = v_rec - total_geral_carrinho if v_rec > total_geral_carrinho else 0.0
+                        
+                        # Bloco de destaque para o Total Líquido
+                        st.markdown(f"""
+                            <div style="background-color: #0f2a4a; padding: 15px; border-radius: 8px; color: white; text-align: center; margin-top: 5px;">
+                                <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">TOTAL LÍQUIDO</span><br>
+                                <span style="font-size: 26px; font-weight: bold;">R$ {total_geral_carrinho:.2f}</span>
+                            </div>
+                        """, unsafe_allow_html=True)
+                        
+                        st.markdown(f"""
+                            <div style="background-color: #eef2f7; padding: 10px; border-radius: 6px; text-align: center; margin-top: 8px;">
+                                <span style="font-size: 12px; color: #555;">TROCO:</span>
+                                <span style="font-size: 16px; font-weight: bold; color: #2e7d32;">R$ {troco:.2f}</span>
+                            </div>
+                        """, unsafe_allow_html=True)
+        
+                    if st.button("🚀 Finalizar Venda no PDV", type="primary", use_container_width=True):
+                        if not df_caixa_aberto.empty and len(st.session_state.carrinho_pdv) > 0:
+                            cursor = conn.cursor()
+                            sessao_id = int(df_caixa_aberto.iloc[0]['id'])
+                            data_venda = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
+                            for item in st.session_state.carrinho_pdv:
+                                cursor.execute("""
+                                    INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, status, tipo, data)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                """, (
+                                    cliente_pdv, 
+                                    item['produto'], 
+                                    item['fornecedor'], 
+                                    item['grupo'],
+                                    item['quantidade'], 
+                                    item['valor_venda'], 
+                                    item['valor_total'],
+                                    f_pag, 
+                                    v_rec, 
+                                    'Concluído', 
+                                    'VENDA', 
+                                    data_venda
+                                ))
+        
                             cursor.execute("""
-                                INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, status, tipo, data)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) 
+                                VALUES (?, ?, ?, ?, ?)
                             """, (
-                                cliente_pdv, 
-                                item['produto'], 
-                                item['fornecedor'], 
-                                item['grupo'],
-                                item['quantidade'], 
-                                item['valor_venda'], 
-                                item['valor_total'],
-                                f_pag, 
-                                v_rec, 
-                                'Concluído', 
-                                'VENDA', 
+                                sessao_id, 
+                                "VENDA", 
+                                float(total_geral_carrinho), 
+                                f"Venda PDV - Cliente: {cliente_pdv}", 
                                 data_venda
                             ))
-                
-                        cursor.execute("""
-                            INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) 
-                            VALUES (?, ?, ?, ?, ?)
-                        """, (
-                            sessao_id, 
-                            "VENDA", 
-                            float(total_geral_carrinho), 
-                            f"Venda PDV - Cliente: {cliente_pdv}", 
-                            data_venda
-                        ))
-                        
-                        conn.commit()
-                
-                        st.session_state.carrinho_pdv = []
-                        st.success(f"Venda realizada com sucesso! Troco: R$ {max(0.0, troco):.2f}")
-                        st.rerun()
-                    else:
-                        st.error("Verifique se o caixa está aberto e se há itens no carrinho.")
+        
+                            conn.commit()
+        
+                            st.session_state.carrinho_pdv = []
+                            st.success(f"🎉 Venda realizada com sucesso! Troco: R$ {max(0.0, troco):.2f}")
+                            st.rerun()
+                        else:
+                            st.error("⚠️ Verifique se o caixa está aberto e se há itens no carrinho antes de finalizar.")
 
         elif menu_admin == "🔓 Abertura e Fechamento de Caixa":
             st.title("🔓 Abertura e Fechamento de Caixa")
@@ -1199,206 +1286,154 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 
                 cliente_ped = st.selectbox("Cliente", clientes_opt, key="ped_cli_ind")
                 
-                col_l2_1, col_l2_2 = st.columns(2)
-                with col_l2_1:
+                col_12_1, col_12_2 = st.columns(2)
+                with col_12_1:
                     prod_item = st.selectbox("Selecione o Produto", opcoes_produtos_com_novo, key="ped_select_produto")
-                with col_l2_2:
+                with col_12_2:
                     grupo_ped = st.selectbox("Grupo", grupos_opt, key="ped_grupo_ind")
-                
-                if prod_item == "+ Cadastrar Novo Produto...":
-                    st.warning("⚠️ Preencha os dados abaixo para cadastrar o novo produto:")
-                
-                    c_cad1, c_cad2, c_cad3 = st.columns([2, 1, 1])
-                    with c_cad1:
-                        novo_nome_prod = st.text_input("Nome do Novo Produto", key="cad_novo_nome_ped").strip().upper()
-                    with c_cad2:
-                        c_g_r = st.selectbox("Grupo", grupos_opt, key="cad_g_rapido")
-                    with c_cad3:
-                        c_f_r = st.selectbox("Fornecedor", fornecedores_opt, key="cad_f_rapido")
-                
-                    c_cad4, c_cad5, c_cad6 = st.columns([1, 1, 1])
-                    with c_cad4:
-                        c_qtd_r = st.number_input("Qtd Inicial em Estoque", min_value=0.0, value=0.0, key="cad_q_rapido")
-                    with c_cad5:
-                        c_compra_r = st.number_input("Preço de Compra (R$)", min_value=0.0, value=0.0, key="cad_c_rapido")
-                    with c_cad6:
-                        c_venda_r = st.number_input("Preço de Venda (R$)", min_value=0.0, value=0.0, key="cad_v_rapido")
-                
-                    if st.button("💾 Salvar e Selecionar Produto", key="btn_salvar_novo_prod_ped"):
-                        if novo_nome_prod:
-                            try:
-                                cursor = conn.cursor()
-                                cursor.execute("SELECT id FROM produtos WHERE UPPER(produto) = UPPER(?)", (novo_nome_prod,))
-                                existe = cursor.fetchone()
-                
-                                if existe:
-                                    st.warning(f"⚠️ O produto '{novo_nome_prod}' já está cadastrado!")
-                                    st.session_state["prod_selecionado_temp"] = novo_nome_prod
-                                    st.rerun()
-                                else:
-                                    cursor.execute("INSERT INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda) VALUES (?, ?, ?, ?, ?, ?)", (novo_nome_prod, c_g_r, c_f_r, c_qtd_r, c_compra_r, c_venda_r))
-                                    conn.commit()
-                                    st.cache_data.clear()
-                                    st.session_state["prod_selecionado_temp"] = novo_nome_prod
-                                    st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro ao cadastrar: {e}")
-                        else:
-                            st.error("Digite o nome do produto.")
-                        st.stop()
-                
-                preco_sugerido_admin = 0.0
-                if not df_p_admin.empty and prod_item != "+ Cadastrar Novo Produto...":
-                    df_p_admin.columns = [c.lower() for c in df_p_admin.columns]
-                    col_nome_p = 'produto' if 'produto' in df_p_admin.columns else ('nome' if 'nome' in df_p_admin.columns else df_p_admin.columns[1])
-                    df_p_admin['_nome_limpo'] = df_p_admin[col_nome_p].astype(str).str.strip().str.upper()
-                    df_filtrado_admin = df_p_admin[df_p_admin['_nome_limpo'] == str(prod_item).strip().upper()]
-                
-                    if not df_filtrado_admin.empty:
-                        row_adm = df_filtrado_admin.iloc[0]
-                        for col_v in ['valor_venda', 'preco_venda', 'venda', 'preco', 'valor']:
-                            if col_v in df_p_admin.columns:
-                                try:
-                                    val_aux = float(row_adm[col_v])
-                                    if val_aux > 0:
-                                        preco_sugerido_admin = val_aux
+            
+                # Campos de Fornecedor, Quantidade e Preço Unitário
+                col_adm_3, col_adm_4, col_adm_5 = st.columns(3)
+                with col_adm_3:
+                    fornecedor_cli = st.selectbox("Selecione o Fornecedor", fornecedores_opt, key="adm_select_fornecedor")
+                with col_adm_4:
+                    qtd_cli = st.number_input("Quantidade", min_value=0.01, value=1.0, step=1.0, key="adm_qtd_input")
+                with col_adm_5:
+                    preco_sugerido = 117.0
+                    try:
+                        if 'df_p_cli' in locals() and not df_p_cli.empty and prod_item != "+ Cadastrar Novo Produto...":
+                            match_p = df_p_cli[df_p_cli[col_nome_p].astype(str).str.strip().str.upper() == prod_item.strip().upper()]
+                            if not match_p.empty:
+                                for cp in ['valor_venda', 'preco', 'valor']:
+                                    if cp in match_p.columns:
+                                        preco_sugerido = float(match_p.iloc[0][cp])
                                         break
-                                except:
-                                    pass
-                
-                col_l3_1, col_l3_2 = st.columns(2)
-                with col_l3_1:
-                    fornec_ped = st.selectbox("Fornecedor", fornecedores_opt, key="ped_forn_ind")
-                with col_l3_2:
-                    qtd_ped = st.number_input("Quantidade", min_value=0.01, step=1.0, value=1.0, key="ped_qtd_ind")
-                
-                col_l4_1, col_l4_2 = st.columns(2)
-                with col_l4_1:
-                    v_venda_ped = st.number_input("Preço Unitário (R$)", min_value=0.0, value=float(preco_sugerido_admin), key=f"ped_v_ind_{prod_item}")
-                with col_l4_2:
-                    valor_total_item = qtd_ped * v_venda_ped
-                    st.info(f"**Valor Total do Item:** R$ {valor_total_item:.2f}")
-                
-                if st.button("➕ Incluir Produto no Pedido", type="primary", key="btn_incluir_prod_pedido"):
+                    except Exception:
+                        pass
+                    preco_cli = st.number_input("Preço Unitário (R$)", min_value=0.0, value=preco_sugerido, step=1.0, key="adm_preco_input")
+            
+                st.info(f"Valor Total do Item: R$ {qtd_cli * preco_cli:.2f}")
+            
+                # Inicializa o carrinho do administrador como dicionário
+                if 'carrinho_admin' not in st.session_state or not isinstance(st.session_state.carrinho_admin, dict):
+                    st.session_state.carrinho_admin = {}
+            
+                # Botão de Incluir Produto no Painel do Administrador
+                if st.button("➕ Incluir Produto no Pedido", use_container_width=True, key="btn_incluir_admin_unico"):
                     if prod_item == "+ Cadastrar Novo Produto...":
-                        st.error("Por favor, selecione ou cadastre o produto antes de incluir no pedido.")
+                        st.warning("⚠️ Por favor, selecione um produto válido antes de incluir.")
                     else:
-                        if "carrinho_admin" not in st.session_state:
-                            st.session_state.carrinho_admin = []
-                
-                        st.session_state.carrinho_admin.append({
-                            "produto": prod_item,
-                            "fornecedor": fornec_ped,
-                            "grupo": grupo_ped,
-                            "quantidade": qtd_ped,
-                            "valor_unitario": v_venda_ped,
-                            "valor_total": valor_total_item
-                        })
-                        st.success(f"✅ '{prod_item}' adicionado ao pedido com sucesso!")
+                        p_limpo = str(prod_item).strip().upper()
+                        f_limpo = str(fornecedor_cli).strip().upper()
+                        chave_unica = f"{p_limpo}|{f_limpo}"
+            
+                        st.session_state.carrinho_admin[chave_unica] = {
+                            'produto': str(prod_item).strip(),
+                            'fornecedor': str(fornecedor_cli).strip(),
+                            'grupo': str(grupo_ped).strip(),
+                            'quantidade': float(qtd_cli),
+                            'valor_unitario': float(preco_cli),
+                            'valor_total': float(qtd_cli) * float(preco_cli)
+                        }
+                            
+                        st.success(f"Produto {prod_item} incluído com sucesso!")
                         st.rerun()
-        
+            
                 st.markdown("---")
-                st.subheader("📋 Itens Atuais no Pedido")
+                st.subheader("📋 Itens Atuais no Pedido (Administrador)")
             
-                if 'modo_edicao_carrinho' not in st.session_state:
-                    st.session_state.modo_edicao_carrinho = False
+                # Exibição da Tabela do Carrinho do Admin
+                if st.session_state.carrinho_admin:
+                    lista_itens_admin = list(st.session_state.carrinho_admin.values())
+                    df_carrinho_admin = pd.DataFrame(lista_itens_admin)
             
-                carrinho_atual = st.session_state.get('carrinho_admin', st.session_state.get('carrinho', []))
+                    if 'modo_edicao_admin' not in st.session_state:
+                        st.session_state.modo_edicao_admin = False
             
-                if carrinho_atual:
-                    df_carrinho = pd.DataFrame(carrinho_atual)
-            
-                    if st.session_state.modo_edicao_carrinho:
-                        st.info("💡 **Modo de Edição Ativo:** Altere as quantidades ou valores diretamente na tabela abaixo e depois clique em **'💾 Salvar'**.")
-                        df_editado = st.data_editor(df_carrinho, use_container_width=True, key="editor_itens_carrinho")
+                    if st.session_state.modo_edicao_admin:
+                        st.info("💡 **Modo de Edição Ativo:** Altere as quantidades ou valores diretamente na tabela e clique em **'💾 Salvar'**.")
+                        df_editado_admin = st.data_editor(
+                            df_carrinho_admin,
+                            use_container_width=True,
+                            key="editor_itens_carrinho_admin"
+                        )
                     else:
-                        st.dataframe(df_carrinho, use_container_width=True)
+                        st.dataframe(df_carrinho_admin, use_container_width=True)
             
-                    col_btn1, col_btn2, col_btn3, col_btn4 = st.columns(4)
+                    col_b1, col_b2, col_b3, col_b4 = st.columns(4)
             
-                    with col_btn1:
-                        if st.button("🗑️ Limpar Carrinho", use_container_width=True, key="btn_limpar_carrinho_v2"):
-                            if 'carrinho_admin' in st.session_state:
-                                st.session_state.carrinho_admin = []
-                            if 'carrinho' in st.session_state:
-                                st.session_state.carrinho = []
-                            st.session_state.modo_edicao_carrinho = False
+                    with col_b1:
+                        if st.button("🗑️ Limpar Carrinho", use_container_width=True, key="btn_limpar_admin"):
+                            st.session_state.carrinho_admin = {}
+                            st.session_state.modo_edicao_admin = False
                             st.rerun()
             
-                    with col_btn2:
-                        if st.button("✏️ Alterar", use_container_width=True, key="btn_alterar_carrinho_v2"):
-                            st.session_state.modo_edicao_carrinho = True
+                    with col_b2:
+                        if st.button("✏️ Alterar", use_container_width=True, key="btn_alterar_admin"):
+                            st.session_state.modo_edicao_admin = True
                             st.rerun()
             
-                    with col_btn3:
-                        if st.button("💾 Salvar", use_container_width=True, key="btn_salvar_carrinho_v2"):
-                            if st.session_state.modo_edicao_carrinho and 'df_editado' in locals():
-                                if 'quantidade' in df_editado.columns and 'valor_unitario' in df_editado.columns:
-                                    df_editado['quantidade'] = pd.to_numeric(df_editado['quantidade'], errors='coerce').fillna(1)
-                                    df_editado['valor_unitario'] = pd.to_numeric(df_editado['valor_unitario'], errors='coerce').fillna(0)
-                                    df_editado['valor_total'] = df_editado['quantidade'] * df_editado['valor_unitario']
-            
-                                novos_itens = df_editado.to_dict('records')
-                                if 'carrinho_admin' in st.session_state:
-                                    st.session_state.carrinho_admin = novos_itens
-                                if 'carrinho' in st.session_state:
-                                    st.session_state.carrinho = novos_itens
-            
-                                st.session_state.modo_edicao_carrinho = False
-                                st.success("✅ Alterações do carrinho salvas!")
+                    with col_b3:
+                        if st.button("💾 Salvar", use_container_width=True, key="btn_salvar_admin"):
+                            if st.session_state.modo_edicao_admin and 'df_editado_admin' in locals():
+                                novo_dict_adm = {}
+                                for _, row in df_editado_admin.iterrows():
+                                    p = str(row['produto']).strip().upper()
+                                    f = str(row['fornecedor']).strip().upper()
+                                    chave = f"{p}|{f}"
+                                    qtd = float(row['quantidade'])
+                                    vu = float(row['valor_unitario'])
+                                    
+                                    novo_dict_adm[chave] = {
+                                        'produto': str(row['produto']).strip(),
+                                        'fornecedor': str(row['fornecedor']).strip(),
+                                        'grupo': str(row['grupo']).strip(),
+                                        'quantidade': qtd,
+                                        'valor_unitario': vu,
+                                        'valor_total': qtd * vu
+                                    }
+                                
+                                st.session_state.carrinho_admin = novo_dict_adm
+                                st.session_state.modo_edicao_admin = False
+                                st.success("✅ Pedido atualizado com sucesso!")
                                 st.rerun()
+            
+                    with col_b4:
+                        if st.button("🚀 Finalizar e Enviar", use_container_width=True, type="primary", key="btn_finalizar_admin"):
+                            if st.session_state.carrinho_admin:
+                                try:
+                                    cursor = conn.cursor()
+                                    import datetime
+                                    data_atual = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                    codigo_pedido = f"PED-ADM-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
+                                    nome_cliente_pedido = str(locals().get('cliente_ped', 'Administração'))
+            
+                                    for chave, item in st.session_state.carrinho_admin.items():
+                                        cursor.execute("""
+                                            INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, fornecedor, grupo, data, status, codigo_pedido)
+                                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                        """, (
+                                            nome_cliente_pedido,
+                                            item['produto'],
+                                            item['quantidade'],
+                                            item['valor_unitario'],
+                                            item['valor_total'],
+                                            item['fornecedor'],
+                                            item['grupo'],
+                                            data_atual,
+                                            "Pendente",  # Gravado como Pendente para aparecer logo nas tabelas!
+                                            codigo_pedido
+                                        ))
+                                    conn.commit()
+                                    
+                                    st.session_state.carrinho_admin = {}
+                                    st.session_state.modo_edicao_admin = False
+                                    st.success(f"🎉 Pedido {codigo_pedido} gerado com sucesso!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Erro ao salvar pedido: {e}")
                             else:
-                                st.warning("Clique em '✏️ Alterar' primeiro para editar a tabela.")
-            
-                    with col_btn4:
-                        if st.button("🔴 Finalizar e Enviar Pedido", type="primary", use_container_width=True, key="btn_finalizar_pedido_v2"):
-                            try:
-                                cursor = conn.cursor()
-                                import zoneinfo
-                                data_agora = dt.datetime.now(zoneinfo.ZoneInfo("America/Sao_Paulo")).strftime("%Y-%m-%d %H:%M:%S")
-            
-                                for item in carrinho_atual:
-                                    qtd_item = float(item.get("quantidade", 1))
-                                    prod_nome = str(item.get("produto", ""))
-                                    val_unit = float(item.get("valor_unitario", 0))
-                                    val_tot = float(item.get("valor_total", 0))
-                                    forn_nome = item.get("fornecedor", "")
-                                    grupo_nome = item.get("grupo", "")
-            
-                                    # 1. Grava no histórico de pedidos
-                                    cursor.execute("""
-                                        INSERT INTO pedidos (cliente, produto, fornecedor, grupo, quantidade, valor_unitario, valor_total, status, data)
-                                        VALUES (?, ?, ?, ?, ?, ?, ?, 'Pendente', ?)
-                                    """, (cliente_ped, prod_nome, forn_nome, grupo_nome, qtd_item, val_unit, val_tot, data_agora))
-            
-                                    # 2. Grava também nas vendas do dia (para aparecer idêntico ao portal do cliente)
-                                    cursor.execute("""
-                                        INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, status, data)
-                                        VALUES (?, ?, ?, ?, ?, ?, ?, 'Pendente', ?)
-                                    """, (cliente_ped, prod_nome, forn_nome, grupo_nome, qtd_item, val_unit, val_tot, data_agora))
-            
-                                    # 3. Atualiza o estoque
-                                    cursor.execute("""
-                                        UPDATE produtos 
-                                        SET quantidade = quantidade + ? 
-                                        WHERE produto = ?
-                                    """, (qtd_item, prod_nome))
-            
-                                conn.commit()
-            
-                                if 'carrinho_admin' in st.session_state:
-                                    st.session_state.carrinho_admin = []
-                                if 'carrinho' in st.session_state:
-                                    st.session_state.carrinho = []
-            
-                                st.session_state.modo_edicao_carrinho = False
-                                st.cache_data.clear()
-                                st.success("✅ Pedido enviado com sucesso!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro ao salvar pedido: {e}")
-                else:
-                    st.info("Nenhum item adicionado ao carrinho ainda.")
+                                st.warning("⚠️ O carrinho está vazio.")
         
             with aba_list:
                 st.subheader("🟢 Pedidos do Dia Pendentes (Editáveis)")
@@ -1646,138 +1681,106 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 st.error(f"Erro ao limpar histórico: {e}")
                 else:
                     st.info("Nenhum registro encontrado.")
-        elif "Contas a Receber" in str(menu_admin):
-            st.title("💸 Contas a Receber")
-            st.markdown("Gerencie de forma centralizada todos os valores pendentes e saldos devedores dos clientes.")
             
-            # Bloco para carregar todos os pedidos da base de dados de forma segura
-            try:
-                df_contas = pd.read_sql_query("SELECT * FROM pedidos", conn)
-            except Exception:
-                df_contas = pd.DataFrame()
-            
-            if not df_contas.empty:
-                # Padroniza colunas numéricas de forma segura
-                for col in ['valor_total', 'valor_recebido', 'restante', 'quantidade', 'valor_unitario']:
-                    if col in df_contas.columns:
-                        df_contas[col] = pd.to_numeric(df_contas[col], errors='coerce').fillna(0.0)
-            
-                # Define o valor devedor com base na coluna restante ou no cálculo total - recebido
-                if 'restante' in df_contas.columns:
-                    df_contas['valor_devedor'] = df_contas['restante']
-                elif 'valor_total' in df_contas.columns and 'valor_recebido' in df_contas.columns:
-                    df_contas['valor_devedor'] = df_contas['valor_total'] - df_contas['valor_recebido']
-                elif 'valor_total' in df_contas.columns:
-                    df_contas['valor_devedor'] = df_contas['valor_total']
-                else:
-                    df_contas['valor_devedor'] = 0.0
-            
-                # Filtra apenas os registos que realmente possuem débito pendente (> 0)
-                df_contas = df_contas[df_contas['valor_devedor'] > 0]
-            
-            if not df_contas.empty:
-                col_f1, col_f2 = st.columns(2)
-                with col_f1:
-                    clientes_disponiveis = ["Todos"] + sorted(df_contas['cliente'].dropna().unique().tolist()) if 'cliente' in df_contas.columns else ["Todos"]
-                    filtro_cliente_cr = st.selectbox("Filtrar por Cliente:", clientes_disponiveis, key="select_cliente_contas_receber")
-                
-                with col_f2:
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    termo_busca_cr = st.text_input("🔍 Pesquisa rápida:", placeholder="Digite o produto ou detalhe...", key="busca_cr_livre")
-            
-                df_filtrado = df_contas.copy()
-                if filtro_cliente_cr != "Todos" and 'cliente' in df_filtrado.columns:
-                    df_filtrado = df_filtrado[df_filtrado['cliente'] == filtro_cliente_cr]
-                    
-                if termo_busca_cr.strip() and 'produto' in df_filtrado.columns:
-                    df_filtrado = df_filtrado[df_filtrado['produto'].astype(str).str.contains(termo_busca_cr, case=False, na=False)]
-            
-                total_a_receber = df_filtrado['valor_devedor'].sum()
-                total_clientes_devedores = df_filtrado['cliente'].nunique() if 'cliente' in df_filtrado.columns else 0
-            
-                st.markdown("---")
-                col_m1, col_m2 = st.columns(2)
-                with col_m1:
-                    st.metric("💰 Total Geral a Receber", f"R$ {total_a_receber:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-                with col_m2:
-                    st.metric("👥 Clientes com Pendências", str(total_clientes_devedores))
-            
-                st.markdown("---")
-                st.subheader("📋 Lista de Contas Pendentes")
-            
-                colunas_exibir = [c for c in ['id', 'cliente', 'produto', 'quantidade', 'valor_total', 'valor_recebido', 'restante', 'data'] if c in df_filtrado.columns]
-                if not colunas_exibir:
-                    colunas_exibir = df_filtrado.columns.tolist()
-            
-                st.dataframe(
-                    df_filtrado[colunas_exibir],
-                    use_container_width=True,
-                    hide_index=True
-                )
-            
-                if st.button("🔄 Atualizar Dados de Contas a Receber", key="btn_refresh_cr"):
-                    st.rerun()
-            
-            else:
-                st.info("ℹ️ Não existem contas a receber registadas ou todos os pedidos já se encontram quitados.")
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
+            
+            # Barra de pesquisa de produtos
+            termo_busca = st.text_input("🔍 Procurar Produto por Nome:", placeholder="Digite o nome do produto para filtrar...", key="busca_produto_estoque_dinamica")
             
             try:
                 df_produtos = pd.read_sql_query("SELECT * FROM produtos", conn)
             except Exception:
                 df_produtos = pd.DataFrame()
-        
+            
             # Filtro de stock
             filtro_estoque = st.selectbox(
                 "Filtrar por Status do Stock:",
                 ["Todos", "Com Stock (> 0)", "Zerados (= 0)"],
                 key="filtro_status_stock"
             )
-        
+            
             cols_esperadas = ['id', 'produto', 'quantidade', 'valor_compra', 'valor_venda', 'grupo', 'fornecedor']
             for c in cols_esperadas:
                 if c not in df_produtos.columns:
                     df_produtos[c] = 0.0 if ('valor' in c or 'quantidade' in c) else ""
-        
+            
             if not df_produtos.empty:
                 cols_finais = [c for c in cols_esperadas if c in df_produtos.columns]
                 df_produtos = df_produtos[cols_finais]
                 
-                # Aplica o filtro de quantidade de forma segura
+                # Converte para numérico de forma segura
                 df_produtos['quantidade'] = pd.to_numeric(df_produtos['quantidade'], errors='coerce').fillna(0)
+                df_produtos['valor_compra'] = pd.to_numeric(df_produtos['valor_compra'], errors='coerce').fillna(0)
+                df_produtos['valor_venda'] = pd.to_numeric(df_produtos['valor_venda'], errors='coerce').fillna(0)
+                
+                # ORDENAÇÃO SEMPRE DE A a Z PELO NOME DO PRODUTO
+                df_produtos = df_produtos.sort_values(by='produto', ascending=True, key=lambda col: col.str.lower())
+                
+                # Aplicar filtro de pesquisa por nome do produto
+                if termo_busca.strip():
+                    df_produtos = df_produtos[df_produtos['produto'].astype(str).str.contains(termo_busca, case=False, na=False)]
                 
                 if filtro_estoque == "Com Stock (> 0)":
                     df_produtos = df_produtos[df_produtos['quantidade'] > 0]
                 elif filtro_estoque == "Zerados (= 0)":
                     df_produtos = df_produtos[df_produtos['quantidade'] == 0]
-    
-            df_estoque_editado = st.data_editor(df_produtos, use_container_width=True, hide_index=True, key="editor_estoque_produtos")
-    
-            col_salvar, col_atualizar = st.columns([1, 1])
-    
-            with col_salvar:
-                if st.button("💾 Salvar Alterações no Estoque", type="primary", key="btn_salvar_estoque"):
+            
+            # Exibição da tabela editável
+            edited_df = st.data_editor(
+                df_produtos,
+                key="editor_estoque_produtos",
+                use_container_width=True,
+                num_rows="dynamic"
+            )
+            
+            # Cálculo dos valores totais (respeitando o filtro atual da tabela)
+            if not edited_df.empty:
+                total_compra = (edited_df['quantidade'] * edited_df['valor_compra']).sum()
+                total_venda = (edited_df['quantidade'] * edited_df['valor_venda']).sum()
+            else:
+                total_compra = 0.0
+                total_venda = 0.0
+            
+            st.markdown("---")
+            
+            # Exibir os totais em métricas lado a lado logo acima dos botões
+            col_m1, col_m2 = st.columns(2)
+            with col_m1:
+                st.metric("💰 Valor Total em Estoque (Compra)", f"R$ {total_compra:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+            with col_m2:
+                st.metric("🏷️ Valor Total em Estoque (Venda)", f"R$ {total_venda:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+            
+            st.markdown("---")
+            
+            # Botões de ação e definição correta de col_atualizar
+            col_btn_est1, col_atualizar = st.columns(2)
+            
+            with col_btn_est1:
+                if st.button("💾 Salvar Alterações no Estoque", key="btn_salvar_alt_estoque", use_container_width=True):
                     try:
                         cursor = conn.cursor()
-                        for col in ["grupo", "fornecedor"]:
-                            try:
-                                cursor.execute(f"ALTER TABLE produtos ADD COLUMN {col} TEXT")
-                            except Exception:
-                                pass
-    
-                        for _, row in df_estoque_editado.iterrows():
-                            cursor.execute("UPDATE produtos SET produto = ?, quantidade = ?, valor_compra = ?, valor_venda = ?, grupo = ?, fornecedor = ? WHERE id = ?", (row['produto'], row['quantidade'], row['valor_compra'], row['valor_venda'], row.get('grupo', ''), row.get('fornecedor', ''), row['id']))
-    
+                        for _, row in edited_df.iterrows():
+                            cursor.execute("""
+                                UPDATE produtos 
+                                SET quantidade = ?, valor_compra = ?, valor_venda = ?, grupo = ?, fornecedor = ?
+                                WHERE id = ?
+                            """, (
+                                float(row.get('quantidade', 0)),
+                                float(row.get('valor_compra', 0)),
+                                float(row.get('valor_venda', 0)),
+                                str(row.get('grupo', '')),
+                                str(row.get('fornecedor', '')),
+                                int(row.get('id', 0))
+                            ))
                         conn.commit()
-                        st.cache_data.clear()
-                        st.success("✅ Alterações do estoque salvas com sucesso!")
+                        st.success("✅ Estoque atualizado com sucesso!")
                         st.rerun()
                     except Exception as e:
-                        st.error(f"Erro ao salvar: {e}")
-    
+                        st.error(f"Erro ao salvar alterações: {e}")
+            
             with col_atualizar:
-                if st.button("🔄 Atualizar Preços de Compra", key="btn_atualizar_precos"):
+                if st.button("🔄 Atualizar Preços de Compra", key="btn_atualizar_precos_estoque"):
                     try:
                         with conn:
                             cursor = conn.cursor()
@@ -1787,563 +1790,353 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.rerun()
                     except Exception as e:
                         st.error(f"Erro ao atualizar preço: {e}")
+        
         elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
-            st.title("👥 Cadastros Gerais")
-            tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["👤 Clientes", "📦 Produtos", "🏢 Fornecedores", "🏷️ Grupos"])
-    
-            with tab_cli:
-                st.subheader("👤 Gerenciamento de Clientes")
-    
-                with st.form("form_cadastrar_cliente", clear_on_submit=True):
-                    col_cli1, col_cli2 = st.columns(2)
-                    with col_cli1:
-                        txt_nome_cli = st.text_input("Nome do Cliente / Razão Social", key="cli_nome_cad")
-                        txt_doc_cli = st.text_input("CPF / CNPJ", key="cli_doc_cad")
-                        txt_cidade_cli = st.text_input("Cidade / Email", key="cli_cidade_cad")
-                    with col_cli2:
-                        txt_tel_cli = st.text_input("Telefone / WhatsApp", key="cli_tel_cad")
-                        txt_end_cli = st.text_input("Endereço", key="cli_end_cad")
-    
-                    btn_salvar_cli = st.form_submit_button("💾 Salvar Cliente")
-                    if btn_salvar_cli:
-                        if not txt_nome_cli.strip():
-                            st.warning("Por favor, informe o nome do cliente.")
-                        else:
-                            sucesso, msg = salvar_cliente_completo(txt_nome_cli, txt_tel_cli, txt_doc_cli, txt_end_cli, txt_cidade_cli)
-                            if sucesso:
-                                st.success(msg)
-                                st.rerun()
-                            else:
-                                st.error(msg)
-    
-                st.markdown("---")
-                st.subheader("Lista de Clientes")
-                df_cli_view = carregar_dados("SELECT * FROM clientes")
-                if not df_cli_view.empty:
-                    st.dataframe(df_cli_view, use_container_width=True)
-                    st.markdown("---")
-                    st.subheader("⚙️ Gerir Clientes Selecionados")
-                    if 'id' in df_cli_view.columns:
-                        lista_ids = df_cli_view['id'].tolist()
-                        id_selecionado = st.selectbox("Selecione o ID do Cliente para Atualizar ou Excluir", lista_ids, key="sel_cli_gerir")
-                        
-                        cli_atual = df_cli_view[df_cli_view['id'] == id_selecionado].iloc[0]
-                        nome_atual = str(cli_atual.get('cliente', '')) if pd.notna(cli_atual.get('cliente')) else str(cli_atual.get('nome', ''))
-                        cpf_atual = str(cli_atual.get('cpf', '')) if pd.notna(cli_atual.get('cpf')) else ''
-                        end_atual = str(cli_atual.get('endereco', '')) if pd.notna(cli_atual.get('endereco')) else ''
-                        email_atual = str(cli_atual.get('email', '')) if pd.notna(cli_atual.get('email')) else ''
-                        fone_atual = str(cli_atual.get('fone', '')) if pd.notna(cli_atual.get('fone')) else ''
-                        cidade_atual = str(cli_atual.get('cidade', '')) if pd.notna(cli_atual.get('cidade')) else ''
+                    st.title("👥 Cadastros Gerais")
+                    tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["👤 Clientes", "📦 Produtos", "🏢 Fornecedores", "🏷️ Grupos"])
             
-                        with st.form("form_gerir_cliente"):
-                            novo_nome = st.text_input("Nome / Cliente", value=nome_atual)
-                            novo_cpf = st.text_input("CPF / DOC", value=cpf_atual)
-                            novo_end = st.text_input("Endereço", value=end_atual)
-                            novo_email = st.text_input("E-mail", value=email_atual)
-                            novo_fone = st.text_input("Telefone / Fone", value=fone_atual)
-                            novo_cidade = st.text_input("Cidade", value=cidade_atual)
-                            
-                            col_b1, col_b2 = st.columns(2)
-                            with col_b1:
-                                btn_atualizar = st.form_submit_button("🔄 Atualizar Cliente", type="primary")
-                            with col_b2:
-                                btn_excluir = st.form_submit_button("🗑️ Excluir Cliente", type="secondary")
-                                
-                            if btn_atualizar:
-                                cursor = conn.cursor()
-                                cursor.execute("UPDATE clientes SET cliente = ?, nome = ?, cpf = ?, endereco = ?, email = ?, fone = ?, cidade = ? WHERE id = ?", (novo_nome, novo_nome, novo_cpf, novo_end, novo_email, novo_fone, novo_cidade, id_selecionado))
-                                conn.commit()
-                                st.success("Cliente atualizado com sucesso!")
-                                st.rerun()
-                                
-                            if btn_excluir:
-                                cursor = conn.cursor()
-                                cursor.execute("DELETE FROM clientes WHERE id = ?", (id_selecionado,))
-                                conn.commit()
-                                st.success("Cliente excluído com sucesso!")
-                                st.rerun()
-
-                        # -----------------------------------------------------------------------------
-                        # EXTRATO FINANCEIRO & HISTÓRICO DO CLIENTE (STATUS CORRIGIDO)
-                        # -----------------------------------------------------------------------------
+                    with tab_cli:
+                        st.subheader("👤 Gerenciamento de Clientes")
+            
+                        with st.form("form_cadastrar_cliente", clear_on_submit=True):
+                            col_cli1, col_cli2 = st.columns(2)
+                            with col_cli1:
+                                txt_nome_cli = st.text_input("Nome do Cliente / Razão Social", key="cli_nome_cad")
+                                txt_doc_cli = st.text_input("CPF / CNPJ", key="cli_doc_cad")
+                                txt_cidade_cli = st.text_input("Cidade / Email", key="cli_cidade_cad")
+                            with col_cli2:
+                                txt_tel_cli = st.text_input("Telefone / WhatsApp", key="cli_tel_cad")
+                                txt_end_cli = st.text_input("Endereço", key="cli_end_cad")
+            
+                            btn_salvar_cli = st.form_submit_button("💾 Salvar Cliente")
+                            if btn_salvar_cli:
+                                if not txt_nome_cli.strip():
+                                    st.warning("Por favor, informe o nome do cliente.")
+                                else:
+                                    sucesso, msg = salvar_cliente_completo(txt_nome_cli, txt_tel_cli, txt_doc_cli, txt_end_cli, txt_cidade_cli)
+                                    if sucesso:
+                                        st.success(msg)
+                                        st.rerun()
+                                    else:
+                                        st.error(msg)
+            
                         st.markdown("---")
-                        st.markdown(f"### 💰 Extrato Financeiro: {nome_atual}")
-                        
-                        try:
-                            from datetime import datetime
-                            from zoneinfo import ZoneInfo
-                            from fpdf import FPDF
-                            import pandas as pd
-                            
-                            query_financeiro = """
-                                SELECT *
-                                FROM vendas
-                                WHERE cliente = ?
-                                ORDER BY id DESC
-                            """
-                            df_fin_cliente = pd.read_sql_query(query_financeiro, conn, params=(nome_atual,))
-                        
-                            if not df_fin_cliente.empty:
-                                if 'status' in df_fin_cliente.columns:
-                                    df_fin_cliente['status_limpo'] = df_fin_cliente['status'].astype(str).str.strip().str.capitalize()
-                                else:
-                                    df_fin_cliente['status_limpo'] = 'Concluído'
-                        
-                                def verificar_em_aberto(row):
-                                    status = str(row.get('status_limpo', '')).lower()
-                                    if status == 'quitado':
-                                        return False
-                                    if status == 'parcial':
-                                        restante_val = float(row.get('restante', 0.0) or 0.0)
-                                        return restante_val > 0
+                        st.subheader("Lista de Clientes")
+                        df_cli_view = carregar_dados("SELECT * FROM clientes")
+                        if not df_cli_view.empty:
+                            st.dataframe(df_cli_view, use_container_width=True)
+                            st.markdown("---")
+                            st.subheader("⚙️ Gerir Clientes Selecionados")
+                            if 'id' in df_cli_view.columns:
+                                lista_ids = df_cli_view['id'].tolist()
+                                id_selecionado = st.selectbox("Selecione o ID do Cliente para Atualizar ou Excluir", lista_ids, key="sel_cli_gerir")
+                                
+                                cli_atual = df_cli_view[df_cli_view['id'] == id_selecionado].iloc[0]
+                                nome_atual = str(cli_atual.get('cliente', '')) if pd.notna(cli_atual.get('cliente')) else str(cli_atual.get('nome', ''))
+                                cpf_atual = str(cli_atual.get('cpf', '')) if pd.notna(cli_atual.get('cpf')) else ''
+                                end_atual = str(cli_atual.get('endereco', '')) if pd.notna(cli_atual.get('endereco')) else ''
+                                email_atual = str(cli_atual.get('email', '')) if pd.notna(cli_atual.get('email')) else ''
+                                fone_atual = str(cli_atual.get('fone', '')) if pd.notna(cli_atual.get('fone')) else ''
+                                cidade_atual = str(cli_atual.get('cidade', '')) if pd.notna(cli_atual.get('cidade')) else ''
+                    
+                                with st.form("form_gerir_cliente"):
+                                    novo_nome = st.text_input("Nome / Cliente", value=nome_atual)
+                                    novo_cpf = st.text_input("CPF / DOC", value=cpf_atual)
+                                    novo_end = st.text_input("Endereço", value=end_atual)
+                                    novo_email = st.text_input("E-mail", value=email_atual)
+                                    novo_fone = st.text_input("Telefone / Fone", value=fone_atual)
+                                    novo_cidade = st.text_input("Cidade", value=cidade_atual)
                                     
-                                    fp = str(row.get('forma_pagamento', '')).lower()
-                                    termos = ['crediário', 'crediario', 'fiado', 'prazo', 'p1:', 'p1', 'parcial']
-                                    return any(termo in fp for termo in termos)
-                        
-                                df_fin_cliente['is_aberto'] = df_fin_cliente.apply(verificar_em_aberto, axis=1)
-                        
-                                df_abertos = df_fin_cliente[df_fin_cliente['is_aberto'] == True]
-                                df_quitados = df_fin_cliente[df_fin_cliente['is_aberto'] == False]
-                        
-                                total_falta_pagar = 0.0
-                                for _, r_row in df_abertos.iterrows():
-                                    v_tot = float(r_row.get('valor_total', 0.0) or 0.0)
-                                    v_res = float(r_row.get('restante', 0.0) or 0.0)
-                                    total_falta_pagar += v_res if v_res > 0 else v_tot
-                        
-                                total_ja_pago = df_fin_cliente['valor_recebido'].sum() if 'valor_recebido' in df_fin_cliente.columns else 0.0
-                        
-                                col_m1, col_m2 = st.columns(2)
-                                with col_m1:
-                                    st.metric("🔴 Saldo Devedor (Falta Pagar)", f"R$ {total_falta_pagar:.2f}")
-                                with col_m2:
-                                    st.metric("🟢 Total Já Pago pelo Cliente", f"R$ {total_ja_pago:.2f}")
-                        
+                                    col_b1, col_b2 = st.columns(2)
+                                    with col_b1:
+                                        btn_atualizar = st.form_submit_button("🔄 Atualizar Cliente", type="primary")
+                                    with col_b2:
+                                        btn_excluir = st.form_submit_button("🗑️ Excluir Cliente", type="secondary")
+                                        
+                                    if btn_atualizar:
+                                        cursor = conn.cursor()
+                                        cursor.execute("UPDATE clientes SET cliente = ?, nome = ?, cpf = ?, endereco = ?, email = ?, fone = ?, cidade = ? WHERE id = ?", (novo_nome, novo_nome, novo_cpf, novo_end, novo_email, novo_fone, novo_cidade, id_selecionado))
+                                        conn.commit()
+                                        st.success("Cliente atualizado com sucesso!")
+                                        st.rerun()
+                                        
+                                    if btn_excluir:
+                                        cursor = conn.cursor()
+                                        cursor.execute("DELETE FROM clientes WHERE id = ?", (id_selecionado,))
+                                        conn.commit()
+                                        st.success("Cliente excluído com sucesso!")
+                                        st.rerun()
+        
                                 # -----------------------------------------------------------------------------
-                                # CLASSE PARA GERAR O PDF COM O CABEÇALHO, RESUMO E VALOR UNITÁRIO
+                                # EXTRATO FINANCEIRO & HISTÓRICO DO CLIENTE (STATUS CORRIGIDO)
                                 # -----------------------------------------------------------------------------
-                                class PDFComprovante(FPDF):
-                                    def __init__(self, cliente_nome, saldo_devedor, total_pago):
-                                        super().__init__()
-                                        self.cliente_nome = cliente_nome
-                                        self.saldo_devedor = saldo_devedor
-                                        self.total_pago = total_pago
-                        
-                                    def header(self):
-                                        self.set_font('Arial', 'B', 14)
-                                        self.set_text_color(20, 70, 140)
-                                        self.cell(0, 6, "REY DA CEBOLA", 0, 1, 'C')
-                                        
-                                        self.set_font('Arial', '', 9)
-                                        self.set_text_color(50, 50, 50)
-                                        self.cell(0, 4, "CNPJ: 194.174.39/000-42   INSC.EST.: 12.426725-4", 0, 1, 'C')
-                                        self.cell(0, 4, "CONTATO: (99) 98814-9722 OU (99) 98414-3943", 0, 1, 'C')
-                                        
-                                        self.set_font('Arial', 'B', 11)
-                                        self.cell(0, 6, "Extrato Financeiro / Comprovante do Cliente", 0, 1, 'C')
-                                        
-                                        self.set_font('Arial', 'B', 10)
-                                        data_atual_str = datetime.now(ZoneInfo("America/Sao_Paulo")).strftime('%Y-%m-%d %H:%M:%S')
-                                        self.cell(0, 6, f"Cliente: {self.cliente_nome} | Gerado em: {data_atual_str}", 0, 1, 'L')
-                                        
-                                        # Quadro de Resumo Financeiro no Topo do PDF
-                                        self.ln(2)
-                                        self.set_fill_color(240, 240, 240)
-                                        self.set_font('Arial', 'B', 9)
-                                        self.cell(95, 6, f"Saldo Devedor (Falta Pagar): R$ {self.saldo_devedor:.2f}", 1, 0, 'L', True)
-                                        self.cell(95, 6, f"Total Ja Pago: R$ {self.total_pago:.2f}", 1, 1, 'L', True)
-                                        
-                                        self.ln(2)
-                                        self.set_draw_color(20, 70, 140)
-                                        self.line(10, self.get_y(), 200, self.get_y())
-                                        self.ln(4)
-                        
-                                    def footer(self):
-                                        self.set_y(-15)
-                                        self.set_font('Arial', 'I', 8)
-                                        self.cell(0, 10, f"Pagina {self.page_no()}", 0, 0, 'C')
-                        
-                                def gerar_pdf_bytes(nome_cli, df_completo, s_dev, t_pag):
-                                    pdf = PDFComprovante(nome_cli, s_dev, t_pag)
-                                    pdf.add_page()
-                                    pdf.set_font('Arial', '', 10)
+                                st.markdown("---")
+                                st.markdown(f"### 💰 Extrato Financeiro: {nome_atual}")
+                                
+                                try:
+                                    from datetime import datetime
+                                    from zoneinfo import ZoneInfo
+                                    from fpdf import FPDF
+                                    import pandas as pd
                                     
-                                    pdf.set_font('Arial', 'B', 10)
-                                    pdf.cell(0, 6, "Historico de Transacoes:", 0, 1, 'L')
-                                    pdf.ln(2)
-                                    
-                                    # Cabeçalho da Tabela no PDF
-                                    pdf.set_fill_color(230, 230, 230)
-                                    pdf.cell(10, 6, "ID", 1, 0, 'C', True)
-                                    pdf.cell(58, 6, "Produto", 1, 0, 'L', True)
-                                    pdf.cell(15, 6, "Qtd", 1, 0, 'C', True)
-                                    pdf.cell(24, 6, "Vlr. Unit.", 1, 0, 'R', True)
-                                    pdf.cell(24, 6, "Total (R$)", 1, 0, 'R', True)
-                                    pdf.cell(32, 6, "Status", 1, 0, 'C', True)
-                                    pdf.cell(27, 6, "Data", 1, 1, 'C', True)
-                                    
-                                    pdf.set_font('Arial', '', 9)
-                                    for _, row in df_completo.iterrows():
-                                        pdf.cell(10, 6, str(row.get('id', '')), 1, 0, 'C')
-                                        pdf.cell(58, 6, str(row.get('produto', ''))[:26], 1, 0, 'L')
-                                        
-                                        qtd = float(row.get('quantidade', 0) or 0)
-                                        pdf.cell(15, 6, str(int(qtd) if qtd.is_integer() else qtd), 1, 0, 'C')
-                                        
-                                        val_tot = float(row.get('valor_total', 0.0) or 0.0)
-                                        val_unit = (val_tot / qtd) if qtd > 0 else float(row.get('valor_venda', 0.0) or 0.0)
-                                        
-                                        pdf.cell(24, 6, f"R$ {val_unit:.2f}", 1, 0, 'R')
-                                        pdf.cell(24, 6, f"R$ {val_tot:.2f}", 1, 0, 'R')
-                                        
-                                        st_val = str(row.get('status', ''))
-                                        if st_val.lower() in ['nan', 'none', '']:
-                                            status_exibicao = "Pendente" if row.get('is_aberto', True) else "Quitado"
+                                    query_financeiro = """
+                                        SELECT *
+                                        FROM vendas
+                                        WHERE cliente = ?
+                                        ORDER BY id DESC
+                                    """
+                                    df_fin_cliente = pd.read_sql_query(query_financeiro, conn, params=(nome_atual,))
+                                
+                                    if not df_fin_cliente.empty:
+                                        if 'status' in df_fin_cliente.columns:
+                                            df_fin_cliente['status_limpo'] = df_fin_cliente['status'].astype(str).str.strip().str.capitalize()
                                         else:
-                                            status_exibicao = st_val.capitalize()
-                        
-                                        pdf.cell(32, 6, status_exibicao[:15], 1, 0, 'C')
-                                        data_val = str(row.get('data', ''))[:16]
-                                        pdf.cell(27, 6, data_val, 1, 1, 'C')
-                                        
-                                    # Tratamento robusto para extrair os bytes do PDF sem corromper
-                                    try:
-                                        res = pdf.output(dest='S')
-                                        if isinstance(res, str):
-                                            return res.encode('latin1', errors='replace')
-                                        elif isinstance(res, (bytes, bytearray)):
-                                            return bytes(res)
-                                    except Exception:
-                                        pass
-                                    
-                                    try:
-                                        res2 = pdf.output()
-                                        if isinstance(res2, bytes):
-                                            return res2
-                                        elif isinstance(res2, bytearray):
-                                            return bytes(res2)
-                                        elif isinstance(res2, str):
-                                            return res2.encode('latin1', errors='replace')
-                                    except Exception:
-                                        pass
-                                        
-                                    return b""
-                        
-                                st.markdown("---")
-                                pdf_data = gerar_pdf_bytes(nome_atual, df_fin_cliente, total_falta_pagar, total_ja_pago)
+                                            df_fin_cliente['status_limpo'] = 'Concluído'
                                 
-                                if pdf_data:
-                                    st.download_button(
-                                        label="📥 Descarregar Comprovante / Extrato em PDF",
-                                        data=pdf_data,
-                                        file_name=f"comprovante_{nome_atual.replace(' ', '_')}.pdf",
-                                        mime="application/pdf",
-                                        type="secondary"
-                                    )
-                                else:
-                                    st.error("Erro ao gerar o ficheiro PDF.")
-                        
-                                st.markdown("---")
-                        
-                                aba_aberto, aba_pago = st.tabs(["🔴 Compras Pendentes (Em Aberto)", "🟢 Histórico de Pagamentos (Quitados)"])
-                        
-                                with aba_aberto:
-                                    if not df_abertos.empty:
-                                        st.info("💡 Marque as compras que o cliente deseja pagar. A data e a hora serão gravadas no horário do Brasil.")
-                                        
-                                        df_abertos_ex = df_abertos.copy()
-                                        df_abertos_ex.insert(0, "Quitar?", False)
-                        
-                                        colunas_desejadas = [c for c in ['Quitar?', 'id', 'produto', 'quantidade', 'valor_total', 'valor_recebido', 'restante', 'data'] if c in df_abertos_ex.columns]
-                                        
-                                        df_edit_abertos = st.data_editor(
-                                            df_abertos_ex[colunas_desejadas],
-                                            use_container_width=True,
-                                            hide_index=True,
-                                            key="editor_vendas_abertas_cliente"
-                                        )
-                        
-                                        st.markdown("---")
-                                        col_b1, col_b2 = st.columns(2)
-                                        with col_b1:
-                                            forma_recebimento = st.selectbox(
-                                                "💳 Forma de Recebimento:",
-                                                ["Dinheiro", "Pix", "Cartão de Crédito", "Cartão de Débito", "Transferência", "Outros"],
-                                                key="select_forma_recebimento_baixa"
-                                            )
-                                        with col_b2:
-                                            valor_recebido_input = st.number_input(
-                                                "💵 Valor que o Cliente está Pagando Agora (R$):",
-                                                min_value=0.0,
-                                                value=float(total_falta_pagar),
-                                                step=1.0,
-                                                key="input_valor_recebido_baixa"
-                                            )
-                        
-                                        if st.button("✅ Confirmar Recebimento", type="primary", key="btn_dar_baixa_vendas_direto"):
-                                            try:
-                                                cursor = conn.cursor()
-                                                marcados = df_edit_abertos[df_edit_abertos['Quitar?'] == True]
-                                                if not marcados.empty:
-                                                    dinheiro_disponivel = float(valor_recebido_input)
-                                                    data_agora = datetime.now(ZoneInfo("America/Sao_Paulo")).strftime('%Y-%m-%d %H:%M:%S')
-                                                    
-                                                    for _, row_m in marcados.iterrows():
-                                                        v_id = row_m['id']
-                                                        v_total = float(row_m.get('valor_total', 0.0) or 0.0)
-                                                        v_restante_atual = float(row_m.get('restante', 0.0) or 0.0)
-                                                        debito_alvo = v_restante_atual if v_restante_atual > 0 else v_total
-                                                        
-                                                        ja_pago_anterior = float(row_m.get('valor_recebido', 0.0) or 0.0)
-                        
-                                                        if dinheiro_disponivel >= debito_alvo:
-                                                            novo_valor_recebido = ja_pago_anterior + debito_alvo
-                                                            cursor.execute(
-                                                                """UPDATE vendas 
-                                                                   SET status = 'Quitado', 
-                                                                       forma_pagamento = ?, 
-                                                                       valor_recebido = ?, 
-                                                                       troco = 0.0, 
-                                                                       restante = 0.0,
-                                                                       data = ?
-                                                                   WHERE id = ?""",
-                                                                (f"Quitado ({forma_recebimento})", novo_valor_recebido, data_agora, v_id)
-                                                            )
-                                                            dinheiro_disponivel -= debito_alvo
-                                                        elif dinheiro_disponivel > 0:
-                                                            v_pago_agora = dinheiro_disponivel
-                                                            novo_valor_recebido = ja_pago_anterior + v_pago_agora
-                                                            v_novo_restante = debito_alvo - v_pago_agora
-                                                            cursor.execute(
-                                                                """UPDATE vendas 
-                                                                   SET status = 'Parcial', 
-                                                                       forma_pagamento = ?, 
-                                                                       valor_recebido = ?, 
-                                                                       troco = 0.0, 
-                                                                       restante = ?,
-                                                                       data = ?
-                                                                   WHERE id = ?""",
-                                                                (f"Parcial ({forma_recebimento})", novo_valor_recebido, v_novo_restante, data_agora, v_id)
-                                                            )
-                                                            dinheiro_disponivel = 0.0
-                                                        else:
-                                                            break
-                                                    
-                                                    conn.commit()
-                                                    st.success("🎉 Pagamento registado no horário do Brasil com sucesso!")
-                                                    st.rerun()
+                                        def verificar_em_aberto(row):
+                                            status = str(row.get('status_limpo', '')).lower()
+                                            if status == 'quitado':
+                                                return False
+                                            if status == 'parcial':
+                                                restante_val = float(row.get('restante', 0.0) or 0.0)
+                                                return restante_val > 0
+                                            
+                                            fp = str(row.get('forma_pagamento', '')).lower()
+                                            termos = ['crediário', 'crediario', 'fiado', 'prazo', 'p1:', 'p1', 'parcial']
+                                            return any(termo in fp for termo in termos)
+                                
+                                        df_fin_cliente['is_aberto'] = df_fin_cliente.apply(verificar_em_aberto, axis=1)
+                                
+                                        df_abertos = df_fin_cliente[df_fin_cliente['is_aberto'] == True]
+                                        df_quitados = df_fin_cliente[df_fin_cliente['is_aberto'] == False]
+                                
+                                        total_falta_pagar = 0.0
+                                        for _, r_row in df_abertos.iterrows():
+                                            v_tot = float(r_row.get('valor_total', 0.0) or 0.0)
+                                            v_res = float(r_row.get('restante', 0.0) or 0.0)
+                                            total_falta_pagar += v_res if v_res > 0 else v_tot
+                                
+                                        total_ja_pago = df_fin_cliente['valor_recebido'].sum() if 'valor_recebido' in df_fin_cliente.columns else 0.0
+                                
+                                        col_m1, col_m2 = st.columns(2)
+                                        with col_m1:
+                                            st.metric("🔴 Saldo Devedor (Falta Pagar)", f"R$ {total_falta_pagar:.2f}")
+                                        with col_m2:
+                                            st.metric("🟢 Total Já Pago pelo Cliente", f"R$ {total_ja_pago:.2f}")
+                                
+                                        # -----------------------------------------------------------------------------
+                                        # CLASSE PARA GERAR O PDF COM O CABEÇALHO, RESUMO E VALOR UNITÁRIO
+                                        # -----------------------------------------------------------------------------
+                                        class PDFComprovante(FPDF):
+                                            def __init__(self, cliente_nome, saldo_devedor, total_pago):
+                                                super().__init__()
+                                                self.cliente_nome = cliente_nome
+                                                self.saldo_devedor = saldo_devedor
+                                                self.total_pago = total_pago
+                                
+                                            def header(self):
+                                                self.set_font('Arial', 'B', 14)
+                                                self.set_text_color(20, 70, 140)
+                                                self.cell(0, 6, "REY DA CEBOLA", 0, 1, 'C')
+                                                
+                                                self.set_font('Arial', '', 9)
+                                                self.set_text_color(50, 50, 50)
+                                                self.cell(0, 4, "CNPJ: 194.174.39/000-42   INSC.EST.: 12.426725-4", 0, 1, 'C')
+                                                self.cell(0, 4, "CONTATO: (99) 98814-9722 OU (99) 98414-3943", 0, 1, 'C')
+                                                
+                                                self.set_font('Arial', 'B', 11)
+                                                self.cell(0, 6, "Extrato Financeiro / Comprovante do Cliente", 0, 1, 'C')
+                                                
+                                                self.set_font('Arial', 'B', 10)
+                                                data_atual_str = datetime.now(ZoneInfo("America/Sao_Paulo")).strftime('%Y-%m-%d %H:%M:%S')
+                                                self.cell(0, 6, f"Cliente: {self.cliente_nome} | Gerado em: {data_atual_str}", 0, 1, 'L')
+                                                
+                                                # Quadro de Resumo Financeiro no Topo do PDF
+                                                self.ln(2)
+                                                self.set_fill_color(240, 240, 240)
+                                                self.set_font('Arial', 'B', 9)
+                                                self.cell(95, 6, f"Saldo Devedor (Falta Pagar): R$ {self.saldo_devedor:.2f}", 1, 0, 'L', True)
+                                                self.cell(95, 6, f"Total Ja Pago: R$ {self.total_pago:.2f}", 1, 1, 'L', True)
+                                                
+                                                self.ln(2)
+                                                self.set_draw_color(20, 70, 140)
+                                                self.line(10, self.get_y(), 200, self.get_y())
+                                                self.ln(4)
+                                
+                                            def footer(self):
+                                                self.set_y(-15)
+                                                self.set_font('Arial', 'I', 8)
+                                                self.cell(0, 10, f"Pagina {self.page_no()}", 0, 0, 'C')
+                                
+                                        def gerar_pdf_bytes(nome_cli, df_completo, s_dev, t_pag):
+                                            pdf = PDFComprovante(nome_cli, s_dev, t_pag)
+                                            pdf.add_page()
+                                            pdf.set_font('Arial', '', 10)
+                                            
+                                            pdf.set_font('Arial', 'B', 10)
+                                            pdf.cell(0, 6, "Historico de Transacoes:", 0, 1, 'L')
+                                            pdf.ln(2)
+                                            
+                                            # Cabeçalho da Tabela no PDF (Com a coluna Valor Unit.)
+                                            pdf.set_fill_color(230, 230, 230)
+                                            pdf.cell(10, 6, "ID", 1, 0, 'C', True)
+                                            pdf.cell(58, 6, "Produto", 1, 0, 'L', True)
+                                            pdf.cell(15, 6, "Qtd", 1, 0, 'C', True)
+                                            pdf.cell(24, 6, "Vlr. Unit.", 1, 0, 'R', True)
+                                            pdf.cell(24, 6, "Total (R$)", 1, 0, 'R', True)
+                                            pdf.cell(32, 6, "Status", 1, 0, 'C', True)
+                                            pdf.cell(27, 6, "Data", 1, 1, 'C', True)
+                                            
+                                            pdf.set_font('Arial', '', 9)
+                                            for _, row in df_completo.iterrows():
+                                                pdf.cell(10, 6, str(row.get('id', '')), 1, 0, 'C')
+                                                pdf.cell(58, 6, str(row.get('produto', ''))[:26], 1, 0, 'L')
+                                                
+                                                qtd = float(row.get('quantidade', 0) or 0)
+                                                pdf.cell(15, 6, str(int(qtd) if qtd.is_integer() else qtd), 1, 0, 'C')
+                                                
+                                                val_tot = float(row.get('valor_total', 0.0) or 0.0)
+                                                # Calcula o valor unitário com segurança para evitar divisão por zero
+                                                val_unit = (val_tot / qtd) if qtd > 0 else float(row.get('valor_venda', 0.0) or 0.0)
+                                                
+                                                pdf.cell(24, 6, f"R$ {val_unit:.2f}", 1, 0, 'R')
+                                                pdf.cell(24, 6, f"R$ {val_tot:.2f}", 1, 0, 'R')
+                                                
+                                                # Tratamento do status em português
+                                                st_val = str(row.get('status', ''))
+                                                if st_val.lower() in ['nan', 'none', '']:
+                                                    status_exibicao = "Pendente" if row.get('is_aberto', True) else "Quitado"
                                                 else:
-                                                    st.warning("⚠️ Marque pelo menos uma compra na coluna 'Quitar?' para registar o pagamento.")
-                                            except Exception as e_quitar:
-                                                st.error(f"Erro ao processar recebimento: {e_quitar}")
-                                    else:
-                                        st.success("✨ Este cliente não possui nenhuma compra em aberto no momento!")
-                        
-                                with aba_pago:
-                                    if not df_quitados.empty:
-                                        cols_drop = [c for c in ['status_limpo', 'is_aberto'] if c in df_quitados.columns]
-                                        st.dataframe(df_quitados.drop(columns=cols_drop), use_container_width=True, hide_index=True)
-                                    else:
-                                        st.info("Nenhum histórico de pagamento quitado encontrado para este cliente.")
-                        
-                            else:
-                                st.info(f"ℹ️ Não há registos de vendas ou pedidos associados ao cliente '{nome_atual}'.")
-                        
-                        except Exception as e_fin:
-                            st.warning(f"Extrato financeiro indisponível no momento: {e_fin}")
-                    else:
-                        st.info("Nenhum cliente cadastrado ainda.")
-                else:
-                    st.info("Nenhum cliente cadastrado ainda.")
-    
-            with tab_prod:
-                st.subheader("📝 Gerenciar Produtos (Cadastrar, Editar e Excluir)")
-                try:
-                    df_g = carregar_dados("SELECT DISTINCT grupo FROM grupos WHERE grupo IS NOT NULL AND grupo != '' ORDER BY grupo")
-                    grupos_opt = df_g['grupo'].tolist() if not df_g.empty else ["GERAL"]
-                except Exception:
-                    grupos_opt = ["GERAL"]
-    
-                try:
-                    df_f = carregar_dados("SELECT DISTINCT fornecedor FROM fornecedores WHERE fornecedor IS NOT NULL AND fornecedor != '' ORDER BY fornecedor")
-                    fornecedores_opt = df_f['fornecedor'].tolist() if not df_f.empty else ["BAHIA"]
-                except Exception:
-                    fornecedores_opt = ["BAHIA"]
-    
-                with st.form("form_cadastrar_produto", clear_on_submit=True):
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        txt_nome_produto = st.text_input("Nome do Produto")
-                        val_compra = st.number_input("Preço de Compra (R$)", min_value=0.0, value=0.0, step=0.5)
-                        estoque_inicial = st.number_input("Estoque Inicial", min_value=0.0, value=0.0, step=1.0)
-                    with col2:
-                        grupo_produto = st.selectbox("Grupo / Categoria", grupos_opt)
-                        val_venda = st.number_input("Preço de Venda (R$)", min_value=0.0, value=0.0, step=0.5)
-                        fornecedor_produto = st.selectbox("Fornecedor", fornecedores_opt)
-    
-                    btn_salvar = st.form_submit_button("💾 Salvar Novo Produto")
-                    if btn_salvar:
-                        if not txt_nome_produto.strip():
-                            st.warning("Por favor, informe o nome do produto.")
-                        else:
-                            try:
-                                cursor = conn.cursor()
-                                for col in ["grupo", "fornecedor", "valor_compra", "valor_venda"]:
-                                    try:
-                                        cursor.execute(f"ALTER TABLE produtos ADD COLUMN {col} TEXT")
-                                    except Exception:
-                                        pass
-    
-                                cursor.execute("INSERT INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda) VALUES (?, ?, ?, ?, ?, ?)", (txt_nome_produto.strip().upper(), grupo_produto, fornecedor_produto, float(estoque_inicial), float(val_compra), float(val_venda)))
-                                conn.commit()
-                                st.cache_data.clear()
-                                st.success(f"✅ Produto '{txt_nome_produto}' cadastrado com sucesso!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro ao cadastrar produto: {e}")
-    
-                st.markdown("---")
-                st.subheader("📋 Lista de Produtos")
-                try:
-                    df_produtos_gerenciar = pd.read_sql_query("SELECT * FROM produtos", conn)
-                except Exception:
-                    df_produtos_gerenciar = pd.DataFrame()
-    
-                cols_esperadas = ['id', 'produto', 'quantidade', 'valor_compra', 'valor_venda', 'grupo', 'fornecedor']
-                for c in cols_esperadas:
-                    if c not in df_produtos_gerenciar.columns:
-                        df_produtos_gerenciar[c] = 0.0 if ('valor' in c or 'quantidade' in c) else ""
-    
-                if not df_produtos_gerenciar.empty:
-                    cols_finais = [c for c in cols_esperadas if c in df_produtos_gerenciar.columns]
-                    df_produtos_gerenciar = df_produtos_gerenciar[cols_finais]
-    
-                df_gerenciar_editado = st.data_editor(df_produtos_gerenciar, use_container_width=True, hide_index=True, key="editor_gerenciar_produtos_tab")
-    
-                col_btn_salvar, col_btn_excluir = st.columns([1, 1])
-                with col_btn_salvar:
-                    if st.button("💾 Salvar Alterações da Tabela", type="primary", key="btn_salvar_tabela_gerenciar"):
-                        try:
-                            with conn:
-                                cursor = conn.cursor()
-                                for _, row in df_gerenciar_editado.iterrows():
-                                    cursor.execute("UPDATE produtos SET produto = ?, quantidade = ?, valor_compra = ?, valor_venda = ?, grupo = ?, fornecedor = ? WHERE id = ?", (row['produto'], row['quantidade'], row['valor_compra'], row['valor_venda'], row['grupo'], row['fornecedor'], row['id']))
-                            st.cache_data.clear()
-                            st.success("✅ Alterações salvas com sucesso!")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Erro ao salvar alterações: {e}")
-    
-                with col_btn_excluir:
-                    lista_produtos_excluir = df_produtos_gerenciar['produto'].tolist() if not df_produtos_gerenciar.empty else []
-                    prod_para_excluir = st.selectbox("Selecione um produto para excluir", options=lista_produtos_excluir, key="sel_prod_excluir")
-                    if st.button("🗑️ Excluir Produto Selecionado", key="btn_excluir_produto"):
-                        if prod_para_excluir:
-                            try:
-                                with conn:
-                                    cursor = conn.cursor()
-                                    cursor.execute("DELETE FROM produtos WHERE produto = ?", (prod_para_excluir,))
-                                st.cache_data.clear()
-                                st.success(f"✅ Produto '{prod_para_excluir}' excluído com sucesso!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro ao excluir produto: {e}")
-                        else:
-                            st.warning("Nenhum produto selecionado para exclusão.")
-    
-            with tab_forn:
-                st.subheader("🏢 Gerenciar Fornecedores")
-                with st.form("form_cad_fornecedor", clear_on_submit=True):
-                    nome_forn = st.text_input("Nome do Fornecedor / Empresa")
-                    if st.form_submit_button("Salvar Novo Fornecedor"):
-                        if nome_forn.strip():
-                            try:
-                                salvar_simples("fornecedores", "fornecedor", nome_forn.upper())
-                                st.success(f"Fornecedor '{nome_forn}' cadastrado com sucesso!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro ao cadastrar fornecedor: {e}")
-                        else:
-                            st.warning("Informe o nome do fornecedor.")
-    
-                st.markdown("---")
-                st.subheader("📋 Lista de Fornecedores")
-                df_forn_view = carregar_dados("SELECT * FROM fornecedores")
-                if not df_forn_view.empty:
-                    df_editado_forn = st.data_editor(df_forn_view, use_container_width=True, hide_index=True, key="editor_fornecedores")
-                    col_f1, col_f2 = st.columns(2)
-                    with col_f1:
-                        if st.button("💾 Salvar Alterações de Fornecedores"):
-                            try:
-                                cursor = conn.cursor()
-                                for _, row in df_editado_forn.iterrows():
-                                    cursor.execute("UPDATE fornecedores SET fornecedor = ? WHERE id = ?", (str(row.get('fornecedor')).upper(), row.get('id')))
-                                conn.commit()
-                                st.success("Fornecedores atualizados com sucesso!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro ao salvar: {e}")
-                    with col_f2:
-                        forn_selecionado = st.selectbox("Selecione um fornecedor para excluir", df_forn_view['fornecedor'].tolist(), key="select_del_forn")
-                        if st.button("🗑️ Excluir Fornecedor Selecionado"):
-                            try:
-                                cursor = conn.cursor()
-                                cursor.execute("DELETE FROM fornecedores WHERE fornecedor = ?", (forn_selecionado,))
-                                conn.commit()
-                                st.success(f"Fornecedor '{forn_selecionado}' excluído com sucesso!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro ao excluir: {e}")
-                else:
-                    st.info("Nenhum fornecedor cadastrado.")
-    
-            with tab_grup:
-                st.subheader("🏷️ Gerenciar Grupos / Categorias")
-                with st.form("form_cad_grupo", clear_on_submit=True):
-                    nome_grupo = st.text_input("Nome do Grupo / Categoria")
-                    if st.form_submit_button("Salvar Novo Grupo"):
-                        if nome_grupo.strip():
-                            try:
-                                salvar_simples("grupos", "grupo", nome_grupo.upper())
-                                st.success(f"Grupo '{nome_grupo}' cadastrado com sucesso!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro ao cadastrar grupo: {e}")
-                        else:
-                            st.warning("Informe o nome do grupo.")
-    
-                st.markdown("---")
-                st.subheader("📋 Lista de Grupos")
-                df_grup_view = carregar_dados("SELECT * FROM grupos")
-                if not df_grup_view.empty:
-                    df_editado_grup = st.data_editor(df_grup_view, use_container_width=True, hide_index=True, key="editor_grupos")
-                    col_g1, col_g2 = st.columns(2)
-                    with col_g1:
-                        if st.button("💾 Salvar Alterações de Grupos"):
-                            try:
-                                cursor = conn.cursor()
-                                for _, row in df_editado_grup.iterrows():
-                                    cursor.execute("UPDATE grupos SET grupo = ? WHERE id = ?", (str(row.get('grupo')).upper(), row.get('id')))
-                                conn.commit()
-                                st.success("Grupos atualizados com sucesso!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro ao salvar: {e}")
-                    with col_g2:
-                        grup_selecionado = st.selectbox("Selecione um grupo para excluir", df_grup_view['grupo'].tolist(), key="select_del_grup")
-                        if st.button("🗑️ Excluir Grupo Selecionado"):
-                            try:
-                                cursor = conn.cursor()
-                                cursor.execute("DELETE FROM grupos WHERE grupo = ?", (grup_selecionado,))
-                                conn.commit()
-                                st.success(f"Grupo '{grup_selecionado}' excluído com sucesso!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro ao excluir: {e}")
-                else:
-                    st.info("Nenhum grupo cadastrado.")
+                                                    status_exibicao = st_val.capitalize()
                                 
+                                                pdf.cell(32, 6, status_exibicao[:15], 1, 0, 'C')
+                                                data_val = str(row.get('data', ''))[:16]
+                                                pdf.cell(27, 6, data_val, 1, 1, 'C')
+                                                
+                                            return bytes(pdf.output())
+                                
+                                        st.markdown("---")
+                                        # Chamada da função passando os totais calculados
+                                        pdf_data = gerar_pdf_bytes(nome_atual, df_fin_cliente, total_falta_pagar, total_ja_pago)
+                                        st.download_button(
+                                            label="📥 Descarregar Comprovante / Extrato em PDF",
+                                            data=pdf_data,
+                                            file_name=f"comprovante_{nome_atual.replace(' ', '_')}.pdf",
+                                            mime="application/pdf",
+                                            type="secondary"
+                                        )
+                                
+                                        st.markdown("---")
+                                
+                                        aba_aberto, aba_pago = st.tabs(["🔴 Compras Pendentes (Em Aberto)", "🟢 Histórico de Pagamentos (Quitados)"])
+                                
+                                        with aba_aberto:
+                                            if not df_abertos.empty:
+                                                st.info("💡 Marque as compras que o cliente deseja pagar. A data e a hora serão gravadas no horário do Brasil.")
+                                                
+                                                df_abertos_ex = df_abertos.copy()
+                                                df_abertos_ex.insert(0, "Quitar?", False)
+                                
+                                                colunas_desejadas = [c for c in ['Quitar?', 'id', 'produto', 'quantidade', 'valor_total', 'valor_recebido', 'restante', 'data'] if c in df_abertos_ex.columns]
+                                                
+                                                df_edit_abertos = st.data_editor(
+                                                    df_abertos_ex[colunas_desejadas],
+                                                    use_container_width=True,
+                                                    hide_index=True,
+                                                    key="editor_vendas_abertas_cliente"
+                                                )
+                                
+                                                st.markdown("---")
+                                                col_b1, col_b2 = st.columns(2)
+                                                with col_b1:
+                                                    forma_recebimento = st.selectbox(
+                                                        "💳 Forma de Recebimento:",
+                                                        ["Dinheiro", "Pix", "Cartão de Crédito", "Cartão de Débito", "Transferência", "Outros"],
+                                                        key="select_forma_recebimento_baixa"
+                                                    )
+                                                with col_b2:
+                                                    valor_recebido_input = st.number_input(
+                                                        "💵 Valor que o Cliente está Pagando Agora (R$):",
+                                                        min_value=0.0,
+                                                        value=float(total_falta_pagar),
+                                                        step=1.0,
+                                                        key="input_valor_recebido_baixa"
+                                                    )
+                                
+                                                if st.button("✅ Confirmar Recebimento", type="primary", key="btn_dar_baixa_vendas_direto"):
+                                                    try:
+                                                        cursor = conn.cursor()
+                                                        marcados = df_edit_abertos[df_edit_abertos['Quitar?'] == True]
+                                                        if not marcados.empty:
+                                                            dinheiro_disponivel = float(valor_recebido_input)
+                                                            data_agora = datetime.now(ZoneInfo("America/Sao_Paulo")).strftime('%Y-%m-%d %H:%M:%S')
+                                                            
+                                                            for _, row_m in marcados.iterrows():
+                                                                v_id = row_m['id']
+                                                                v_total = float(row_m.get('valor_total', 0.0) or 0.0)
+                                                                v_restante_atual = float(row_m.get('restante', 0.0) or 0.0)
+                                                                debito_alvo = v_restante_atual if v_restante_atual > 0 else v_total
+                                                                
+                                                                ja_pago_anterior = float(row_m.get('valor_recebido', 0.0) or 0.0)
+                                
+                                                                if dinheiro_disponivel >= debito_alvo:
+                                                                    novo_valor_recebido = ja_pago_anterior + debito_alvo
+                                                                    cursor.execute(
+                                                                        """UPDATE vendas 
+                                                                           SET status = 'Quitado', 
+                                                                               forma_pagamento = ?, 
+                                                                               valor_recebido = ?, 
+                                                                               troco = 0.0, 
+                                                                               restante = 0.0,
+                                                                               data = ?
+                                                                           WHERE id = ?""",
+                                                                        (f"Quitado ({forma_recebimento})", novo_valor_recebido, data_agora, v_id)
+                                                                    )
+                                                                    dinheiro_disponivel -= debito_alvo
+                                                                elif dinheiro_disponivel > 0:
+                                                                    v_pago_agora = dinheiro_disponivel
+                                                                    novo_valor_recebido = ja_pago_anterior + v_pago_agora
+                                                                    v_novo_restante = debito_alvo - v_pago_agora
+                                                                    cursor.execute(
+                                                                        """UPDATE vendas 
+                                                                           SET status = 'Parcial', 
+                                                                               forma_pagamento = ?, 
+                                                                               valor_recebido = ?, 
+                                                                               troco = 0.0, 
+                                                                               restante = ?,
+                                                                               data = ?
+                                                                           WHERE id = ?""",
+                                                                        (f"Parcial ({forma_recebimento})", novo_valor_recebido, v_novo_restante, data_agora, v_id)
+                                                                    )
+                                                                    dinheiro_disponivel = 0.0
+                                                                else:
+                                                                    break
+                                                            
+                                                            conn.commit()
+                                                            st.success("🎉 Pagamento registado no horário do Brasil com sucesso!")
+                                                            st.rerun()
+                                                        else:
+                                                            st.warning("⚠️ Marque pelo menos uma compra na coluna 'Quitar?' para registar o pagamento.")
+                                                    except Exception as e_quitar:
+                                                        st.error(f"Erro ao processar recebimento: {e_quitar}")
+                                            else:
+                                                st.success("✨ Este cliente não possui nenhuma compra em aberto no momento!")
+                                
+                                        with aba_pago:
+                                            if not df_quitados.empty:
+                                                cols_drop = [c for c in ['status_limpo', 'is_aberto'] if c in df_quitados.columns]
+                                                st.dataframe(df_quitados.drop(columns=cols_drop), use_container_width=True, hide_index=True)
+                                            else:
+                                                st.info("Nenhum histórico de pagamento quitado encontrado para este cliente.")
+                                
+                                    else:
+                                        st.info(f"ℹ️ Não há registos de vendas ou pedidos associados ao cliente '{nome_atual}'.")
+                                
+                                except Exception as e_fin:
+                                    st.warning(f"Extrato financeiro indisponível no momento: {e_fin}")
+                            else:
+                                st.info("Nenhum cliente cadastrado ainda.")
+
         elif menu_admin == "💾 Backup e Restauração":
             st.title("💾 Central de Backup e Restauração")
             st.info("Gerencie cópias de segurança do seu banco de dados com total segurança.")
@@ -2381,571 +2174,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         except Exception as e:
                             st.error(f"Erro ao restaurar o backup: {e}")            
 
-        elif "RH" in str(menu_admin) or "Recursos Humanos" in str(menu_admin):
-            st.title("👥 Gestão de Recursos Humanos (RH)")
-            st.markdown("Faça a gestão de colaboradores, registos com descontos de INSS/Faltas e emissão de Holerites em PDF.")
-        
-            from fpdf import FPDF
-            from datetime import datetime
-        
-            # -------------------------------------------------------------------------
-            # CLASSE PARA GERAR O HOLERITE COM COMPATIBILIDADE GARANTIDA
-            # -------------------------------------------------------------------------
-            class PDFHolerite(FPDF):
-                def __init__(self, dados_func, dados_pagamento):
-                    super().__init__(orientation='P', unit='mm', format='A4')
-                    self.dados_func = dados_func
-                    self.dados_pagamento = dados_pagamento
-        
-                def criar_holerite(self):
-                    self.add_page()
-                    self.desenhar_recibo(10, 10)
-                    
-                    # Compatibilidade universal para extrair os bytes do PDF sem erros
-                    try:
-                        res = self.output(dest='S')
-                        if isinstance(res, str):
-                            return res.encode('latin1', errors='replace')
-                        elif isinstance(res, bytes):
-                            return res
-                        elif isinstance(res, bytearray):
-                            return bytes(res)
-                    except Exception:
-                        pass
-        
-                    try:
-                        res = self.output()
-                        if isinstance(res, bytes):
-                            return res
-                        elif isinstance(res, bytearray):
-                            return bytes(res)
-                        elif isinstance(res, str):
-                            return res.encode('latin1', errors='replace')
-                    except Exception:
-                        pass
-                    
-                    return b""
-        
-                def desenhar_recibo(self, x, y):
-                    self.rect(x, y, 190, 132)
-                    self.rect(x, y, 130, 20)
-                    self.rect(x + 130, y, 60, 20)
-                    
-                    self.set_xy(x + 2, y + 1)
-                    self.set_font("Arial", "B", 7)
-                    self.cell(126, 4, "EMPREGADOR:", 0, 1)
-                    self.set_font("Arial", "", 7)
-                    self.set_x(x + 2)
-                    self.cell(126, 3.5, "Nome: REY DA CEBOLA", 0, 1)
-                    self.set_x(x + 2)
-                    self.cell(126, 3.5, "Endereço: Rua Principal, S/N - BA", 0, 1)
-                    self.set_x(x + 2)
-                    self.cell(126, 3.5, "CNPJ: 194.174.39/000-42", 0, 1)
-                    
-                    self.set_xy(x + 132, y + 2)
-                    self.set_font("Arial", "B", 9)
-                    self.cell(56, 5, "Recibo de Pagamento", 0, 1, 'C')
-                    self.set_xy(x + 132, y + 7)
-                    self.set_font("Arial", "B", 8)
-                    self.cell(56, 4, "de Salário", 0, 1, 'C')
-                    self.set_xy(x + 132, y + 13)
-                    self.set_font("Arial", "", 7)
-                    ref_mes = self.dados_pagamento.get('referencia', datetime.now().strftime('%m/%Y'))
-                    self.cell(56, 4, f"Referente ao Mês/Ano: {ref_mes}", 0, 1, 'C')
-        
-                    self.rect(x, y + 20, 190, 12)
-                    self.set_xy(x + 2, y + 21)
-                    self.set_font("Arial", "B", 7)
-                    self.cell(20, 3, "CÓDIGO", 0, 0)
-                    self.cell(85, 3, "NOME DO FUNCIONÁRIO", 0, 0)
-                    self.cell(35, 3, "CBO", 0, 0)
-                    self.cell(50, 3, "FUNÇÃO", 0, 1)
-                    
-                    self.set_xy(x + 2, y + 25)
-                    self.set_font("Arial", "", 8)
-                    func_id = int(self.dados_func.get('id', 1))
-                    self.cell(20, 5, f"{func_id:05d}", 0, 0)
-                    self.cell(85, 5, str(self.dados_func.get('nome', '')), 0, 0)
-                    self.cell(35, 5, str(self.dados_func.get('cbo', '-')), 0, 0)
-                    self.cell(50, 5, str(self.dados_func.get('cargo', '-')), 0, 1)
-        
-                    self.rect(x, y + 32, 190, 7)
-                    self.set_xy(x + 2, y + 33)
-                    self.set_font("Arial", "B", 7)
-                    self.cell(15, 5, "Cód.", 0, 0)
-                    self.cell(75, 5, "Descrição", 0, 0)
-                    self.cell(25, 5, "Referência", 0, 0, 'C')
-                    self.cell(37, 5, "Proventos", 0, 0, 'R')
-                    self.cell(38, 5, "Descontos", 0, 1, 'R')
-        
-                    self.rect(x, y + 39, 190, 58)
-                    self.set_xy(x + 2, y + 41)
-                    self.set_font("Arial", "", 8)
-                    
-                    valor_salario = float(self.dados_pagamento.get('valor', 0.0))
-                    tipo_pag = str(self.dados_pagamento.get('tipo', 'Salário')).upper()
-                    inss_val = float(self.dados_pagamento.get('inss', 0.0))
-                    faltas_qtd = float(self.dados_pagamento.get('faltas', 0.0))
-                    desc_faltas = float(self.dados_pagamento.get('desconto_faltas', 0.0))
-        
-                    self.cell(15, 5, "001", 0, 0)
-                    self.cell(75, 5, f"{tipo_pag} BASE", 0, 0)
-                    self.cell(25, 5, "220.00", 0, 0, 'C')
-                    self.cell(37, 5, f"R$ {valor_salario:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 0, 'R')
-                    self.cell(38, 5, "R$ 0,00", 0, 1, 'R')
-        
-                    current_y = 46
-                    if faltas_qtd > 0 or desc_faltas > 0:
-                        self.set_xy(x + 2, y + current_y)
-                        self.cell(15, 5, "450", 0, 0)
-                        self.cell(75, 5, f"FALTAS ({faltas_qtd} dia(s))", 0, 0)
-                        self.cell(25, 5, f"{faltas_qtd:.1f}", 0, 0, 'C')
-                        self.cell(37, 5, "R$ 0,00", 0, 0, 'R')
-                        self.cell(38, 5, f"R$ {desc_faltas:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 1, 'R')
-                        current_y += 5
-        
-                    if inss_val > 0:
-                        self.set_xy(x + 2, y + current_y)
-                        self.cell(15, 5, "903", 0, 0)
-                        self.cell(75, 5, "INSS", 0, 0)
-                        self.cell(25, 5, "", 0, 0, 'C')
-                        self.cell(37, 5, "R$ 0,00", 0, 0, 'R')
-                        self.cell(38, 5, f"R$ {inss_val:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 1, 'R')
-        
-                    total_vencimentos = valor_salario
-                    total_descontos = inss_val + desc_faltas
-                    liquido = total_vencimentos - total_descontos
-        
-                    self.rect(x, y + 97, 130, 17)
-                    self.rect(x + 130, y + 97, 60, 17)
-                    
-                    self.set_xy(x + 2, y + 98)
-                    self.set_font("Arial", "B", 7)
-                    self.cell(126, 3, "MENSAGENS:", 0, 1)
-                    self.set_font("Arial", "", 7)
-                    self.set_x(x + 2)
-                    self.cell(126, 3, "Documento gerado automaticamente pelo Sistema CRM Comércio.", 0, 1)
-        
-                    self.set_xy(x + 132, y + 98)
-                    self.set_font("Arial", "B", 7)
-                    self.cell(28, 4, "Total Vencimentos:", 0, 0)
-                    self.cell(28, 4, f"R$ {total_vencimentos:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 1, 'R')
-                    
-                    self.set_x(x + 132)
-                    self.cell(28, 4, "Total Descontos:", 0, 0)
-                    self.cell(28, 4, f"R$ {total_descontos:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 1, 'R')
-                    
-                    self.set_x(x + 132)
-                    self.set_font("Arial", "B", 8)
-                    self.cell(28, 5, "Líquido a Receber:", 0, 0)
-                    self.cell(28, 5, f"R$ {liquido:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 1, 'R')
-        
-                    self.rect(x, y + 114, 190, 18)
-                    self.set_xy(x + 2, y + 115)
-                    self.set_font("Arial", "B", 6)
-                    self.cell(31, 3, "Salário Base", 0, 0)
-                    self.cell(31, 3, "Base Cálc. INSS", 0, 0)
-                    self.cell(31, 3, "Base Cálc. FGTS", 0, 0)
-                    self.cell(31, 3, "FGTS do Mês", 0, 0)
-                    self.cell(32, 3, "Base Cálc. IRRF", 0, 0)
-                    self.cell(32, 3, "Faixa IRRF", 0, 1)
-        
-                    self.set_xy(x + 2, y + 120)
-                    self.set_font("Arial", "", 7)
-                    self.cell(31, 4, f"R$ {valor_salario:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 0)
-                    base_inss = max(0.0, valor_salario - desc_faltas)
-                    self.cell(31, 4, f"R$ {base_inss:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 0)
-                    self.cell(31, 4, f"R$ {valor_salario:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 0)
-                    fgts_val = valor_salario * 0.08
-                    self.cell(31, 4, f"R$ {fgts_val:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 0)
-                    self.cell(32, 4, "R$ 0,00", 0, 0)
-                    self.cell(32, 4, "0", 0, 1)
-        
-            try:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS funcionarios (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        nome TEXT,
-                        cargo TEXT,
-                        telefone TEXT,
-                        salario REAL,
-                        admissao TEXT,
-                        cbo TEXT
-                    )
-                """)
-                cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS pagamentos_funcionarios (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        colaborador TEXT,
-                        tipo TEXT,
-                        valor REAL,
-                        data_pagamento TEXT,
-                        inss REAL DEFAULT 0.0,
-                        faltas REAL DEFAULT 0.0,
-                        desconto_faltas REAL DEFAULT 0.0
-                    )
-                """)
-                for col_def in [("inss", "REAL DEFAULT 0.0"), ("faltas", "REAL DEFAULT 0.0"), ("desconto_faltas", "REAL DEFAULT 0.0")]:
-                    try:
-                        cursor.execute(f"ALTER TABLE pagamentos_funcionarios ADD COLUMN {col_def[0]} {col_def[1]}")
-                    except Exception:
-                        pass
-                conn.commit()
-            except Exception:
-                pass
-        
-            aba_colab, aba_pagamentos, aba_pendentes = st.tabs([
-                "👥 Colaboradores", 
-                "💸 Registar Pagamentos / Vales", 
-                "📅 Salários Pendentes e a Vencer"
-            ])
-        
-            with aba_colab:
-                with st.expander("➕ Adicionar Novo Colaborador"):
-                    with st.form("form_novo_funcionario", clear_on_submit=True):
-                        col_f1, col_f2 = st.columns(2)
-                        with col_f1:
-                            novo_nome = st.text_input("Nome Completo do Colaborador")
-                            novo_cargo = st.text_input("Cargo / Função")
-                            novo_cbo = st.text_input("CBO (Ex: 5211-10)", value="5211-10")
-                        with col_f2:
-                            novo_tel = st.text_input("Telefone / Telemóvel")
-                            novo_salario = st.number_input("Salário Base (R$)", min_value=0.0, value=1412.0, step=50.0)
-                            nova_admissao = st.date_input("Data de Admissão")
-                        
-                        btn_salvar_func = st.form_submit_button("💾 Guardar Colaborador", use_container_width=True)
-                        if btn_salvar_func:
-                            if novo_nome.strip():
-                                try:
-                                    cursor = conn.cursor()
-                                    cursor.execute("""
-                                        INSERT INTO funcionarios (nome, cargo, telefone, salario, admissao, cbo)
-                                        VALUES (?, ?, ?, ?, ?, ?)
-                                    """, (novo_nome, novo_cargo, novo_tel, novo_salario, str(nova_admissao), novo_cbo))
-                                    conn.commit()
-                                    st.success("✅ Colaborador registado com sucesso!")
-                                    st.rerun()
-                                except Exception as e:
-                                    st.error(f"Erro ao guardar colaborador: {e}")
-                            else:
-                                st.warning("⚠️ O nome do colaborador é obrigatório.")
-        
-                st.markdown("---")
-        
-                try:
-                    df_func = pd.read_sql_query("SELECT * FROM funcionarios", conn)
-                except Exception:
-                    df_func = pd.DataFrame()
-        
-                if not df_func.empty:
-                    total_colaboradores = len(df_func)
-                    folha_salarial = pd.to_numeric(df_func['salario'], errors='coerce').sum()
-        
-                    col_m1, col_m2 = st.columns(2)
-                    with col_m1:
-                        st.metric("👨‍💼 Total de Colaboradores", str(total_colaboradores))
-                    with col_m2:
-                        st.metric("💵 Folha Salarial Total Base", f"R$ {folha_salarial:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-        
-                    st.markdown("---")
-                    st.subheader("📋 Lista de Colaboradores (Editável)")
-        
-                    df_func['salario'] = pd.to_numeric(df_func['salario'], errors='coerce').fillna(0.0)
-                    edited_func = st.data_editor(
-                        df_func,
-                        key="editor_tabela_funcionarios",
-                        use_container_width=True,
-                        num_rows="dynamic"
-                    )
-        
-                    if st.button("💾 Atualizar Alterações no RH", key="btn_salvar_rh", use_container_width=True):
-                        try:
-                            cursor = conn.cursor()
-                            for _, row in edited_func.iterrows():
-                                cursor.execute("""
-                                    UPDATE funcionarios 
-                                    SET nome = ?, cargo = ?, telefone = ?, salario = ?, admissao = ?, cbo = ?
-                                    WHERE id = ?
-                                """, (
-                                    str(row.get('nome', '')),
-                                    str(row.get('cargo', '')),
-                                    str(row.get('telefone', '')),
-                                    float(row.get('salario', 0)),
-                                    str(row.get('admissao', '')),
-                                    str(row.get('cbo', '-')),
-                                    int(row.get('id', 0))
-                                ))
-                            conn.commit()
-                            st.success("✅ Dados atualizados com sucesso!")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Erro ao atualizar dados: {e}")
-                else:
-                    st.info("ℹ️ Ainda não existem colaboradores registados.")
-        
-            with aba_pagamentos:
-                st.subheader("💸 Registar Pagamento, Salário ou Vale")
-                
-                try:
-                    df_func_list = pd.read_sql_query("SELECT id, nome, cargo, cbo FROM funcionarios", conn)
-                    lista_nomes = df_func_list['nome'].tolist() if not df_func_list.empty else []
-                except Exception:
-                    df_func_list = pd.DataFrame()
-                    lista_nomes = []
-        
-                if lista_nomes:
-                    with st.form("form_registo_pagamento", clear_on_submit=True):
-                        col_p1, col_p2 = st.columns(2)
-                        with col_p1:
-                            colaborador_selecionado = st.selectbox("Selecione o Colaborador", lista_nomes)
-                            tipo_lancamento = st.selectbox("Descrição / Tipo", ["Salário", "Vale", "Adiantamento", "Bónus"])
-                            valor_lancamento = st.number_input("Valor Bruto (R$)", min_value=0.0, value=0.0, step=10.0)
-                        with col_p2:
-                            inss_lancamento = st.number_input("Desconto INSS (R$)", min_value=0.0, value=0.0, step=10.0)
-                            faltas_qtd = st.number_input("Quantidade de Faltas (Dias)", min_value=0.0, value=0.0, step=1.0)
-                            desc_faltas_val = st.number_input("Desconto por Faltas (R$)", min_value=0.0, value=0.0, step=10.0)
-                            data_lancamento = st.date_input("Data do Recebimento")
-                        
-                        btn_gravar_pagamento = st.form_submit_button("💾 Registar Lançamento e Liberar Holerite", use_container_width=True)
-                        if btn_gravar_pagamento:
-                            if valor_lancamento > 0:
-                                try:
-                                    cursor = conn.cursor()
-                                    cursor.execute("""
-                                        INSERT INTO pagamentos_funcionarios (colaborador, tipo, valor, data_pagamento, inss, faltas, desconto_faltas)
-                                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                                    """, (colaborador_selecionado, tipo_lancamento, valor_lancamento, str(data_lancamento), inss_lancamento, faltas_qtd, desc_faltas_val))
-                                    conn.commit()
-                                    st.success("✅ Lançamento registado com sucesso! Holerite disponível abaixo.")
-                                    st.rerun()
-                                except Exception as e:
-                                    st.error(f"Erro ao guardar o registo: {e}")
-                            else:
-                                st.warning("⚠️ Insira um valor superior a zero.")
-                else:
-                    st.warning("⚠️ Registe primeiro um colaborador na aba 'Colaboradores'.")
-        
-                st.markdown("---")
-                st.subheader("📊 Histórico de Pagamentos e Edição de Holerites")
-        
-                try:
-                    df_historico_pag = pd.read_sql_query("SELECT * FROM pagamentos_funcionarios ORDER BY id DESC", conn)
-                except Exception:
-                    df_historico_pag = pd.DataFrame()
-        
-                if not df_historico_pag.empty:
-                    for _, row_pag in df_historico_pag.iterrows():
-                        p_id = row_pag['id']
-                        p_collab = row_pag['colaborador']
-                        p_tipo = row_pag['tipo']
-                        p_valor = float(row_pag['valor'] or 0)
-                        p_data = str(row_pag['data_pagamento'])[:10]
-                        p_inss = float(row_pag.get('inss', 0) or 0)
-                        p_faltas = float(row_pag.get('faltas', 0) or 0)
-                        p_desc_faltas = float(row_pag.get('desconto_faltas', 0) or 0)
-                        
-                        f_info = df_func_list[df_func_list['nome'] == p_collab]
-                        f_dict = f_info.iloc[0].to_dict() if not f_info.empty else {'id': 1, 'cargo': 'Funcionário', 'cbo': '-'}
-        
-                        with st.expander(f"📄 {p_collab} — {p_tipo}: R$ {p_valor:,.2f} ( Líquido: R$ {p_valor - p_inss - p_desc_faltas:,.2f} ) em {p_data}"):
-                            with st.form(f"form_edite_holerite_{p_id}"):
-                                ce1, ce2, ce3 = st.columns(3)
-                                with ce1:
-                                    novo_val_pag = st.number_input("Valor Bruto (R$)", value=p_valor, step=10.0, key=f"val_{p_id}")
-                                with ce2:
-                                    novo_inss = st.number_input("INSS (R$)", value=p_inss, step=5.0, key=f"inss_{p_id}")
-                                with ce3:
-                                    nova_qtd_faltas = st.number_input("Qtd Faltas", value=p_faltas, step=1.0, key=f"faltas_{p_id}")
-                                
-                                ce4, ce5 = st.columns(2)
-                                with ce4:
-                                    novo_desc_faltas = st.number_input("Desc. Faltas (R$)", value=p_desc_faltas, step=10.0, key=f"desc_f_{p_id}")
-                                with ce5:
-                                    st.markdown("<br>", unsafe_allow_html=True)
-                                    btn_atualiza_reg = st.form_submit_button("💾 Atualizar Dados do Holerite", use_container_width=True)
-        
-                                if btn_atualiza_reg:
-                                    try:
-                                        cursor = conn.cursor()
-                                        cursor.execute("""
-                                            UPDATE pagamentos_funcionarios 
-                                            SET valor = ?, inss = ?, faltas = ?, desconto_faltas = ?
-                                            WHERE id = ?
-                                        """, (novo_val_pag, novo_inss, nova_qtd_faltas, novo_desc_faltas, p_id))
-                                        conn.commit()
-                                        st.success("✅ Holerite atualizado com sucesso!")
-                                        st.rerun()
-                                    except Exception as e:
-                                        st.error(f"Erro ao atualizar: {e}")
-        
-                            pdf_obj = PDFHolerite(
-                                dados_func=f_dict,
-                                dados_pagamento={
-                                    'referencia': p_data[:7],
-                                    'valor': p_valor,
-                                    'tipo': p_tipo,
-                                    'inss': p_inss,
-                                    'faltas': p_faltas,
-                                    'desconto_faltas': p_desc_faltas
-                                }
-                            )
-                            pdf_bytes = pdf_obj.criar_holerite()
-                            
-                            st.download_button(
-                                label="📥 Descarregar / Imprimir Holerite em PDF",
-                                data=pdf_bytes,
-                                file_name=f"holerite_{p_collab.replace(' ', '_')}_{p_data[:7]}.pdf",
-                                mime="application/pdf",
-                                key=f"btn_pdf_pag_{p_id}"
-                            )
-                else:
-                    st.info("ℹ️ Nenhum pagamento registado até o momento.")
-        
-            with aba_pendentes:
-                st.subheader("📅 Controlo Automático de Salários Pendentes e a Vencer")
-                st.markdown("Marque como '✅ Pago' para dar baixa e gerar os registos salariais.")
-        
-                try:
-                    df_f = pd.read_sql_query("SELECT * FROM funcionarios", conn)
-                    df_p = pd.read_sql_query("SELECT * FROM pagamentos_funcionarios WHERE tipo = 'Salário'", conn)
-                except Exception:
-                    df_f = pd.DataFrame()
-                    df_p = pd.DataFrame()
-        
-                if not df_f.empty:
-                    competencias_geradas = []
-                    hoje = datetime.now().date()
-        
-                    for _, func in df_f.iterrows():
-                        nome_func = func.get('nome')
-                        salario_base = float(func.get('salario', 0) or 0)
-                        admissao_str = str(func.get('admissao', ''))
-        
-                        try:
-                            data_adm = datetime.strptime(admissao_str[:10], '%Y-%m-%d').date()
-                        except Exception:
-                            data_adm = hoje
-        
-                        ano_atual, mes_atual = hoje.year, hoje.month
-                        cur_year, cur_month = data_adm.year, data_adm.month
-                        
-                        limite_year = ano_atual + (1 if mes_atual == 12 else 0)
-                        limite_month = 1 if mes_atual == 12 else mes_atual + 1
-        
-                        while (cur_year < limite_year) or (cur_year == limite_year and cur_month <= limite_month):
-                            competencia_str = f"{cur_month:02d}/{cur_year}"
-                            
-                            ja_pago = False
-                            if not df_p.empty:
-                                pag_func = df_p[df_p['colaborador'] == nome_func]
-                                for _, pag in pag_func.iterrows():
-                                    data_pag_str = str(pag.get('data_pagamento', ''))
-                                    if f"{cur_year:04d}-{cur_month:02d}" in data_pag_str:
-                                        ja_pago = True
-                                        break
-        
-                            if cur_year > ano_atual or (cur_year == ano_atual and cur_month > mes_atual):
-                                status_competencia = "🟢 A Vencer"
-                            elif not ja_pago:
-                                status_competencia = "🔴 Pendente (Em Aberto)"
-                            else:
-                                status_competencia = "✅ Pago"
-        
-                            competencias_geradas.append({
-                                "Excluir": False,
-                                "Colaborador": nome_func,
-                                "Cargo": func.get('cargo', ''),
-                                "Competência (Mês/Ano)": competencia_str,
-                                "Valor Devido (R$)": salario_base,
-                                "Status": status_competencia
-                            })
-        
-                            cur_month += 1
-                            if cur_month > 12:
-                                cur_month = 1
-                                cur_year += 1
-        
-                    df_pendentes_final = pd.DataFrame(competencias_geradas)
-        
-                    if not df_pendentes_final.empty:
-                        filtro_status = st.selectbox("Filtrar por Status:", ["Todos", "🔴 Pendente (Em Aberto)", "🟢 A Vencer", "✅ Pago"], key="filtro_status_pend_v7")
-                        if filtro_status != "Todos":
-                            df_pendentes_final = df_pendentes_final[df_pendentes_final['Status'] == filtro_status]
-        
-                        edited_pendentes = st.data_editor(
-                            df_pendentes_final,
-                            key="editor_tabela_salarios_pendentes_v7",
-                            use_container_width=True,
-                            hide_index=True,
-                            column_config={
-                                "Excluir": st.column_config.CheckboxColumn("Excluir", default=False),
-                                "Status": st.column_config.SelectboxColumn(
-                                    "Status do Pagamento",
-                                    options=["🔴 Pendente (Em Aberto)", "🟢 A Vencer", "✅ Pago"],
-                                    required=True
-                                ),
-                                "Valor Devido (R$)": st.column_config.NumberColumn(
-                                    "Valor (R$)",
-                                    min_value=0.0,
-                                    step=50.0,
-                                    format="R$ %.2f"
-                                )
-                            },
-                            num_rows="fixed"
-                        )
-        
-                        st.markdown("---")
-                        
-                        if st.button("💾 Salvar Alterações e Registar Pagamentos", key="btn_salvar_pend_v7", use_container_width=True):
-                            try:
-                                cursor = conn.cursor()
-                                with conn:
-                                    for _, row in edited_pendentes.iterrows():
-                                        collab = row['Colaborador']
-                                        comp = row['Competência (Mês/Ano)']
-                                        val = float(row['Valor Devido (R$)'])
-                                        status_mod = row['Status']
-                                        
-                                        mes_competencia, ano_competencia = comp.split('/')
-                                        
-                                        cursor.execute("""
-                                            UPDATE funcionarios SET salario = ? WHERE nome = ?
-                                        """, (val, collab))
-        
-                                        cursor.execute("""
-                                            SELECT id FROM pagamentos_funcionarios 
-                                            WHERE colaborador = ? AND tipo = 'Salário' AND data_pagamento LIKE ?
-                                        """, (collab, f"{ano_competencia}-{mes_competencia}%"))
-                                        registo_existente = cursor.fetchone()
-        
-                                        if "Pago" in status_mod:
-                                            if not registo_existente:
-                                                data_padrao = f"{ano_competencia}-{mes_competencia}-05"
-                                                cursor.execute("""
-                                                    INSERT INTO pagamentos_funcionarios (colaborador, tipo, valor, data_pagamento)
-                                                    VALUES (?, 'Salário', ?, ?)
-                                                """, (collab, val, data_padrao))
-                                            else:
-                                                cursor.execute("""
-                                                    UPDATE pagamentos_funcionarios SET valor = ? 
-                                                    WHERE colaborador = ? AND tipo = 'Salário' AND data_pagamento LIKE ?
-                                                """, (val, collab, f"{ano_competencia}-{mes_competencia}%"))
-                                        else:
-                                            if registo_existente:
-                                                cursor.execute("""
-                                                    DELETE FROM pagamentos_funcionarios 
-                                                    WHERE colaborador = ? AND tipo = 'Salário' AND data_pagamento LIKE ?
-                                                """, (collab, f"{ano_competencia}-{mes_competencia}%"))
-        
-                                st.success("✅ Alterações guardadas com sucesso!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro ao salvar alterações: {e}")
-                    else:
-                        st.info("ℹ️ Não foram encontradas competências para exibir.")
-                else:
-                    st.info("ℹ️ Registe colaboradores na primeira aba.")
         elif menu_admin == "📥 Entrada de Estoque (Compras)":
             st.title("📥 Entrada de Estoque (Compras)")
             st.subheader("Registrar Entrada de Estoque")
