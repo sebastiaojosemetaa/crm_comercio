@@ -1331,7 +1331,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 if 'modo_edicao_carrinho' not in st.session_state:
                     st.session_state.modo_edicao_carrinho = False
             
-                carrinho_atual = st.session_state.get('carrinho_admin', st.session_state.get('carrinho', []))
+                carrinho_atual = st.session_state.get('carrinho_cliente', [])
             
                 if carrinho_atual:
                     df_carrinho = pd.DataFrame(carrinho_atual)
