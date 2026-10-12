@@ -1345,12 +1345,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     col_btn1, col_btn2, col_btn3, col_btn4 = st.columns(4)
             
                     with col_btn1:
-                        if st.button("🗑️ Limpar Carrinho", use_container_width=True, key="btn_limpar_carrinho_v2"):
-                            if 'carrinho_admin' in st.session_state:
-                                st.session_state.carrinho_admin = []
-                            if 'carrinho' in st.session_state:
-                                st.session_state.carrinho = []
-                            st.session_state.modo_edicao_carrinho = False
+                        if st.button("🗑️ Limpar Carrinho", key="btn_limpar_carrinho_admin"):
+                            # Esvazia a lista unificada do carrinho na sessão
+                            st.session_state.carrinho_cliente = []
+                            st.success("✅ Carrinho limpo com sucesso!")
                             st.rerun()
             
                     with col_btn2:
