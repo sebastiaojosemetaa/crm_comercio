@@ -642,9 +642,15 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 if prod_item == "+ Cadastrar Novo Produto...":
                     st.error("Por favor, selecione ou cadastre o produto antes de incluir no pedido.")
                 else:
-                    # Verifica se o produto já existe no carrinho atual do cliente
-                    produto_ja_existe = any(item.get("produto") == prod_item for item in st.session_state.carrinho_cliente)
+                    # Verificação robusta de produto duplicado (compatível com lista ou DataFrame)
+                    produto_ja_existe = False
+                    carrinho = st.session_state.get("carrinho_cliente", [])
                     
+                    if isinstance(carrinho, list):
+                        produto_ja_existe = any(str(item.get("produto", "")).strip().upper() == str(prod_item).strip().upper() for item in carrinho)
+                    elif hasattr(carrinho, "iterrows"):
+                        produto_ja_existe = any(str(row.get("produto", "")).strip().upper() == str(prod_item).strip().upper() for _, row in carrinho.iterrows())
+        
                     if produto_ja_existe:
                         st.warning(f"⚠️ O produto **'{prod_item}'** já existe no carrinho!")
                     else:
