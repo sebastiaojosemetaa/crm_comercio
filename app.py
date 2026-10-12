@@ -642,18 +642,24 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 if prod_item == "+ Cadastrar Novo Produto...":
                     st.error("Por favor, selecione ou cadastre o produto antes de incluir no pedido.")
                 else:
-                    # Verificação robusta de produto duplicado (compatível com lista ou DataFrame)
+                    # Inicializa o carrinho na sessão caso não exista
+                    if "carrinho_cliente" not in st.session_state:
+                        st.session_state.carrinho_cliente = []
+        
+                    # Verifica rigorosamente se o produto já existe na lista atual do carrinho
                     produto_ja_existe = False
-                    carrinho = st.session_state.get("carrinho_cliente", [])
-                    
-                    if isinstance(carrinho, list):
-                        produto_ja_existe = any(str(item.get("produto", "")).strip().upper() == str(prod_item).strip().upper() for item in carrinho)
-                    elif hasattr(carrinho, "iterrows"):
-                        produto_ja_existe = any(str(row.get("produto", "")).strip().upper() == str(prod_item).strip().upper() for _, row in carrinho.iterrows())
+                    for item in st.session_state.carrinho_cliente:
+                        # Compara o nome do produto ignorando maiúsculas/minúsculas ou espaços
+                        nome_existente = str(item.get("produto", "")).strip().upper()
+                        nome_atual = str(prod_item).strip().upper()
+                        if nome_existente == nome_atual:
+                            produto_ja_existe = True
+                            break
         
                     if produto_ja_existe:
                         st.warning(f"⚠️ O produto **'{prod_item}'** já existe no carrinho!")
                     else:
+                        # Adiciona apenas se não existir
                         st.session_state.carrinho_cliente.append({
                             "produto": prod_item,
                             "fornecedor": fornec_ped,
