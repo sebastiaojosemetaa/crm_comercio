@@ -642,17 +642,23 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 if prod_item == "+ Cadastrar Novo Produto...":
                     st.error("Por favor, selecione ou cadastre o produto antes de incluir no pedido.")
                 else:
-                    st.session_state.carrinho_cliente.append({
-                        "produto": prod_item,
-                        "fornecedor": fornec_ped,
-                        "grupo": grupo_ped,
-                        "quantidade": float(qtd_ped),
-                        "valor_unitario": float(v_venda_ped),
-                        "preco_unitario": float(v_venda_ped),
-                        "valor_total": float(valor_total_item)
-                    })
-                    st.success(f"✅ '{prod_item}' adicionado ao pedido com sucesso!")
-                    st.rerun()
+                    # Verifica se o produto já existe no carrinho atual do cliente
+                    produto_ja_existe = any(item.get("produto") == prod_item for item in st.session_state.carrinho_cliente)
+                    
+                    if produto_ja_existe:
+                        st.warning(f"⚠️ O produto **'{prod_item}'** já existe no carrinho!")
+                    else:
+                        st.session_state.carrinho_cliente.append({
+                            "produto": prod_item,
+                            "fornecedor": fornec_ped,
+                            "grupo": grupo_ped,
+                            "quantidade": float(qtd_ped),
+                            "valor_unitario": float(v_venda_ped),
+                            "preco_unitario": float(v_venda_ped),
+                            "valor_total": float(valor_total_item)
+                        })
+                        st.success(f"✅ '{prod_item}' adicionado ao pedido com sucesso!")
+                        st.rerun()
 
             st.markdown("---")
             st.subheader("📋 Itens Atuais no Pedido")
@@ -1279,23 +1285,27 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     valor_total_item = qtd_ped * v_venda_ped
                     st.info(f"**Valor Total do Item:** R$ {valor_total_item:.2f}")
                 
-                if st.button("➕ Incluir Produto no Pedido", type="primary", key="btn_incluir_prod_pedido"):
+                if st.button("➕ Incluir Produto no Pedido", type="primary", key="btn_incluir_prod_cli"):
                     if prod_item == "+ Cadastrar Novo Produto...":
                         st.error("Por favor, selecione ou cadastre o produto antes de incluir no pedido.")
                     else:
-                        if "carrinho_admin" not in st.session_state:
-                            st.session_state.carrinho_admin = []
-                
-                        st.session_state.carrinho_admin.append({
-                            "produto": prod_item,
-                            "fornecedor": fornec_ped,
-                            "grupo": grupo_ped,
-                            "quantidade": qtd_ped,
-                            "valor_unitario": v_venda_ped,
-                            "valor_total": valor_total_item
-                        })
-                        st.success(f"✅ '{prod_item}' adicionado ao pedido com sucesso!")
-                        st.rerun()
+                        # Verifica se o produto já existe no carrinho atual do cliente
+                        produto_ja_existe = any(item.get("produto") == prod_item for item in st.session_state.carrinho_cliente)
+                        
+                        if produto_ja_existe:
+                            st.warning(f"⚠️ O produto **'{prod_item}'** já existe no carrinho!")
+                        else:
+                            st.session_state.carrinho_cliente.append({
+                                "produto": prod_item,
+                                "fornecedor": fornec_ped,
+                                "grupo": grupo_ped,
+                                "quantidade": float(qtd_ped),
+                                "valor_unitario": float(v_venda_ped),
+                                "preco_unitario": float(v_venda_ped),
+                                "valor_total": float(valor_total_item)
+                            })
+                            st.success(f"✅ '{prod_item}' adicionado ao pedido com sucesso!")
+                            st.rerun()
         
                 st.markdown("---")
                 st.subheader("📋 Itens Atuais no Pedido")
