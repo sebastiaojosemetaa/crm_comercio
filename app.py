@@ -638,16 +638,25 @@ if perfil_selecionado == "👤 Portal do Cliente":
             if "modo_edicao_cli" not in st.session_state:
                 st.session_state.modo_edicao_cli = False
 
+            # Garante que o carrinho do cliente existe na sessão e nunca é apagado sozinho
+            if "carrinho_cliente" not in st.session_state:
+                st.session_state.carrinho_cliente = []
+        
             if st.button("➕ Incluir Produto no Pedido", type="primary", key="btn_incluir_prod_cli"):
                 if prod_item == "+ Cadastrar Novo Produto...":
                     st.error("Por favor, selecione ou cadastre o produto antes de incluir no pedido.")
                 else:
-                    # Verifica se o produto já existe no carrinho atual do cliente
-                    produto_ja_existe = any(item.get("produto") == prod_item for item in st.session_state.carrinho_cliente)
-                    
+                    # Verifica se o produto já existe na lista atual do carrinho
+                    produto_ja_existe = False
+                    for item in st.session_state.carrinho_cliente:
+                        if str(item.get("produto", "")).strip().upper() == str(prod_item).strip().upper():
+                            produto_ja_existe = True
+                            break
+        
                     if produto_ja_existe:
                         st.warning(f"⚠️ O produto **'{prod_item}'** já existe no carrinho!")
                     else:
+                        # Adiciona o novo item mantendo os anteriores intactos
                         st.session_state.carrinho_cliente.append({
                             "produto": prod_item,
                             "fornecedor": fornec_ped,
@@ -1285,16 +1294,25 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     valor_total_item = qtd_ped * v_venda_ped
                     st.info(f"**Valor Total do Item:** R$ {valor_total_item:.2f}")
                 
+                # Garante que o carrinho do cliente existe na sessão e nunca é apagado sozinho
+                if "carrinho_cliente" not in st.session_state:
+                    st.session_state.carrinho_cliente = []
+            
                 if st.button("➕ Incluir Produto no Pedido", type="primary", key="btn_incluir_prod_cli"):
                     if prod_item == "+ Cadastrar Novo Produto...":
                         st.error("Por favor, selecione ou cadastre o produto antes de incluir no pedido.")
                     else:
-                        # Verifica se o produto já existe no carrinho atual do cliente
-                        produto_ja_existe = any(item.get("produto") == prod_item for item in st.session_state.carrinho_cliente)
-                        
+                        # Verifica se o produto já existe na lista atual do carrinho
+                        produto_ja_existe = False
+                        for item in st.session_state.carrinho_cliente:
+                            if str(item.get("produto", "")).strip().upper() == str(prod_item).strip().upper():
+                                produto_ja_existe = True
+                                break
+            
                         if produto_ja_existe:
                             st.warning(f"⚠️ O produto **'{prod_item}'** já existe no carrinho!")
                         else:
+                            # Adiciona o novo item mantendo os anteriores intactos
                             st.session_state.carrinho_cliente.append({
                                 "produto": prod_item,
                                 "fornecedor": fornec_ped,
