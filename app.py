@@ -1297,28 +1297,25 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     valor_total_item = qtd_ped * v_venda_ped
                     st.info(f"**Valor Total do Item:** R$ {valor_total_item:.2f}")
                 
+                # Garante que o carrinho do cliente existe na sessão e nunca é apagado sozinho
+                if "carrinho_cliente" not in st.session_state:
+                    st.session_state.carrinho_cliente = []
+            
                 if st.button("➕ Incluir Produto no Pedido", type="primary", key="btn_incluir_prod_cli"):
                     if prod_item == "+ Cadastrar Novo Produto...":
                         st.error("Por favor, selecione ou cadastre o produto antes de incluir no pedido.")
                     else:
-                        # Inicializa o carrinho na sessão caso não exista
-                        if "carrinho_cliente" not in st.session_state:
-                            st.session_state.carrinho_cliente = []
-            
-                        # Verifica rigorosamente se o produto já existe na lista atual do carrinho
+                        # Verifica se o produto já existe na lista atual do carrinho
                         produto_ja_existe = False
                         for item in st.session_state.carrinho_cliente:
-                            # Compara o nome do produto ignorando maiúsculas/minúsculas ou espaços
-                            nome_existente = str(item.get("produto", "")).strip().upper()
-                            nome_atual = str(prod_item).strip().upper()
-                            if nome_existente == nome_atual:
+                            if str(item.get("produto", "")).strip().upper() == str(prod_item).strip().upper():
                                 produto_ja_existe = True
                                 break
             
                         if produto_ja_existe:
                             st.warning(f"⚠️ O produto **'{prod_item}'** já existe no carrinho!")
                         else:
-                            # Adiciona apenas se não existir
+                            # Adiciona o novo item mantendo os anteriores intactos
                             st.session_state.carrinho_cliente.append({
                                 "produto": prod_item,
                                 "fornecedor": fornec_ped,
