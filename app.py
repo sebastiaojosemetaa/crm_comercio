@@ -2488,14 +2488,14 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                                                 st.info("Nenhum histórico de pagamento quitado encontrado para este cliente.")
                                                     else:
                                                         st.info(f"ℹ️ Não há registos de vendas ou pedidos associados ao cliente '{nome_atual}'.")
-        
-                    with tab_prod:
-                        st.subheader("📝 Gerenciar Produtos (Cadastrar, Editar e Excluir)")
-                try:
-                    df_g = carregar_dados("SELECT DISTINCT grupo FROM grupos WHERE grupo IS NOT NULL AND grupo != '' ORDER BY grupo")
-                    grupos_opt = df_g['grupo'].tolist() if not df_g.empty else ["GERAL"]
-                except Exception:
-                    grupos_opt = ["GERAL"]
+                                    
+                                                with tab_prod:
+                                                    st.subheader("📝 Gerenciar Produtos (Cadastrar, Editar e Excluir)")
+                                                    try:
+                                                        df_g = carregar_dados("SELECT DISTINCT grupo FROM grupos WHERE grupo IS NOT NULL AND grupo != '' ORDER BY grupo")
+                                                        grupos_opt = df_g['grupo'].tolist() if not df_g.empty else ["GERAL"]
+                                                    except Exception:
+                                                        grupos_opt = ["GERAL"]
     
                 try:
                     df_f = carregar_dados("SELECT DISTINCT fornecedor FROM fornecedores WHERE fornecedor IS NOT NULL AND fornecedor != '' ORDER BY fornecedor")
