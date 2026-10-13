@@ -1357,22 +1357,35 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             st.rerun()
             
                     with col_btn3:
-                        if st.button("💾 Salvar", use_container_width=True, key="btn_salvar_carrinho_v2"):
-                            if st.session_state.modo_edicao_carrinho and 'df_editado' in locals():
-                                if 'quantidade' in df_editado.columns and 'valor_unitario' in df_editado.columns:
-                                    df_editado['quantidade'] = pd.to_numeric(df_editado['quantidade'], errors='coerce').fillna(1)
-                                    df_editado['valor_unitario'] = pd.to_numeric(df_editado['valor_unitario'], errors='coerce').fillna(0)
-                                    df_editado['valor_total'] = df_editado['quantidade'] * df_editado['valor_unitario']
-            
-                                novos_itens = df_editado.to_dict('records')
-                                if 'carrinho_admin' in st.session_state:
-                                    st.session_state.carrinho_admin = novos_itens
-                                if 'carrinho' in st.session_state:
-                                    st.session_state.carrinho = novos_itens
-            
-                                st.session_state.modo_edicao_carrinho = False
-                                st.success("✅ Alterações do carrinho salvas!")
-                                st.rerun()
+                        # Botão para Salvar as alterações feitas na tabela do carrinho
+                        if st.button("💾 Salvar", key="btn_salvar_carrinho_admin"):
+                            try:
+                                # Pega o DataFrame editado na tabela (supondo que a key da tabela seja 'tabela_carrinho_admin_view' ou similar)
+                                # Vamos atualizar diretamente com base no estado da tabela editada ou converter de volta para a lista
+                                if 'tabela_carrinho_admin_view' in st.session_state:
+                                    df_editado = st.session_state['tabela_carrinho_admin_view']
+                                    
+                                    # Se for um dataframe ou dicionário editado pelo st.data_editor
+                                    if hasattr(df_editado, 'to_dict'):
+                                        nova_lista = df_editado.to_dict(orient='records')
+                                        
+                                        # Recalcula o valor total de cada item caso a quantidade tenha mudado
+                                        for item in nova_lista:
+                                            qtd = float(item.get("quantidade", 1) or 1)
+                                            v_unit = float(item.get("valor_unitario", item.get("preco_unitario", 0)) or 0)
+                                            item["quantidade"] = qtd
+                                            item["valor_unitario"] = v_unit
+                                            item["preco_unitario"] = v_unit
+                                            item["valor_total"] = qtd * v_unit
+                                            
+                                        # Guarda na variável unificada correta
+                                        st.session_state.carrinho_cliente = nova_lista
+                                        st.success("✅ Alterações guardadas com sucesso!")
+                                        st.rerun()
+                                else:
+                                    st.warning("⚠️ Nenhuma tabela ativa encontrada para salvar.")
+                            except Exception as e:
+                                st.error(f"Erro ao salvar alterações: {e}")
                             else:
                                 st.warning("Clique em '✏️ Alterar' primeiro para editar a tabela.")
             
