@@ -2178,9 +2178,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                                     st.warning("⚠️ Marque pelo menos uma compra na coluna 'Quitar?' para registar o pagamento.")
                                             except Exception as e_quitar:
                                                 st.error(f"Erro ao processar recebimento: {e_quitar}")
-    
-            with tab_prod:
-                st.subheader("📝 Gerenciar Produtos (Cadastrar, Editar e Excluir)")
+                                
+                                # ---> ADICIONE ESTE BLOCO AQUI PARA FECHAR O TRY DO EXTRATO FINANCEIRO:
+                                except Exception as e_fin:
+                                    st.warning(f"Extrato financeiro indisponível no momento: {e_fin}")
+        
+                    with tab_prod:
+                        st.subheader("📝 Gerenciar Produtos (Cadastrar, Editar e Excluir)")
                 try:
                     df_g = carregar_dados("SELECT DISTINCT grupo FROM grupos WHERE grupo IS NOT NULL AND grupo != '' ORDER BY grupo")
                     grupos_opt = df_g['grupo'].tolist() if not df_g.empty else ["GERAL"]
