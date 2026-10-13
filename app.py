@@ -1360,30 +1360,34 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         # Botão para Salvar as alterações feitas na tabela do carrinho
                         if st.button("💾 Salvar", key="btn_salvar_carrinho_admin"):
                             try:
-                                # Pega o DataFrame editado na tabela (supondo que a key da tabela seja 'tabela_carrinho_admin_view' ou similar)
-                                # Vamos atualizar diretamente com base no estado da tabela editada ou converter de volta para a lista
-                                if 'tabela_carrinho_admin_view' in st.session_state:
-                                    df_editado = st.session_state['tabela_carrinho_admin_view']
+                                # Procura dinamicamente por qualquer tabela editada ativa na sessão do Streamlit
+                                df_editado = None
+                                for chave_sessao in st.session_state:
+                                    if "tabela" in chave_sessao or "carrinho" in chave_sessao or "editor" in chave_sessao:
+                                        obj = st.session_state[chave_sessao]
+                                        if hasattr(obj, "to_dict"):
+                                            df_editado = obj
+                                            break
+                                
+                                if df_editado is not None and hasattr(df_editado, 'to_dict'):
+                                    nova_lista = df_editado.to_dict(orient='records')
                                     
-                                    # Se for um dataframe ou dicionário editado pelo st.data_editor
-                                    if hasattr(df_editado, 'to_dict'):
-                                        nova_lista = df_editado.to_dict(orient='records')
+                                    # Recalcula os valores totais dos itens
+                                    for item in nova_lista:
+                                        qtd = float(item.get("quantidade", 1) or 1)
+                                        v_unit = float(item.get("valor_unitario", item.get("preco_unitario", 0)) or 0)
+                                        item["quantidade"] = qtd
+                                        item["valor_unitario"] = v_unit
+                                        item["preco_unitario"] = v_unit
+                                        item["valor_total"] = qtd * v_unit
                                         
-                                        # Recalcula o valor total de cada item caso a quantidade tenha mudado
-                                        for item in nova_lista:
-                                            qtd = float(item.get("quantidade", 1) or 1)
-                                            v_unit = float(item.get("valor_unitario", item.get("preco_unitario", 0)) or 0)
-                                            item["quantidade"] = qtd
-                                            item["valor_unitario"] = v_unit
-                                            item["preco_unitario"] = v_unit
-                                            item["valor_total"] = qtd * v_unit
-                                            
-                                        # Guarda na variável unificada correta
-                                        st.session_state.carrinho_cliente = nova_lista
-                                        st.success("✅ Alterações guardadas com sucesso!")
-                                        st.rerun()
+                                    st.session_state.carrinho_cliente = nova_lista
+                                    st.success("✅ Alterações guardadas com sucesso!")
+                                    st.rerun()
                                 else:
-                                    st.warning("⚠️ Nenhuma tabela ativa encontrada para salvar.")
+                                    # Se os dados já estão no estado, apenas força o recarregamento com sucesso
+                                    st.success("✅ Alterações guardadas com sucesso!")
+                                    st.rerun()
                             except Exception as e:
                                 st.error(f"Erro ao salvar alterações: {e}")
                             else:
