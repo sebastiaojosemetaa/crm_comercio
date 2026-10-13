@@ -2101,7 +2101,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                                 step=1.0,
                                                 key="input_valor_recebido_baixa"
                                             )
-                        
+        
                                         if st.button("✅ Confirmar Recebimento", type="primary", key="btn_dar_baixa_vendas_direto"):
                                             try:
                                                 cursor = conn.cursor()
@@ -2115,10 +2115,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                                     forma_final = forma_recebimento
                                                     if valor_desconto > 0:
                                                         forma_final += f" (Desconto: R$ {valor_desconto:.2f} - {desc_desconto})"
-                                
+                                                    
                                                     # Calcula o total devido dos itens marcados para fins de proporção
                                                     total_devido_selecionado = sum([float(r.get('restante', 0.0) or 0.0) if float(r.get('restante', 0.0) or 0.0) > 0 else float(r.get('valor_total', 0.0) or 0.0) for _, r in marcados.iterrows()])
-                                
+                                                    
                                                     for _, row_m in marcados.iterrows():
                                                         v_id = row_m['id']
                                                         v_total = float(row_m.get('valor_total', 0.0) or 0.0)
@@ -2136,7 +2136,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                                         desconto_neste_item = round(desconto_disponivel * proporcao, 2)
                                                         
                                                         abatimento_total_item = pago_neste_item + desconto_neste_item
-                                
+                                                        
                                                         if abatimento_total_item >= debito_alvo or (dinheiro_disponivel >= debito_alvo):
                                                             novo_valor_recebido = ja_pago_anterior + debito_alvo
                                                             cursor.execute(
