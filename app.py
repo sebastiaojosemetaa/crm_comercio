@@ -2103,82 +2103,81 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                             )
                         
                                         if st.button("✅ Confirmar Recebimento", type="primary", key="btn_dar_baixa_vendas_direto"):
-                                                            try:
-                                                                cursor = conn.cursor()
-                                                                marcados = df_edit_abertos[df_edit_abertos['Quitar?'] == True]
-                                                                if not marcados.empty:
-                                                                    dinheiro_disponivel = float(valor_recebido_input)
-                                                                    desconto_disponivel = float(valor_desconto)
-                                                                    data_agora = datetime.now(ZoneInfo("America/Sao_Paulo")).strftime('%Y-%m-%d %H:%M:%S')
-                                                                    
-                                                                    # Formata a forma de pagamento incluindo o desconto e a descrição, se houver
-                                                                    forma_final = forma_recebimento
-                                                                    if valor_desconto > 0:
-                                                                        forma_final += f" (Desconto: R$ {valor_desconto:.2f} - {desc_desconto})"
+                                            try:
+                                                cursor = conn.cursor()
+                                                marcados = df_edit_abertos[df_edit_abertos['Quitar?'] == True]
+                                                if not marcados.empty:
+                                                    dinheiro_disponivel = float(valor_recebido_input)
+                                                    desconto_disponivel = float(valor_desconto)
+                                                    data_agora = datetime.now(ZoneInfo("America/Sao_Paulo")).strftime('%Y-%m-%d %H:%M:%S')
+                                                    
+                                                    # Formata a forma de pagamento incluindo o desconto e a descrição, se houver
+                                                    forma_final = forma_recebimento
+                                                    if valor_desconto > 0:
+                                                        forma_final += f" (Desconto: R$ {valor_desconto:.2f} - {desc_desconto})"
                                 
-                                                                    # Calcula o total devido dos itens marcados para fins de proporção
-                                                                    total_devido_selecionado = sum([float(r.get('restante', 0.0) or 0.0) if float(r.get('restante', 0.0) or 0.0) > 0 else float(r.get('valor_total', 0.0) or 0.0) for _, r in marcados.iterrows()])
+                                                    # Calcula o total devido dos itens marcados para fins de proporção
+                                                    total_devido_selecionado = sum([float(r.get('restante', 0.0) or 0.0) if float(r.get('restante', 0.0) or 0.0) > 0 else float(r.get('valor_total', 0.0) or 0.0) for _, r in marcados.iterrows()])
                                 
-                                                                    for _, row_m in marcados.iterrows():
-                                                                        v_id = row_m['id']
-                                                                        v_total = float(row_m.get('valor_total', 0.0) or 0.0)
-                                                                        v_restante_atual = float(row_m.get('restante', 0.0) or 0.0)
-                                                                        debito_alvo = v_restante_atual if v_restante_atual > 0 else v_total
-                                                                        
-                                                                        ja_pago_anterior = float(row_m.get('valor_recebido', 0.0) or 0.0)
-                                                                        
-                                                                        # Calcula a proporção para o dinheiro e para o desconto
-                                                                        if total_devido_selecionado > 0:
-                                                                            proporcao = debito_alvo / total_devido_selecionado
-                                                                        else:
-                                                                            proporcao = 0
-                                                                            
-                                                                        pago_neste_item = round(dinheiro_disponivel * proporcao, 2)
-                                                                        desconto_neste_item = round(desconto_disponivel * proporcao, 2)
-                                                                        
-                                                                        abatimento_total_item = pago_neste_item + desconto_neste_item
+                                                    for _, row_m in marcados.iterrows():
+                                                        v_id = row_m['id']
+                                                        v_total = float(row_m.get('valor_total', 0.0) or 0.0)
+                                                        v_restante_atual = float(row_m.get('restante', 0.0) or 0.0)
+                                                        debito_alvo = v_restante_atual if v_restante_atual > 0 else v_total
+                                                        
+                                                        ja_pago_anterior = float(row_m.get('valor_recebido', 0.0) or 0.0)
+                                                        
+                                                        if total_devido_selecionado > 0:
+                                                            proporcao = debito_alvo / total_devido_selecionado
+                                                        else:
+                                                            proporcao = 0
+                                                            
+                                                        pago_neste_item = round(dinheiro_disponivel * proporcao, 2)
+                                                        desconto_neste_item = round(desconto_disponivel * proporcao, 2)
+                                                        
+                                                        abatimento_total_item = pago_neste_item + desconto_neste_item
                                 
-                                                                        if abatimento_total_item >= debito_alvo or (dinheiro_disponivel >= debito_alvo):
-                                                                            novo_valor_recebido = ja_pago_anterior + debito_alvo
-                                                                            cursor.execute(
-                                                                                """UPDATE vendas 
-                                                                                   SET status = 'Quitado', 
-                                                                                       forma_pagamento = ?, 
-                                                                                       valor_recebido = ?, 
-                                                                                       troco = 0.0, 
-                                                                                       restante = 0.0,
-                                                                                       data = ?
-                                                                                   WHERE id = ?""",
-                                                                                (f"Quitado ({forma_final})", novo_valor_recebido, data_agora, v_id)
-                                                                            )
-                                                                            if dinheiro_disponivel >= debito_alvo:
-                                                                                dinheiro_disponivel -= debito_alvo
-                                                                        elif (dinheiro_disponivel + desconto_disponivel) > 0:
-                                                                            v_pago_agora = pago_neste_item + desconto_neste_item
-                                                                            novo_valor_recebido = ja_pago_anterior + v_pago_agora
-                                                                            v_novo_restante = max(0.0, debito_alvo - v_pago_agora)
-                                                                            cursor.execute(
-                                                                                """UPDATE vendas 
-                                                                                   SET status = 'Parcial', 
-                                                                                       forma_pagamento = ?, 
-                                                                                       valor_recebido = ?, 
-                                                                                       troco = 0.0, 
-                                                                                       restante = ?,
-                                                                                       data = ?
-                                                                                   WHERE id = ?""",
-                                                                                (f"Parcial ({forma_final})", novo_valor_recebido, v_novo_restante, data_agora, v_id)
-                                                                            )
-                                                                            dinheiro_disponivel = max(0.0, dinheiro_disponivel - pago_neste_item)
-                                                                        else:
-                                                                            break
-                                                                    
-                                                                    conn.commit()
-                                                                    st.success("🎉 Pagamento e desconto registados com sucesso!")
-                                                                    st.rerun()
-                                                                else:
-                                                                    st.warning("⚠️ Marque pelo menos uma compra na coluna 'Quitar?' para registar o pagamento.")
-                                                            except Exception as e_quitar:
-                                                                st.error(f"Erro ao processar recebimento: {e_quitar}")
+                                                        if abatimento_total_item >= debito_alvo or (dinheiro_disponivel >= debito_alvo):
+                                                            novo_valor_recebido = ja_pago_anterior + debito_alvo
+                                                            cursor.execute(
+                                                                """UPDATE vendas 
+                                                                   SET status = 'Quitado', 
+                                                                       forma_pagamento = ?, 
+                                                                       valor_recebido = ?, 
+                                                                       troco = 0.0, 
+                                                                       restante = 0.0,
+                                                                       data = ?
+                                                                   WHERE id = ?""",
+                                                                (f"Quitado ({forma_final})", novo_valor_recebido, data_agora, v_id)
+                                                            )
+                                                            if dinheiro_disponivel >= debito_alvo:
+                                                                dinheiro_disponivel -= debito_alvo
+                                                        elif (dinheiro_disponivel + desconto_disponivel) > 0:
+                                                            v_pago_agora = pago_neste_item + desconto_neste_item
+                                                            novo_valor_recebido = ja_pago_anterior + v_pago_agora
+                                                            v_novo_restante = max(0.0, debito_alvo - v_pago_agora)
+                                                            cursor.execute(
+                                                                """UPDATE vendas 
+                                                                   SET status = 'Parcial', 
+                                                                       forma_pagamento = ?, 
+                                                                       valor_recebido = ?, 
+                                                                       troco = 0.0, 
+                                                                       restante = ?,
+                                                                       data = ?
+                                                                   WHERE id = ?""",
+                                                                (f"Parcial ({forma_final})", novo_valor_recebido, v_novo_restante, data_agora, v_id)
+                                                            )
+                                                            dinheiro_disponivel = max(0.0, dinheiro_disponivel - pago_neste_item)
+                                                        else:
+                                                            break
+                                                    
+                                                    conn.commit()
+                                                    st.success("🎉 Pagamento e desconto registados com sucesso!")
+                                                    st.rerun()
+                                                else:
+                                                    st.warning("⚠️ Marque pelo menos uma compra na coluna 'Quitar?' para registar o pagamento.")
+                                            except Exception as e_quitar:
+                                                st.error(f"Erro ao processar recebimento: {e_quitar}")
     
             with tab_prod:
                 st.subheader("📝 Gerenciar Produtos (Cadastrar, Editar e Excluir)")
