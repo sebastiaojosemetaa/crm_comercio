@@ -2073,6 +2073,19 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         )
                         
                                         st.markdown("---")
+                                        # Campos de Desconto e Descrição do Desconto
+                                        col_d1, col_d2 = st.columns([1, 2])
+                                        with col_d1:
+                                            valor_desconto = st.number_input("Valor do Desconto (R$):", min_value=0.0, value=0.0, step=1.0, key="val_desconto_baixa_direta")
+                                        with col_d2:
+                                            desc_desconto = st.text_input("Descrição do Desconto (Motivo):", value="", placeholder="Ex: Desconto à vista / Acordo", key="desc_desconto_baixa_direta")
+                                    
+                                        # Subtrai o desconto do total que falta pagar
+                                        total_falta_pagar_com_desconto = max(0.0, float(total_falta_pagar) - valor_desconto)
+                                    
+                                        if valor_desconto > 0:
+                                            st.info(f"💳 **Total Original:** R$ {float(total_falta_pagar):.2f} | **Com Desconto:** 🟢 **R$ {total_falta_pagar_com_desconto:.2f}**")
+                                    
                                         col_b1, col_b2 = st.columns(2)
                                         with col_b1:
                                             forma_recebimento = st.selectbox(
@@ -2084,7 +2097,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                             valor_recebido_input = st.number_input(
                                                 "💵 Valor que o Cliente está Pagando Agora (R$):",
                                                 min_value=0.0,
-                                                value=float(total_falta_pagar),
+                                                value=float(total_falta_pagar_com_desconto),
                                                 step=1.0,
                                                 key="input_valor_recebido_baixa"
                                             )
