@@ -2491,49 +2491,50 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     
                                                 with tab_prod:
                                                     st.subheader("📝 Gerenciar Produtos (Cadastrar, Editar e Excluir)")
+                                                    
                                                     try:
                                                         df_g = carregar_dados("SELECT DISTINCT grupo FROM grupos WHERE grupo IS NOT NULL AND grupo != '' ORDER BY grupo")
                                                         grupos_opt = df_g['grupo'].tolist() if not df_g.empty else ["GERAL"]
                                                     except Exception:
                                                         grupos_opt = ["GERAL"]
-    
-                try:
-                    df_f = carregar_dados("SELECT DISTINCT fornecedor FROM fornecedores WHERE fornecedor IS NOT NULL AND fornecedor != '' ORDER BY fornecedor")
-                    fornecedores_opt = df_f['fornecedor'].tolist() if not df_f.empty else ["BAHIA"]
-                except Exception:
-                    fornecedores_opt = ["BAHIA"]
-    
-                with st.form("form_cadastrar_produto", clear_on_submit=True):
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        txt_nome_produto = st.text_input("Nome do Produto")
-                        val_compra = st.number_input("Preço de Compra (R$)", min_value=0.0, value=0.0, step=0.5)
-                        estoque_inicial = st.number_input("Estoque Inicial", min_value=0.0, value=0.0, step=1.0)
-                    with col2:
-                        grupo_produto = st.selectbox("Grupo / Categoria", grupos_opt)
-                        val_venda = st.number_input("Preço de Venda (R$)", min_value=0.0, value=0.0, step=0.5)
-                        fornecedor_produto = st.selectbox("Fornecedor", fornecedores_opt)
-    
-                    btn_salvar = st.form_submit_button("💾 Salvar Novo Produto")
-                    if btn_salvar:
-                        if not txt_nome_produto.strip():
-                            st.warning("Por favor, informe o nome do produto.")
-                        else:
-                            try:
-                                cursor = conn.cursor()
-                                for col in ["grupo", "fornecedor", "valor_compra", "valor_venda"]:
-                                    try:
-                                        cursor.execute(f"ALTER TABLE produtos ADD COLUMN {col} TEXT")
-                                    except Exception:
-                                        pass
-    
-                                cursor.execute("INSERT INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda) VALUES (?, ?, ?, ?, ?, ?)", (txt_nome_produto.strip().upper(), grupo_produto, fornecedor_produto, float(estoque_inicial), float(val_compra), float(val_venda)))
-                                conn.commit()
-                                st.cache_data.clear()
-                                st.success(f"✅ Produto '{txt_nome_produto}' cadastrado com sucesso!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro ao cadastrar produto: {e}")
+                                        
+                                                    try:
+                                                        df_f = carregar_dados("SELECT DISTINCT fornecedor FROM fornecedores WHERE fornecedor IS NOT NULL AND fornecedor != '' ORDER BY fornecedor")
+                                                        fornecedores_opt = df_f['fornecedor'].tolist() if not df_f.empty else ["BAHIA"]
+                                                    except Exception:
+                                                        fornecedores_opt = ["BAHIA"]
+                                        
+                                                    with st.form("form_cadastrar_produto", clear_on_submit=True):
+                                                        col1, col2 = st.columns(2)
+                                                        with col1:
+                                                            txt_nome_produto = st.text_input("Nome do Produto")
+                                                            val_compra = st.number_input("Preço de Compra (R$)", min_value=0.0, value=0.0, step=0.5)
+                                                            estoque_inicial = st.number_input("Estoque Inicial", min_value=0.0, value=0.0, step=1.0)
+                                                        with col2:
+                                                            grupo_produto = st.selectbox("Grupo / Categoria", grupos_opt)
+                                                            val_venda = st.number_input("Preço de Venda (R$)", min_value=0.0, value=0.0, step=0.5)
+                                                            fornecedor_produto = st.selectbox("Fornecedor", fornecedores_opt)
+                                        
+                                                        btn_salvar = st.form_submit_button("💾 Salvar Novo Produto")
+                                                        if btn_salvar:
+                                                            if not txt_nome_produto.strip():
+                                                                st.warning("Por favor, informe o nome do produto.")
+                                                            else:
+                                                                try:
+                                                                    cursor = conn.cursor()
+                                                                    for col in ["grupo", "fornecedor", "valor_compra", "valor_venda"]:
+                                                                        try:
+                                                                            cursor.execute(f"ALTER TABLE produtos ADD COLUMN {col} TEXT")
+                                                                        except Exception:
+                                                                            pass
+                                        
+                                                                    cursor.execute("INSERT INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda) VALUES (?, ?, ?, ?, ?, ?)", (txt_nome_produto.strip().upper(), grupo_produto, fornecedor_produto, float(estoque_inicial), float(val_compra), float(val_venda)))
+                                                                    conn.commit()
+                                                                    st.cache_data.clear()
+                                                                    st.success(f"✅ Produto '{txt_nome_produto}' cadastrado com sucesso!")
+                                                                    st.rerun()
+                                                                except Exception as e:
+                                                                    st.error(f"Erro ao cadastrar produto: {e}")
     
                 st.markdown("---")
                 st.subheader("📋 Lista de Produtos")
