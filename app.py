@@ -1399,7 +1399,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 cursor = conn.cursor()
                                 import zoneinfo
                                 data_agora = dt.datetime.now(zoneinfo.ZoneInfo("America/Sao_Paulo")).strftime("%Y-%m-%d %H:%M:%S")
-            
+                    
                                 for item in carrinho_atual:
                                     qtd_item = float(item.get("quantidade", 1))
                                     prod_nome = str(item.get("produto", ""))
@@ -1407,36 +1407,26 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     val_tot = float(item.get("valor_total", 0))
                                     forn_nome = item.get("fornecedor", "")
                                     grupo_nome = item.get("grupo", "")
-            
-                                    # 1. Grava no histórico de pedidos
+                    
+                                    # 1. Grava APENAS no histórico de pedidos como Pendente
                                     cursor.execute("""
                                         INSERT INTO pedidos (cliente, produto, fornecedor, grupo, quantidade, valor_unitario, valor_total, status, data)
                                         VALUES (?, ?, ?, ?, ?, ?, ?, 'Pendente', ?)
                                     """, (cliente_ped, prod_nome, forn_nome, grupo_nome, qtd_item, val_unit, val_tot, data_agora))
-            
-                                    # 2. Grava também nas vendas do dia (para aparecer idêntico ao portal do cliente)
-                                    cursor.execute("""
-                                        INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, status, data)
-                                        VALUES (?, ?, ?, ?, ?, ?, ?, 'Pendente', ?)
-                                    """, (cliente_ped, prod_nome, forn_nome, grupo_nome, qtd_item, val_unit, val_tot, data_agora))
-            
-                                    # 3. Atualiza o estoque
-                                    cursor.execute("""
-                                        UPDATE produtos 
-                                        SET quantidade = quantidade + ? 
-                                        WHERE produto = ?
-                                    """, (qtd_item, prod_nome))
-            
+                    
                                 conn.commit()
-            
+                    
+                                # Limpa os carrinhos da sessão
                                 if 'carrinho_admin' in st.session_state:
                                     st.session_state.carrinho_admin = []
                                 if 'carrinho' in st.session_state:
                                     st.session_state.carrinho = []
-            
+                                if 'carrinho_cliente' in st.session_state:
+                                    st.session_state.carrinho_cliente = []
+                    
                                 st.session_state.modo_edicao_carrinho = False
                                 st.cache_data.clear()
-                                st.success("✅ Pedido enviado com sucesso!")
+                                st.success("✅ Pedido enviado com sucesso! Aguardando conversão em venda.")
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Erro ao salvar pedido: {e}")
