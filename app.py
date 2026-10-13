@@ -2178,9 +2178,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                                     st.warning("⚠️ Marque pelo menos uma compra na coluna 'Quitar?' para registar o pagamento.")
                                             except Exception as e_quitar:
                                                 st.error(f"Erro ao processar recebimento: {e_quitar}")
-                                else:
-                                    st.warning("⚠️ Marque pelo menos uma compra na coluna 'Quitar?' para registar o pagamento.")
-                            
+                                                            
                             except Exception as e_fin:
                                 st.warning(f"Extrato financeiro indisponível no momento: {e_fin}")
         
