@@ -1546,6 +1546,114 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.warning("Nenhum pedido pendente encontrado com os filtros selecionados.")
                 else:
                     st.info("Nenhum pedido pendente registrado no sistema.")
+        elif menu_admin == "🛒 Registrar Venda":
+            st.title("🛒 Registrar Venda (Baixa de Pedidos)")
+            
+            st.subheader("💳 Confirmar Recebimento / Dar Baixa no Pedido")
+            
+            df_baixa = carregar_dados("SELECT * FROM pedidos WHERE status = 'PENDENTE' OR status = 'Pendente'")
+            
+            if not df_baixa.empty:
+                clientes_com_pendencia = sorted(list(df_baixa['cliente'].dropna().astype(str).unique()))
+                cliente_sel_baixa = st.selectbox("Selecione o Cliente:", clientes_com_pendencia, key="sel_cli_baixa_pedidos")
+                
+                df_cli_pedidos = df_baixa[df_baixa['cliente'].astype(str) == str(cliente_sel_baixa)].copy()
+                
+                if not df_cli_pedidos.empty:
+                    st.dataframe(df_cli_pedidos, use_container_width=True)
+                    
+                    valor_total_debito = float(df_cli_pedidos['valor_total'].sum())
+                    st.info(f"💳 **Débito Total Atual de {cliente_sel_baixa}: R$ {valor_total_debito:.2f}**")
+                    
+                    col_p1, col_p2, col_p3 = st.columns([2, 2, 2])
+                    with col_p1:
+                        forma_pagamento = st.selectbox("Forma de Pagamento:", ["Dinheiro", "Pix", "Cartão de Crédito", "Cartão de Débito", "Crediário / Fiado"], key="fp_baixa_pedido")
+                    with col_p2:
+                        valor_recebido = st.number_input("Valor Recebido / Entrada (R$):", min_value=0.0, value=0.0 if forma_pagamento == "Crediário / Fiado" else float(valor_total_debito), step=1.0, key="vr_baixa_pedido")
+                    with col_p3:
+                        troco = valor_recebido - valor_total_debito if valor_recebido > valor_total_debito else 0.0
+                        st.markdown(f"**Troco:**\n### R$ {troco:.2f}")
+                    
+                    detalhe_pagamento = forma_pagamento
+                    if forma_pagamento == "Crediário / Fiado":
+                        st.markdown("---")
+                        st.subheader("📅 Configuração das Parcelas do Crediário")
+                        
+                        valor_pendente = max(0.0, valor_total_debito - valor_recebido)
+                        
+                        col_parc1, col_parc2 = st.columns(2)
+                        with col_parc1:
+                            num_parcelas = st.number_input("Quantidade de Parcelas:", min_value=1, max_value=24, value=1, step=1, key="num_parc_fiado")
+                        with col_parc2:
+                            st.metric("Valor Total a Parcelar", f"R$ {valor_pendente:.2f}")
+                        
+                        st.write("**Defina os Valores e Datas de Vencimento das Parcelas:**")
+                        
+                        val_sugerido_padrao = round(valor_pendente / int(num_parcelas), 2) if num_parcelas > 0 else 0.0
+                        parcelas_info = []
+                        
+                        for i in range(int(num_parcelas)):
+                            col_v1, col_v2 = st.columns(2)
+                            with col_v1:
+                                val_parc_input = st.number_input(f"Valor Parcela {i+1} (R$):", min_value=0.0, value=float(val_sugerido_padrao), step=1.0, key=f"val_parc_{i}")
+                            with col_v2:
+                                data_sugerida = dt.date.today() + dt.timedelta(days=30 * (i + 1))
+                                dt_input = st.date_input(f"Venc. Parcela {i+1}:", value=data_sugerida, key=f"dt_venc_parc_{i}")
+                            
+                            parcelas_info.append(f"P{i+1}: R$ {val_parc_input:.2f} ({dt_input.strftime('%d/%m/%Y')})")
+                        
+                        detalhe_pagamento = f"Crediário ({num_parcelas}x | " + ", ".join(parcelas_info) + ")"
+                    
+                    if st.button("🔄 Converter Pedido em Venda (Fiado / Baixa)", type="primary", key="btn_converter_pedido_venda"):
+                        try:
+                            cursor = conn.cursor()
+                            codigo_venda_gerado = f"PED-{dt.datetime.now().strftime('%Y%m%d%H%M%S')}"
+                            
+                            for _, r in df_cli_pedidos.iterrows():
+                                item_tot = float(r.get('valor_total', 0.0))
+                                qtd_item = float(r.get('quantidade', 1))
+                                
+                                if valor_total_debito > 0:
+                                    item_rec = round((item_tot / valor_total_debito) * valor_recebido, 2)
+                                else:
+                                    item_rec = 0.0
+                                
+                                item_rest = round(max(0.0, item_tot - item_rec), 2)
+                                
+                                cursor.execute("DELETE FROM vendas WHERE cliente = ? AND produto = ? AND (forma_pagamento = '-' OR forma_pagamento IS NULL OR forma_pagamento = 'None')", (str(r['cliente']), str(r['produto'])))
+                                cursor.execute("UPDATE produtos SET quantidade = quantidade - ? WHERE produto = ?", (qtd_item, str(r['produto'])))
+                                cursor.execute("INSERT INTO vendas (cliente, produto, fornecedor, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, troco, restante, data, grupo, codigo_venda, status, tipo, codigo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (
+                                    str(r['cliente']), str(r['produto']), str(r.get('fornecedor', '')), qtd_item, float(r.get('valor_unitario', 0)), item_tot, detalhe_pagamento, item_rec, 0.0, item_rest, dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), str(r.get('grupo', '')), codigo_venda_gerado, "Concluído", "PEDIDO", f"PED-{r['id']}"
+                                ))
+                                cursor.execute("UPDATE pedidos SET status = 'Concluído (Convertido)' WHERE id = ?", (r['id'],))
+                            
+                            conn.commit()
+                            if 'executar_limpeza_banco' in globals():
+                                executar_limpeza_banco()
+                            
+                            st.cache_data.clear()
+                            st.success(f"✅ Pedido(s) de {cliente_sel_baixa} convertidos e estoque atualizado com sucesso!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro ao dar baixa no pedido: {e}")
+                else:
+                    st.info("Nenhum pedido pendente para este cliente.")
+            else:
+                st.info("Nenhum cliente possui pedidos pendentes para dar baixa no momento.")
+            
+            st.divider()
+            st.subheader("📚 Pedidos Anteriores / Histórico Geral de Vendas")
+            
+            df_historico = carregar_dados("SELECT id, cliente, produto, fornecedor, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, troco, restante, data, grupo FROM vendas ORDER BY id DESC")
+            
+            if not df_historico.empty:
+                df_historico['forma_pagamento'] = df_historico['forma_pagamento'].fillna('-').replace({'None': '-', '': '-'})
+                for c in ['valor_recebido', 'troco', 'restante']:
+                    df_historico[c] = pd.to_numeric(df_historico[c], errors='coerce').fillna(0.0)
+                
+                st.dataframe(df_historico, use_container_width=True)
+            else:
+                st.info("Nenhuma venda registrada no histórico.")
         elif "Contas a Receber" in str(menu_admin):
             st.title("💸 Contas a Receber")
             st.markdown("Gerencie de forma centralizada todos os valores pendentes e saldos devedores dos clientes.")
