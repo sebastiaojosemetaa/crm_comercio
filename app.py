@@ -1730,7 +1730,29 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.info("ℹ️ Não existem contas a receber registadas ou todos os pedidos já se encontram quitados.")
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
-            
+        
+            # --- BOTÃO PARA IMPORTAR LISTA DE PRODUTOS ---
+            with st.expander("📥 Importar Lista de Produtos em Massa"):
+                st.info("Cole a sua lista no código e clique no botão abaixo para adicionar/atualizar.")
+                if st.button("🚀 Executar Importação da Lista"):
+                    lista_produtos_externa = [
+                        # Cole os seus produtos aqui no formato: (Nome, Grupo, Fornecedor, Quantidade, Preço Compra, Preço Venda)
+                        ("ABACATE", "GERAL", "BAHIA", 12.0, 110.0, 137.0),
+                        ("ABACAXI GRANDE", "GERAL", "REGIÃO", 70.0, 0.0, 7.0),
+                    ]
+                    try:
+                        cursor = conn.cursor()
+                        for prod, grupo, forn, qtd, v_compra, v_venda in lista_produtos_externa:
+                            cursor.execute("""
+                                INSERT INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda)
+                                VALUES (?, ?, ?, ?, ?, ?)
+                            """, (prod, grupo, forn, qtd, v_compra, v_venda))
+                        conn.commit()
+                        st.success("✅ Produtos importados com sucesso!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao importar: {e}")
+        
             try:
                 df_produtos = pd.read_sql_query("SELECT * FROM produtos", conn)
             except Exception:
