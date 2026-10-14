@@ -1731,28 +1731,51 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
         
-            # --- BOTÃO PARA IMPORTAR LISTA DE PRODUTOS EM MASSA ---
-            with st.expander("📥 Importar Lista de Produtos em Massa"):
-                st.info("Cole a sua lista no código e clique no botão abaixo para adicionar/atualizar.")
-                if st.button("🚀 Executar Importação da Lista"):
-                    lista_produtos_externa = [
-                        # Formato: (Nome, Grupo, Fornecedor, Quantidade, Preço Compra, Preço Venda)
-                        ("ABACATE", "GERAL", "BAHIA", 12.0, 110.0, 137.0),
-                        ("ABACAXI GRANDE", "GERAL", "REGIÃO", 70.0, 0.0, 7.0),
-                    ]
-                    try:
-                        cursor = conn.cursor()
-                        for prod, grupo, forn, qtd, v_compra, v_venda in lista_produtos_externa:
-                            # 'OR REPLACE' atualiza o produto se ele já existir na base de dados, evitando o erro UNIQUE
-                            cursor.execute("""
-                                INSERT OR REPLACE INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda)
-                                VALUES (?, ?, ?, ?, ?, ?)
-                            """, (prod, grupo, forn, qtd, v_compra, v_venda))
-                        conn.commit()
-                        st.success("✅ Produtos importados/atualizados com sucesso!")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Erro ao importar: {e}")
+            # --- IMPORTAÇÃO DIRETA PELA TELA DA APLICAÇÃO ---
+            with st.expander("📥 Importar / Colar Lista de Produtos em Massa"):
+                st.info("Cole abaixo a sua lista (formato: Nome, Grupo, Fornecedor, Quantidade, Preço Compra, Preço Venda - um por linha ou separados por vírgula/tabulação).")
+                
+                # Caixa de texto na interface para você colar a lista
+                texto_lista_colada = st.text_area(
+                    "Cole os produtos aqui:",
+                    placeholder="Exemplo:\nABACATE, GERAL, BAHIA, 12, 110, 137\nTOMATE, GERAL, TIANGUA, 10, 40, 70",
+                    key="input_texto_produtos_massa"
+                )
+                
+                if st.button("🚀 Processar e Importar Lista Colada"):
+                    if not texto_lista_colada.strip():
+                        st.warning("⚠️ Por favor, cole os dados na caixa de texto acima antes de importar.")
+                    else:
+                        try:
+                            cursor = conn.cursor()
+                            linhas = texto_lista_colada.strip().split("\n")
+                            sucessos = 0
+                            
+                            for linha in linhas:
+                                if not linha.strip():
+                                    continue
+                                # Separa por vírgula ou tabulação
+                                partes = [p.strip() for p in linha.replace("\t", ",").split(",")]
+                                
+                                if len(partes) >= 6:
+                                    prod = partes[0].upper()
+                                    grupo = partes[1].upper()
+                                    forn = partes[2].upper()
+                                    qtd = float(partes[3] or 0.0)
+                                    v_compra = float(partes[4] or 0.0)
+                                    v_venda = float(partes[5] or 0.0)
+                                    
+                                    cursor.execute("""
+                                        INSERT OR REPLACE INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda)
+                                        VALUES (?, ?, ?, ?, ?, ?)
+                                    """, (prod, grupo, forn, qtd, v_compra, v_venda))
+                                    sucessos += 1
+                                    
+                            conn.commit()
+                            st.success(f"✅ {sucessos} produtos processados e importados/atualizados com sucesso!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro ao processar a lista: {e}")
         
             try:
                 df_produtos = pd.read_sql_query("SELECT * FROM produtos", conn)
