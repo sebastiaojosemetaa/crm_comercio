@@ -1733,12 +1733,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         
             # --- IMPORTAÇÃO DIRETA PELA TELA DA APLICAÇÃO ---
             with st.expander("📥 Importar / Colar Lista de Produtos em Massa"):
-                st.info("Cole abaixo a sua lista (formato: Nome, Grupo, Fornecedor, Quantidade, Preço Compra, Preço Venda - um por linha ou separados por vírgula/tabulação).")
+                st.info("Cole abaixo a sua lista (formato: Nome, Grupo, Fornecedor, Quantidade, Preço Compra, Preço Venda - separados por vírgula).")
                 
-                # Caixa de texto na interface para você colar a lista
                 texto_lista_colada = st.text_area(
                     "Cole os produtos aqui:",
-                    placeholder="Exemplo:\nABACATE, GERAL, BAHIA, 12, 110, 137\nTOMATE, GERAL, TIANGUA, 10, 40, 70",
+                    placeholder="Exemplo:\nABACATE, GERAL, BAHIA, 1, 110, 137",
                     key="input_texto_produtos_massa"
                 )
                 
@@ -1747,23 +1746,34 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.warning("⚠️ Por favor, cole os dados na caixa de texto acima antes de importar.")
                     else:
                         try:
+                            import io
+                            # Lê o texto colado como uma tabela usando pandas (muito mais seguro)
+                            df_import = pd.read_csv(io.StringIO(texto_lista_colada), header=None, sep=",", skipinitialspace=True, on_bad_lines='skip')
+                            
                             cursor = conn.cursor()
-                            linhas = texto_lista_colada.strip().split("\n")
                             sucessos = 0
                             
-                            for linha in linhas:
-                                if not linha.strip():
-                                    continue
-                                # Separa por vírgula ou tabulação
-                                partes = [p.strip() for p in linha.replace("\t", ",").split(",")]
-                                
-                                if len(partes) >= 6:
-                                    prod = partes[0].upper()
-                                    grupo = partes[1].upper()
-                                    forn = partes[2].upper()
-                                    qtd = float(partes[3] or 0.0)
-                                    v_compra = float(partes[4] or 0.0)
-                                    v_venda = float(partes[5] or 0.0)
+                            for _, row in df_import.iterrows():
+                                if len(row) >= 6:
+                                    prod = str(row[0]).strip().upper()
+                                    grupo = str(row[1]).strip().upper()
+                                    forn = str(row[2]).strip().upper()
+                                    
+                                    # Limpeza segura para garantir que os valores numéricos são convertidos corretamente
+                                    try:
+                                        qtd = float(str(row[3]).replace(',', '.') or 0.0)
+                                    except:
+                                        qtd = 0.0
+                                        
+                                    try:
+                                        v_compra = float(str(row[4]).replace(',', '.') or 0.0)
+                                    except:
+                                        v_compra = 0.0
+                                        
+                                    try:
+                                        v_venda = float(str(row[5]).replace(',', '.') or 0.0)
+                                    except:
+                                        v_venda = 0.0
                                     
                                     cursor.execute("""
                                         INSERT OR REPLACE INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda)
