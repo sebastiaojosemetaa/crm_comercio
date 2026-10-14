@@ -1731,24 +1731,25 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
         
-            # --- BOTÃO PARA IMPORTAR LISTA DE PRODUTOS ---
+            # --- BOTÃO PARA IMPORTAR LISTA DE PRODUTOS EM MASSA ---
             with st.expander("📥 Importar Lista de Produtos em Massa"):
                 st.info("Cole a sua lista no código e clique no botão abaixo para adicionar/atualizar.")
                 if st.button("🚀 Executar Importação da Lista"):
                     lista_produtos_externa = [
-                        # Cole os seus produtos aqui no formato: (Nome, Grupo, Fornecedor, Quantidade, Preço Compra, Preço Venda)
+                        # Formato: (Nome, Grupo, Fornecedor, Quantidade, Preço Compra, Preço Venda)
                         ("ABACATE", "GERAL", "BAHIA", 12.0, 110.0, 137.0),
                         ("ABACAXI GRANDE", "GERAL", "REGIÃO", 70.0, 0.0, 7.0),
                     ]
                     try:
                         cursor = conn.cursor()
                         for prod, grupo, forn, qtd, v_compra, v_venda in lista_produtos_externa:
+                            # 'OR REPLACE' atualiza o produto se ele já existir na base de dados, evitando o erro UNIQUE
                             cursor.execute("""
-                                INSERT INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda)
+                                INSERT OR REPLACE INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda)
                                 VALUES (?, ?, ?, ?, ?, ?)
                             """, (prod, grupo, forn, qtd, v_compra, v_venda))
                         conn.commit()
-                        st.success("✅ Produtos importados com sucesso!")
+                        st.success("✅ Produtos importados/atualizados com sucesso!")
                         st.rerun()
                     except Exception as e:
                         st.error(f"Erro ao importar: {e}")
