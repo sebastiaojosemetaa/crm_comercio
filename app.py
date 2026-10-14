@@ -1733,11 +1733,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         
             # --- IMPORTAÇÃO DIRETA PELA TELA DA APLICAÇÃO ---
             with st.expander("📥 Importar / Colar Lista de Produtos em Massa"):
-                st.info("Cole abaixo a sua lista (formato: Nome, Grupo, Fornecedor, Quantidade, Preço Compra, Preço Venda - separados por vírgula).")
+                st.info("Cole abaixo a sua lista (ex: ABACATE 0 BAHIA GERAL). O sistema aceita com ou sem números de linha.")
                 
                 texto_lista_colada = st.text_area(
                     "Cole os produtos aqui:",
-                    placeholder="Exemplo:\nABACATE, GERAL, BAHIA, 1, 110, 137",
+                    placeholder="Exemplo:\n1 ABACATE 0 BAHIA GERAL\n2 ABACAXI 0 BAHIA GERAL",
                     key="input_texto_produtos_massa"
                 )
                 
@@ -1746,44 +1746,58 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.warning("⚠️ Por favor, cole os dados na caixa de texto acima antes de importar.")
                     else:
                         try:
-                            import io
-                            # Lê o texto colado como uma tabela usando pandas (muito mais seguro)
-                            df_import = pd.read_csv(io.StringIO(texto_lista_colada), header=None, sep=",", skipinitialspace=True, on_bad_lines='skip')
-                            
                             cursor = conn.cursor()
+                            linhas = texto_lista_colada.strip().split("\n")
                             sucessos = 0
                             
-                            for _, row in df_import.iterrows():
-                                if len(row) >= 6:
-                                    prod = str(row[0]).strip().upper()
-                                    grupo = str(row[1]).strip().upper()
-                                    forn = str(row[2]).strip().upper()
+                            for linha in linhas:
+                                if not linha.strip():
+                                    continue
+                                
+                                # Limpa espaços duplos e divide a linha por espaços ou tabulação
+                                partes = linha.strip().split()
+                                
+                                # Se a linha começar com número de linha (ex: "1", "2"), removemos o primeiro elemento
+                                if partes and partes[0].isdigit():
+                                    partes.pop(0)
                                     
-                                    # Limpeza segura para garantir que os valores numéricos são convertidos corretamente
-                                    try:
-                                        qtd = float(str(row[3]).replace(',', '.') or 0.0)
-                                    except:
-                                        qtd = 0.0
-                                        
-                                    try:
-                                        v_compra = float(str(row[4]).replace(',', '.') or 0.0)
-                                    except:
-                                        v_compra = 0.0
-                                        
-                                    try:
-                                        v_venda = float(str(row[5]).replace(',', '.') or 0.0)
-                                    except:
-                                        v_venda = 0.0
+                                if len(partes) >= 2:
+                                    # O nome do produto pode ter mais de uma palavra (ex: ABACAXI PEQUENO)
+                                    # Vamos tentar identificar os campos com segurança:
+                                    prod = partes[0].upper()
+                                    grupo = "GERAL"
+                                    forn = "BAHIA"
+                                    qtd = 0.0
                                     
+                                    # Procura por números na linha para identificar a quantidade ou preços
+                                    tokens_texto = []
+                                    for p in partes[1:]:
+                                        # Se contiver números ou for vírgula/ponto, pode ser quantidade/preço
+                                        limpo = p.replace(',', '.')
+                                        try:
+                                            val = float(limpo)
+                                            # Se achou um número, assumimos que é a quantidade ou preço
+                                            qtd = val
+                                            break
+                                        except ValueError:
+                                            tokens_texto.append(p)
+                                            
+                                    if tokens_texto:
+                                        prod += " " + " ".join(tokens_texto).upper()
+                                        
+                                    # Insere na base de dados
                                     cursor.execute("""
                                         INSERT OR REPLACE INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda)
                                         VALUES (?, ?, ?, ?, ?, ?)
-                                    """, (prod, grupo, forn, qtd, v_compra, v_venda))
+                                    """, (prod.strip(), grupo, forn, qtd, 0.0, 0.0))
                                     sucessos += 1
                                     
                             conn.commit()
-                            st.success(f"✅ {sucessos} produtos processados e importados/atualizados com sucesso!")
-                            st.rerun()
+                            if sucessos > 0:
+                                st.success(f"✅ {sucessos} produtos importados/atualizados com sucesso!")
+                                st.rerun()
+                            else:
+                                st.warning("⚠️ Nenhum produto válido foi detetado. Verifique o formato do texto colado.")
                         except Exception as e:
                             st.error(f"Erro ao processar a lista: {e}")
         
