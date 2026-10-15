@@ -1829,7 +1829,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 key="filtro_status_stock"
             )
         
-            cols_esperadas = ['id', 'produto', 'quantidade', 'valor_compra', 'valor_venda', 'grupo', 'fornecedor']
+            cols_esperadas = ['id', 'produto', 'quantidade', 'fornecedor', 'grupo', 'valor_compra', 'valor_venda']
             for c in cols_esperadas:
                 if c not in df_produtos.columns:
                     df_produtos[c] = 0.0 if ('valor' in c or 'quantidade' in c) else ""
