@@ -3022,9 +3022,15 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             data_adm = datetime.strptime(admissao_str[:10], '%Y-%m-%d').date()
                         except Exception:
                             data_adm = hoje
-        
+                
                         ano_atual, mes_atual = hoje.year, hoje.month
                         cur_year, cur_month = data_adm.year, data_adm.month
+                        
+                        # Avança 1 mês para o primeiro salário ser gerado apenas após 30 dias (mês seguinte à admissão)
+                        cur_month += 1
+                        if cur_month > 12:
+                            cur_month = 1
+                            cur_year += 1
                         
                         limite_year = ano_atual + (1 if mes_atual == 12 else 0)
                         limite_month = 1 if mes_atual == 12 else mes_atual + 1
