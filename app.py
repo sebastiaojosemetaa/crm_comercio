@@ -2849,7 +2849,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     except Exception as e:
                                         st.error(f"Erro: {e}")
         
-                            # --- GERAÇÃO SEGURA DO PDF COM OS DOIS ARGUMENTOS CORRETOS ---
+                            # --- GERAÇÃO SEGURA DO PDF COM CHAVE ÚNICA ---
                             try:
                                 func_seguro = f_dict.copy() if 'f_dict' in locals() and isinstance(f_dict, dict) else {}
                                 pag_seguro = {
@@ -2861,20 +2861,22 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     'desconto_faltas': p_desc_faltas if 'p_desc_faltas' in locals() else 0.0
                                 }
                                 
-                                # Passa explicitamente os dois argumentos exigidos pela função: dados_func e dados_pag
-                                pdf_bytes = gerar_bytes_pdf(dados_func=func_seguro, dados_pag=pag_seguro)
+                                pdf_bytes = gerador_pdf_bytes_func = gerar_bytes_pdf(dados_func=func_seguro, dados_pag=pag_seguro)
                             except Exception as e_gen:
                                 pdf_bytes = b""
                                 st.warning(f"Não foi possível gerar o PDF do holerite: {e_gen}")
     
                             if pdf_bytes:
+                                # Cria uma chave única baseada no ID do registo ou índice para evitar duplicados
+                                reg_id = str(row.get('id', '')) if 'row' in locals() and hasattr(row, 'get') else '0'
                                 nome_arquivo_pdf = f"holerite_{str(p_collab if 'p_collab' in locals() else 'funcionario').replace(' ', '_')}_{str(p_data[:7] if 'p_data' in locals() else '2026')}.pdf"
+                                
                                 st.download_button(
                                     label="📥 Descarregar / Imprimir Holerite em PDF",
                                     data=pdf_bytes,
                                     file_name=nome_arquivo_pdf,
                                     mime="application/pdf",
-                                    key="btn_baixar_holerite_rh_seguro"
+                                    key=f"btn_baixar_holerite_rh_{reg_id}"
                                 )
                             else:
                                 st.info("ℹ️ Registe ou selecione um lançamento válido para descarregar o holerite.")
