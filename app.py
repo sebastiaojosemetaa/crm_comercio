@@ -1860,8 +1860,17 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             except Exception:
                                 pass
     
+                        # Atualiza cada linha de forma segura, tratando conflitos de nome duplicado
                         for _, row in df_estoque_editado.iterrows():
-                            cursor.execute("UPDATE produtos SET produto = ?, quantidade = ?, valor_compra = ?, valor_venda = ?, grupo = ?, fornecedor = ? WHERE id = ?", (row['produto'], row['quantidade'], row['valor_compra'], row['valor_venda'], row.get('grupo', ''), row.get('fornecedor', ''), row['id']))
+                            try:
+                                cursor.execute("""
+                                    UPDATE produtos 
+                                    SET produto = ?, quantidade = ?, valor_compra = ?, valor_venda = ?, grupo = ?, fornecedor = ? 
+                                    WHERE id = ?
+                                """, (str(row['produto']).strip(), float(row['quantidade']), float(row['valor_compra']), float(row['valor_venda']), str(row.get('grupo', '')), str(row.get('fornecedor', '')), int(row['id'])))
+                            except Exception as e_row:
+                                # Se houver conflito de nome duplicado numa linha específica, avisa mas continua a salvar as outras
+                                st.warning(f"Aviso no produto '{row.get('produto')}': {e_row}")
     
                         conn.commit()
                         st.cache_data.clear()
