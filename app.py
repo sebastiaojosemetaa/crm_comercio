@@ -1248,6 +1248,174 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 st.warning("⚠️ Nenhum produto válido foi detetado. Verifique o formato do texto colado.")
                         except Exception as e:
                             st.error(f"Erro ao processar a lista: {e}")
+        
+            try:
+                df_produtos = pd.read_sql_query("SELECT * FROM produtos", conn)
+            except Exception:
+                df_produtos = pd.DataFrame()
+        
+            # Filtro de stock
+            filtro_estoque = st.selectbox(
+                "Filtrar por Status do Stock:",
+                ["Todos", "Com Stock (> 0)", "Zerados (= 0)"],
+                key="filtro_status_stock"
+            )
+        
+            cols_esperadas = ['id', 'produto', 'quantidade', 'fornecedor', 'grupo', 'valor_compra', 'valor_venda']
+            for c in cols_esperadas:
+                if c not in df_produtos.columns:
+                    df_produtos[c] = 0.0 if ('valor' in c or 'quantidade' in c) else ""
+        
+            if not df_produtos.empty:
+                cols_finais = [c for c in cols_esperadas if c in df_produtos.columns]
+                df_produtos = df_produtos[cols_finais]
+                
+                # Aplica o filtro de quantidade de forma segura
+                df_produtos['quantidade'] = pd.to_numeric(df_produtos['quantidade'], errors='coerce').fillna(0)
+                
+                if filtro_estoque == "Com Stock (> 0)":
+                    df_produtos = df_produtos[df_produtos['quantidade'] > 0]
+                elif filtro_estoque == "Zerados (= 0)":
+                    df_produtos = df_produtos[df_produtos['quantidade'] == 0]
+    
+            df_estoque_editado = st.data_editor(df_produtos, use_container_width=True, hide_index=True, key="editor_estoque_produtos")
+    
+            col_salvar, col_atualizar, col_pdf = st.columns([1, 1, 1])
+    
+            with col_salvar:
+                if st.button("💾 Salvar Alterações no Estoque", type="primary", key="btn_salvar_estoque"):
+                    try:
+                        cursor = conn.cursor()
+                        for col in ["grupo", "fornecedor"]:
+                            try:
+                                cursor.execute(f"ALTER TABLE produtos ADD COLUMN {col} TEXT")
+                            except Exception:
+                                pass
+    
+                        for _, row in df_estoque_editado.iterrows():
+                            cursor.execute("""
+                                UPDATE produtos 
+                                SET produto = ?, quantidade = ?, valor_compra = ?, valor_venda = ?, grupo = ?, fornecedor = ? 
+                                WHERE id = ?
+                            """, (str(row['produto']).strip(), float(row['quantidade']), float(row['valor_compra']), float(row['valor_venda']), str(row.get('grupo', '')), str(row.get('fornecedor', '')), int(row['id'])))
+    
+                        conn.commit()
+                        st.cache_data.clear()
+                        st.success("✅ Alterações do estoque salvas com sucesso!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao salvar: {e}")
+    
+            with col_atualizar:
+                if st.button("🔄 Atualizar Preços de Compra", key="btn_atualizar_precos"):
+                    try:
+                        with conn:
+                            cursor = conn.cursor()
+                            cursor.execute("UPDATE produtos SET valor_compra = (SELECT valor_compra FROM compras WHERE compras.produto = produtos.produto ORDER BY id DESC LIMIT 1) WHERE EXISTS (SELECT 1 FROM compras WHERE compras.produto = produtos.produto)")
+                        st.cache_data.clear()
+                        st.success("✅ Preços de compra atualizados com sucesso!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao atualizar preço: {e}")
+
+            with col_pdf:
+                # --- BOTÃO PARA GERAR PDF DO ESTOQUE COM TOTAIS ---
+                try:
+                    import io
+                    from reportlab.lib.pagesizes import letter
+                    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+                    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+                    from reportlab.lib import colors
+
+                    def gerar_pdf_estoque(df_dados):
+                        buffer = io.BytesIO()
+                        doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+                        elements = []
+                        styles = getSampleStyleSheet()
+                        
+                        title_style = ParagraphStyle(
+                            'TitleStyle',
+                            parent=styles['Heading1'],
+                            fontSize=16,
+                            textColor=colors.HexColor('#1f2937'),
+                            spaceAfter=5,
+                            alignment=1
+                        )
+                        
+                        sub_style = ParagraphStyle(
+                            'SubStyle',
+                            parent=styles['Normal'],
+                            fontSize=10,
+                            textColor=colors.HexColor('#4b5563'),
+                            spaceAfter=15,
+                            alignment=1
+                        )
+                        
+                        elements.append(Paragraph("Relatório de Estoque de Produtos e Preços", title_style))
+                        
+                        # Calcula os valores totais (Quantidade * Valor)
+                        total_compra = 0.0
+                        total_venda = 0.0
+                        
+                        for _, row in df_dados.iterrows():
+                            try:
+                                qtd = float(str(row.get('quantidade', 0)).replace(',', '.') or 0.0)
+                                v_compra = float(str(row.get('valor_compra', 0)).replace(',', '.') or 0.0)
+                                v_venda = float(str(row.get('valor_venda', 0)).replace(',', '.') or 0.0)
+                                
+                                total_compra += qtd * v_compra
+                                total_venda += qtd * v_venda
+                            except:
+                                pass
+                                
+                        # Formata o texto dos totais para exibir no PDF
+                        texto_totais = f"<b>Valor Total de Compras:</b> R$ {total_compra:,.2f} &nbsp;&nbsp;|&nbsp;&nbsp; <b>Valor Total de Vendas:</b> R$ {total_venda:,.2f}"
+                        elements.append(Paragraph(texto_totais, sub_style))
+                        elements.append(Spacer(1, 5))
+                        
+                        # Cabeçalho e dados da tabela
+                        data = [["ID", "Produto", "Qtd", "Fornecedor", "Grupo", "V. Compra", "V. Venda"]]
+                        for _, row in df_dados.iterrows():
+                            data.append([
+                                str(row.get('id', '')),
+                                str(row.get('produto', '')),
+                                str(row.get('quantidade', '')),
+                                str(row.get('fornecedor', '')),
+                                str(row.get('grupo', '')),
+                                f"R$ {float(str(row.get('valor_compra', 0)).replace(',', '.') or 0):.2f}",
+                                f"R$ {float(str(row.get('valor_venda', 0)).replace(',', '.') or 0):.2f}"
+                            ])
+                            
+                        t = Table(data, colWidths=[35, 170, 50, 85, 75, 60, 60])
+                        t.setStyle(TableStyle([
+                            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#374151')),
+                            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+                            ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+                            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+                            ('FONTSIZE', (0,0), (-1,0), 9),
+                            ('BOTTOMPADDING', (0,0), (-1,0), 6),
+                            ('BACKGROUND', (0,1), (-1,-1), colors.HexColor('#f9fafb')),
+                            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#d1d5db')),
+                            ('FONTNAME', (0,1), (-1,-1), 'Helvetica'),
+                            ('FONTSIZE', (0,1), (-1,-1), 8),
+                        ]))
+                        
+                        elements.append(t)
+                        doc.build(elements)
+                        buffer.seek(0)
+                        return buffer.getvalue()
+
+                    pdf_estoque_bytes = gerar_pdf_estoque(df_estoque_editado)
+                    
+                    st.download_button(
+                        label="📄 Gerar PDF do Estoque",
+                        data=pdf_estoque_bytes,
+                        file_name="relatorio_estoque.pdf",
+                        mime="application/pdf",
+                        key="btn_baixar_pdf_estoque"
+                    )
+                except Exception as e_pdf_est:
+                    st.error(f"Erro ao gerar PDF: {e_pdf_est}")
             if "carrinho_admin" not in st.session_state:
                 st.session_state.carrinho_admin = []
         
