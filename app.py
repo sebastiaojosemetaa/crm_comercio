@@ -2849,24 +2849,35 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     except Exception as e:
                                         st.error(f"Erro: {e}")
         
-                            # --- GERAÇÃO SEGURA DO PDF (DADOS UNIDOS) ---
+                            # --- GERAÇÃO SEGURA DO PDF COM OS DOIS ARGUMENTOS CORRETOS ---
                             try:
                                 func_seguro = f_dict.copy() if 'f_dict' in locals() and isinstance(f_dict, dict) else {}
-                                
-                                # Junta os dados de pagamento no mesmo dicionário que a função espera
-                                func_seguro.update({
+                                pag_seguro = {
                                     'referencia': p_data[:7] if 'p_data' in locals() and p_data else '',
                                     'valor': p_valor if 'p_valor' in locals() else 0.0,
                                     'tipo': p_tipo if 'p_tipo' in locals() else '',
                                     'inss': p_inss if 'p_inss' in locals() else 0.0,
                                     'faltas': p_faltas if 'p_faltas' in locals() else 0.0,
                                     'desconto_faltas': p_desc_faltas if 'p_desc_faltas' in locals() else 0.0
-                                })
+                                }
                                 
-                                pdf_bytes = gerar_bytes_pdf(dados_func=func_seguro)
+                                # Passa explicitamente os dois argumentos exigidos pela função: dados_func e dados_pag
+                                pdf_bytes = gerar_bytes_pdf(dados_func=func_seguro, dados_pag=pag_seguro)
                             except Exception as e_gen:
                                 pdf_bytes = b""
                                 st.warning(f"Não foi possível gerar o PDF do holerite: {e_gen}")
+    
+                            if pdf_bytes:
+                                nome_arquivo_pdf = f"holerite_{str(p_collab if 'p_collab' in locals() else 'funcionario').replace(' ', '_')}_{str(p_data[:7] if 'p_data' in locals() else '2026')}.pdf"
+                                st.download_button(
+                                    label="📥 Descarregar / Imprimir Holerite em PDF",
+                                    data=pdf_bytes,
+                                    file_name=nome_arquivo_pdf,
+                                    mime="application/pdf",
+                                    key="btn_baixar_holerite_rh_seguro"
+                                )
+                            else:
+                                st.info("ℹ️ Registe ou selecione um lançamento válido para descarregar o holerite.")
     
                             if pdf_bytes:
                                 nome_arquivo_pdf = f"holerite_{str(p_collab if 'p_collab' in locals() else 'funcionario').replace(' ', '_')}_{str(p_data[:7] if 'p_data' in locals() else '2026')}.pdf"
