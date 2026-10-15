@@ -1758,11 +1758,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         
             # --- IMPORTAÇÃO DIRETA PELA TELA DA APLICAÇÃO ---
             with st.expander("📥 Importar / Colar Lista de Produtos em Massa"):
-                st.info("Cole abaixo a sua lista (ex: ABACATE 0 BAHIA GERAL). O sistema aceita com ou sem números de linha.")
+                st.info("Cole abaixo a sua lista copiada diretamente do Excel ou Bloco de Notas.")
                 
                 texto_lista_colada = st.text_area(
                     "Cole os produtos aqui:",
-                    placeholder="Exemplo:\n1 ABACATE 0 BAHIA GERAL\n2 ABACAXI 0 BAHIA GERAL",
+                    placeholder="Exemplo:\n1\tABACATE\t6\tBAHIA\tGERAL\t0\t0",
                     key="input_texto_produtos_massa"
                 )
                 
@@ -1779,35 +1779,37 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 if not linha.strip():
                                     continue
                                 
-                                partes = linha.strip().split()
-                                if partes and partes[0].isdigit():
-                                    partes.pop(0)
+                                # Divide a linha rigorosamente por tabulação (formato de tabela copiada)
+                                partes = linha.split("\t")
+                                if len(partes) < 2:
+                                    # Fallback caso venha com espaços normais
+                                    partes = linha.strip().split()
                                     
-                                if len(partes) >= 2:
-                                    prod = partes[0].upper()
-                                    grupo = "GERAL"
-                                    forn = "BAHIA"
-                                    qtd = 0.0
+                                # Mapeia as colunas com base na estrutura (ID, Produto, Qtd, Fornecedor, Grupo, V.Compra, V.Venda)
+                                if len(partes) >= 7:
+                                    prod = partes[1].strip().upper()
+                                    qtd = float(partes[2].strip().replace(',', '.') or 0.0)
+                                    forn = partes[3].strip().upper()
+                                    grupo = partes[4].strip().upper()
+                                    v_compra = float(partes[5].strip().replace(',', '.') or 0.0)
+                                    v_venda = float(partes[6].strip().replace(',', '.') or 0.0)
+                                elif len(partes) >= 6:
+                                    prod = partes[0].strip().upper()
+                                    qtd = float(partes[1].strip().replace(',', '.') or 0.0)
+                                    forn = partes[2].strip().upper()
+                                    grupo = partes[3].strip().upper()
+                                    v_compra = float(partes[4].strip().replace(',', '.') or 0.0)
+                                    v_venda = float(partes[5].strip().replace(',', '.') or 0.0)
+                                else:
+                                    continue
                                     
-                                    tokens_texto = []
-                                    for p in partes[1:]:
-                                        limpo = p.replace(',', '.')
-                                        try:
-                                            val = float(limpo)
-                                            qtd = val
-                                            break
-                                        except ValueError:
-                                            tokens_texto.append(p)
-                                            
-                                    if tokens_texto:
-                                        prod += " " + " ".join(tokens_texto).upper()
-                                        
-                                    cursor.execute("""
-                                        INSERT OR REPLACE INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda)
-                                        VALUES (?, ?, ?, ?, ?, ?)
-                                    """, (prod.strip(), grupo, forn, qtd, 0.0, 0.0))
-                                    sucessos += 1
-                                    
+                                # Insere ou atualiza de forma limpa usando a restrição OR REPLACE
+                                cursor.execute("""
+                                    INSERT OR REPLACE INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda)
+                                    VALUES (?, ?, ?, ?, ?, ?)
+                                """, (prod, grupo, forn, qtd, v_compra, v_venda))
+                                sucessos += 1
+                                
                             conn.commit()
                             if sucessos > 0:
                                 st.success(f"✅ {sucessos} produtos importados/atualizados com sucesso!")
