@@ -1185,7 +1185,69 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
         elif menu_admin in ["📋 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
             st.title(f"🛒 {menu_admin}")
-            
+
+            # --- IMPORTAÇÃO DIRETA PELA TELA DA APLICAÇÃO ---
+            with st.expander("📥 Importar / Colar Lista de Produtos em Massa"):
+                st.info("Cole abaixo a sua lista copiada diretamente do Excel ou Bloco de Notas.")
+                
+                texto_lista_colada = st.text_area(
+                    "Cole os produtos aqui:",
+                    placeholder="Exemplo:\n1\tABACATE\t6\tBAHIA\tGERAL\t0\t0",
+                    key="input_texto_produtos_massa"
+                )
+                
+                if st.button("🚀 Processar e Importar Lista Colada"):
+                    if not texto_lista_colada.strip():
+                        st.warning("⚠️ Por favor, cole os dados na caixa de texto acima antes de importar.")
+                    else:
+                        try:
+                            cursor = conn.cursor()
+                            linhas = texto_lista_colada.strip().split("\n")
+                            sucessos = 0
+                            
+                            for linha in linhas:
+                                if not linha.strip():
+                                    continue
+                                
+                                # Divide a linha rigorosamente por tabulação (formato de tabela copiada)
+                                partes = linha.split("\t")
+                                if len(partes) < 2:
+                                    # Fallback caso venha com espaços normais
+                                    partes = linha.strip().split()
+                                    
+                                # Mapeia as colunas com base na estrutura (ID, Produto, Qtd, Fornecedor, Grupo, V.Compra, V.Venda)
+                                if len(partes) >= 7:
+                                    prod = partes[1].strip().upper()
+                                    qtd = float(partes[2].strip().replace(',', '.') or 0.0)
+                                    forn = partes[3].strip().upper()
+                                    grupo = partes[4].strip().upper()
+                                    v_compra = float(partes[5].strip().replace(',', '.') or 0.0)
+                                    v_venda = float(partes[6].strip().replace(',', '.') or 0.0)
+                                elif len(partes) >= 6:
+                                    prod = partes[0].strip().upper()
+                                    qtd = float(partes[1].strip().replace(',', '.') or 0.0)
+                                    forn = partes[2].strip().upper()
+                                    grupo = partes[3].strip().upper()
+                                    v_compra = float(partes[4].strip().replace(',', '.') or 0.0)
+                                    v_venda = float(partes[5].strip().replace(',', '.') or 0.0)
+                                else:
+                                    continue
+                                    
+                                # Insere ou atualiza de forma limpa usando a restrição OR REPLACE
+                                cursor.execute("""
+                                    INSERT OR REPLACE INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda)
+                                    VALUES (?, ?, ?, ?, ?, ?)
+                                """, (prod, grupo, forn, qtd, v_compra, v_venda))
+                                sucessos += 1
+                                
+                            conn.commit()
+                            if sucessos > 0:
+                                st.success(f"✅ {sucessos} produtos importados/atualizados com sucesso!")
+                                st.rerun()
+                            else:
+                                st.warning("⚠️ Nenhum produto válido foi detetado. Verifique o formato do texto colado.")
+                        except Exception as e:
+                            st.error(f"Erro ao processar a lista: {e}")
             if "carrinho_admin" not in st.session_state:
                 st.session_state.carrinho_admin = []
         
