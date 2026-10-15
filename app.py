@@ -1779,29 +1779,21 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 if not linha.strip():
                                     continue
                                 
-                                # Limpa espaços duplos e divide a linha por espaços ou tabulação
                                 partes = linha.strip().split()
-                                
-                                # Se a linha começar com número de linha (ex: "1", "2"), removemos o primeiro elemento
                                 if partes and partes[0].isdigit():
                                     partes.pop(0)
                                     
                                 if len(partes) >= 2:
-                                    # O nome do produto pode ter mais de uma palavra (ex: ABACAXI PEQUENO)
-                                    # Vamos tentar identificar os campos com segurança:
                                     prod = partes[0].upper()
                                     grupo = "GERAL"
                                     forn = "BAHIA"
                                     qtd = 0.0
                                     
-                                    # Procura por números na linha para identificar a quantidade ou preços
                                     tokens_texto = []
                                     for p in partes[1:]:
-                                        # Se contiver números ou for vírgula/ponto, pode ser quantidade/preço
                                         limpo = p.replace(',', '.')
                                         try:
                                             val = float(limpo)
-                                            # Se achou um número, assumimos que é a quantidade ou preço
                                             qtd = val
                                             break
                                         except ValueError:
@@ -1810,7 +1802,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     if tokens_texto:
                                         prod += " " + " ".join(tokens_texto).upper()
                                         
-                                    # Insere na base de dados
                                     cursor.execute("""
                                         INSERT OR REPLACE INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda)
                                         VALUES (?, ?, ?, ?, ?, ?)
@@ -1826,9 +1817,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         except Exception as e:
                             st.error(f"Erro ao processar a lista: {e}")
         
-            try:
-                df_produtos = pd.read_sql_query("SELECT * FROM produtos", conn)
-            
             try:
                 df_produtos = pd.read_sql_query("SELECT * FROM produtos", conn)
             except Exception:
