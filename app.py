@@ -1889,7 +1889,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.error(f"Erro ao atualizar preço: {e}")
 
             with col_pdf:
-                # --- BOTÃO PARA GERAR PDF DO ESTOQUE ---
+                # --- BOTÃO PARA GERAR PDF DO ESTOQUE COM TOTAIS ---
                 try:
                     import io
                     from reportlab.lib.pagesizes import letter
@@ -1908,12 +1908,40 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             parent=styles['Heading1'],
                             fontSize=16,
                             textColor=colors.HexColor('#1f2937'),
+                            spaceAfter=5,
+                            alignment=1
+                        )
+                        
+                        sub_style = ParagraphStyle(
+                            'SubStyle',
+                            parent=styles['Normal'],
+                            fontSize=10,
+                            textColor=colors.HexColor('#4b5563'),
                             spaceAfter=15,
                             alignment=1
                         )
                         
                         elements.append(Paragraph("Relatório de Estoque de Produtos e Preços", title_style))
-                        elements.append(Spacer(1, 10))
+                        
+                        # Calcula os valores totais (Quantidade * Valor)
+                        total_compra = 0.0
+                        total_venda = 0.0
+                        
+                        for _, row in df_dados.iterrows():
+                            try:
+                                qtd = float(str(row.get('quantidade', 0)).replace(',', '.') or 0.0)
+                                v_compra = float(str(row.get('valor_compra', 0)).replace(',', '.') or 0.0)
+                                v_venda = float(str(row.get('valor_venda', 0)).replace(',', '.') or 0.0)
+                                
+                                total_compra += qtd * v_compra
+                                total_venda += qtd * v_venda
+                            except:
+                                pass
+                                
+                        # Formata o texto dos totais para exibir no PDF
+                        texto_totais = f"<b>Valor Total de Compras:</b> R$ {total_compra:,.2f} &nbsp;&nbsp;|&nbsp;&nbsp; <b>Valor Total de Vendas:</b> R$ {total_venda:,.2f}"
+                        elements.append(Paragraph(texto_totais, sub_style))
+                        elements.append(Spacer(1, 5))
                         
                         # Cabeçalho e dados da tabela
                         data = [["ID", "Produto", "Qtd", "Fornecedor", "Grupo", "V. Compra", "V. Venda"]]
@@ -1924,8 +1952,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 str(row.get('quantidade', '')),
                                 str(row.get('fornecedor', '')),
                                 str(row.get('grupo', '')),
-                                f"R$ {float(row.get('valor_compra', 0)):.2f}",
-                                f"R$ {float(row.get('valor_venda', 0)):.2f}"
+                                f"R$ {float(str(row.get('valor_compra', 0)).replace(',', '.') or 0):.2f}",
+                                f"R$ {float(str(row.get('valor_venda', 0)).replace(',', '.') or 0):.2f}"
                             ])
                             
                         t = Table(data, colWidths=[35, 170, 50, 85, 75, 60, 60])
