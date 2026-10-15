@@ -2849,20 +2849,21 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     except Exception as e:
                                         st.error(f"Erro: {e}")
         
-                            # --- GERAÇÃO SEGURA DO PDF COM PROTEÇÃO CONTRA ERROS ---
+                            # --- GERAÇÃO SEGURA DO PDF (DADOS UNIDOS) ---
                             try:
-                                # Garante que os dicionários e valores existem antes de chamar a função
-                                func_seguro = f_dict if 'f_dict' in locals() and f_dict else {}
-                                pag_seguro = {
+                                func_seguro = f_dict.copy() if 'f_dict' in locals() and isinstance(f_dict, dict) else {}
+                                
+                                # Junta os dados de pagamento no mesmo dicionário que a função espera
+                                func_seguro.update({
                                     'referencia': p_data[:7] if 'p_data' in locals() and p_data else '',
                                     'valor': p_valor if 'p_valor' in locals() else 0.0,
                                     'tipo': p_tipo if 'p_tipo' in locals() else '',
                                     'inss': p_inss if 'p_inss' in locals() else 0.0,
                                     'faltas': p_faltas if 'p_faltas' in locals() else 0.0,
                                     'desconto_faltas': p_desc_faltas if 'p_desc_faltas' in locals() else 0.0
-                                }
+                                })
                                 
-                                pdf_bytes = gerar_bytes_pdf(dados_func=func_seguro, dados_pagamento=pag_seguro)
+                                pdf_bytes = gerar_bytes_pdf(dados_func=func_seguro)
                             except Exception as e_gen:
                                 pdf_bytes = b""
                                 st.warning(f"Não foi possível gerar o PDF do holerite: {e_gen}")
