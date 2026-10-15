@@ -1850,7 +1850,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
     
             df_estoque_editado = st.data_editor(df_produtos, use_container_width=True, hide_index=True, key="editor_estoque_produtos")
     
-            col_salvar, col_atualizar = st.columns([1, 1])
+            col_salvar, col_atualizar, col_pdf = st.columns([1, 1, 1])
     
             with col_salvar:
                 if st.button("💾 Salvar Alterações no Estoque", type="primary", key="btn_salvar_estoque"):
@@ -1862,17 +1862,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             except Exception:
                                 pass
     
-                        # Atualiza cada linha de forma segura, tratando conflitos de nome duplicado
                         for _, row in df_estoque_editado.iterrows():
-                            try:
-                                cursor.execute("""
-                                    UPDATE produtos 
-                                    SET produto = ?, quantidade = ?, valor_compra = ?, valor_venda = ?, grupo = ?, fornecedor = ? 
-                                    WHERE id = ?
-                                """, (str(row['produto']).strip(), float(row['quantidade']), float(row['valor_compra']), float(row['valor_venda']), str(row.get('grupo', '')), str(row.get('fornecedor', '')), int(row['id'])))
-                            except Exception as e_row:
-                                # Se houver conflito de nome duplicado numa linha específica, avisa mas continua a salvar as outras
-                                st.warning(f"Aviso no produto '{row.get('produto')}': {e_row}")
+                            cursor.execute("""
+                                UPDATE produtos 
+                                SET produto = ?, quantidade = ?, valor_compra = ?, valor_venda = ?, grupo = ?, fornecedor = ? 
+                                WHERE id = ?
+                            """, (str(row['produto']).strip(), float(row['quantidade']), float(row['valor_compra']), float(row['valor_venda']), str(row.get('grupo', '')), str(row.get('fornecedor', '')), int(row['id'])))
     
                         conn.commit()
                         st.cache_data.clear()
@@ -1892,6 +1887,77 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.rerun()
                     except Exception as e:
                         st.error(f"Erro ao atualizar preço: {e}")
+
+            with col_pdf:
+                # --- BOTÃO PARA GERAR PDF DO ESTOQUE ---
+                try:
+                    import io
+                    from reportlab.lib.pagesizes import letter
+                    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+                    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+                    from reportlab.lib import colors
+
+                    def gerar_pdf_estoque(df_dados):
+                        buffer = io.BytesIO()
+                        doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+                        elements = []
+                        styles = getSampleStyleSheet()
+                        
+                        title_style = ParagraphStyle(
+                            'TitleStyle',
+                            parent=styles['Heading1'],
+                            fontSize=16,
+                            textColor=colors.HexColor('#1f2937'),
+                            spaceAfter=15,
+                            alignment=1
+                        )
+                        
+                        elements.append(Paragraph("Relatório de Estoque de Produtos e Preços", title_style))
+                        elements.append(Spacer(1, 10))
+                        
+                        # Cabeçalho e dados da tabela
+                        data = [["ID", "Produto", "Qtd", "Fornecedor", "Grupo", "V. Compra", "V. Venda"]]
+                        for _, row in df_dados.iterrows():
+                            data.append([
+                                str(row.get('id', '')),
+                                str(row.get('produto', '')),
+                                str(row.get('quantidade', '')),
+                                str(row.get('fornecedor', '')),
+                                str(row.get('grupo', '')),
+                                f"R$ {float(row.get('valor_compra', 0)):.2f}",
+                                f"R$ {float(row.get('valor_venda', 0)):.2f}"
+                            ])
+                            
+                        t = Table(data, colWidths=[35, 170, 50, 85, 75, 60, 60])
+                        t.setStyle(TableStyle([
+                            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#374151')),
+                            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+                            ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+                            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+                            ('FONTSIZE', (0,0), (-1,0), 9),
+                            ('BOTTOMPADDING', (0,0), (-1,0), 6),
+                            ('BACKGROUND', (0,1), (-1,-1), colors.HexColor('#f9fafb')),
+                            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#d1d5db')),
+                            ('FONTNAME', (0,1), (-1,-1), 'Helvetica'),
+                            ('FONTSIZE', (0,1), (-1,-1), 8),
+                        ]))
+                        
+                        elements.append(t)
+                        doc.build(elements)
+                        buffer.seek(0)
+                        return buffer.getvalue()
+
+                    pdf_estoque_bytes = gerar_pdf_estoque(df_estoque_editado)
+                    
+                    st.download_button(
+                        label="📄 Gerar PDF do Estoque",
+                        data=pdf_estoque_bytes,
+                        file_name="relatorio_estoque.pdf",
+                        mime="application/pdf",
+                        key="btn_baixar_pdf_estoque"
+                    )
+                except Exception as e_pdf_est:
+                    st.error(f"Erro ao gerar PDF: {e_pdf_est}")
         elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
             st.title("👥 Cadastros Gerais")
             tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["👤 Clientes", "📦 Produtos", "🏢 Fornecedores", "🏷️ Grupos"])
