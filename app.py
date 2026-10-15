@@ -1755,6 +1755,79 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.info("ℹ️ Não existem contas a receber registadas ou todos os pedidos já se encontram quitados.")
         elif menu_admin == "📦 Estoque de Produtos":
             st.title("📦 Estoque de Produtos e Preços")
+        
+            # --- IMPORTAÇÃO DIRETA PELA TELA DA APLICAÇÃO ---
+            with st.expander("📥 Importar / Colar Lista de Produtos em Massa"):
+                st.info("Cole abaixo a sua lista (ex: ABACATE 0 BAHIA GERAL). O sistema aceita com ou sem números de linha.")
+                
+                texto_lista_colada = st.text_area(
+                    "Cole os produtos aqui:",
+                    placeholder="Exemplo:\n1 ABACATE 0 BAHIA GERAL\n2 ABACAXI 0 BAHIA GERAL",
+                    key="input_texto_produtos_massa"
+                )
+                
+                if st.button("🚀 Processar e Importar Lista Colada"):
+                    if not texto_lista_colada.strip():
+                        st.warning("⚠️ Por favor, cole os dados na caixa de texto acima antes de importar.")
+                    else:
+                        try:
+                            cursor = conn.cursor()
+                            linhas = texto_lista_colada.strip().split("\n")
+                            sucessos = 0
+                            
+                            for linha in linhas:
+                                if not linha.strip():
+                                    continue
+                                
+                                # Limpa espaços duplos e divide a linha por espaços ou tabulação
+                                partes = linha.strip().split()
+                                
+                                # Se a linha começar com número de linha (ex: "1", "2"), removemos o primeiro elemento
+                                if partes and partes[0].isdigit():
+                                    partes.pop(0)
+                                    
+                                if len(partes) >= 2:
+                                    # O nome do produto pode ter mais de uma palavra (ex: ABACAXI PEQUENO)
+                                    # Vamos tentar identificar os campos com segurança:
+                                    prod = partes[0].upper()
+                                    grupo = "GERAL"
+                                    forn = "BAHIA"
+                                    qtd = 0.0
+                                    
+                                    # Procura por números na linha para identificar a quantidade ou preços
+                                    tokens_texto = []
+                                    for p in partes[1:]:
+                                        # Se contiver números ou for vírgula/ponto, pode ser quantidade/preço
+                                        limpo = p.replace(',', '.')
+                                        try:
+                                            val = float(limpo)
+                                            # Se achou um número, assumimos que é a quantidade ou preço
+                                            qtd = val
+                                            break
+                                        except ValueError:
+                                            tokens_texto.append(p)
+                                            
+                                    if tokens_texto:
+                                        prod += " " + " ".join(tokens_texto).upper()
+                                        
+                                    # Insere na base de dados
+                                    cursor.execute("""
+                                        INSERT OR REPLACE INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda)
+                                        VALUES (?, ?, ?, ?, ?, ?)
+                                    """, (prod.strip(), grupo, forn, qtd, 0.0, 0.0))
+                                    sucessos += 1
+                                    
+                            conn.commit()
+                            if sucessos > 0:
+                                st.success(f"✅ {sucessos} produtos importados/atualizados com sucesso!")
+                                st.rerun()
+                            else:
+                                st.warning("⚠️ Nenhum produto válido foi detetado. Verifique o formato do texto colado.")
+                        except Exception as e:
+                            st.error(f"Erro ao processar a lista: {e}")
+        
+            try:
+                df_produtos = pd.read_sql_query("SELECT * FROM produtos", conn)
             
             try:
                 df_produtos = pd.read_sql_query("SELECT * FROM produtos", conn)
@@ -2788,27 +2861,35 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     except Exception as e:
                                         st.error(f"Erro: {e}")
         
-                            pdf_bytes = gerar_bytes_pdf(
-                                dados_func=f_dict,
-                                dados_pagamento={
-                                    'referencia': p_data[:7],
-                                    'valor': p_valor,
-                                    'tipo': p_tipo,
-                                    'inss': p_inss,
-                                    'faltas': p_faltas,
-                                    'desconto_faltas': p_desc_faltas
+                            # --- GERAÇÃO SEGURA DO PDF COM PROTEÇÃO CONTRA ERROS ---
+                            try:
+                                # Garante que os dicionários e valores existem antes de chamar a função
+                                func_seguro = f_dict if 'f_dict' in locals() and f_dict else {}
+                                pag_seguro = {
+                                    'referencia': p_data[:7] if 'p_data' in locals() and p_data else '',
+                                    'valor': p_valor if 'p_valor' in locals() else 0.0,
+                                    'tipo': p_tipo if 'p_tipo' in locals() else '',
+                                    'inss': p_inss if 'p_inss' in locals() else 0.0,
+                                    'faltas': p_faltas if 'p_faltas' in locals() else 0.0,
+                                    'desconto_faltas': p_desc_faltas if 'p_desc_faltas' in locals() else 0.0
                                 }
-                            )
-                            
-                            st.download_button(
-                                label="📥 Descarregar / Imprimir Holerite em PDF",
-                                data=pdf_bytes,
-                                file_name=f"holerite_{p_collab.replace(' ', '_')}_{p_data[:7]}.pdf",
-                                mime="application/pdf",
-                                key=f"btn_pdf_pag_{p_id}"
-                            )
-                else:
-                    st.info("ℹ️ Nenhum pagamento registado até o momento.")
+                                
+                                pdf_bytes = gerar_bytes_pdf(dados_func=func_seguro, dados_pagamento=pag_seguro)
+                            except Exception as e_gen:
+                                pdf_bytes = b""
+                                st.warning(f"Não foi possível gerar o PDF do holerite: {e_gen}")
+    
+                            if pdf_bytes:
+                                nome_arquivo_pdf = f"holerite_{str(p_collab if 'p_collab' in locals() else 'funcionario').replace(' ', '_')}_{str(p_data[:7] if 'p_data' in locals() else '2026')}.pdf"
+                                st.download_button(
+                                    label="📥 Descarregar / Imprimir Holerite em PDF",
+                                    data=pdf_bytes,
+                                    file_name=nome_arquivo_pdf,
+                                    mime="application/pdf",
+                                    key="btn_baixar_holerite_rh_seguro"
+                                )
+                            else:
+                                st.info("ℹ️ Registe ou selecione um lançamento válido para descarregar o holerite.")
         
             with aba_pendentes:
                 st.subheader("📅 Controlo Automático de Salários Pendentes e a Vencer")
