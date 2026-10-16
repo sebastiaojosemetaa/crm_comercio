@@ -2816,7 +2816,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         
             from datetime import datetime
         
-            # Função ultra-segura para gerar o PDF do Holerite
+            # Função ultra-segura para gerar o PDF do Holerite com Ambas as Datas
             def gerar_bytes_pdf(dados_func, dados_pag):
                 try:
                     from fpdf import FPDF
@@ -2824,9 +2824,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     pdf.add_page()
                     
                     # Desenha o Recibo
-                    pdf.rect(10, 10, 190, 132)
-                    pdf.rect(10, 10, 130, 20)
-                    pdf.rect(140, 10, 60, 20)
+                    pdf.rect(10, 10, 190, 134)
+                    pdf.rect(10, 10, 130, 22)
+                    pdf.rect(140, 10, 60, 22)
                     
                     pdf.set_xy(12, 11)
                     pdf.set_font("Arial", "B", 7)
@@ -2839,13 +2839,15 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     pdf.set_x(12)
                     pdf.cell(126, 3.5, "CNPJ: 194.174.39/000-42", 0, 1)
                     
-                    pdf.set_xy(142, 12)
-                    pdf.set_font("Arial", "B", 9)
-                    pdf.cell(56, 5, "Recibo de Pagamento", 0, 1, 'C')
-                    pdf.set_xy(142, 17)
-                    pdf.set_font("Arial", "B", 8)
-                    pdf.cell(56, 4, "de Salário", 0, 1, 'C')
-                    pdf.set_xy(142, 23)
+                    pdf.set_xy(142, 11)
+                    pdf.set_font("Arial", "B", 8.5)
+                    pdf.cell(56, 4, "Recibo de Pagamento", 0, 1, 'C')
+                    pdf.set_xy(142, 15)
+                    pdf.set_font("Arial", "B", 7.5)
+                    pdf.cell(56, 3.5, "de Salário", 0, 1, 'C')
+                    
+                    # 1. Competência / Referência
+                    pdf.set_xy(142, 19)
                     pdf.set_font("Arial", "", 7)
                     ref_raw = str(dados_pag.get('referencia', datetime.now().strftime('%Y-%m')))
                     if len(ref_raw) >= 7 and '-' in ref_raw:
@@ -2853,18 +2855,30 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         ref_mes = f"01/{p_mes}/{p_ano}"
                     else:
                         ref_mes = ref_raw
-                        
-                    pdf.cell(56, 4, f"Referente ao Mês/Ano: {ref_mes}", 0, 1, 'C')
+                    pdf.cell(56, 3, f"Ref: {ref_mes}", 0, 1, 'C')
+
+                    # 2. Data do Pagamento Efetuado
+                    pdf.set_xy(142, 22.5)
+                    data_pag_raw = str(dados_pag.get('data_pagamento', ''))
+                    if len(data_pag_raw) >= 10:
+                        dp_parts = data_pag_raw[:10].split('-')
+                        if len(dp_parts) == 3:
+                            data_pag_fmt = f"{dp_parts[2]}/{dp_parts[1]}/{dp_parts[0]}"
+                        else:
+                            data_pag_fmt = data_pag_raw[:10]
+                    else:
+                        data_pag_fmt = data_pag_raw[:10] if data_pag_raw else '-'
+                    pdf.cell(56, 3, f"Data Pgto: {data_pag_fmt}", 0, 1, 'C')
         
-                    pdf.rect(10, 30, 190, 12)
-                    pdf.set_xy(12, 31)
+                    pdf.rect(10, 32, 190, 12)
+                    pdf.set_xy(12, 33)
                     pdf.set_font("Arial", "B", 7)
                     pdf.cell(20, 3, "CÓDIGO", 0, 0)
                     pdf.cell(85, 3, "NOME DO FUNCIONÁRIO", 0, 0)
                     pdf.cell(35, 3, "CBO", 0, 0)
                     pdf.cell(50, 3, "FUNÇÃO", 0, 0)
                     
-                    pdf.set_xy(12, 35)
+                    pdf.set_xy(12, 37)
                     pdf.set_font("Arial", "", 8)
                     func_id = int(dados_func.get('id', 1))
                     pdf.cell(20, 5, f"{func_id:05d}", 0, 0)
@@ -2872,8 +2886,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     pdf.cell(35, 5, str(dados_func.get('cbo', '-')), 0, 0)
                     pdf.cell(50, 5, str(dados_func.get('cargo', '-')), 0, 0)
         
-                    pdf.rect(10, 42, 190, 7)
-                    pdf.set_xy(12, 43)
+                    pdf.rect(10, 44, 190, 7)
+                    pdf.set_xy(12, 45)
                     pdf.set_font("Arial", "B", 7)
                     pdf.cell(15, 5, "Cód.", 0, 0)
                     pdf.cell(75, 5, "Descrição", 0, 0)
@@ -2881,8 +2895,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     pdf.cell(37, 5, "Proventos", 0, 0, 'R')
                     pdf.cell(38, 5, "Descontos", 0, 1, 'R')
         
-                    pdf.rect(10, 49, 190, 58)
-                    pdf.set_xy(12, 51)
+                    pdf.rect(10, 51, 190, 58)
+                    pdf.set_xy(12, 53)
                     pdf.set_font("Arial", "", 8)
                     
                     valor_salario = float(dados_pag.get('valor', 0.0))
@@ -2897,7 +2911,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     pdf.cell(37, 5, f"R$ {valor_salario:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 0, 'R')
                     pdf.cell(38, 5, "R$ 0,00", 0, 1, 'R')
         
-                    curr_y = 56
+                    curr_y = 58
                     if faltas_qtd > 0 or desc_faltas > 0:
                         pdf.set_xy(12, curr_y)
                         pdf.cell(15, 5, "450", 0, 0)
@@ -2919,17 +2933,17 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     total_desc = inss_val + desc_faltas
                     liquido = total_venc - total_desc
         
-                    pdf.rect(10, 107, 130, 17)
-                    pdf.rect(140, 107, 60, 17)
+                    pdf.rect(10, 109, 130, 17)
+                    pdf.rect(140, 109, 60, 17)
                     
-                    pdf.set_xy(12, 108)
+                    pdf.set_xy(12, 110)
                     pdf.set_font("Arial", "B", 7)
                     pdf.cell(126, 3, "MENSAGENS:", 0, 1)
                     pdf.set_font("Arial", "", 7)
                     pdf.set_x(12)
                     pdf.cell(126, 3, "Documento gerado automaticamente pelo Sistema CRM Comércio.", 0, 1)
         
-                    pdf.set_xy(142, 108)
+                    pdf.set_xy(142, 110)
                     pdf.set_font("Arial", "B", 7)
                     pdf.cell(28, 4, "Total Vencimentos:", 0, 0)
                     pdf.cell(28, 4, f"R$ {total_venc:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 1, 'R')
@@ -2943,8 +2957,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     pdf.cell(28, 5, "Líquido a Receber:", 0, 0)
                     pdf.cell(28, 5, f"R$ {liquido:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 1, 'R')
         
-                    pdf.rect(10, 124, 190, 18)
-                    pdf.set_xy(12, 125)
+                    pdf.rect(10, 126, 190, 18)
+                    pdf.set_xy(12, 127)
                     pdf.set_font("Arial", "B", 6)
                     pdf.cell(31, 3, "Salário Base", 0, 0)
                     pdf.cell(31, 3, "Base Cálc. INSS", 0, 0)
@@ -2953,7 +2967,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     pdf.cell(32, 3, "Base Cálc. IRRF", 0, 0)
                     pdf.cell(32, 3, "Faixa IRRF", 0, 1)
         
-                    pdf.set_xy(12, 130)
+                    pdf.set_xy(12, 132)
                     pdf.set_font("Arial", "", 7)
                     pdf.cell(31, 4, f"R$ {valor_salario:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 0)
                     base_inss = max(0.0, valor_salario - desc_faltas)
@@ -3216,7 +3230,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     except Exception as e:
                                         st.error(f"Erro: {e}")
         
-                            # --- GERAÇÃO SEGURA DO HOLERITE COM CHAVE ÚNICA POR ÍNDICE ---
+                            # --- GERAÇÃO SEGURA DO HOLERITE COM AMBAS AS DATAS ---
                             try:
                                 func_seguro = f_dict.copy() if 'f_dict' in locals() and isinstance(f_dict, dict) else {}
                                 pag_seguro = {
@@ -3225,7 +3239,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     'tipo': p_tipo if 'p_tipo' in locals() else '',
                                     'inss': p_inss if 'p_inss' in locals() else 0.0,
                                     'faltas': p_faltas if 'p_faltas' in locals() else 0.0,
-                                    'desconto_faltas': p_desc_faltas if 'p_desc_faltas' in locals() else 0.0
+                                    'desconto_faltas': p_desc_faltas if 'p_desc_faltas' in locals() else 0.0,
+                                    'data_pagamento': p_data if 'p_data' in locals() else ''
                                 }
                                 
                                 pdf_bytes = gerar_bytes_pdf(dados_func=func_seguro, dados_pag=pag_seguro)
