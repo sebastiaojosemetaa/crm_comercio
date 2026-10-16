@@ -2848,7 +2848,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     pdf.set_xy(142, 23)
                     pdf.set_font("Arial", "", 7)
                     ref_raw = str(dados_pag.get('referencia', datetime.now().strftime('%Y-%m')))
-                    # Se a referência vier como '2026-08', transforma em data completa (ex: 05/08/2026) ou mantém o formato amigável
                     if len(ref_raw) >= 7 and '-' in ref_raw:
                         p_ano, p_mes = ref_raw.split('-')[:2]
                         ref_mes = f"01/{p_mes}/{p_ano}"
@@ -3025,7 +3024,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             novo_tel = st.text_input("Telefone / Telemóvel")
                             novo_salario = st.number_input("Salário Base (R$)", min_value=0.0, value=1412.0, step=50.0)
                             nova_admissao = st.date_input("Data de Admissão")
-                        
+        
                         btn_salvar_func = st.form_submit_button("💾 Guardar Colaborador", use_container_width=True)
                         if btn_salvar_func:
                             if novo_nome.strip():
@@ -3096,33 +3095,32 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 else:
                     st.info("ℹ️ Ainda não existem colaboradores registados.")
         
-            # --- EXPANSOR PARA ELIMINAR COLABORADOR ---
-            with st.expander("🗑️ Eliminar Colaborador"):
-                try:
-                    df_colab_del = pd.read_sql_query("SELECT nome FROM funcionarios", conn)
-                except Exception:
-                    df_colab_del = pd.DataFrame()
+                # --- EXPANSOR PARA ELIMINAR COLABORADOR ---
+                with st.expander("🗑️ Eliminar Colaborador"):
+                    try:
+                        df_colab_del = pd.read_sql_query("SELECT nome FROM funcionarios", conn)
+                    except Exception:
+                        df_colab_del = pd.DataFrame()
                 
-                if not df_colab_del.empty:
-                    colaboradores_lista = df_colab_del['nome'].tolist()
-                    colab_para_excluir = st.selectbox("Selecione o colaborador que deseja eliminar:", colaboradores_lista, key="select_colab_excluir_rh")
-                    
-                    if st.button("❌ Confirmar Eliminação", type="primary", key="btn_confirma_excluir_colab"):
-                        try:
-                            cursor = conn.cursor()
-                            with conn:
-                                # Apaga o colaborador da tabela de funcionários
-                                cursor.execute("DELETE FROM funcionarios WHERE nome = ?", (colab_para_excluir,))
-                                # Opcional: apaga também os pagamentos/histórico associados a este colaborador
-                                cursor.execute("DELETE FROM pagamentos_funcionarios WHERE colaborador = ?", (colab_para_excluir,))
-                            
-                            st.cache_data.clear()
-                            st.success(f"✅ Colaborador '{colab_para_excluir}' e respetivos registos eliminados com sucesso!")
-                            st.rerun()
-                        except Exception as e_del:
-                            st.error(f"Erro ao eliminar colaborador: {e_del}")
-                else:
-                    st.info("ℹ️ Não existem colaboradores registados para eliminar.")
+                    if not df_colab_del.empty:
+                        colaboradores_lista = df_colab_del['nome'].tolist()
+                        colab_para_excluir = st.selectbox("Selecione o colaborador que deseja eliminar:", colaboradores_lista, key="select_colab_excluir_rh")
+                        
+                        if st.button("❌ Confirmar Eliminação", type="primary", key="btn_confirma_excluir_colab"):
+                            try:
+                                cursor = conn.cursor()
+                                with conn:
+                                    cursor.execute("DELETE FROM funcionarios WHERE nome = ?", (colab_para_excluir,))
+                                    cursor.execute("DELETE FROM pagamentos_funcionarios WHERE colaborador = ?", (colab_para_excluir,))
+                                
+                                st.cache_data.clear()
+                                st.success(f"✅ Colaborador '{colab_para_excluir}' e respetivos registos eliminados com sucesso!")
+                                st.rerun()
+                            except Exception as e_del:
+                                st.error(f"Erro ao eliminar colaborador: {e_del}")
+                    else:
+                        st.info("ℹ️ Não existem colaboradores registados para eliminar.")
+
             with aba_pagamentos:
                 st.subheader("💸 Registar Pagamento, Salário ou Vale")
                 
@@ -3145,7 +3143,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             faltas_qtd = st.number_input("Quantidade de Faltas (Dias)", min_value=0.0, value=0.0, step=1.0)
                             desc_faltas_val = st.number_input("Desconto por Faltas (R$)", min_value=0.0, value=0.0, step=10.0)
                             data_lancamento = st.date_input("Data do Recebimento")
-                        
+        
                         btn_gravar_pagamento = st.form_submit_button("💾 Registar Lançamento e Liberar Holerite", use_container_width=True)
                         if btn_gravar_pagamento:
                             if valor_lancamento > 0:
@@ -3174,7 +3172,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     df_historico_pag = pd.DataFrame()
         
                 if not df_historico_pag.empty:
-                    for _, row_pag in df_historico_pag.iterrows():
+                    for i, row_pag in df_historico_pag.iterrows():
                         p_id = row_pag['id']
                         p_collab = row_pag['colaborador']
                         p_tipo = row_pag['tipo']
@@ -3188,18 +3186,18 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         f_dict = f_info.iloc[0].to_dict() if not f_info.empty else {'id': 1, 'cargo': 'Funcionário', 'cbo': '-'}
         
                         with st.expander(f"📄 {p_collab} — {p_tipo}: R$ {p_valor:,.2f} ( Líquido: R$ {p_valor - p_inss - p_desc_faltas:,.2f} ) em {p_data}"):
-                            with st.form(f"form_edite_holerite_{p_id}"):
+                            with st.form(f"form_edite_holerite_{p_id}_{i}"):
                                 ce1, ce2, ce3 = st.columns(3)
                                 with ce1:
-                                    novo_val_pag = st.number_input("Valor Bruto (R$)", value=p_valor, step=10.0, key=f"val_{p_id}")
+                                    novo_val_pag = st.number_input("Valor Bruto (R$)", value=p_valor, step=10.0, key=f"val_{p_id}_{i}")
                                 with ce2:
-                                    novo_inss = st.number_input("INSS (R$)", value=p_inss, step=5.0, key=f"inss_{p_id}")
+                                    novo_inss = st.number_input("INSS (R$)", value=p_inss, step=5.0, key=f"inss_{p_id}_{i}")
                                 with ce3:
-                                    nova_qtd_faltas = st.number_input("Qtd Faltas", value=p_faltas, step=1.0, key=f"faltas_{p_id}")
+                                    nova_qtd_faltas = st.number_input("Qtd Faltas", value=p_faltas, step=1.0, key=f"faltas_{p_id}_{i}")
                                 
                                 ce4, ce5 = st.columns(2)
                                 with ce4:
-                                    novo_desc_faltas = st.number_input("Desc. Faltas (R$)", value=p_desc_faltas, step=10.0, key=f"desc_f_{p_id}")
+                                    novo_desc_faltas = st.number_input("Desc. Faltas (R$)", value=p_desc_faltas, step=10.0, key=f"desc_f_{p_id}_{i}")
                                 with ce5:
                                     st.markdown("<br>", unsafe_allow_html=True)
                                     btn_atualiza_reg = st.form_submit_button("💾 Atualizar Dados do Holerite", use_container_width=True)
@@ -3242,7 +3240,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 st.warning(f"Não foi possível gerar o PDF do holerite: {e_gen}")
     
                             if pdf_bytes:
-                                # Usa o índice absoluto do loop (i) e a data de referência para garantir unicidade absoluta
                                 idx_unico = str(i) if 'i' in locals() else str(hash(p_data))
                                 
                                 st.download_button(
@@ -3250,11 +3247,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     data=pdf_bytes,
                                     file_name=nome_arquivo_pdf,
                                     mime="application/pdf",
-                                    key=f"btn_baixar_holerite_rh_unico_{idx_unico}_{ref_data}"
+                                    key=f"btn_baixar_holerite_rh_unico_{idx_unico}_{ref_data}_{p_id}"
                                 )
                             else:
                                 st.info("ℹ️ Registe ou selecione um lançamento válido para descarregar o holerite.")
-                                   
+                                
             with aba_pendentes:
                 st.subheader("📅 Controlo Automático de Salários Pendentes e a Vencer")
                 st.markdown("Marque como '✅ Pago' para dar baixa e gerar os registos salariais.")
@@ -3283,7 +3280,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         ano_atual, mes_atual = hoje.year, hoje.month
                         cur_year, cur_month = data_adm.year, data_adm.month
                         
-                        # Avança 1 mês para o primeiro salário ser gerado apenas após 30 dias (mês seguinte à admissão)
+                        # Avança 1 mês para o primeiro salário ser gerado após 30 dias
                         cur_month += 1
                         if cur_month > 12:
                             cur_month = 1
@@ -3296,12 +3293,17 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             competencia_str = f"01/{cur_month:02d}/{cur_year}"
                             
                             ja_pago = False
+                            data_pag_efetuado = "-"
                             if not df_p.empty:
                                 pag_func = df_p[df_p['colaborador'] == nome_func]
                                 for _, pag in pag_func.iterrows():
                                     data_pag_str = str(pag.get('data_pagamento', ''))
                                     if f"{cur_year:04d}-{cur_month:02d}" in data_pag_str:
                                         ja_pago = True
+                                        if len(data_pag_str) >= 10:
+                                            dp_partes = data_pag_str[:10].split('-')
+                                            if len(dp_partes) == 3:
+                                                data_pag_efetuado = f"{dp_partes[2]}/{dp_partes[1]}/{dp_partes[0]}"
                                         break
         
                             if cur_year > ano_atual or (cur_year == ano_atual and cur_month > mes_atual):
@@ -3316,6 +3318,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 "Colaborador": nome_func,
                                 "Cargo": func.get('cargo', ''),
                                 "Competência (Mês/Ano)": competencia_str,
+                                "Data do Pagamento": data_pag_efetuado,
                                 "Valor Devido (R$)": salario_base,
                                 "Status": status_competencia
                             })
@@ -3339,6 +3342,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             hide_index=True,
                             column_config={
                                 "Excluir": st.column_config.CheckboxColumn("Excluir", default=False),
+                                "Competência (Mês/Ano)": st.column_config.TextColumn("Competência (Mês/Ano)", disabled=True),
+                                "Data do Pagamento": st.column_config.TextColumn("Data do Pagamento"),
                                 "Status": st.column_config.SelectboxColumn(
                                     "Status do Pagamento",
                                     options=["🔴 Pendente (Em Aberto)", "🟢 A Vencer", "✅ Pago"],
@@ -3372,6 +3377,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         else:
                                             mes_competencia, ano_competencia = parts_comp
                                         
+                                        data_pag_col = str(row.get('Data do Pagamento', '')).strip()
+                                        if data_pag_col and data_pag_col != '-' and len(data_pag_col) == 10:
+                                            d_p = data_pag_col.split('/')
+                                            data_formatada_db = f"{d_p[2]}-{d_p[1]}-{d_p[0]}"
+                                        else:
+                                            data_formatada_db = f"{ano_competencia}-{mes_competencia}-05"
+        
                                         cursor.execute("""
                                             UPDATE funcionarios SET salario = ? WHERE nome = ?
                                         """, (val, collab))
@@ -3384,16 +3396,15 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         
                                         if "Pago" in status_mod:
                                             if not registo_existente:
-                                                data_padrao = f"{ano_competencia}-{mes_competencia}-05"
                                                 cursor.execute("""
                                                     INSERT INTO pagamentos_funcionarios (colaborador, tipo, valor, data_pagamento)
                                                     VALUES (?, 'Salário', ?, ?)
-                                                """, (collab, val, data_padrao))
+                                                """, (collab, val, data_formatada_db))
                                             else:
                                                 cursor.execute("""
-                                                    UPDATE pagamentos_funcionarios SET valor = ? 
+                                                    UPDATE pagamentos_funcionarios SET valor = ?, data_pagamento = ? 
                                                     WHERE colaborador = ? AND tipo = 'Salário' AND data_pagamento LIKE ?
-                                                """, (val, collab, f"{ano_competencia}-{mes_competencia}%"))
+                                                """, (val, data_formatada_db, collab, f"{ano_competencia}-{mes_competencia}%"))
                                         else:
                                             if registo_existente:
                                                 cursor.execute("""
