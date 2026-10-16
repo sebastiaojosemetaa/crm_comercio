@@ -3089,6 +3089,33 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 else:
                     st.info("ℹ️ Ainda não existem colaboradores registados.")
         
+            # --- EXPANSOR PARA ELIMINAR COLABORADOR ---
+            with st.expander("🗑️ Eliminar Colaborador"):
+                try:
+                    df_colab_del = pd.read_sql_query("SELECT nome FROM funcionarios", conn)
+                except Exception:
+                    df_colab_del = pd.DataFrame()
+                
+                if not df_colab_del.empty:
+                    colaboradores_lista = df_colab_del['nome'].tolist()
+                    colab_para_excluir = st.selectbox("Selecione o colaborador que deseja eliminar:", colaboradores_lista, key="select_colab_excluir_rh")
+                    
+                    if st.button("❌ Confirmar Eliminação", type="primary", key="btn_confirma_excluir_colab"):
+                        try:
+                            cursor = conn.cursor()
+                            with conn:
+                                # Apaga o colaborador da tabela de funcionários
+                                cursor.execute("DELETE FROM funcionarios WHERE nome = ?", (colab_para_excluir,))
+                                # Opcional: apaga também os pagamentos/histórico associados a este colaborador
+                                cursor.execute("DELETE FROM pagamentos_funcionarios WHERE colaborador = ?", (colab_para_excluir,))
+                            
+                            st.cache_data.clear()
+                            st.success(f"✅ Colaborador '{colab_para_excluir}' e respetivos registos eliminados com sucesso!")
+                            st.rerun()
+                        except Exception as e_del:
+                            st.error(f"Erro ao eliminar colaborador: {e_del}")
+                else:
+                    st.info("ℹ️ Não existem colaboradores registados para eliminar.")
             with aba_pagamentos:
                 st.subheader("💸 Registar Pagamento, Salário ou Vale")
                 
