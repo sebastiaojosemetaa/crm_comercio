@@ -2847,8 +2847,15 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     pdf.cell(56, 4, "de Salário", 0, 1, 'C')
                     pdf.set_xy(142, 23)
                     pdf.set_font("Arial", "", 7)
-                    ref_mes = dados_pag.get('referencia', datetime.now().strftime('%m/%Y'))
-                    pdf.cell(56, 4, f"Referente ao Dia/Mês/Ano: {ref_mes}", 0, 1, 'C')
+                    ref_raw = str(dados_pag.get('referencia', datetime.now().strftime('%Y-%m')))
+                    # Se a referência vier como '2026-08', transforma em data completa (ex: 05/08/2026) ou mantém o formato amigável
+                    if len(ref_raw) >= 7 and '-' in ref_raw:
+                        p_ano, p_mes = ref_raw.split('-')[:2]
+                        ref_mes = f"05/{p_mes}/{p_ano}"
+                    else:
+                        ref_mes = ref_raw
+                        
+                    pdf.cell(56, 4, f"Referente ao Mês/Ano: {ref_mes}", 0, 1, 'C')
         
                     pdf.rect(10, 30, 190, 12)
                     pdf.set_xy(12, 31)
