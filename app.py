@@ -2848,7 +2848,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     pdf.set_xy(142, 23)
                     pdf.set_font("Arial", "", 7)
                     ref_mes = dados_pag.get('referencia', datetime.now().strftime('%m/%Y'))
-                    pdf.cell(56, 4, f"Referente ao Mês/Ano: {ref_mes}", 0, 1, 'C')
+                    pdf.cell(56, 4, f"Referente ao Dia/Mês/Ano: {ref_mes}", 0, 1, 'C')
         
                     pdf.rect(10, 30, 190, 12)
                     pdf.set_xy(12, 31)
