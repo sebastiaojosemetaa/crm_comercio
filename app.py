@@ -3215,19 +3215,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 )
                             else:
                                 st.info("ℹ️ Registe ou selecione um lançamento válido para descarregar o holerite.")
-    
-                            if pdf_bytes:
-                                nome_arquivo_pdf = f"holerite_{str(p_collab if 'p_collab' in locals() else 'funcionario').replace(' ', '_')}_{str(p_data[:7] if 'p_data' in locals() else '2026')}.pdf"
-                                st.download_button(
-                                    label="📥 Descarregar / Imprimir Holerite em PDF",
-                                    data=pdf_bytes,
-                                    file_name=nome_arquivo_pdf,
-                                    mime="application/pdf",
-                                    key="btn_baixar_holerite_rh_seguro"
-                                )
-                            else:
-                                st.info("ℹ️ Registe ou selecione um lançamento válido para descarregar o holerite.")
-        
+                                   
             with aba_pendentes:
                 st.subheader("📅 Controlo Automático de Salários Pendentes e a Vencer")
                 st.markdown("Marque como '✅ Pago' para dar baixa e gerar os registos salariais.")
