@@ -3202,16 +3202,16 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 st.warning(f"Não foi possível gerar o PDF do holerite: {e_gen}")
     
                             if pdf_bytes:
-                                # Cria uma chave única baseada no ID do registo ou índice para evitar duplicados
+                                # Chave totalmente única combinando o ID e a posição (i) no loop
                                 reg_id = str(row.get('id', '')) if 'row' in locals() and hasattr(row, 'get') else '0'
-                                nome_arquivo_pdf = f"holerite_{str(p_collab if 'p_collab' in locals() else 'funcionario').replace(' ', '_')}_{str(p_data[:7] if 'p_data' in locals() else '2026')}.pdf"
+                                idx_linha = str(i) if 'i' in locals() else '0'
                                 
                                 st.download_button(
                                     label="📥 Descarregar / Imprimir Holerite em PDF",
                                     data=pdf_bytes,
                                     file_name=nome_arquivo_pdf,
                                     mime="application/pdf",
-                                    key=f"btn_baixar_holerite_rh_{reg_id}"
+                                    key=f"btn_baixar_holerite_rh_{reg_id}_{idx_linha}"
                                 )
                             else:
                                 st.info("ℹ️ Registe ou selecione um lançamento válido para descarregar o holerite.")
