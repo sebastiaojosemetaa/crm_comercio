@@ -2856,7 +2856,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     pdf.cell(20, 3, "CÓDIGO", 0, 0)
                     pdf.cell(85, 3, "NOME DO FUNCIONÁRIO", 0, 0)
                     pdf.cell(35, 3, "CBO", 0, 0)
-                    pdf.cell(50, 3, "FUNÇÃO", 0, 1)
+                    pdf.cell(50, 3, "FUNÇÃO", 0, 0)
                     
                     pdf.set_xy(12, 35)
                     pdf.set_font("Arial", "", 8)
@@ -2864,7 +2864,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     pdf.cell(20, 5, f"{func_id:05d}", 0, 0)
                     pdf.cell(85, 5, str(dados_func.get('nome', '')), 0, 0)
                     pdf.cell(35, 5, str(dados_func.get('cbo', '-')), 0, 0)
-                    pdf.cell(50, 5, str(dados_func.get('cargo', '-')), 0, 1)
+                    pdf.cell(50, 5, str(dados_func.get('cargo', '-')), 0, 0)
         
                     pdf.rect(10, 42, 190, 7)
                     pdf.set_xy(12, 43)
