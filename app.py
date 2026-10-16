@@ -3293,7 +3293,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         limite_month = 1 if mes_atual == 12 else mes_atual + 1
         
                         while (cur_year < limite_year) or (cur_year == limite_year and cur_month <= limite_month):
-                            competencia_str = f"{cur_month:02d}/{cur_year}"
+                            competencia_str = f"01/{cur_month:02d}/{cur_year}"
                             
                             ja_pago = False
                             if not df_p.empty:
@@ -3366,7 +3366,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         val = float(row['Valor Devido (R$)'])
                                         status_mod = row['Status']
                                         
-                                        mes_competencia, ano_competencia = comp.split('/')
+                                        parts_comp = comp.split('/')
+                                        if len(parts_comp) == 3:
+                                            _, mes_competencia, ano_competencia = parts_comp
+                                        else:
+                                            mes_competencia, ano_competencia = parts_comp
                                         
                                         cursor.execute("""
                                             UPDATE funcionarios SET salario = ? WHERE nome = ?
