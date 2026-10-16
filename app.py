@@ -2851,7 +2851,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     # Se a referência vier como '2026-08', transforma em data completa (ex: 05/08/2026) ou mantém o formato amigável
                     if len(ref_raw) >= 7 and '-' in ref_raw:
                         p_ano, p_mes = ref_raw.split('-')[:2]
-                        ref_mes = f"05/{p_mes}/{p_ano}"
+                        ref_mes = f"01/{p_mes}/{p_ano}"
                     else:
                         ref_mes = ref_raw
                         
