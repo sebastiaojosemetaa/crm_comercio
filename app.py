@@ -2812,11 +2812,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
 
         elif "RH" in str(menu_admin) or "Recursos Humanos" in str(menu_admin):
             st.title("👥 Gestão de Recursos Humanos (RH)")
-            st.markdown("Faça a gestão de colaboradores, registos com descontos e emissão de Holerites em PDF.")
+            st.markdown("Faça a gestão de colaboradores, registos com descontos, vales, haveres e emissão de Holerites em PDF.")
         
             from datetime import datetime
         
-            # Função ultra-segura para gerar o PDF do Holerite com Ambas as Datas
+            # Função ultra-segura para gerar o PDF do Holerite com Ambas as Datas e Detalhes
             def gerar_bytes_pdf(dados_func, dados_pag):
                 try:
                     from fpdf import FPDF
@@ -2844,7 +2844,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     pdf.cell(56, 4, "Recibo de Pagamento", 0, 1, 'C')
                     pdf.set_xy(142, 15)
                     pdf.set_font("Arial", "B", 7.5)
-                    pdf.cell(56, 3.5, "de Salário", 0, 1, 'C')
+                    pdf.cell(56, 3.5, "de Salário / Vales", 0, 1, 'C')
                     
                     # 1. Competência / Referência
                     pdf.set_xy(142, 19)
@@ -2906,7 +2906,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     desc_faltas = float(dados_pag.get('desconto_faltas', 0.0))
         
                     pdf.cell(15, 5, "001", 0, 0)
-                    pdf.cell(75, 5, f"{tipo_pag} BASE", 0, 0)
+                    pdf.cell(75, 5, f"{tipo_pag}", 0, 0)
                     pdf.cell(25, 5, "220.00", 0, 0, 'C')
                     pdf.cell(37, 5, f"R$ {valor_salario:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 0, 'R')
                     pdf.cell(38, 5, "R$ 0,00", 0, 1, 'R')
@@ -2985,7 +2985,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 except Exception as e:
                     return f"Erro PDF: {str(e)}".encode('utf-8')
         
-            # Garantir tabelas
+            # Garantir tabelas com coluna competencia
             try:
                 cursor = conn.cursor()
                 cursor.execute("""
@@ -3008,10 +3008,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         data_pagamento TEXT,
                         inss REAL DEFAULT 0.0,
                         faltas REAL DEFAULT 0.0,
-                        desconto_faltas REAL DEFAULT 0.0
+                        desconto_faltas REAL DEFAULT 0.0,
+                        competencia TEXT DEFAULT ''
                     )
                 """)
-                for col_def in [("inss", "REAL DEFAULT 0.0"), ("faltas", "REAL DEFAULT 0.0"), ("desconto_faltas", "REAL DEFAULT 0.0")]:
+                for col_def in [("inss", "REAL DEFAULT 0.0"), ("faltas", "REAL DEFAULT 0.0"), ("desconto_faltas", "REAL DEFAULT 0.0"), ("competencia", "TEXT DEFAULT ''")]:
                     try:
                         cursor.execute(f"ALTER TABLE pagamentos_funcionarios ADD COLUMN {col_def[0]} {col_def[1]}")
                     except Exception:
@@ -3136,39 +3137,93 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.info("ℹ️ Não existem colaboradores registados para eliminar.")
 
             with aba_pagamentos:
-                st.subheader("💸 Registar Pagamento, Salário ou Vale")
+                st.subheader("💸 Registar Pagamento, Salário, Vale ou Haver")
                 
                 try:
-                    df_func_list = pd.read_sql_query("SELECT id, nome, cargo, cbo FROM funcionarios", conn)
+                    df_func_list = pd.read_sql_query("SELECT id, nome, cargo, cbo, salario, admissao FROM funcionarios", conn)
                     lista_nomes = df_func_list['nome'].tolist() if not df_func_list.empty else []
                 except Exception:
                     df_func_list = pd.DataFrame()
                     lista_nomes = []
         
                 if lista_nomes:
+                    col_sel1, col_sel2 = st.columns(2)
+                    with col_sel1:
+                        colaborador_selecionado = st.selectbox("Selecione o Colaborador", lista_nomes, key="sel_colab_pag_v2")
+                    
+                    # Gerar lista de competências baseada na admissão
+                    func_row = df_func_list[df_func_list['nome'] == colaborador_selecionado]
+                    salario_base_func = float(func_row.iloc[0]['salario']) if not func_row.empty else 0.0
+                    admissao_func = str(func_row.iloc[0]['admissao']) if not func_row.empty else '2021-01-01'
+                    
+                    try:
+                        dt_adm = datetime.strptime(admissao_func[:10], '%Y-%m-%d').date()
+                    except Exception:
+                        dt_adm = datetime(2021, 1, 1).date()
+                    
+                    hoje = datetime.now().date()
+                    cur_y, cur_m = dt_adm.year, dt_adm.month
+                    cur_m += 1
+                    if cur_m > 12:
+                        cur_m = 1
+                        cur_y += 1
+                    
+                    lista_competencias = []
+                    lim_y = hoje.year + 1
+                    lim_m = 12
+                    while (cur_y < lim_y) or (cur_y == lim_y and cur_m <= lim_m):
+                        lista_competencias.append(f"01/{cur_m:02d}/{cur_y}")
+                        cur_m += 1
+                        if cur_m > 12:
+                            cur_m = 1
+                            cur_y += 1
+                    
+                    with col_sel2:
+                        competencia_selecionada = st.selectbox("Selecione a Competência / Mês", lista_competencias, key="sel_comp_pag_v2")
+                    
+                    # Calcular saldo restante para a competência selecionada
+                    try:
+                        df_todos_pag = pd.read_sql_query("SELECT * FROM pagamentos_funcionarios WHERE colaborador = ?", conn, params=(colaborador_selecionado,))
+                    except Exception:
+                        df_todos_pag = pd.DataFrame()
+                    
+                    parts_c = competencia_selecionada.split('/')
+                    mes_sel, ano_sel = parts_c[1], parts_c[2]
+                    
+                    vales_ja_dados = 0.0
+                    if not df_todos_pag.empty:
+                        for _, p_row in df_todos_pag.iterrows():
+                            comp_db = str(p_row.get('competencia', ''))
+                            data_db = str(p_row.get('data_pagamento', ''))
+                            if competencia_selecionada in comp_db or f"{ano_sel}-{mes_sel}" in data_db:
+                                vales_ja_dados += float(p_row.get('valor', 0.0))
+                    
+                    restante_calcular = max(0.0, salario_base_func - vales_ja_dados)
+                    
+                    st.info(f"📊 **Resumo da Competência {competencia_selecionada}:** Salário Base: **R$ {salario_base_func:,.2f}** | Já Lançado/Descontado: **R$ {vales_ja_dados:,.2f}** | **Restante a Pagar: R$ {restante_calcular:,.2f}**")
+
                     with st.form("form_registo_pagamento", clear_on_submit=True):
                         col_p1, col_p2 = st.columns(2)
                         with col_p1:
-                            colaborador_selecionado = st.selectbox("Selecione o Colaborador", lista_nomes)
-                            tipo_lancamento = st.selectbox("Descrição / Tipo", ["Salário", "Vale", "Haver", "Adiantamento", "Bónus"])
-                            valor_lancamento = st.number_input("Valor Bruto (R$)", min_value=0.0, value=0.0, step=10.0)
+                            tipo_lancamento = st.selectbox("Descrição / Tipo", ["Salário Parcial", "Vale", "Haver", "Adiantamento", "Bónus", "Salário Final (Baixa Total)"])
+                            valor_lancamento = st.number_input("Valor da Transação (R$)", min_value=0.0, value=restante_calcular, step=50.0)
                         with col_p2:
                             inss_lancamento = st.number_input("Desconto INSS (R$)", min_value=0.0, value=0.0, step=10.0)
                             faltas_qtd = st.number_input("Quantidade de Faltas (Dias)", min_value=0.0, value=0.0, step=1.0)
                             desc_faltas_val = st.number_input("Desconto por Faltas (R$)", min_value=0.0, value=0.0, step=10.0)
                             data_lancamento = st.date_input("Data do Recebimento")
         
-                        btn_gravar_pagamento = st.form_submit_button("💾 Registar Lançamento e Liberar Holerite", use_container_width=True)
+                        btn_gravar_pagamento = st.form_submit_button("💾 Registar Lançamento, Descontar e Liberar Holerite", use_container_width=True)
                         if btn_gravar_pagamento:
                             if valor_lancamento > 0:
                                 try:
                                     cursor = conn.cursor()
                                     cursor.execute("""
-                                        INSERT INTO pagamentos_funcionarios (colaborador, tipo, valor, data_pagamento, inss, faltas, desconto_faltas)
-                                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                                    """, (colaborador_selecionado, tipo_lancamento, valor_lancamento, str(data_lancamento), inss_lancamento, faltas_qtd, desc_faltas_val))
+                                        INSERT INTO pagamentos_funcionarios (colaborador, tipo, valor, data_pagamento, inss, faltas, desconto_faltas, competencia)
+                                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                                    """, (colaborador_selecionado, tipo_lancamento, valor_lancamento, str(data_lancamento), inss_lancamento, faltas_qtd, desc_faltas_val, competencia_selecionada))
                                     conn.commit()
-                                    st.success("✅ Lançamento registado com sucesso!")
+                                    st.success("✅ Transação registada com sucesso! O saldo foi descontado.")
                                     st.rerun()
                                 except Exception as e:
                                     st.error(f"Erro: {e}")
@@ -3195,11 +3250,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         p_inss = float(row_pag.get('inss', 0) or 0)
                         p_faltas = float(row_pag.get('faltas', 0) or 0)
                         p_desc_faltas = float(row_pag.get('desconto_faltas', 0) or 0)
+                        p_comp = str(row_pag.get('competencia', p_data))
                         
                         f_info = df_func_list[df_func_list['nome'] == p_collab]
                         f_dict = f_info.iloc[0].to_dict() if not f_info.empty else {'id': 1, 'cargo': 'Funcionário', 'cbo': '-'}
         
-                        with st.expander(f"📄 {p_collab} — {p_tipo}: R$ {p_valor:,.2f} ( Líquido: R$ {p_valor - p_inss - p_desc_faltas:,.2f} ) em {p_data}"):
+                        with st.expander(f"📄 {p_collab} — {p_tipo}: R$ {p_valor:,.2f} ( Ref: {p_comp} ) em {p_data}"):
                             with st.form(f"form_edite_holerite_{p_id}_{i}"):
                                 ce1, ce2, ce3 = st.columns(3)
                                 with ce1:
@@ -3230,11 +3286,11 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                     except Exception as e:
                                         st.error(f"Erro: {e}")
         
-                            # --- GERAÇÃO SEGURA DO HOLERITE COM AMBAS AS DATAS ---
+                            # --- GERAÇÃO SEGURA DO HOLERITE ---
                             try:
                                 func_seguro = f_dict.copy() if 'f_dict' in locals() and isinstance(f_dict, dict) else {}
                                 pag_seguro = {
-                                    'referencia': p_data[:7] if 'p_data' in locals() and p_data else '',
+                                    'referencia': p_comp if p_comp else (p_data[:7] if 'p_data' in locals() and p_data else ''),
                                     'valor': p_valor if 'p_valor' in locals() else 0.0,
                                     'tipo': p_tipo if 'p_tipo' in locals() else '',
                                     'inss': p_inss if 'p_inss' in locals() else 0.0,
@@ -3246,8 +3302,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 pdf_bytes = gerar_bytes_pdf(dados_func=func_seguro, dados_pag=pag_seguro)
                                 
                                 collab_nome = str(p_collab if 'p_collab' in locals() else 'funcionario').replace(' ', '_')
-                                ref_data = str(p_data[:7] if 'p_data' in locals() else '2026')
-                                nome_arquivo_pdf = f"holerite_{collab_nome}_{ref_data}.pdf"
+                                ref_data = str(p_comp if p_comp else '2026')
+                                nome_arquivo_pdf = f"holerite_{collab_nome}_{ref_data.replace('/', '-')}.pdf"
                                 
                             except Exception as e_gen:
                                 pdf_bytes = b""
@@ -3268,12 +3324,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 st.info("ℹ️ Registe ou selecione um lançamento válido para descarregar o holerite.")
                                 
             with aba_pendentes:
-                st.subheader("📅 Controlo Automático de Salários Pendentes e a Vencer")
-                st.markdown("Marque como '✅ Pago' para dar baixa e gerar os registos salariais.")
+                st.subheader("📅 Controlo Automático de Salários Pendentes, Vales e Baixa")
+                st.markdown("O sistema calcula automaticamente o restante com base nos vales/haveres dados. Marque como '✅ Pago' para quitar a competência.")
         
                 try:
                     df_f = pd.read_sql_query("SELECT * FROM funcionarios", conn)
-                    df_p = pd.read_sql_query("SELECT * FROM pagamentos_funcionarios WHERE tipo = 'Salário'", conn)
+                    df_p = pd.read_sql_query("SELECT * FROM pagamentos_funcionarios", conn)
                 except Exception:
                     df_f = pd.DataFrame()
                     df_p = pd.DataFrame()
@@ -3295,7 +3351,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         ano_atual, mes_atual = hoje.year, hoje.month
                         cur_year, cur_month = data_adm.year, data_adm.month
                         
-                        # Avança 1 mês para o primeiro salário ser gerado após 30 dias
                         cur_month += 1
                         if cur_month > 12:
                             cur_month = 1
@@ -3307,26 +3362,38 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         while (cur_year < limite_year) or (cur_year == limite_year and cur_month <= limite_month):
                             competencia_str = f"01/{cur_month:02d}/{cur_year}"
                             
-                            ja_pago = False
+                            total_pago_comp = 0.0
+                            tem_salario_final = False
                             data_pag_efetuado = "-"
+                            
                             if not df_p.empty:
                                 pag_func = df_p[df_p['colaborador'] == nome_func]
                                 for _, pag in pag_func.iterrows():
-                                    data_pag_str = str(pag.get('data_pagamento', ''))
-                                    if f"{cur_year:04d}-{cur_month:02d}" in data_pag_str:
-                                        ja_pago = True
+                                    comp_db = str(pag.get('competencia', ''))
+                                    data_db = str(pag.get('data_pagamento', ''))
+                                    tipo_db = str(pag.get('tipo', ''))
+                                    val_db = float(pag.get('valor', 0.0))
+                                    
+                                    if competencia_str in comp_db or f"{cur_year:04d}-{cur_month:02d}" in data_db:
+                                        total_pago_comp += val_db
+                                        if "Salário" in tipo_db or "Baixa" in tipo_db or val_db >= salario_base * 0.9:
+                                            tem_salario_final = True
+                                        data_pag_str = data_db
                                         if len(data_pag_str) >= 10:
                                             dp_partes = data_pag_str[:10].split('-')
                                             if len(dp_partes) == 3:
                                                 data_pag_efetuado = f"{dp_partes[2]}/{dp_partes[1]}/{dp_partes[0]}"
-                                        break
-        
+
+                            restante_devido = max(0.0, salario_base - total_pago_comp)
+
                             if cur_year > ano_atual or (cur_year == ano_atual and cur_month > mes_atual):
                                 status_competencia = "🟢 A Vencer"
-                            elif not ja_pago:
-                                status_competencia = "🔴 Pendente (Em Aberto)"
-                            else:
+                            elif tem_salario_final or restante_devido <= 0.01:
                                 status_competencia = "✅ Pago"
+                            elif total_pago_comp > 0:
+                                status_competencia = "🟡 Parcial (Com Vales/Haveres)"
+                            else:
+                                status_competencia = "🔴 Pendente (Em Aberto)"
         
                             competencias_geradas.append({
                                 "Excluir": False,
@@ -3334,7 +3401,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 "Cargo": func.get('cargo', ''),
                                 "Competência (Mês/Ano)": competencia_str,
                                 "Data do Pagamento": data_pag_efetuado,
-                                "Valor Devido (R$)": salario_base,
+                                "Salário Base (R$)": salario_base,
+                                "Total Pago/Vales (R$)": total_pago_comp,
+                                "Restante (R$)": restante_devido,
                                 "Status": status_competencia
                             })
         
@@ -3346,7 +3415,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     df_pendentes_final = pd.DataFrame(competencias_geradas)
         
                     if not df_pendentes_final.empty:
-                        filtro_status = st.selectbox("Filtrar por Status:", ["Todos", "🔴 Pendente (Em Aberto)", "🟢 A Vencer", "✅ Pago"], key="filtro_status_pend_v10")
+                        filtro_status = st.selectbox("Filtrar por Status:", ["Todos", "🔴 Pendente (Em Aberto)", "🟡 Parcial (Com Vales/Haveres)", "🟢 A Vencer", "✅ Pago"], key="filtro_status_pend_v10")
                         if filtro_status != "Todos":
                             df_pendentes_final = df_pendentes_final[df_pendentes_final['Status'] == filtro_status]
         
@@ -3359,16 +3428,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                 "Excluir": st.column_config.CheckboxColumn("Excluir", default=False),
                                 "Competência (Mês/Ano)": st.column_config.TextColumn("Competência (Mês/Ano)", disabled=True),
                                 "Data do Pagamento": st.column_config.TextColumn("Data do Pagamento"),
+                                "Salário Base (R$)": st.column_config.NumberColumn("Salário Base (R$)", disabled=True, format="R$ %.2f"),
+                                "Total Pago/Vales (R$)": st.column_config.NumberColumn("Total Pago/Vales (R$)", disabled=True, format="R$ %.2f"),
+                                "Restante (R$)": st.column_config.NumberColumn("Restante (R$)", format="R$ %.2f"),
                                 "Status": st.column_config.SelectboxColumn(
                                     "Status do Pagamento",
-                                    options=["🔴 Pendente (Em Aberto)", "🟢 A Vencer", "✅ Pago"],
+                                    options=["🔴 Pendente (Em Aberto)", "🟡 Parcial (Com Vales/Haveres)", "🟢 A Vencer", "✅ Pago"],
                                     required=True
-                                ),
-                                "Valor Devido (R$)": st.column_config.NumberColumn(
-                                    "Valor (R$)",
-                                    min_value=0.0,
-                                    step=50.0,
-                                    format="R$ %.2f"
                                 )
                             },
                             num_rows="fixed"
@@ -3376,14 +3442,14 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         
                         st.markdown("---")
                         
-                        if st.button("💾 Salvar Alterações e Registar Pagamentos", key="btn_salvar_pend_v10", use_container_width=True):
+                        if st.button("💾 Salvar Alterações e Dar Baixa nos Salários", key="btn_salvar_pend_v10", use_container_width=True):
                             try:
                                 cursor = conn.cursor()
                                 with conn:
                                     for _, row in edited_pendentes.iterrows():
                                         collab = row['Colaborador']
                                         comp = row['Competência (Mês/Ano)']
-                                        val = float(row['Valor Devido (R$)'])
+                                        restante_val = float(row['Restante (R$)'])
                                         status_mod = row['Status']
                                         
                                         parts_comp = comp.split('/')
@@ -3399,35 +3465,14 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         else:
                                             data_formatada_db = f"{ano_competencia}-{mes_competencia}-05"
         
-                                        cursor.execute("""
-                                            UPDATE funcionarios SET salario = ? WHERE nome = ?
-                                        """, (val, collab))
-        
-                                        cursor.execute("""
-                                            SELECT id FROM pagamentos_funcionarios 
-                                            WHERE colaborador = ? AND tipo = 'Salário' AND data_pagamento LIKE ?
-                                        """, (collab, f"{ano_competencia}-{mes_competencia}%"))
-                                        registo_existente = cursor.fetchone()
-        
                                         if "Pago" in status_mod:
-                                            if not registo_existente:
+                                            if restante_val > 0.01:
                                                 cursor.execute("""
-                                                    INSERT INTO pagamentos_funcionarios (colaborador, tipo, valor, data_pagamento)
-                                                    VALUES (?, 'Salário', ?, ?)
-                                                """, (collab, val, data_formatada_db))
-                                            else:
-                                                cursor.execute("""
-                                                    UPDATE pagamentos_funcionarios SET valor = ?, data_pagamento = ? 
-                                                    WHERE colaborador = ? AND tipo = 'Salário' AND data_pagamento LIKE ?
-                                                """, (val, data_formatada_db, collab, f"{ano_competencia}-{mes_competencia}%"))
-                                        else:
-                                            if registo_existente:
-                                                cursor.execute("""
-                                                    DELETE FROM pagamentos_funcionarios 
-                                                    WHERE colaborador = ? AND tipo = 'Salário' AND data_pagamento LIKE ?
-                                                """, (collab, f"{ano_competencia}-{mes_competencia}%"))
+                                                    INSERT INTO pagamentos_funcionarios (colaborador, tipo, valor, data_pagamento, competencia)
+                                                    VALUES (?, 'Salário Final', ?, ?, ?)
+                                                """, (collab, restante_val, data_formatada_db, comp))
         
-                                st.success("✅ Alterações guardadas com sucesso!")
+                                st.success("✅ Alterações e baixa salarial guardadas com sucesso!")
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Erro: {e}")
