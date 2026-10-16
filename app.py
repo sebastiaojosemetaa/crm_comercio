@@ -2833,7 +2833,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     pdf.cell(126, 4, "EMPREGADOR:", 0, 1)
                     pdf.set_font("Arial", "", 7)
                     pdf.set_x(12)
-                    pdf.cell(126, 3.5, "Nome: REY DA CEBOLA", 0, 1)
+                    pdf.cell(126, 3.5, "Nome: NM COMERCIO", 0, 1)
                     pdf.set_x(12)
                     pdf.cell(126, 3.5, "Endereço: Rua Principal, S/N - BA", 0, 1)
                     pdf.set_x(12)
