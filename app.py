@@ -1003,6 +1003,26 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             col_pdv_esq, col_pdv_dir = st.columns([1.1, 1.9])
     
             with col_pdv_esq:
+            # --- CAMPO PARA LEITOR DE CÓDIGO DE BARRAS ---
+            cod_barras_lido = st.text_input("🔍 Código de Barras (Leitor USB)", key="input_cb_pdv", placeholder="Passe o leitor ou digite o código...")
+            
+            # Filtra os produtos automaticamente se o leitor bipar o código de barras ou ID
+            produtos_para_exibir = produtos_opt
+            if cod_barras_lido.strip() and not df_p.empty:
+                termo_cb = cod_barras_lido.strip().lower()
+                if 'codigo_barras' not in df_p.columns:
+                    df_p['codigo_barras'] = ''
+                    
+                df_cb_filtrado = df_p[
+                    (df_p['codigo_barras'].astype(str).str.lower().str.contains(termo_cb)) | 
+                    (df_p['id'].astype(str).str.lower() == termo_cb) | 
+                    (df_p[col_nome_p].astype(str).str.lower().str.contains(termo_cb))
+                ]
+                if not df_cb_filtrado.empty:
+                    produtos_para_exibir = [
+                        f"{r[col_nome_p]} — R$ {float(r.get('preco_venda', r.get('venda', r.get('valor_venda', 0))) or 0):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+                        for _, r in df_cb_filtrado.iterrows()
+                    ]
                 st.markdown("#### ➕ Adicionar Item ao Carrinho")
                 prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto")
                 
