@@ -197,30 +197,6 @@ if not st.session_state["licenca_libertada"]:
 dias_disp = st.session_state.get("dias_licenca", 0)
 st.sidebar.caption(f"🟢 **Dispositivo Ativado** ({dias_disp} dias de acesso)")
 # =========================================================
-    st.markdown("---")
-    st.title("🔐 Ativação de Licença do Sistema")
-    
-    if data_exp_fmt:
-        st.error(f"⚠️ A sua licença anterior expirou no dia **{data_exp_fmt}**. Por favor, renove para continuar.")
-    else:
-        st.warning("⚠️ O sistema encontra-se bloqueado. Introduza uma chave válida para libertar o acesso.")
-    
-    with st.form("form_ativacao_licenca"):
-        chave_input = st.text_input("🔑 Chave de Ativação / Licença:", placeholder="Ex: CRM-ANUAL-2026", type="password")
-        btn_ativar = st.form_submit_button("🔓 Ativar e Liberar Sistema", use_container_width=True)
-        
-        if btn_ativar:
-            sucesso, msg = ativar_chave(chave_input)
-            if sucesso:
-                st.success(msg)
-                st.rerun()
-            else:
-                st.error(msg)
-                
-    st.stop()  # Paralisa a execução aqui se não houver licença ativa
-
-st.sidebar.caption(f"🟢 **Licença Ativa** ({dias_rest} dias restantes - Expira: {data_exp_fmt})")
-# =========================================================
 
 def adequar_banco_e_migrar():
     try:
