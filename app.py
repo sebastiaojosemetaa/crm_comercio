@@ -178,7 +178,6 @@ except Exception:
     pass
 
 CHAVES_SISTEMA = {
-    "CRM-DEMO-07DIAS": 07,         # Válida por 07 dias
     "CRM-DEMO-30DIAS": 30,         # Válida por 30 dias
     "CRM-ANUAL-2026": 365,         # Válida por 1 ano
     "CRM-REYSAL-MESTRE": 9999      # Válida vitalícia
