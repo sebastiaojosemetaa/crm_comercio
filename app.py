@@ -192,9 +192,8 @@ if not st.session_state["licenca_libertada"]:
             else:
                 st.error("❌ Chave inválida. Verifique o código e tente novamente.")
                 
-    st.stop()  # Bloqueia a execução neste dispositivo até a chave ser inserida
+    st.stop()
 
-# Aviso na barra lateral apenas para o dispositivo que ativou
 dias_disp = st.session_state.get("dias_licenca", 0)
 st.sidebar.caption(f"🟢 **Dispositivo Ativado** ({dias_disp} dias de acesso)")
 # =========================================================
