@@ -1024,7 +1024,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             for _, r in df_cb_filtrado.iterrows()
                         ]
                 st.markdown("#### ➕ Adicionar Item ao Carrinho")
-                prod_item = st.selectbox("Produto", produtos_opt, key="pdv_select_produto")
+                prod_item = st.selectbox("Produto", produtos_para_exibir, key="pdv_select_produto")
                 
                 preco_sugerido = 0.0
                 forn_sugerido = fornecedores_opt[0]
