@@ -159,6 +159,100 @@ def get_connection():
     return sqlite3.connect("crm_comercio.db", check_same_thread=False)
 
 conn = get_connection()
+# =========================================================
+# SISTEMA DE LICENÇA E ATIVAÇÃO POR CHAVE
+# =========================================================
+try:
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS licencas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            chave TEXT UNIQUE,
+            data_ativacao TEXT,
+            data_expiracao TEXT,
+            status TEXT
+        )
+    """)
+    conn.commit()
+except Exception:
+    pass
+
+CHAVES_SISTEMA = {
+    "CRM-DEMO-30DIAS": 30,         # Válida por 30 dias
+    "CRM-ANUAL-2026": 365,         # Válida por 1 ano
+    "CRM-REYSAL-MESTRE": 9999      # Válida vitalícia
+}
+
+def verificar_licenca_ativa():
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT data_expiracao, status FROM licencas WHERE status = 'Ativa' ORDER BY id DESC LIMIT 1")
+        lic = cursor.fetchone()
+        
+        if lic:
+            dt_exp_str, status = lic
+            dt_exp = datetime.strptime(dt_exp_str, "%Y-%m-%d").date()
+            hoje = datetime.now().date()
+            
+            if hoje <= dt_exp:
+                dias_restantes = (dt_exp - hoje).days
+                return True, dias_restantes, dt_exp.strftime("%d/%m/%Y")
+            else:
+                cursor.execute("UPDATE licencas SET status = 'Expirada' WHERE status = 'Ativa'")
+                conn.commit()
+                return False, 0, dt_exp.strftime("%d/%m/%Y")
+        return False, 0, None
+    except Exception:
+        return False, 0, None
+
+def ativar_chave(chave_digitada):
+    chave_limpa = chave_digitada.strip().upper()
+    if chave_limpa in CHAVES_SISTEMA:
+        dias_validade = CHAVES_SISTEMA[chave_limpa]
+        hoje = datetime.now().date()
+        dt_expiracao = hoje + timedelta(days=dias_validade)
+        
+        try:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE licencas SET status = 'Inativa' WHERE status = 'Ativa'")
+            cursor.execute("""
+                INSERT INTO licencas (chave, data_ativacao, data_expiracao, status)
+                VALUES (?, ?, ?, 'Ativa')
+            """, (chave_limpa, str(hoje), str(dt_expiracao)))
+            conn.commit()
+            return True, f"✅ Licença ativada com sucesso! Válida até {dt_expiracao.strftime('%d/%m/%Y')}."
+        except Exception as e:
+            return False, f"Erro ao gravar licença: {e}"
+    else:
+        return False, "❌ Chave de ativação inválida. Verifique o código e tente novamente."
+
+licenca_ok, dias_rest, data_exp_fmt = verificar_licenca_ativa()
+
+if not licenca_ok:
+    st.markdown("---")
+    st.title("🔐 Ativação de Licença do Sistema")
+    
+    if data_exp_fmt:
+        st.error(f"⚠️ A sua licença anterior expirou no dia **{data_exp_fmt}**. Por favor, renove para continuar.")
+    else:
+        st.warning("⚠️ O sistema encontra-se bloqueado. Introduza uma chave válida para libertar o acesso.")
+    
+    with st.form("form_ativacao_licenca"):
+        chave_input = st.text_input("🔑 Chave de Ativação / Licença:", placeholder="Ex: CRM-ANUAL-2026", type="password")
+        btn_ativar = st.form_submit_button("🔓 Ativar e Liberar Sistema", use_container_width=True)
+        
+        if btn_ativar:
+            sucesso, msg = ativar_chave(chave_input)
+            if sucesso:
+                st.success(msg)
+                st.rerun()
+            else:
+                st.error(msg)
+                
+    st.stop()  # Paralisa a execução aqui se não houver licença ativa
+
+st.sidebar.caption(f"🟢 **Licença Ativa** ({dias_rest} dias restantes - Expira: {data_exp_fmt})")
+# =========================================================
 
 def adequar_banco_e_migrar():
     try:
