@@ -2,6 +2,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 import sqlite3
 import pandas as pd
+import base64
 from datetime import datetime, date, timedelta
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
@@ -197,7 +198,28 @@ if not st.session_state["licenca_libertada"]:
 dias_disp = st.session_state.get("dias_licenca", 0)
 st.sidebar.caption(f"🟢 **Dispositivo Ativado** ({dias_disp} dias de acesso)")
 # =========================================================
+# =========================================================
+# PERSONALIZAÇÃO DE IMAGEM DE FUNDO
+# =========================================================
+st.sidebar.markdown("---")
+st.sidebar.subheader("🎨 Imagem de Fundo")
 
+img_fundo = st.sidebar.file_uploader("Escolher imagem de fundo", type=["png", "jpg", "jpeg"], key="upload_bg")
+
+if img_fundo is not None:
+    encoded_img = base64.b64encode(img_fundo.read()).decode()
+    css_fundo = f"""
+    <style>
+    .stApp {{
+        background-image: url("data:image/png;base64,{encoded_img}");
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+    }}
+    </style>
+    """
+    st.markdown(css_fundo, unsafe_allow_html=True)
 def adequar_banco_e_migrar():
     try:
         cursor = conn.cursor()
