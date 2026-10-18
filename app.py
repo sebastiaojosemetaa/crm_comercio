@@ -946,9 +946,8 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         )
         
         if menu_admin == "🛒 PDV — Frente de Caixa":
-            st.title("🛒 PDV — REY DA CEBOLA (ARAME-MA)")
-            st.title("🛒 PDV — Frente de Caixa (Múltiplos Produtos)")
-    
+            st.title("🛒 PDV — Frente de Caixa — REY DA CEBOLA (ARAME-MA)")
+                
             df_caixa_aberto = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
             if df_caixa_aberto.empty:
                 st.warning("⚠️ Atenção: Não há nenhum caixa aberto no momento. Vá em '🔓 Abertura e Fechamento de Caixa' para abrir o caixa.")
