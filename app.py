@@ -946,6 +946,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         )
         
         if menu_admin == "🛒 PDV — Frente de Caixa":
+            st.title("🛒 PDV — REY DA CEBOLA (ARAME-MA)")
             st.title("🛒 PDV — Frente de Caixa (Múltiplos Produtos)")
     
             df_caixa_aberto = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
