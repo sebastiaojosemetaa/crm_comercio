@@ -199,46 +199,63 @@ dias_disp = st.session_state.get("dias_licenca", 0)
 st.sidebar.caption(f"🟢 **Dispositivo Ativado** ({dias_disp} dias de acesso)")
 # =========================================================
 # =========================================================
-# PERSONALIZAÇÃO DE IMAGEM DE FUNDO
+# ESTILO VISUAL METÁLICO/CLÁSSICO PDV (FÊNIX STYLE)
 # =========================================================
-st.sidebar.markdown("---")
-st.sidebar.subheader("🎨 Imagem de Fundo")
-
-img_fundo = st.sidebar.file_uploader("Escolher imagem de fundo", type=["png", "jpg", "jpeg"], key="upload_bg")
-
-if img_fundo is not None:
-    encoded_img = base64.b64encode(img_fundo.read()).decode()
-    css_fundo = f"""
-    <style>
-    .stApp {{
-        background-image: url("data:image/png;base64,{encoded_img}");
-        background-size: cover;
-        background-position: center;
-        background-repeat: no-repeat;
-        background-attachment: fixed;
-    }}
-    </style>
-    """
-    st.markdown(css_fundo, unsafe_allow_html=True)
-
-# =========================================================
-# ESTILO VISUAL PERSONALIZADO PARA O PDV (ESTILO TERMINAL)
-# =========================================================
-estilo_pdv_classico = """
+estilo_pdv_fenix = """
 <style>
-    /* Estilização dos blocos de entrada de dados */
-    div[data-baseweb="input"] {
-        background-color: #ffffff;
-        border-radius: 6px;
+    /* Força fundo geral cinza claro metálico */
+    .stApp {
+        background: linear-gradient(135deg, #e0e0e0 0%, #b0b0b0 100%) !important;
+        color: #000000 !important;
     }
 
-    /* Destacar a área do carrinho / barra lateral */
-    section[data-testid="stSidebar"] {
-        background-color: #1f2937;
+    /* Modifica as caixas/containers para parecerem painéis metálicos prateados */
+    div[data-testid="stVerticalBlock"] > div {
+        background-color: #d8d8d8;
+        border: 2px solid #a6a6a6;
+        border-radius: 12px;
+        padding: 12px;
+        box-shadow: inset 1px 1px 3px #ffffff, 3px 3px 8px rgba(0,0,0,0.2);
+    }
+
+    /* Todos os inputs de texto com fundo branco puro e borda bem definida */
+    div[data-baseweb="input"] {
+        background-color: #ffffff !important;
+        border: 2px solid #888888 !important;
+        border-radius: 8px !important;
+    }
+
+    /* Textos internos dos campos em preto para alto contraste */
+    div[data-baseweb="input"] input {
+        color: #000000 !important;
+        font-weight: bold !important;
+        font-size: 16px !important;
+    }
+
+    /* Rótulos/Labels em tom escuro */
+    label, p, h1, h2, h3, h4, span {
+        color: #111111 !important;
+        font-weight: bold !important;
+    }
+
+    /* Tabela / Lista do Carrinho com estilo claro */
+    div[data-testid="stTable"], div[data-testid="stDataFrame"] {
+        background-color: #ffffff !important;
+        border-radius: 8px !important;
+        border: 1px solid #999999 !important;
+    }
+
+    /* Botão de Destaque / Finalizar */
+    button[kind="primary"] {
+        background-color: #008000 !important;
+        color: #ffffff !important;
+        font-size: 18px !important;
+        font-weight: bold !important;
+        border-radius: 8px !important;
     }
 </style>
 """
-st.markdown(estilo_pdv_classico, unsafe_allow_html=True)
+st.markdown(estilo_pdv_fenix, unsafe_allow_html=True)
 def adequar_banco_e_migrar():
     try:
         cursor = conn.cursor()
