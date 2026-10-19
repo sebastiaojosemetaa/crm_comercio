@@ -11,11 +11,19 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 import io
 import datetime as dt
 import hashlib
+import uuid
 
 # -----------------------------------------------------------------------------
 # CONFIGURAÇÃO DA PÁGINA (Deve ser a primeira instrução Streamlit)
 # -----------------------------------------------------------------------------
 st.set_page_config(page_title="CRM Comércio - Rey da Cebola", layout="wide", page_icon="🛍️")
+
+# =========================================================
+# IDENTIFICADOR ÚNICO POR NAVEGADOR / APARELHO
+# =========================================================
+if "device_id" not in st.query_params:
+    st.query_params["device_id"] = str(uuid.uuid4())
+device_id = st.query_params["device_id"]
 
 # =========================================================
 # FUNÇÃO 1: GERADOR DE CHAVE ÚNICA POR CNPJ / CPF
@@ -44,7 +52,6 @@ with st.sidebar.expander("🛠️ Gerador de Chaves (Dev)"):
                 st.warning("Digite um CNPJ ou CPF.")
 
 st.sidebar.markdown("---")
-
 def sanear_df_vendas(df):
     """Trata campos nulos (None) e ajusta o cálculo do valor restante por item."""
     if df is None or df.empty:
@@ -243,18 +250,23 @@ if not empresa_registrada:
     st.stop()
 
 # =========================================================
-# PASSO 2: SISTEMA DE LICENÇA POR DISPOSITIVO (POR CNPJ)
+# SISTEMA DE LICENÇA INDEPENDENTE POR DISPOSITIVO
 # =========================================================
 try:
     cursor = conn.cursor()
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS dispositivo_licenca (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            device_id TEXT,
             chave TEXT,
             data_expiracao DATETIME,
             status TEXT
         )
     """)
+    try:
+        cursor.execute("ALTER TABLE dispositivo_licenca ADD COLUMN device_id TEXT")
+    except Exception:
+        pass
     conn.commit()
 except Exception as e:
     pass
@@ -263,7 +275,11 @@ dispositivo_ativado = False
 dias_restantes = 0
 
 try:
-    df_licenca = pd.read_sql_query("SELECT * FROM dispositivo_licenca WHERE status = 'ATIVADO' ORDER BY id DESC LIMIT 1", conn)
+    df_licenca = pd.read_sql_query(
+        "SELECT * FROM dispositivo_licenca WHERE device_id = ? AND status = 'ATIVADO' ORDER BY id DESC LIMIT 1", 
+        conn, 
+        params=(device_id,)
+    )
     if not df_licenca.empty:
         data_exp = pd.to_datetime(df_licenca.iloc[0]['data_expiracao'])
         agora = datetime.now()
@@ -276,10 +292,9 @@ except Exception as e:
     dispositivo_ativado = False
 
 if not dispositivo_ativado:
-    st.markdown("## 🔐 Ativação de Licença do Dispositivo")
-    st.info(f"Empresa registada com o CNPJ/CPF: **{cnpj_registrado}**. Insira a chave de ativação correspondente para aceder ao sistema.")
+    st.markdown("## 🔐 Ativação de Licença deste Dispositivo")
+    st.info(f"Empresa registada com o CNPJ/CPF: **{cnpj_registrado}**. Insira a chave de ativação correspondente para liberar este aparelho.")
     
-    # --- NOVO: OPÇÃO PARA CORRIGIR OS DADOS CASO TENHA SIDO DIGITADO ERRADO ---
     with st.expander("✏️ Errou o CNPJ/CPF ou nome da empresa? Clique aqui para corrigir"):
         with st.form("form_corrigir_empresa_atv"):
             df_atual_emp = pd.read_sql_query("SELECT * FROM configuracoes ORDER BY id DESC LIMIT 1", conn)
@@ -303,13 +318,11 @@ if not dispositivo_ativado:
                 else:
                     st.error("Preencha o Nome e o CNPJ/CPF corretamente.")
 
-    # --- CAMPO DE ATIVAÇÃO DA LICENÇA ---
     chave_digitada = st.text_input("🔑 Chave de Ativação:", type="password", placeholder="Digite a sua chave...", key="input_chave_ativacao_tela")
     
     if st.button("🔓 Ativar Este Dispositivo", type="primary", key="btn_ativar_dispositivo_tela"):
         chave_limpa = chave_digitada.strip().upper()
         
-        # Pega o CNPJ atualizado (caso tenha acabado de ser corrigido)
         try:
             df_emp_novo = pd.read_sql_query("SELECT cnpj FROM configuracoes ORDER BY id DESC LIMIT 1", conn)
             cnpj_atualizado = df_emp_novo.iloc[0]['cnpj'] if not df_emp_novo.empty else cnpj_registrado
@@ -324,11 +337,12 @@ if not dispositivo_ativado:
             nova_expiracao = (datetime.now() + timedelta(days=dias_validade)).strftime('%Y-%m-%d %H:%M:%S')
             
             cursor = conn.cursor()
-            cursor.execute("DELETE FROM dispositivo_licenca")
+            # Remove licença anterior apenas deste device_id específico
+            cursor.execute("DELETE FROM dispositivo_licenca WHERE device_id = ?", (device_id,))
             cursor.execute("""
-                INSERT INTO dispositivo_licenca (chave, data_expiracao, status)
-                VALUES (?, ?, ?)
-            """, (chave_limpa, nova_expiracao, 'ATIVADO'))
+                INSERT INTO dispositivo_licenca (device_id, chave, data_expiracao, status)
+                VALUES (?, ?, ?, ?)
+            """, (device_id, chave_limpa, nova_expiracao, 'ATIVADO'))
             conn.commit()
             
             st.session_state["licenca_libertada"] = True
@@ -340,6 +354,7 @@ if not dispositivo_ativado:
             st.error("Chave de ativação inválida para este CNPJ/CPF. Verifique os dados no gerador de chaves.")
             
     st.stop()
+
 dias_disp = st.session_state.get("dias_licenca", dias_restantes)
 st.sidebar.caption(f"🟢 **Dispositivo Ativado** ({dias_disp} dias de acesso)")
 # =========================================================
