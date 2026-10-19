@@ -9,31 +9,18 @@ from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 import io
+import datetime as dt
 import hashlib
+
+# -----------------------------------------------------------------------------
+# CONFIGURAÇÃO DA PÁGINA (Deve ser a primeira instrução Streamlit)
+# -----------------------------------------------------------------------------
+st.set_page_config(page_title="CRM Comércio - Rey da Cebola", layout="wide", page_icon="🛍️")
 
 # =========================================================
 # FUNÇÃO 1: GERADOR DE CHAVE ÚNICA POR CNPJ / CPF
 # =========================================================
 def gerar_chave_por_documento(documento):
-    # Remove pontos, barras e traços, mantendo apenas os números
-    apenas_digitos = ''.join(filter(str.isdigit, str(documento)))
-    
-    # O seu "segredo" de desenvolvedor (mantenha guardado apenas com você)
-    segredo_mestre = "REY_CEBOLA_2026"
-    
-    # Combina o documento do cliente com o segredo e gera um hash único
-    combinado = apenas_digitos + segredo_mestre
-    hash_hex = hashlib.md5(combinado.encode()).hexdigest().upper()
-    
-    # Formata a chave num padrão bonito (Ex: CRM-A1B2-C3D4-E5F6)
-    chave_formatada = f"CRM-{hash_hex[:4]}-{hash_hex[4:8]}-{hash_hex[8:12]}"
-    return chave_formatada
-# -----------------------------------------------------------------------------
-# CONFIGURAÇÃO DA PÁGINA (Deve ser a primeira instrução Streamlit)
-# -----------------------------------------------------------------------------
-
-# 1. Defina a função primeiro
-def gerar_chave_por_documento(documento):
     apenas_digitos = ''.join(filter(str.isdigit, str(documento)))
     segredo_mestre = "REY_CEBOLA_2026"
     combinado = apenas_digitos + segredo_mestre
@@ -41,19 +28,22 @@ def gerar_chave_por_documento(documento):
     chave_formatada = f"CRM-{hash_hex[:4]}-{hash_hex[4:8]}-{hash_hex[8:12]}"
     return chave_formatada
 
-# 2. Logo abaixo, coloque o painel que chama a função
+# =========================================================
+# PAINEL DO DESENVOLVEDOR (SEMPRE DISPONÍVEL NA BARRA LATERAL)
+# =========================================================
 with st.sidebar.expander("🛠️ Gerador de Chaves (Dev)"):
-    senha_dev = st.text_input("Senha Mestre Dev", type="password", key="pwd_dev_topo")
+    senha_dev = st.text_input("Senha Mestre Dev", type="password", key="pwd_dev_topo_unico")
     if senha_dev == "13142715":  # Sua senha mestre
-        doc_cliente = st.text_input("CNPJ ou CPF do Cliente:", key="doc_dev_topo_doc")
-        if st.button("🔑 Gerar Chave", key="btn_dev_topo_acao"):
+        doc_cliente = st.text_input("CNPJ ou CPF do Cliente:", key="doc_dev_topo_doc_unico")
+        if st.button("🔑 Gerar Chave", key="btn_dev_topo_acao_unico"):
             if doc_cliente.strip():
                 chave_gerada = gerar_chave_por_documento(doc_cliente)
                 st.code(chave_gerada, language="text")
                 st.success("Chave gerada com sucesso!")
             else:
                 st.warning("Digite um CNPJ ou CPF.")
-st.set_page_config(page_title="CRM Comércio - Rey da Cebola", layout="wide", page_icon="🛍️")
+
+st.sidebar.markdown("---")
 
 def sanear_df_vendas(df):
     """Trata campos nulos (None) e ajusta o cálculo do valor restante por item."""
@@ -101,27 +91,8 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
         leading=12, alignment=1, spaceAfter=15
     )
 
-    # Busca os dados cadastrados da empresa no banco
-    try:
-        df_empresa_pdf = pd.read_sql_query("SELECT * FROM configuracoes ORDER BY id DESC LIMIT 1", conn)
-        if not df_empresa_pdf.empty:
-            empresa_nome = df_empresa_pdf.iloc[0]['nome_empresa']
-            empresa_cnpj = df_empresa_pdf.iloc[0]['cnpj']
-            empresa_ie = df_empresa_pdf.iloc[0]['ie']
-            empresa_tel = df_empresa_pdf.iloc[0]['fone']
-        else:
-            empresa_nome = "REY DA CEBOLA"
-            empresa_cnpj = "00.000.000/0001-00"
-            empresa_ie = "0000000"
-            empresa_tel = "(00) 0000-0000"
-    except Exception:
-        empresa_nome = "REY DA CEBOLA"
-        empresa_cnpj = "00.000.000/0001-00"
-        empresa_ie = "0000000"
-        empresa_tel = "(00) 0000-0000"
-
-    story.append(Paragraph(empresa_nome, style_empresa))
-    story.append(Paragraph(f"CNPJ: {empresa_cnpj} INSC.EST.: {empresa_ie}<br/>CONTATO: {empresa_tel}", style_sub))
+    story.append(Paragraph("REY DA CEBOLA", style_empresa))
+    story.append(Paragraph("CNPJ: 194.174.39/000-42 INSC.EST.: 12.426725-4<br/>CONTATO: (99) 98814-9722 OU (99) 98414-3943", style_sub))
 
     data_atual = (datetime.utcnow() - timedelta(hours=3)).strftime('%Y-%m-%d %H:%M:%S')
 
@@ -135,11 +106,9 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
     if not df_dados.empty:
         df_proc = df_dados.copy()
         
-        # Remove a coluna 'Excluir' se ela vier na tabela para evitar conflitos de índices
         if 'Excluir' in df_proc.columns:
             df_proc = df_proc.drop(columns=['Excluir'])
 
-        # Busca segura dos nomes reais das colunas
         col_qtd = next((c for c in ['quantidade', 'qtd'] if c in df_proc.columns), df_proc.columns[3] if len(df_proc.columns) > 3 else df_proc.columns[0])
         col_unit = next((c for c in ['valor_venda', 'valor_unitario', 'preco_unitario', 'Valor Unitário (R$)'] if c in df_proc.columns), df_proc.columns[4] if len(df_proc.columns) > 4 else df_proc.columns[0])
         col_tot = next((c for c in ['valor_total', 'total', 'Total (R$)'] if c in df_proc.columns), df_proc.columns[5] if len(df_proc.columns) > 5 else df_proc.columns[0])
@@ -220,27 +189,18 @@ def get_connection():
 conn = get_connection()
 
 # =========================================================
-# FLUXO DE CONFIGURAÇÃO INICIAL (1º EMPRESA -> 2º ATIVAÇÃO)
+# SISTEMA DE LICENÇA POR DISPOSITIVO / SESSÃO (PERSISTENTE)
 # =========================================================
 
-# 1. Garante que as tabelas essenciais existem
+CHAVES_SISTEMA = {
+    "CRM-DEMO-30DIAS": 30,
+    "CRM-ANUAL-2026": 365,
+    "CRM-REYSAL-MESTRE": 9999,
+    "CRM-SEVEN-DIAS": 7
+}
+
 try:
     cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS configuracoes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome_empresa TEXT,
-            cnpj TEXT,
-            ie TEXT,
-            endereco TEXT,
-            bairro TEXT,
-            cep TEXT,
-            cidade TEXT,
-            estado TEXT,
-            fone TEXT,
-            email TEXT
-        )
-    """)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS dispositivo_licenca (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -250,75 +210,8 @@ try:
         )
     """)
     conn.commit()
-except Exception:
+except Exception as e:
     pass
-
-# 2. ETAPA 1: Verificar se a Empresa já foi cadastrada
-try:
-    df_cfg_check = pd.read_sql_query("SELECT * FROM configuracoes ORDER BY id DESC LIMIT 1", conn)
-except Exception:
-    df_cfg_check = pd.DataFrame()
-
-empresa_cadastrada = not df_cfg_check.empty
-
-# Se a empresa NÃO estiver cadastrada, exibe o formulário primeiro
-if not empresa_cadastrada:
-    st.markdown("## 🏢 Bem-vindo! Cadastre os Dados da sua Empresa")
-    st.warning("⚠️ Por favor, preencha os dados abaixo para configurar o seu sistema comercial.")
-    
-    with st.form("form_onboarding_empresa"):
-        col1, col2, col3 = st.columns([2, 1.5, 1])
-        with col1:
-            nome_empresa = st.text_input("Nome / Razão Social", value="")
-        with col2:
-            cnpj = st.text_input("CNPJ", value="")
-        with col3:
-            ie = st.text_input("IE", value="")
-            
-        endereco = st.text_input("Endereço", value="")
-        
-        col4, col5, col6, col7 = st.columns([1.5, 1, 1.5, 0.6])
-        with col4:
-            bairro = st.text_input("Bairro", value="")
-        with col5:
-            cep = st.text_input("CEP", value="")
-        with col6:
-            cidade = st.text_input("Cidade", value="")
-        with col7:
-            estado = st.text_input("Estado", value="MA")
-            
-        col8, col9 = st.columns(2)
-        with col8:
-            fone = st.text_input("Telefone", value="")
-        with col9:
-            email = st.text_input("E-mail", value="")
-            
-        st.markdown("<br>", unsafe_allow_html=True)
-        salvar_onboarding = st.form_submit_button("💾 Salvar Dados e Ir para Ativação", type="primary", use_container_width=True)
-        
-        if salvar_onboarding:
-            if not nome_empresa.strip():
-                st.error("O campo Nome / Razão Social é obrigatório.")
-            else:
-                cursor = conn.cursor()
-                cursor.execute("DELETE FROM configuracoes")
-                cursor.execute("""
-                    INSERT INTO configuracoes (nome_empresa, cnpj, ie, endereco, bairro, cep, cidade, estado, fone, email)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (nome_empresa, cnpj, ie, endereco, bairro, cep, cidade, estado, fone, email))
-                conn.commit()
-                st.success("Empresa cadastrada com sucesso! A avançar...")
-                st.rerun()
-                
-    st.stop() # Interrompe o app aqui até o cadastro da empresa ser concluído
-
-# 3. ETAPA 2: Verificação de Licença do Dispositivo
-CHAVES_SISTEMA = {
-    "CRM-DEMO-30DIAS": 30,
-    "CRM-ANUAL-2026": 365,
-    "CRM-REYSAL-MESTRE": 9999,
-    "CRM-SEVEN-DIAS": 7
-}
 
 dispositivo_ativado = False
 dias_restantes = 0
@@ -333,36 +226,29 @@ try:
             dias_restantes = (data_exp - agora).days
             st.session_state["licenca_libertada"] = True
             st.session_state["dias_licenca"] = dias_restantes
-except Exception:
+except Exception as e:
     dispositivo_ativado = False
 
-# Se a empresa já está cadastrada mas o dispositivo não está ativado
 if not dispositivo_ativado:
     st.markdown("## 🔐 Ativação de Licença do Dispositivo")
-    st.warning("⚠️ Empresa registada com sucesso! Agora insira a sua chave de ativação para aceder ao sistema.")
+    st.warning("⚠️ Este dispositivo/navegador precisa de ser ativado para aceder ao sistema.")
     
-    chave_digitada = st.text_input("🔑 Chave de Ativação:", type="password", placeholder="Digite a sua chave...")
+    chave_digitada = st.text_input("🔑 Chave de Ativação:", type="password", placeholder="Digite a sua chave...", key="input_chave_ativacao_tela")
     
-    if st.button("🔓 Ativar Este Dispositivo", type="primary"):
-        chave_digitada = chave_digitada.strip().upper()
+    if st.button("🔓 Ativar Este Dispositivo", type="primary", key="btn_ativar_dispositivo_tela"):
+        chave_limpa = chave_digitada.strip().upper()
         
-        # Busca o CNPJ ou CPF cadastrado na tabela de configurações da empresa
+        # Busca o CNPJ/CPF cadastrado
         try:
-            df_emp = pd.read_sql_query("SELECT cnpj, ie FROM configuracoes ORDER BY id DESC LIMIT 1", conn)
-            documento_cadastrado = df_emp.iloc[0]['cnpj'] if not df_emp.empty else ""
+            df_emp = pd.read_sql_query("SELECT cpf, doc FROM clientes ORDER BY id DESC LIMIT 1", conn)
+            doc_cadastrado = df_emp.iloc[0]['cpf'] if not df_emp.empty and pd.notna(df_emp.iloc[0]['cpf']) else (df_emp.iloc[0]['doc'] if not df_emp.empty else "")
         except Exception:
-            documento_cadastrado = ""
+            doc_cadastrado = ""
             
-        # Gera a chave esperada para este documento específico
-        chave_esperada = gerar_chave_por_documento(documento_cadastrado)
+        chave_esperada = gerar_chave_por_documento(doc_cadastrado) if doc_cadastrado else ""
         
-        # Valida se a chave digitada pelo cliente confere com a chave gerada para o CNPJ dele
-        # (Ou você também pode aceitar uma chave mestre global de suporte, se quiser)
-        CHAVE_MESTRE_SUPORTE = "CRM-REYSAL-MESTRE"
-        
-        if chave_digitada == chave_esperada or chave_digitada == CHAVE_MESTRE_SUPORTE:
-            # Define validade (ex: 30 dias ou 365 dias)
-            dias_validade = 365 # Ex: Licença anual por CNPJ
+        if chave_limpa in CHAVES_SISTEMA or (chave_esperada and chave_limpa == chave_esperada):
+            dias_validade = CHAVES_SISTEMA.get(chave_limpa, 365)
             nova_expiracao = (datetime.now() + timedelta(days=dias_validade)).strftime('%Y-%m-%d %H:%M:%S')
             
             cursor = conn.cursor()
@@ -370,41 +256,31 @@ if not dispositivo_ativado:
             cursor.execute("""
                 INSERT INTO dispositivo_licenca (chave, data_expiracao, status)
                 VALUES (?, ?, ?)
-            """, (chave_digitada, nova_expiracao, 'ATIVADO'))
+            """, (chave_limpa, nova_expiracao, 'ATIVADO'))
             conn.commit()
             
             st.session_state["licenca_libertada"] = True
             st.session_state["dias_licenca"] = dias_validade
             
-            st.success(f"Dispositivo ativado com sucesso para o CNPJ: {documento_cadastrado}!")
+            st.success(f"Dispositivo ativado com sucesso! Válido por {dias_validade} dias.")
             st.rerun()
         else:
-            st.error("Chave de ativação inválida para este CNPJ/CPF. Verifique os dados da empresa.")
+            st.error("Chave de ativação inválida. Verifique e tente novamente.")
             
     st.stop()
 
-# Carrega o nome da empresa atual para o sistema de forma dinâmica
-try:
-    df_cfg_global = pd.read_sql_query("SELECT * FROM configuracoes ORDER BY id DESC LIMIT 1", conn)
-    NOME_EMPRESA_ATUAL = df_cfg_global.iloc[0]['nome_empresa'] if not df_cfg_global.empty else "REY DA CEBOLA"
-except Exception:
-    NOME_EMPRESA_ATUAL = "REY DA CEBOLA"
-
 dias_disp = st.session_state.get("dias_licenca", dias_restantes)
-st.sidebar.caption(f"🟢 **Dispositivo Ativado** ({dias_disp} dias)")
-# =========================================================
+st.sidebar.caption(f"🟢 **Dispositivo Ativado** ({dias_disp} dias de acesso)")
+
 # =========================================================
 # ESTILO VISUAL METÁLICO/CLÁSSICO PDV (FÊNIX STYLE)
 # =========================================================
 estilo_pdv_fenix = """
 <style>
-    /* Força fundo geral cinza claro metálico */
     .stApp {
         background: linear-gradient(135deg, #e0e0e0 0%, #b0b0b0 100%) !important;
         color: #000000 !important;
     }
-
-    /* Modifica as caixas/containers para parecerem painéis metálicos prateados */
     div[data-testid="stVerticalBlock"] > div {
         background-color: #d8d8d8;
         border: 2px solid #a6a6a6;
@@ -412,35 +288,25 @@ estilo_pdv_fenix = """
         padding: 12px;
         box-shadow: inset 1px 1px 3px #ffffff, 3px 3px 8px rgba(0,0,0,0.2);
     }
-
-    /* Todos os inputs de texto com fundo branco puro e borda bem definida */
     div[data-baseweb="input"] {
         background-color: #ffffff !important;
         border: 2px solid #888888 !important;
         border-radius: 8px !important;
     }
-
-    /* Textos internos dos campos em preto para alto contraste */
     div[data-baseweb="input"] input {
         color: #000000 !important;
         font-weight: bold !important;
         font-size: 16px !important;
     }
-
-    /* Rótulos/Labels em tom escuro */
     label, p, h1, h2, h3, h4, span {
         color: #111111 !important;
         font-weight: bold !important;
     }
-
-    /* Tabela / Lista do Carrinho com estilo claro */
     div[data-testid="stTable"], div[data-testid="stDataFrame"] {
         background-color: #ffffff !important;
         border-radius: 8px !important;
         border: 1px solid #999999 !important;
     }
-
-    /* Botão de Destaque / Finalizar */
     button[kind="primary"] {
         background-color: #008000 !important;
         color: #ffffff !important;
@@ -451,10 +317,10 @@ estilo_pdv_fenix = """
 </style>
 """
 st.markdown(estilo_pdv_fenix, unsafe_allow_html=True)
+
 def adequar_banco_e_migrar():
     try:
         cursor = conn.cursor()
-
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS produtos (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -534,20 +400,6 @@ def adequar_banco_e_migrar():
         print(f"Aviso de migração: {e}")
 
 adequar_banco_e_migrar()
-def executar_limpeza_banco():
-    try:
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM vendas WHERE id IN (16, 17, 18)")
-        cursor.execute("UPDATE vendas SET forma_pagamento = '-' WHERE forma_pagamento IS NULL OR forma_pagamento = 'None' OR forma_pagamento = ''")
-        cursor.execute("UPDATE vendas SET valor_recebido = 0.0 WHERE valor_recebido IS NULL")
-        cursor.execute("UPDATE vendas SET troco = 0.0 WHERE troco IS NULL")
-        cursor.execute("UPDATE vendas SET restante = (valor_total - valor_recebido) WHERE restante IS NULL OR restante > valor_total")
-        cursor.execute("UPDATE vendas SET restante = 0.0 WHERE restante < 0")
-        conn.commit()
-    except Exception as e:
-        pass
-
-executar_limpeza_banco()
 
 def carregar_dados(query):
     try:
@@ -569,77 +421,6 @@ def carregar_coluna(tabela, coluna):
         pass
     return []
 
-def salvar_cliente_completo(nome, telefone, doc, endereco, cidade):
-    try:
-        cursor = conn.cursor()
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS clientes (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                cliente TEXT,
-                cpf TEXT,
-                endereco TEXT,
-                email TEXT,
-                fone TEXT
-            )
-        """)
-        colunas_necessarias = ["cliente", "nome", "cpf", "doc", "endereco", "email", "fone", "telefone", "cidade"]
-        for col in colunas_necessarias:
-            try:
-                cursor.execute(f"ALTER TABLE clientes ADD COLUMN {col} TEXT")
-            except Exception:
-                pass
-                
-        cursor.execute("""
-            INSERT INTO clientes (cliente, nome, fone, telefone, cpf, doc, endereco, email, cidade)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (nome.strip(), nome.strip(), telefone, telefone, doc, doc, endereco, cidade, cidade))
-        
-        conn.commit()
-        st.cache_data.clear()
-        return True, "✅ Cliente cadastrado com sucesso!"
-    except Exception as e:
-        return False, f"Erro ao salvar cliente: {e}"
-
-def salvar_produto_completo(nome, fornecedor, grupo, preco_compra, preco_venda, estoque_inicial):
-    cursor = conn.cursor()
-    try:
-        cursor.execute("""
-            INSERT INTO produtos (nome, produto, fornecedor, grupo, valor_compra, valor_venda, quantidade, estoque_atual) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (nome.strip(), nome.strip(), fornecedor, grupo, preco_compra, preco_venda, estoque_inicial, estoque_inicial))
-        conn.commit()
-        return True
-    except sqlite3.IntegrityError:
-        cursor.execute("""
-            UPDATE produtos 
-            SET fornecedor = ?, grupo = ?, valor_compra = ?, valor_venda = ?, quantidade = ?, estoque_atual = ?
-            WHERE TRIM(nome) = TRIM(?) OR TRIM(produto) = TRIM(?)
-        """, (fornecedor, grupo, preco_compra, preco_venda, estoque_inicial, estoque_inicial, nome.strip(), nome.strip()))
-        conn.commit()
-        return True
-    except Exception as e:
-        st.error(f"Erro ao salvar produto: {e}")
-        return False
-
-def salvar_simples(tabela, coluna, valor):
-    cursor = conn.cursor()
-    try:
-        cursor.execute(f"INSERT INTO {tabela} ({coluna}) VALUES (?)", (valor.strip(),))
-        conn.commit()
-        return True
-    except Exception:
-        return False
-
-def registrar_compra(produto, fornecedor, grupo, quantidade, valor_compra, valor_venda):
-    cursor = conn.cursor()
-    data_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    valor_total = quantidade * valor_compra
-    cursor.execute("""
-        INSERT INTO compras (produto, fornecedor, grupo, quantidade, valor_compra, valor_venda, valor_total, data)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """, (produto, fornecedor, grupo, quantidade, valor_compra, valor_venda, valor_total, data_str))
-    conn.commit()
-
 # -----------------------------------------------------------------------------
 # NAVEGAÇÃO E PERFIL DE ACESSO (BARRA LATERAL)
 # -----------------------------------------------------------------------------
@@ -654,557 +435,103 @@ if 'carrinho_pdv' not in st.session_state:
 
 st.sidebar.title("🔑 Acesso ao Sistema")
 opcoes_perfil = ["👤 Portal do Cliente", "🔒 Administração / Vendedor"]
-perfil_selecionado = st.sidebar.radio("Selecione o Perfil:", opcoes_perfil, key="perfil_principal_radio")
+perfil_selecionado = st.sidebar.radio("Selecione o Perfil:", opcoes_perfil, key="perfil_principal_radio_v2")
 st.sidebar.markdown("---")
 
 # ==========================================
 # AMBIENTE 1: PORTAL DO CLIENTE
 # ==========================================
 if perfil_selecionado == "👤 Portal do Cliente":
-    
-    # Variáveis de estado para o fluxo de recuperação
-    if 'esqueci_senha_ativo' not in st.session_state:
-        st.session_state.esqueci_senha_ativo = False
-    if 'pass_checked' not in st.session_state:
-        st.session_state.pass_checked = False
-    if 'cliente_id_para_resetar' not in st.session_state:
-        st.session_state.cliente_id_para_resetar = None
-
     if not st.session_state.cliente_autenticado:
+        st.title("🔒 Portal do Cliente")
+        st.info("Por favor, selecione o seu nome no menu lateral e insira a sua senha para aceder aos seus pedidos.")
         
-        # Se o cliente clicou em "Esqueci minha senha"
-        if st.session_state.esqueci_senha_ativo:
-            st.title("🔑 Recuperação de Senha")
-            st.info("Insira os seus dados de cadastro para validar a identidade e redefinir a senha.")
-            
-            rec_nome = st.text_input("Seu Nome ou Empresa Cadastrada", key="rec_nome_cli")
-            rec_doc = st.text_input("Seu CPF / CNPJ ou Telefone", key="rec_doc_cli")
-            
-            col_r1, col_r2 = st.columns(2)
-            with col_r1:
-                if st.button("🔍 Validar Dados", type="primary", key="btn_validar_rec"):
-                    df_cli_rec = carregar_dados("SELECT * FROM clientes")
-                    if not df_cli_rec.empty:
-                        df_cli_rec.columns = [c.lower() for c in df_cli_rec.columns]
-                        
-                        # Procura o cliente de forma segura utilizando o Pandas (lida perfeitamente com acentos)
-                        cliente_encontrado = None
-                        for _, row in df_cli_rec.iterrows():
-                            for col_cand in ['cliente', 'nome', 'razao_social']:
-                                if col_cand in df_cli_rec.columns and pd.notna(row[col_cand]):
-                                    if str(row[col_cand]).strip().upper() == rec_nome.strip().upper():
-                                        cliente_encontrado = row
-                                        break
-                            if cliente_encontrado is not None:
-                                break
-
-                        if cliente_encontrado is not None:
-                            st.session_state.cliente_id_para_resetar = int(cliente_encontrado['id'])
-                            st.success("✅ Dados confirmados com sucesso! Crie a sua nova senha abaixo.")
-                            st.session_state.pass_checked = True
-                        else:
-                            st.error("❌ Cliente não encontrado com estes dados.")
-                    else:
-                        st.error("Nenhum cliente registado na base de dados.")
-            
-            with col_r2:
-                if st.button("Voltar ao Login", key="btn_voltar_login_rec"):
-                    st.session_state.esqueci_senha_ativo = False
-                    st.session_state.pass_checked = False
-                    st.rerun()
-
-            # Se os dados foram validados, exibe os campos para nova senha
-            if st.session_state.pass_checked:
-                st.markdown("---")
-                nova_senha_1 = st.text_input("Nova Senha", type="password", key="nova_s1_cli")
-                nova_senha_2 = st.text_input("Confirme a Nova Senha", type="password", key="nova_s2_cli")
-                
-                if st.button("💾 Redefinir e Salvar Senha", type="primary", key="btn_salvar_nova_senha"):
-                    if nova_senha_1 == nova_senha_2 and nova_senha_1.strip():
-                        try:
-                            cursor = conn.cursor()
-                            cursor.execute("""
-                                UPDATE clientes 
-                                SET senha = ? 
-                                WHERE id = ?
-                            """, (nova_senha_1.strip(), st.session_state.cliente_id_para_resetar))
-                            conn.commit()
-                            
-                            st.success("✅ Senha redefinida com sucesso! Pode fazer login com a nova senha.")
-                            st.session_state.esqueci_senha_ativo = False
-                            st.session_state.pass_checked = False
-                            st.session_state.cliente_id_para_resetar = None
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Erro ao atualizar senha: {e}")
-                    else:
-                        st.error("As senhas não coincidem ou estão vazias.")
-
-        else:
-            # Ecrã Normal de Login do Cliente
-            st.title("🔒 Portal do Cliente")
-            st.info("Por favor, selecione o seu nome no menu lateral e insira a sua senha para aceder aos seus pedidos.")
-            
-            df_cli_select = carregar_dados("SELECT * FROM clientes")
-            lista_clientes = []
-            
+        df_cli_select = carregar_dados("SELECT * FROM clientes")
+        lista_clientes = []
+        
+        if not df_cli_select.empty:
+            df_cli_select.columns = [c.lower() for c in df_cli_select.columns]
+            for col_cand in ['cliente', 'nome', 'razao_social']:
+                if col_cand in df_cli_select.columns:
+                    vals = df_cli_select[col_cand].dropna().astype(str).str.strip()
+                    lista_clientes.extend(vals[vals != ''].unique().tolist())
+            lista_clientes = list(dict.fromkeys(lista_clientes))
+    
+        if not lista_clientes:
+            lista_clientes = ["Carlos Alberto"]
+        
+        cliente_nome = st.sidebar.selectbox("Identifique o seu Nome/Empresa:", lista_clientes, key="sb_cli_nome_login")
+        senha_cliente = st.sidebar.text_input("Digite a sua Senha:", type="password", key="inp_cli_senha_login")
+        
+        if st.sidebar.button("Acessar Meus Pedidos", key="btn_login_cli_acao"):
+            senha_cadastrada = "123"
             if not df_cli_select.empty:
-                df_cli_select.columns = [c.lower() for c in df_cli_select.columns]
-                for col_cand in ['cliente', 'nome', 'razao_social']:
-                    if col_cand in df_cli_select.columns:
-                        vals = df_cli_select[col_cand].dropna().astype(str).str.strip()
-                        lista_clientes.extend(vals[vals != ''].unique().tolist())
-                lista_clientes = list(dict.fromkeys(lista_clientes))
-        
-            if not lista_clientes:
-                lista_clientes = ["Carlos Alberto"]
-            
-            cliente_nome = st.sidebar.selectbox("Identifique o seu Nome/Empresa:", lista_clientes)
-            senha_cliente = st.sidebar.text_input("Digite a sua Senha:", type="password")
-            
-            if st.sidebar.button("Acessar Meus Pedidos"):
-                # Validação segura da senha gravada na base de dados (com suporte a acentos)
-                senha_cadastrada = "123"
-                if not df_cli_select.empty:
-                    for _, r in df_cli_select.iterrows():
-                        nome_reg = ""
-                        for col_c in ['cliente', 'nome', 'razao_social']:
-                            if col_c in df_cli_select.columns and pd.notna(r[col_c]):
-                                nome_reg = str(r[col_c]).strip()
-                                break
-                        if nome_reg.upper() == cliente_nome.strip().upper():
-                            if pd.notna(r.get('senha')) and str(r.get('senha')).strip() != "":
-                                senha_cadastrada = str(r['senha']).strip()
+                for _, r in df_cli_select.iterrows():
+                    nome_reg = ""
+                    for col_c in ['cliente', 'nome', 'razao_social']:
+                        if col_c in df_cli_select.columns and pd.notna(r[col_c]):
+                            nome_reg = str(r[col_c]).strip()
                             break
-                
-                if senha_cliente == senha_cadastrada:
-                    st.session_state.cliente_autenticado = cliente_nome
-                    st.rerun()
-                else:
-                    st.sidebar.error("Senha incorreta!")
+                    if nome_reg.upper() == cliente_nome.strip().upper():
+                        if pd.notna(r.get('senha')) and str(r.get('senha')).strip() != "":
+                            senha_cadastrada = str(r['senha']).strip()
+                        break
             
-            # Botão na barra lateral para acionar o fluxo de recuperação
-            st.sidebar.markdown("---")
-            if st.sidebar.button("🔑 Esqueceu a senha?", key="btn_esqueci_side"):
-                st.session_state.esqueci_senha_ativo = True
+            if senha_cliente == senha_cadastrada:
+                st.session_state.cliente_autenticado = cliente_nome
                 st.rerun()
-
+            else:
+                st.sidebar.error("Senha incorreta!")
     else:
-        # Sessão já autenticada do cliente
         st.sidebar.success(f"Logado como:\n**{st.session_state.cliente_autenticado}**")
-        if st.sidebar.button("Sair / Trocar Cliente"):
+        if st.sidebar.button("Sair / Trocar Cliente", key="btn_sair_cli_sessao"):
             st.session_state.cliente_autenticado = None
             st.rerun()
             
         st.title(f"🛍️ Portal do Cliente — Meus Pedidos ({st.session_state.cliente_autenticado})")
-        # [O restante das abas do painel do cliente continua aqui...]
 
-        try:
-            cursor = conn.cursor()
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS pedidos (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    cliente TEXT,
-                    produto TEXT,
-                    quantidade REAL,
-                    valor_unitario REAL,
-                    valor_total REAL,
-                    fornecedor TEXT,
-                    grupo TEXT,
-                    data TEXT,
-                    status TEXT,
-                    codigo_pedido TEXT
-                )
-            """)
-            conn.commit()
-        except Exception:
-            pass
-    
-        aba_novo, aba_historico = st.tabs(["+ Criar Novo Pedido", "📋 Pedidos Registrados & Relatórios"])
-    
-        with aba_novo:
-            st.subheader("Registrar Novo Pedido")
-            
-            try:
-                df_p_cli = carregar_dados("SELECT * FROM produtos")
-                if not df_p_cli.empty:
-                    df_p_cli.columns = [c.lower() for c in df_p_cli.columns]
-                    col_nome_p = 'produto' if 'produto' in df_p_cli.columns else ('nome' if 'nome' in df_p_cli.columns else df_p_cli.columns[1])
-                    produtos_opt = df_p_cli[col_nome_p].dropna().astype(str).str.strip().unique().tolist()
-                else:
-                    produtos_opt = []
-            except Exception:
-                produtos_opt = []
-            
-            fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
-            grupos_opt = carregar_coluna("produtos", "grupo") or ["GERAL"]
-            
-            if "prod_selecionado_temp_cli" in st.session_state:
-                st.session_state["cli_select_produto"] = st.session_state.pop("prod_selecionado_temp_cli")
-            
-            opcoes_produtos_com_novo_cli = ["+ Cadastrar Novo Produto..."] + list(produtos_opt)
-            
-            col_cli_1, col_cli_2 = st.columns(2)
-            with col_cli_1:
-                prod_item = st.selectbox("Selecione o Produto", opcoes_produtos_com_novo_cli, key="cli_select_produto")
-            with col_cli_2:
-                grupo_ped = st.selectbox("Selecione o Grupo", grupos_opt, key="cli_grupo_ind")
-            
-            if prod_item == "+ Cadastrar Novo Produto...":
-                st.warning("⚠️ Preencha os dados abaixo para cadastrar o novo produto:")
-                
-                c_cad1, c_cad2, c_cad3 = st.columns([2, 1, 1])
-                with c_cad1:
-                    novo_nome_prod = st.text_input("Nome do Novo Produto", key="cad_novo_nome_cli").strip().upper()
-                with c_cad2:
-                    c_g_r = st.selectbox("Grupo", grupos_opt, key="cad_g_rapido_cli")
-                with c_cad3:
-                    c_f_r = st.selectbox("Fornecedor", fornecedores_opt, key="cad_f_rapido_cli")
-                
-                c_cad4, c_cad5, c_cad6 = st.columns([1, 1, 1])
-                with c_cad4:
-                    c_qtd_r = st.number_input("Qtd Inicial em Estoque", min_value=0.0, value=0.0, key="cad_q_rapido_cli")
-                with c_cad5:
-                    c_compra_r = st.number_input("Preço de Compra (R$)", min_value=0.0, value=0.0, key="cad_c_rapido_cli")
-                with c_cad6:
-                    c_venda_r = st.number_input("Preço de Venda (R$)", min_value=0.0, value=0.0, key="cad_v_rapido_cli")
-                
-                if st.button("💾 Salvar e Selecionar Produto", key="btn_salvar_novo_prod_cli"):
-                    if novo_nome_prod:
-                        try:
-                            cursor = conn.cursor()
-                            cursor.execute("SELECT id FROM produtos WHERE UPPER(produto) = UPPER(?)", (novo_nome_prod,))
-                            existe = cursor.fetchone()
-                            
-                            if existe:
-                                st.warning(f"⚠️ O produto '{novo_nome_prod}' já está cadastrado!")
-                                st.session_state["prod_selecionado_temp_cli"] = novo_nome_prod
-                                st.rerun()
-                            else:
-                                cursor.execute("INSERT INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda) VALUES (?, ?, ?, ?, ?, ?)", (novo_nome_prod, c_g_r, c_f_r, c_qtd_r, c_compra_r, c_venda_r))
-                                conn.commit()
-                                st.cache_data.clear()
-                                st.session_state["prod_selecionado_temp_cli"] = novo_nome_prod
-                                st.rerun()
-                        except Exception as e:
-                            st.error(f"Erro ao cadastrar: {e}")
-                    else:
-                        st.error("Digite o nome do produto.")
-                    st.stop()
-            
-            preco_sugerido_cli = 0.0
-            if 'df_p_cli' in locals() and not df_p_cli.empty and prod_item != "+ Cadastrar Novo Produto...":
-                col_nome_p_cli = 'produto' if 'produto' in df_p_cli.columns else df_p_cli.columns[1]
-                df_p_cli['_nome_limpo'] = df_p_cli[col_nome_p_cli].astype(str).str.strip().str.upper()
-                df_filtrado_cli = df_p_cli[df_p_cli['_nome_limpo'] == str(prod_item).strip().upper()]
-                
-                if not df_filtrado_cli.empty:
-                    row_cli = df_filtrado_cli.iloc[0]
-                    for col_v in ['valor_venda', 'preco_venda', 'venda', 'valor_compra']:
-                        if col_v in df_p_cli.columns:
-                            try:
-                                val_aux = float(row_cli[col_v])
-                                if val_aux > 0:
-                                    preco_sugerido_cli = val_aux
-                                    break
-                            except:
-                                pass
-            
-            col_cli_3, col_cli_4 = st.columns(2)
-            with col_cli_3:
-                fornec_ped = st.selectbox("Selecione o Fornecedor", fornecedores_opt, key="cli_forn_ind")
-            with col_cli_4:
-                qtd_ped = st.number_input("Quantidade", min_value=0.01, step=1.0, value=1.0, key="cli_qtd_ind")
-            
-            col_cli_5, col_cli_6 = st.columns(2)
-            with col_cli_5:
-                v_venda_ped = st.number_input("Preço Unitário (R$)", min_value=0.0, value=float(preco_sugerido_cli), key=f"cli_v_ind_{prod_item}")
-            with col_cli_6:
-                valor_total_item = qtd_ped * v_venda_ped
-                st.info(f"**Valor Total do Item:** R$ {valor_total_item:.2f}")
-            
-            if "carrinho_cliente" not in st.session_state:
-                st.session_state.carrinho_cliente = []
-            
-            if "modo_edicao_cli" not in st.session_state:
-                st.session_state.modo_edicao_cli = False
-
-            # Garante que o carrinho do cliente existe na sessão e nunca é apagado sozinho
-            if "carrinho_cliente" not in st.session_state:
-                st.session_state.carrinho_cliente = []
+# ==========================================
+# AMBIENTE 2: ADMINISTRADOR / VENDEDOR
+# ==========================================
+elif perfil_selecionado == "🔒 Administração / Vendedor":
+    if not st.session_state.admin_logged:
+        st.title("🔒 Autenticação Administrativa")
+        st.warning("⚠️ Insira a senha de administrador para aceder ao painel de gestão.")
         
-            if st.button("➕ Incluir Produto no Pedido", type="primary", key="btn_incluir_prod_cli"):
-                if prod_item == "+ Cadastrar Novo Produto...":
-                    st.error("Por favor, selecione ou cadastre o produto antes de incluir no pedido.")
-                else:
-                    # Verifica se o produto já existe na lista atual do carrinho
-                    produto_ja_existe = False
-                    for item in st.session_state.carrinho_cliente:
-                        if str(item.get("produto", "")).strip().upper() == str(prod_item).strip().upper():
-                            produto_ja_existe = True
-                            break
+        senha_admin = st.text_input("Digite a Senha do Admin:", type="password", key="input_senha_admin_login_v2")
         
-                    if produto_ja_existe:
-                        st.warning(f"⚠️ O produto **'{prod_item}'** já existe no carrinho!")
-                    else:
-                        # Adiciona o novo item mantendo os anteriores intactos
-                        st.session_state.carrinho_cliente.append({
-                            "produto": prod_item,
-                            "fornecedor": fornec_ped,
-                            "grupo": grupo_ped,
-                            "quantidade": float(qtd_ped),
-                            "valor_unitario": float(v_venda_ped),
-                            "preco_unitario": float(v_venda_ped),
-                            "valor_total": float(valor_total_item)
-                        })
-                        st.success(f"✅ '{prod_item}' adicionado ao pedido com sucesso!")
-                        st.rerun()
-
-            st.markdown("---")
-            st.subheader("📋 Itens Atuais no Pedido")
-
-            if st.session_state.carrinho_cliente:
-                df_carrinho_cli = pd.DataFrame(st.session_state.carrinho_cliente)
-
-                if st.session_state.modo_edicao_cli:
-                    st.info("💡 **Modo de Edição Ativo:** Altere as quantidades ou valores diretamente na tabela abaixo e clique em **'💾 Salvar'**.")
-                    df_editado_cli = st.data_editor(
-                        df_carrinho_cli,
-                        use_container_width=True,
-                        key="editor_itens_carrinho_cli"
-                    )
-                else:
-                    st.dataframe(df_carrinho_cli, use_container_width=True)
-
-                col_btn1, col_btn2, col_btn3, col_btn4 = st.columns(4)
-
-                with col_btn1:
-                    if st.button("🗑️ Limpar Carrinho", use_container_width=True, key="btn_limpar_cli"):
-                        st.session_state.carrinho_cliente = []
-                        st.session_state.modo_edicao_cli = False
-                        st.rerun()
-
-                with col_btn2:
-                    if st.button("✏️ Alterar", use_container_width=True, key="btn_alterar_cli"):
-                        st.session_state.modo_edicao_cli = True
-                        st.rerun()
-
-                with col_btn3:
-                    if st.button("💾 Salvar", use_container_width=True, key="btn_salvar_cli"):
-                        if st.session_state.modo_edicao_cli and 'df_editado_cli' in locals():
-                            df_editado_cli['quantidade'] = pd.to_numeric(df_editado_cli['quantidade'], errors='coerce').fillna(1)
-                            df_editado_cli['valor_unitario'] = pd.to_numeric(df_editado_cli['valor_unitario'], errors='coerce').fillna(0)
-                            df_editado_cli['valor_total'] = df_editado_cli['quantidade'] * df_editado_cli['valor_unitario']
-
-                            st.session_state.carrinho_cliente = df_editado_cli.to_dict('records')
-                            st.session_state.modo_edicao_cli = False
-                            st.success("✅ Pedido atualizado com sucesso!")
-                            st.rerun()
-
-                with col_btn4:
-                    if st.button("🔴 Finalizar e Enviar Pedido", type="primary", use_container_width=True, key="btn_finalizar_cli"):
-                        try:
-                            cursor = conn.cursor()
-                            data_agora = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            cliente_logado = st.session_state.get('cliente_autenticado', 'Cliente')
-
-                            for item in st.session_state.carrinho_cliente:
-                                qtd_item = float(item.get("quantidade", 1))
-                                prod_nome = str(item.get("produto", ""))
-                                val_unit = float(item.get("valor_unitario", 0))
-                                val_tot = float(item.get("valor_total", 0))
-                                forn_nome = item.get("fornecedor", "")
-                                grupo_nome = item.get("grupo", "")
-
-                                cursor.execute("INSERT INTO pedidos (cliente, produto, fornecedor, grupo, quantidade, valor_unitario, valor_total, status, data) VALUES (?, ?, ?, ?, ?, ?, ?, 'Pendente', ?)", (cliente_logado, prod_nome, forn_nome, grupo_nome, qtd_item, val_unit, val_tot, data_agora))
-                                cursor.execute("INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, status, data) VALUES (?, ?, ?, ?, ?, ?, ?, 'Pendente', ?)", (cliente_logado, prod_nome, forn_nome, grupo_nome, qtd_item, val_unit, val_tot, data_agora))
-                                cursor.execute("UPDATE produtos SET quantidade = quantidade + ? WHERE produto = ?", (qtd_item, prod_nome))
-
-                            conn.commit()
-                            st.session_state.carrinho_cliente = []
-                            st.session_state.modo_edicao_cli = False
-                            st.cache_data.clear()
-                            st.success("✅ Pedido enviado com sucesso!")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Erro ao enviar pedido: {e}")
+        if st.button("🔓 Entrar como Admin", type="primary", key="btn_login_admin_v2"):
+            if senha_admin == "13142715":
+                st.session_state.admin_logged = True
+                st.success("Login efetuado com sucesso!")
+                st.rerun()
             else:
-                st.info("Nenhum item adicionado ao carrinho ainda.")
-    
-        with aba_historico:
-            st.subheader("Histórico e Gestão de Meus Pedidos")
+                st.error("Senha incorreta!")
+    else:
+        st.sidebar.subheader("🔒 Área Restrita")
+        if st.sidebar.button("Sair do Modo Admin", key="btn_logout_admin"):
+            st.session_state.admin_logged = False
+            st.rerun()
             
-            try:
-                query_dia = """
-                    SELECT id, cliente, produto, quantidade, valor_venda AS valor_unitario, valor_total, fornecedor, grupo, data, status
-                    FROM vendas
-                    WHERE DATE(data) = DATE('now', 'localtime') AND cliente = ?
-                """
-                df_dia = pd.read_sql_query(query_dia, conn, params=(st.session_state.cliente_autenticado,))
+        menu_admin = st.sidebar.radio(
+            "Navegação",
+            [
+                "🛒 PDV — Frente de Caixa",
+                "🔓 Abertura e Fechamento de Caixa",
+                "📊 Fechamento & Financeiro",
+                "📋 Pedidos / Orçamentos",
+                "🛒 Registrar Venda",
+                "📥 Entrada de Estoque (Compras)",
+                "👥 Cadastros (Clientes / Fornecedores / Grupos)",
+                "👥 Gestão de Recursos Humanos (RH)",
+                "💾 Backup e Restauração",
+                "💸 Contas a Receber",
+                "📦 Estoque de Produtos"
+            ],
+            key="radio_menu_admin_opcoes"
+        )
         
-                if not df_dia.empty:
-                    st.markdown("### 🟢 Pedidos do Dia (Editáveis)")
-                    df_dia.insert(0, "Excluir", False)
-                    
-                    df_editado = st.data_editor(
-                        df_dia,
-                        column_config={
-                            "Excluir": st.column_config.CheckboxColumn("❌ Excluir?", default=False),
-                            "id": st.column_config.NumberColumn("ID", disabled=True),
-                            "cliente": st.column_config.TextColumn("Cliente", disabled=True),
-                            "produto": st.column_config.TextColumn("Produto", disabled=True),
-                            "quantidade": st.column_config.NumberColumn("Quantidade", min_value=0.01, step=0.01, format="%.2f"),
-                            "valor_unitario": st.column_config.NumberColumn("Valor Unitário (R$)", disabled=True, format="R$ %.2f"),
-                            "valor_total": st.column_config.NumberColumn("Total (R$)", disabled=True, format="R$ %.2f"),
-                            "fornecedor": st.column_config.TextColumn("Fornecedor", disabled=True),
-                            "grupo": st.column_config.TextColumn("Grupo", disabled=True),
-                            "data": st.column_config.TextColumn("Data", disabled=True),
-                            "status": st.column_config.TextColumn("Status", disabled=True),
-                        },
-                        hide_index=True,
-                        key="tabela_pedidos_do_dia_unica"
-                    )
-        
-                    col_btn1, col_btn2, col_btn3, = st.columns(3)
-                    with col_btn1:
-                        if st.button("💾 Salvar Alterações", type="primary", key="btn_salvar_tabela_unica"):
-                            try:
-                                cursor = conn.cursor()
-                                for _, row in df_editado.iterrows():
-                                    novo_total = float(row['quantidade']) * float(row['valor_unitario'])
-                                    cursor.execute("UPDATE vendas SET quantidade = ?, valor_total = ? WHERE id = ?", (row['quantidade'], novo_total, row['id']))
-                                    cursor.execute("UPDATE pedidos SET quantidade = ?, valor_total = ? WHERE cliente = ? AND produto = ? AND DATE(data) = DATE(?)", (row['quantidade'], novo_total, row['cliente'], row['produto'], row['data']))
-                                conn.commit()
-                                st.cache_data.clear()
-                                st.success("Pedidos atualizados com sucesso em ambas as tabelas!")
-                                st.rerun()
-                            except Exception as ex:
-                                st.error(f"Erro ao atualizar os pedidos: {ex}")
-        
-                    with col_btn2:
-                        if st.button("🗑️ Excluir Marcados", key="btn_excluir_selecionados"):
-                            try:
-                                cursor = conn.cursor()
-                                itens_para_excluir = df_editado[df_editado['Excluir'] == True]
-                                
-                                if not itens_para_excluir.empty:
-                                    for _, row in itens_para_excluir.iterrows():
-                                        id_item = row['id']
-                                        cliente_item = row.get('cliente', '')
-                                        produto_item = row.get('produto', '')
-                                        
-                                        cursor.execute("DELETE FROM vendas WHERE id = ?", (id_item,))
-                                        if cliente_item and produto_item:
-                                            cursor.execute("DELETE FROM pedidos WHERE cliente = ? AND produto = ?", (cliente_item, produto_item))
-                                    
-                                    conn.commit()
-                                    st.warning("Itens excluídos com sucesso!")
-                                    st.rerun()
-                                else:
-                                    st.info("Nenhum item foi marcado para exclusão.")
-                            except Exception as ex:
-                                st.error(f"Erro ao excluir os itens: {ex}")
-
-                    with col_btn3:
-                        try:
-                            pdf_buffer = gerar_pdf_tabela_pedidos(df_dia, st.session_state.cliente_autenticado)
-                            st.download_button(
-                                label="📄 Baixar PDF do Dia",
-                                data=pdf_buffer,
-                                file_name=f"pedidos_{st.session_state.cliente_autenticado.replace(' ', '_')}.pdf",
-                                mime="application/pdf",
-                                key="btn_pdf_cli_dia"
-                            )
-                        except Exception as e_pdf:
-                            st.error(f"Erro ao gerar PDF: {e_pdf}")
-                else:
-                    st.info("Nenhum pedido registrado hoje para edição.")
-                    
-            except Exception as e:
-                st.error(f"Erro ao carregar pedidos do dia: {e}")
-                        
-            st.markdown("---")
-            st.subheader("📚 Pedidos Anteriores (Histórico)")
-            try:
-                query_hist_cliente = """
-                    SELECT id, produto, quantidade, valor_unitario, valor_total, status, data, fornecedor, grupo, codigo_pedido
-                    FROM pedidos
-                    WHERE cliente = ?
-                    ORDER BY id DESC
-                """
-                df_hist_cli = pd.read_sql_query(query_hist_cliente, conn, params=(st.session_state.cliente_autenticado,))
-                if not df_hist_cli.empty:
-                    st.dataframe(df_hist_cli, use_container_width=True, hide_index=True)
-                else:
-                    st.info("Nenhum pedido anterior encontrado.")
-            except Exception as e_hist:
-                st.error(f"Erro ao carregar histórico: {e_hist}")      
-                
-        # =========================================================
-        # 1. PAINEL DO DESENVOLVEDOR (CHAVE ÚNICA E SEGURA)
-        # =========================================================
-        with st.sidebar.expander("🛠️ Gerador de Chaves (Dev)"):
-            senha_dev = st.text_input("Senha Mestre Dev", type="password", key="pwd_dev_unico_gerador")
-            
-            if senha_dev == "13142715":  
-                doc_cliente = st.text_input("CNPJ ou CPF do Cliente:", key="doc_cli_unico_gerador")
-                if st.button("🔑 Gerar Chave", key="btn_gerar_chave_unico"):
-                    if doc_cliente.strip():
-                        chave_gerada = gerar_chave_por_documento(doc_cliente)
-                        st.code(chave_gerada, language="text")
-                        st.success("Chave gerada com sucesso!")
-                    else:
-                        st.warning("Digite um CNPJ ou CPF.")
-        
-        st.sidebar.markdown("---")
-        
-        # =========================================================
-        # 2. MENU DE NAVEGAÇÃO E PERFIS CORRIGIDOS
-        # =========================================================
-        st.sidebar.subheader("Acesso ao Sistema")
-        perfil_seleccionado = st.sidebar.radio("Selecione o Perfil:", ["Portal do Cliente", "Administração / Vendedor"], key="radio_perfil_principal")
-        
-        if perfil_seleccionado == "Administração / Vendedor":
-            if not st.session_state.get("admin_logged", False):
-                st.title("🔒 Autenticação Administrativa")
-                st.warning("⚠️ Insira a senha de administrador para aceder ao sistema.")
-                
-                senha_admin = st.text_input("Digite a Senha do Admin:", type="password", key="input_senha_admin_login")
-                
-                if st.button("🔓 Entrar como Admin", type="primary", key="btn_login_admin_acao"):
-                    if senha_admin == "13142715":
-                        st.session_state.admin_logged = True
-                        st.success("Login efetuado com sucesso!")
-                        st.rerun()
-                    else:
-                        st.error("Senha incorreta!")
-                
-                st.stop() # Para a execução aqui para não mostrar o painel sem logar
-            else:
-                st.sidebar.subheader("🔒 Área Restrita")
-                if st.sidebar.button("Sair do Modo Admin", key="btn_sair_modo_admin"):
-                    st.session_state.admin_logged = False
-                    st.rerun()
-                    
-                # Menu completo do Administrador
-                menu_admin = st.sidebar.radio(
-                    "Navegação",
-                    [
-                        "🛒 PDV — Frente de Caixa",
-                        "🔓 Abertura e Fechamento de Caixa",
-                        "⚙️ Configurações da Empresa",
-                        "📊 Fechamento & Financeiro",
-                        "📋 Pedidos / Orçamentos",
-                        "🛒 Registrar Venda",
-                        "📥 Entrada de Estoque (Compras)",
-                        "👥 Cadastros (Clientes / Fornecedores / Grupos)",
-                        "👥 Gestão de Recursos Humanos (RH)",
-                        "💾 Backup e Restauração",
-                        "💸 Contas a Receber",
-                        "📦 Estoque de Produtos"
-                    ],
-                    key="menu_admin_opcoes"
-                )
+        st.title(f"⚙️ Painel do Administrador — {menu_admin}")
         
         if menu_admin == "🛒 PDV — Frente de Caixa":
             # CSS para compactar e estilizar os botões de atalho no rodapé
