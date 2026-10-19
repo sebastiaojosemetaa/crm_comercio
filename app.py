@@ -1204,7 +1204,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         
                 # --- LEGENDA DE ATALHOS COMPACTA E VISÍVEL ---
                 st.markdown("""
-                <div style="background-color: #2b2b2b; color: #001969; padding: 4px; border-radius: 6px; text-align: center; font-family: monospace; font-size: 11px; margin-top: 4px;">
+                <div style="background-color: #2b2b2b; color: #001969; padding: 10px; border-radius: 12px; text-align: center; font-family: monospace; font-size: 12px; margin-top: 10px;">
                     <span style="color: #00ffcc;">[ Enter ]</span> Incluir &nbsp;|&nbsp; 
                     <span style="color: #00ffcc;">[ Alt + C ]</span> Limpar &nbsp;|&nbsp; 
                     <span style="color: #00ffcc;">[ Alt + V ]</span> Finalizar
