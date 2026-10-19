@@ -1119,7 +1119,15 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.markdown("#### 📋 Carrinho")
                 if len(st.session_state.carrinho_pdv) > 0:
                     df_carrinho = pd.DataFrame(st.session_state.carrinho_pdv)
-                    st.dataframe(df_carrinho[['produto', 'quantidade', 'valor_venda', 'valor_total']], use_container_width=True, hide_index=True, height=130)
+                    # Altura dinâmica: 38px por cabeçalho + 35px por cada produto adicionado
+                    altura_dinamica = 38 + (len(df_carrinho) * 35)
+                    
+                    st.dataframe(
+                        df_carrinho[['produto', 'quantidade', 'valor_venda', 'valor_total']], 
+                        use_container_width=True, 
+                        hide_index=True, 
+                        height=altura_dinamica
+                    )
                     total_geral_carrinho = df_carrinho['valor_total'].sum()
                 else:
                     st.info("Carrinho vazio.")
