@@ -1117,7 +1117,22 @@ if perfil_selecionado == "👤 Portal do Cliente":
                     st.info("Nenhum pedido anterior encontrado.")
             except Exception as e_hist:
                 st.error(f"Erro ao carregar histórico: {e_hist}")
-       
+# =========================================================
+# PAINEL DO DESENVOLVEDOR (GERADOR DE CHAVES SECRETO)
+# =========================================================
+with st.sidebar.expander("🛠️ Gerador de Chaves (Dev)"):
+    senha_dev = st.text_input("Senha Mestre Dev", type="password", key="pwd_dev_key")
+    
+    # Substitua "123456" pela sua senha mestre preferida
+    if senha_dev == "123456": 
+        doc_cliente = st.text_input("CNPJ ou CPF do Cliente:", key="doc_dev_key")
+        if st.button("🔑 Gerar Chave do Cliente", key="btn_dev_key"):
+            if doc_cliente.strip():
+                chave_gerada = gerar_chave_por_documento(doc_cliente)
+                st.code(chave_gerada, language="text")
+                st.success("Chave gerada com sucesso! Copie e envie ao cliente.")
+            else:
+                st.warning("Digite um CNPJ ou CPF para gerar.")       
 # ==========================================
 # AMBIENTE 2: ADMINISTRADOR / VENDEDOR
 # ==========================================
