@@ -1142,19 +1142,45 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 st.error(f"Erro ao carregar histórico: {e_hist}")      
                 
         # =========================================================
-        # AMBIENTE 2: ADMINISTRADOR / VENDEDOR
+        # 1. PAINEL DO DESENVOLVEDOR (NA BARRA LATERAL)
         # =========================================================
-        if perfil_seleccionado == "🔒 Administração / Vendedor":
-            if not st.session_state.admin_logged:
+        with st.sidebar.expander("🛠️ Gerador de Chaves (Dev)"):
+            senha_dev = st.text_input("Senha Mestre Dev", type="password", key="pwd_dev_topo")
+            
+            # O campo de CNPJ e o botão SÓ APARECEM se a senha estiver correta
+            if senha_dev == "13142715":  
+                doc_cliente = st.text_input("CNPJ ou CPF do Cliente:", key="pwd_dev_topo_doc")
+                if st.button("🔑 Gerar Chave", key="btn_dev_topo_acao"):
+                    if doc_cliente.strip():
+                        chave_gerada = gerar_chave_por_documento(doc_cliente)
+                        st.code(chave_gerada, language="text")
+                        st.success("Chave gerada com sucesso!")
+                    else:
+                        st.warning("Digite um CNPJ ou CPF.")
+        
+        st.sidebar.markdown("---")
+        
+        # =========================================================
+        # 2. SELEÇÃO DE PERFIL E LOGIN DE ADMINISTRADOR
+        # =========================================================
+        perfil_seleccionado = st.sidebar.radio("Selecione o Perfil:", ["Portal do Cliente", "Administração / Vendedor"])
+        
+        if perfil_seleccionado == "Administração / Vendedor":
+            if not st.session_state.get("admin_logged", False):
                 st.title("🔒 Autenticação Administrativa")
-                senha_admin = st.sidebar.text_input("Digite a Senha do Admin:", type="password", key="senha_admin_input")
+                st.warning("⚠️ Insira a senha de administrador para aceder ao painel de gestão.")
                 
-                if st.sidebar.button("Entrar como Admin"):
+                senha_admin = st.text_input("Digite a Senha do Admin:", type="password", key="senha_admin_input")
+                
+                if st.button("🔓 Entrar como Admin", type="primary"):
                     if senha_admin == "13142715":
                         st.session_state.admin_logged = True
+                        st.success("Login efetuado com sucesso! A carregar...")
                         st.rerun()
                     else:
-                        st.sidebar.error("Senha incorreta!")
+                        st.error("Senha incorreta!")
+                
+                st.stop() # Para a execução aqui enquanto o admin não fizer login
             else:
                 st.sidebar.subheader("🔒 Área Restrita")
                 if st.sidebar.button("Sair do Modo Admin"):
