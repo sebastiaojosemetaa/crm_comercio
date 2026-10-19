@@ -92,7 +92,7 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
     )
 
     story.append(Paragraph("REY DA CEBOLA", style_empresa))
-    story.append(Paragraph("CNPJ: 194.174.39/000-42 INSC.EST.: 12.426725-4<br/>CONTATO: (99) 98814-9722 OU (99) 98414-3943", style_sub))
+    story.append(Paragraph("CNPJ: 194.174.39/0001-42 INSC.EST.: 12.426725-4<br/>CONTATO: (99) 98814-9722 OU (99) 98414-3943", style_sub))
 
     data_atual = (datetime.utcnow() - timedelta(hours=3)).strftime('%Y-%m-%d %H:%M:%S')
 
