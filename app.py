@@ -1202,9 +1202,9 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     else:
                         st.error("Verifique se o caixa está aberto e se há itens no carrinho.")
         
-                # --- LEGENDA DE ATALHOS COMPACTA E VISÍVEL ---
+                # --- BARRA DE ATALHOS NO RODAPÉ (FONTE MAIOR E TEXTO BRANCO) ---
                 st.markdown("""
-                <div style="background-color: #001969; color: #ffffff; padding: 4px; border-radius: 6px; text-align: center; font-family: monospace; font-size: 11px; margin-top: 4px;">
+                <div style="background-color: #0d1b2a; color: #ffffff; padding: 8px; border-radius: 6px; text-align: center; font-family: monospace; font-size: 14px; font-weight: bold; margin-top: 4px;">
                     <span style="color: #ffffff;">[ Enter ]</span> Incluir &nbsp;|&nbsp; 
                     <span style="color: #ffffff;">[ Alt + C ]</span> Limpar &nbsp;|&nbsp; 
                     <span style="color: #ffffff;">[ Alt + V ]</span> Finalizar
