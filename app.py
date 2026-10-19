@@ -10,50 +10,10 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 import io
 import datetime as dt
-import hashlib
 
-# =========================================================
-# FUNÇÃO 1: GERADOR DE CHAVE ÚNICA POR CNPJ / CPF
-# =========================================================
-def gerar_chave_por_documento(documento):
-    # Remove pontos, barras e traços, mantendo apenas os números
-    apenas_digitos = ''.join(filter(str.isdigit, str(documento)))
-    
-    # O seu "segredo" de desenvolvedor (mantenha guardado apenas com você)
-    segredo_mestre = "REY_CEBOLA_2026"
-    
-    # Combina o documento do cliente com o segredo e gera um hash único
-    combinado = apenas_digitos + segredo_mestre
-    hash_hex = hashlib.md5(combinado.encode()).hexdigest().upper()
-    
-    # Formata a chave num padrão bonito (Ex: CRM-A1B2-C3D4-E5F6)
-    chave_formatada = f"CRM-{hash_hex[:4]}-{hash_hex[4:8]}-{hash_hex[8:12]}"
-    return chave_formatada
 # -----------------------------------------------------------------------------
 # CONFIGURAÇÃO DA PÁGINA (Deve ser a primeira instrução Streamlit)
 # -----------------------------------------------------------------------------
-
-# 1. Defina a função primeiro
-def gerar_chave_por_documento(documento):
-    apenas_digitos = ''.join(filter(str.isdigit, str(documento)))
-    segredo_mestre = "REY_CEBOLA_2026"
-    combinado = apenas_digitos + segredo_mestre
-    hash_hex = hashlib.md5(combinado.encode()).hexdigest().upper()
-    chave_formatada = f"CRM-{hash_hex[:4]}-{hash_hex[4:8]}-{hash_hex[8:12]}"
-    return chave_formatada
-
-# 2. Logo abaixo, coloque o painel que chama a função
-with st.sidebar.expander("🛠️ Gerador de Chaves (Dev)"):
-    senha_dev = st.text_input("Senha Mestre Dev", type="password", key="pwd_dev_topo")
-    if senha_dev == "13142715":  # Sua senha mestre
-        doc_cliente = st.text_input("CNPJ ou CPF do Cliente:", key="doc_dev_topo_doc")
-        if st.button("🔑 Gerar Chave", key="btn_dev_topo_acao"):
-            if doc_cliente.strip():
-                chave_gerada = gerar_chave_por_documento(doc_cliente)
-                st.code(chave_gerada, language="text")
-                st.success("Chave gerada com sucesso!")
-            else:
-                st.warning("Digite um CNPJ ou CPF.")
 st.set_page_config(page_title="CRM Comércio - Rey da Cebola", layout="wide", page_icon="🛍️")
 
 def sanear_df_vendas(df):
@@ -102,27 +62,8 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
         leading=12, alignment=1, spaceAfter=15
     )
 
-    # Busca os dados cadastrados da empresa no banco
-    try:
-        df_empresa_pdf = pd.read_sql_query("SELECT * FROM configuracoes ORDER BY id DESC LIMIT 1", conn)
-        if not df_empresa_pdf.empty:
-            empresa_nome = df_empresa_pdf.iloc[0]['nome_empresa']
-            empresa_cnpj = df_empresa_pdf.iloc[0]['cnpj']
-            empresa_ie = df_empresa_pdf.iloc[0]['ie']
-            empresa_tel = df_empresa_pdf.iloc[0]['fone']
-        else:
-            empresa_nome = "REY DA CEBOLA"
-            empresa_cnpj = "00.000.000/0001-00"
-            empresa_ie = "0000000"
-            empresa_tel = "(00) 0000-0000"
-    except Exception:
-        empresa_nome = "REY DA CEBOLA"
-        empresa_cnpj = "00.000.000/0001-00"
-        empresa_ie = "0000000"
-        empresa_tel = "(00) 0000-0000"
-
-    story.append(Paragraph(empresa_nome, style_empresa))
-    story.append(Paragraph(f"CNPJ: {empresa_cnpj} INSC.EST.: {empresa_ie}<br/>CONTATO: {empresa_tel}", style_sub))
+    story.append(Paragraph("REY DA CEBOLA", style_empresa))
+    story.append(Paragraph("CNPJ: 194.174.39/000-42 INSC.EST.: 12.426725-4<br/>CONTATO: (99) 98814-9722 OU (99) 98414-3943", style_sub))
 
     data_atual = (datetime.utcnow() - timedelta(hours=3)).strftime('%Y-%m-%d %H:%M:%S')
 
@@ -219,29 +160,20 @@ def get_connection():
     return sqlite3.connect("crm_comercio.db", check_same_thread=False)
 
 conn = get_connection()
-
 # =========================================================
-# FLUXO DE CONFIGURAÇÃO INICIAL (1º EMPRESA -> 2º ATIVAÇÃO)
+# SISTEMA DE LICENÇA POR DISPOSITIVO / SESSÃO (PERSISTENTE)
 # =========================================================
 
-# 1. Garante que as tabelas essenciais existem
+CHAVES_SISTEMA = {
+    "CRM-DEMO-30DIAS": 30,
+    "CRM-ANUAL-2026": 365,
+    "CRM-REYSAL-MESTRE": 9999,
+    "CRM-SEVEN-DIAS": 7
+}
+
+# 1. Garante a criação da tabela de licença no SQLite
 try:
     cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS configuracoes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome_empresa TEXT,
-            cnpj TEXT,
-            ie TEXT,
-            endereco TEXT,
-            bairro TEXT,
-            cep TEXT,
-            cidade TEXT,
-            estado TEXT,
-            fone TEXT,
-            email TEXT
-        )
-    """)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS dispositivo_licenca (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -251,76 +183,10 @@ try:
         )
     """)
     conn.commit()
-except Exception:
+except Exception as e:
     pass
 
-# 2. ETAPA 1: Verificar se a Empresa já foi cadastrada
-try:
-    df_cfg_check = pd.read_sql_query("SELECT * FROM configuracoes ORDER BY id DESC LIMIT 1", conn)
-except Exception:
-    df_cfg_check = pd.DataFrame()
-
-empresa_cadastrada = not df_cfg_check.empty
-
-# Se a empresa NÃO estiver cadastrada, exibe o formulário primeiro
-if not empresa_cadastrada:
-    st.markdown("## 🏢 Bem-vindo! Cadastre os Dados da sua Empresa")
-    st.warning("⚠️ Por favor, preencha os dados abaixo para configurar o seu sistema comercial.")
-    
-    with st.form("form_onboarding_empresa"):
-        col1, col2, col3 = st.columns([2, 1.5, 1])
-        with col1:
-            nome_empresa = st.text_input("Nome / Razão Social", value="")
-        with col2:
-            cnpj = st.text_input("CNPJ", value="")
-        with col3:
-            ie = st.text_input("IE", value="")
-            
-        endereco = st.text_input("Endereço", value="")
-        
-        col4, col5, col6, col7 = st.columns([1.5, 1, 1.5, 0.6])
-        with col4:
-            bairro = st.text_input("Bairro", value="")
-        with col5:
-            cep = st.text_input("CEP", value="")
-        with col6:
-            cidade = st.text_input("Cidade", value="")
-        with col7:
-            estado = st.text_input("Estado", value="MA")
-            
-        col8, col9 = st.columns(2)
-        with col8:
-            fone = st.text_input("Telefone", value="")
-        with col9:
-            email = st.text_input("E-mail", value="")
-            
-        st.markdown("<br>", unsafe_allow_html=True)
-        salvar_onboarding = st.form_submit_button("💾 Salvar Dados e Ir para Ativação", type="primary", use_container_width=True)
-        
-        if salvar_onboarding:
-            if not nome_empresa.strip():
-                st.error("O campo Nome / Razão Social é obrigatório.")
-            else:
-                cursor = conn.cursor()
-                cursor.execute("DELETE FROM configuracoes")
-                cursor.execute("""
-                    INSERT INTO configuracoes (nome_empresa, cnpj, ie, endereco, bairro, cep, cidade, estado, fone, email)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (nome_empresa, cnpj, ie, endereco, bairro, cep, cidade, estado, fone, email))
-                conn.commit()
-                st.success("Empresa cadastrada com sucesso! A avançar...")
-                st.rerun()
-                
-    st.stop() # Interrompe o app aqui até o cadastro da empresa ser concluído
-
-# 3. ETAPA 2: Verificação de Licença do Dispositivo
-CHAVES_SISTEMA = {
-    "CRM-DEMO-30DIAS": 30,
-    "CRM-ANUAL-2026": 365,
-    "CRM-REYSAL-MESTRE": 9999,
-    "CRM-SEVEN-DIAS": 7
-}
-
+# 2. Verifica na base de dados se já existe uma licença ativa
 dispositivo_ativado = False
 dias_restantes = 0
 
@@ -334,65 +200,44 @@ try:
             dias_restantes = (data_exp - agora).days
             st.session_state["licenca_libertada"] = True
             st.session_state["dias_licenca"] = dias_restantes
-except Exception:
+except Exception as e:
     dispositivo_ativado = False
 
-# Se a empresa já está cadastrada mas o dispositivo não está ativado
+# 3. Se não estiver ativado, exibe o ecrã de validação da chave
 if not dispositivo_ativado:
     st.markdown("## 🔐 Ativação de Licença do Dispositivo")
-    st.warning("⚠️ Empresa registada com sucesso! Agora insira a sua chave de ativação para aceder ao sistema.")
+    st.warning("⚠️ Este dispositivo/navegador precisa de ser ativado para aceder ao sistema.")
     
     chave_digitada = st.text_input("🔑 Chave de Ativação:", type="password", placeholder="Digite a sua chave...")
     
     if st.button("🔓 Ativar Este Dispositivo", type="primary"):
-        chave_digitada = chave_digitada.strip().upper()
+        chave_limpa = chave_digitada.strip().upper()
         
-        # Busca o CNPJ ou CPF cadastrado na tabela de configurações da empresa
-        try:
-            df_emp = pd.read_sql_query("SELECT cnpj, ie FROM configuracoes ORDER BY id DESC LIMIT 1", conn)
-            documento_cadastrado = df_emp.iloc[0]['cnpj'] if not df_emp.empty else ""
-        except Exception:
-            documento_cadastrado = ""
-            
-        # Gera a chave esperada para este documento específico
-        chave_esperada = gerar_chave_por_documento(documento_cadastrado)
-        
-        # Valida se a chave digitada pelo cliente confere com a chave gerada para o CNPJ dele
-        # (Ou você também pode aceitar uma chave mestre global de suporte, se quiser)
-        CHAVE_MESTRE_SUPORTE = "CRM-REYSAL-MESTRE"
-        
-        if chave_digitada == chave_esperada or chave_digitada == CHAVE_MESTRE_SUPORTE:
-            # Define validade (ex: 30 dias ou 365 dias)
-            dias_validade = 365 # Ex: Licença anual por CNPJ
+        if chave_limpa in CHAVES_SISTEMA:
+            dias_validade = CHAVES_SISTEMA[chave_limpa]
             nova_expiracao = (datetime.now() + timedelta(days=dias_validade)).strftime('%Y-%m-%d %H:%M:%S')
             
             cursor = conn.cursor()
-            cursor.execute("DELETE FROM dispositivo_licenca")
+            cursor.execute("DELETE FROM dispositivo_licenca") # Limpa licenças antigas
             cursor.execute("""
                 INSERT INTO dispositivo_licenca (chave, data_expiracao, status)
                 VALUES (?, ?, ?)
-            """, (chave_digitada, nova_expiracao, 'ATIVADO'))
+            """, (chave_limpa, nova_expiracao, 'ATIVADO'))
             conn.commit()
             
             st.session_state["licenca_libertada"] = True
             st.session_state["dias_licenca"] = dias_validade
             
-            st.success(f"Dispositivo ativado com sucesso para o CNPJ: {documento_cadastrado}!")
+            st.success(f"Dispositivo ativado com sucesso! Válido por {dias_validade} dias.")
             st.rerun()
         else:
-            st.error("Chave de ativação inválida para este CNPJ/CPF. Verifique os dados da empresa.")
+            st.error("Chave de ativação inválida. Verifique e tente novamente.")
             
-    st.stop()
+    st.stop() # Interrompe o carregamento do resto do app se não estiver ativado
 
-# Carrega o nome da empresa atual para o sistema de forma dinâmica
-try:
-    df_cfg_global = pd.read_sql_query("SELECT * FROM configuracoes ORDER BY id DESC LIMIT 1", conn)
-    NOME_EMPRESA_ATUAL = df_cfg_global.iloc[0]['nome_empresa'] if not df_cfg_global.empty else "REY DA CEBOLA"
-except Exception:
-    NOME_EMPRESA_ATUAL = "REY DA CEBOLA"
-
+# --- EXIBE O STATUS NA BARRA LATERAL ---
 dias_disp = st.session_state.get("dias_licenca", dias_restantes)
-st.sidebar.caption(f"🟢 **Dispositivo Ativado** ({dias_disp} dias)")
+st.sidebar.caption(f"🟢 **Dispositivo Ativado** ({dias_disp} dias de acesso)")
 # =========================================================
 # =========================================================
 # ESTILO VISUAL METÁLICO/CLÁSSICO PDV (FÊNIX STYLE)
@@ -1139,71 +984,43 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 else:
                     st.info("Nenhum pedido anterior encontrado.")
             except Exception as e_hist:
-                st.error(f"Erro ao carregar histórico: {e_hist}")      
-                
-        # =========================================================
-        # 1. PAINEL DO DESENVOLVEDOR (NA BARRA LATERAL)
-        # =========================================================
-        with st.sidebar.expander("🛠️ Gerador de Chaves (Dev)"):
-            senha_dev = st.text_input("Senha Mestre Dev", type="password", key="pwd_dev_topo")
-            
-            # O campo de CNPJ e o botão SÓ APARECEM se a senha estiver correta
-            if senha_dev == "13142715":  
-                doc_cliente = st.text_input("CNPJ ou CPF do Cliente:", key="pwd_dev_topo_doc")
-                if st.button("🔑 Gerar Chave", key="btn_dev_topo_acao"):
-                    if doc_cliente.strip():
-                        chave_gerada = gerar_chave_por_documento(doc_cliente)
-                        st.code(chave_gerada, language="text")
-                        st.success("Chave gerada com sucesso!")
-                    else:
-                        st.warning("Digite um CNPJ ou CPF.")
-        
-        st.sidebar.markdown("---")
-        
-        # =========================================================
-        # 2. SELEÇÃO DE PERFIL E LOGIN DE ADMINISTRADOR
-        # =========================================================
-        perfil_seleccionado = st.sidebar.radio("Selecione o Perfil:", ["Portal do Cliente", "Administração / Vendedor"])
-        
-        if perfil_seleccionado == "Administração / Vendedor":
-            if not st.session_state.get("admin_logged", False):
-                st.title("🔒 Autenticação Administrativa")
-                st.warning("⚠️ Insira a senha de administrador para aceder ao painel de gestão.")
-                
-                senha_admin = st.text_input("Digite a Senha do Admin:", type="password", key="senha_admin_input")
-                
-                if st.button("🔓 Entrar como Admin", type="primary"):
-                    if senha_admin == "13142715":
-                        st.session_state.admin_logged = True
-                        st.success("Login efetuado com sucesso! A carregar...")
-                        st.rerun()
-                    else:
-                        st.error("Senha incorreta!")
-                
-                st.stop() # Para a execução aqui enquanto o admin não fizer login
+                st.error(f"Erro ao carregar histórico: {e_hist}")
+       
+# ==========================================
+# AMBIENTE 2: ADMINISTRADOR / VENDEDOR
+# ==========================================
+elif perfil_selecionado == "🔒 Administração / Vendedor":
+    if not st.session_state.admin_logged:
+        st.title("🔑 Autenticação Administrativa")
+        senha_admin = st.sidebar.text_input("Digite a Senha do Admin:", type="password")
+        if st.sidebar.button("Entrar como Admin"):
+            if senha_admin == "13142715":
+                st.session_state.admin_logged = True
+                st.rerun()
             else:
-                st.sidebar.subheader("🔒 Área Restrita")
-                if st.sidebar.button("Sair do Modo Admin"):
-                    st.session_state.admin_logged = False
-                    st.rerun()
-                    
-                menu_admin = st.sidebar.radio(
-                    "Navegação",
-                    [
-                        "🛒 PDV — Frente de Caixa",
-                        "🔓 Abertura e Fechamento de Caixa",
-                        "⚙️ Configurações da Empresa",
-                        "📊 Fechamento & Financeiro",
-                        "📋 Pedidos / Orçamentos",
-                        "🛒 Registrar Venda",
-                        "📥 Entrada de Estoque (Compras)",
-                        "👥 Cadastros (Clientes / Fornecedores / Grupos)",
-                        "👥 Gestão de Recursos Humanos (RH)",
-                        "💾 Backup e Restauração",
-                        "💸 Contas a Receber",
-                        "📦 Estoque de Produtos"
-                    ]
-                )
+                st.sidebar.error("Senha incorreta!")
+    else:
+        st.sidebar.subheader("🔒 Área Restrita")
+        if st.sidebar.button("Sair do Modo Admin"):
+            st.session_state.admin_logged = False
+            st.rerun()
+            
+        menu_admin = st.sidebar.radio(
+            "Navegação",
+            [
+                "🛒 PDV — Frente de Caixa",
+                "🔓 Abertura e Fechamento de Caixa",
+                "📊 Fechamento & Financeiro",
+                "📋 Pedidos / Orçamentos",
+                "🛒 Registrar Venda",
+                "📥 Entrada de Estoque (Compras)",
+                "👥 Cadastros (Clientes / Fornecedores / Grupos)",
+                "👥 Gestão de Recursos Humanos (RH)",
+                "💾 Backup e Restauração",
+                "💸 Contas a Receber",
+                "📦 Estoque de Produtos"
+            ]
+        )
         
         if menu_admin == "🛒 PDV — Frente de Caixa":
             # CSS para compactar e estilizar os botões de atalho no rodapé
@@ -1455,66 +1272,6 @@ if perfil_selecionado == "👤 Portal do Cliente":
             });
             </script>
             """, height=0)
-        if menu_admin == "⚙️ Configurações da Empresa":
-            st.title("⚙️ Dados da Empresa e Outras Configurações")
-            
-            # Carrega dados atuais se já existirem
-            df_config = carregar_dados("SELECT * FROM configuracoes ORDER BY id DESC LIMIT 1")
-            
-            # Valores padrão caso esteja vazio
-            cfg_nome = df_config.iloc[0]['nome_empresa'] if not df_config.empty else "REY DA CEBOLA"
-            cfg_cnpj = df_config.iloc[0]['cnpj'] if not df_config.empty else "00.000.000/0001-00"
-            cfg_ie = df_config.iloc[0]['ie'] if not df_config.empty else "00000000"
-            cfg_end = df_config.iloc[0]['endereco'] if not df_config.empty else "RUA NOVA HORIZONTE, 74"
-            cfg_bairro = df_config.iloc[0]['bairro'] if not df_config.empty else "NOVO HORIZONTE"
-            cfg_cep = df_config.iloc[0]['cep'] if not df_config.empty else "55460-000"
-            cfg_cidade = df_config.iloc[0]['cidade'] if not df_config.empty else "ARAME"
-            cfg_estado = df_config.iloc[0]['estado'] if not df_config.empty else "MA"
-            cfg_fone = df_config.iloc[0]['fone'] if not df_config.empty else "(00) 0000-0000"
-            cfg_email = df_config.iloc[0]['email'] if not df_config.empty else "contato@empresa.com"
-        
-            with st.form("form_config_empresa"):
-                st.markdown("### 🏢 Dados da Empresa")
-                
-                col1, col2, col3 = st.columns([2, 1.5, 1])
-                with col1:
-                    nome_empresa = st.text_input("Nome / Razão Social", value=cfg_nome)
-                with col2:
-                    cnpj = st.text_input("CNPJ", value=cfg_cnpj)
-                with col3:
-                    ie = st.text_input("IE", value=cfg_ie)
-                    
-                endereco = st.text_input("Endereço", value=cfg_end)
-                
-                col4, col5, col6, col7 = st.columns([1.5, 1, 1.5, 0.6])
-                with col4:
-                    bairro = st.text_input("Bairro", value=cfg_bairro)
-                with col5:
-                    cep = st.text_input("CEP", value=cfg_cep)
-                with col6:
-                    cidade = st.text_input("Cidade", value=cfg_cidade)
-                with col7:
-                    estado = st.text_input("Estado", value=cfg_estado)
-                    
-                col8, col9 = st.columns(2)
-                with col8:
-                    fone = st.text_input("Telefone", value=cfg_fone)
-                with col9:
-                    email = st.text_input("E-mail", value=cfg_email)
-                    
-                st.markdown("<br>", unsafe_allow_html=True)
-                salvar_cfg = st.form_submit_button("💾 Salvar Alterações da Empresa", type="primary", use_container_width=True)
-                
-                if salvar_cfg:
-                    cursor = conn.cursor()
-                    cursor.execute("DELETE FROM configuracoes") # Mantém apenas a configuração ativa atual
-                    cursor.execute("""
-                        INSERT INTO configuracoes (nome_empresa, cnpj, ie, endereco, bairro, cep, cidade, estado, fone, email)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (nome_empresa, cnpj, ie, endereco, bairro, cep, cidade, estado, fone, email))
-                    conn.commit()
-                    st.success("Dados da empresa atualizados com sucesso!")
-                    st.rerun()
         elif menu_admin == "🔓 Abertura e Fechamento de Caixa":
             st.title("🔓 Abertura e Fechamento de Caixa")
             df_caixa_atual = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
