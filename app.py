@@ -162,8 +162,10 @@ def get_connection():
 conn = get_connection()
 
 # =========================================================
-# TABELA DE CONFIGURAÇÕES DA EMPRESA
+# FLUXO DE CONFIGURAÇÃO INICIAL (1º EMPRESA -> 2º ATIVAÇÃO)
 # =========================================================
+
+# 1. Garante que as tabelas essenciais existem
 try:
     cursor = conn.cursor()
     cursor.execute("""
@@ -181,38 +183,6 @@ try:
             email TEXT
         )
     """)
-    conn.commit()
-except Exception as e:
-    pass
-
-# =========================================================
-# CARREGA CONFIGURAÇÕES DA EMPRESA (GLOBAL)
-# =========================================================
-try:
-    df_cfg_global = pd.read_sql_query("SELECT * FROM configuracoes ORDER BY id DESC LIMIT 1", conn)
-    if not df_cfg_global.empty:
-        NOME_EMPRESA_ATUAL = df_cfg_global.iloc[0]['nome_empresa']
-        CNPJ_EMPRESA_ATUAL = df_cfg_global.iloc[0]['cnpj']
-    else:
-        NOME_EMPRESA_ATUAL = "REY DA CEBOLA"
-        CNPJ_EMPRESA_ATUAL = "00.000.000/0001-00"
-except Exception:
-    NOME_EMPRESA_ATUAL = "REY DA CEBOLA"
-    CNPJ_EMPRESA_ATUAL = "00.000.000/0001-00"
-# =========================================================
-# SISTEMA DE LICENÇA POR DISPOSITIVO / SESSÃO (PERSISTENTE)
-# =========================================================
-
-CHAVES_SISTEMA = {
-    "CRM-DEMO-30DIAS": 30,
-    "CRM-ANUAL-2026": 365,
-    "CRM-REYSAL-MESTRE": 9999,
-    "CRM-SEVEN-DIAS": 7
-}
-
-# 1. Garante a criação da tabela de licença no SQLite
-try:
-    cursor = conn.cursor()
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS dispositivo_licenca (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -222,10 +192,76 @@ try:
         )
     """)
     conn.commit()
-except Exception as e:
+except Exception:
     pass
 
-# 2. Verifica na base de dados se já existe uma licença ativa
+# 2. ETAPA 1: Verificar se a Empresa já foi cadastrada
+try:
+    df_cfg_check = pd.read_sql_query("SELECT * FROM configuracoes ORDER BY id DESC LIMIT 1", conn)
+except Exception:
+    df_cfg_check = pd.DataFrame()
+
+empresa_cadastrada = not df_cfg_check.empty
+
+# Se a empresa NÃO estiver cadastrada, exibe o formulário primeiro
+if not empresa_cadastrada:
+    st.markdown("## 🏢 Bem-vindo! Cadastre os Dados da sua Empresa")
+    st.warning("⚠️ Por favor, preencha os dados abaixo para configurar o seu sistema comercial.")
+    
+    with st.form("form_onboarding_empresa"):
+        col1, col2, col3 = st.columns([2, 1.5, 1])
+        with col1:
+            nome_empresa = st.text_input("Nome / Razão Social", value="")
+        with col2:
+            cnpj = st.text_input("CNPJ", value="")
+        with col3:
+            ie = st.text_input("IE", value="")
+            
+        endereco = st.text_input("Endereço", value="")
+        
+        col4, col5, col6, col7 = st.columns([1.5, 1, 1.5, 0.6])
+        with col4:
+            bairro = st.text_input("Bairro", value="")
+        with col5:
+            cep = st.text_input("CEP", value="")
+        with col6:
+            cidade = st.text_input("Cidade", value="")
+        with col7:
+            estado = st.text_input("Estado", value="MA")
+            
+        col8, col9 = st.columns(2)
+        with col8:
+            fone = st.text_input("Telefone", value="")
+        with col9:
+            email = st.text_input("E-mail", value="")
+            
+        st.markdown("<br>", unsafe_allow_html=True)
+        salvar_onboarding = st.form_submit_button("💾 Salvar Dados e Ir para Ativação", type="primary", use_container_width=True)
+        
+        if salvar_onboarding:
+            if not nome_empresa.strip():
+                st.error("O campo Nome / Razão Social é obrigatório.")
+            else:
+                cursor = conn.cursor()
+                cursor.execute("DELETE FROM configuracoes")
+                cursor.execute("""
+                    INSERT INTO configuracoes (nome_empresa, cnpj, ie, endereco, bairro, cep, cidade, estado, fone, email)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (nome_empresa, cnpj, ie, endereco, bairro, cep, cidade, estado, fone, email))
+                conn.commit()
+                st.success("Empresa cadastrada com sucesso! A avançar...")
+                st.rerun()
+                
+    st.stop() # Interrompe o app aqui até o cadastro da empresa ser concluído
+
+# 3. ETAPA 2: Verificação de Licença do Dispositivo
+CHAVES_SISTEMA = {
+    "CRM-DEMO-30DIAS": 30,
+    "CRM-ANUAL-2026": 365,
+    "CRM-REYSAL-MESTRE": 9999,
+    "CRM-SEVEN-DIAS": 7
+}
+
 dispositivo_ativado = False
 dias_restantes = 0
 
@@ -239,13 +275,13 @@ try:
             dias_restantes = (data_exp - agora).days
             st.session_state["licenca_libertada"] = True
             st.session_state["dias_licenca"] = dias_restantes
-except Exception as e:
+except Exception:
     dispositivo_ativado = False
 
-# 3. Se não estiver ativado, exibe o ecrã de validação da chave
+# Se a empresa já está cadastrada mas o dispositivo não está ativado
 if not dispositivo_ativado:
     st.markdown("## 🔐 Ativação de Licença do Dispositivo")
-    st.warning("⚠️ Este dispositivo/navegador precisa de ser ativado para aceder ao sistema.")
+    st.warning("⚠️ Empresa registada com sucesso! Agora insira a sua chave de ativação para aceder ao sistema.")
     
     chave_digitada = st.text_input("🔑 Chave de Ativação:", type="password", placeholder="Digite a sua chave...")
     
@@ -257,7 +293,7 @@ if not dispositivo_ativado:
             nova_expiracao = (datetime.now() + timedelta(days=dias_validade)).strftime('%Y-%m-%d %H:%M:%S')
             
             cursor = conn.cursor()
-            cursor.execute("DELETE FROM dispositivo_licenca") # Limpa licenças antigas
+            cursor.execute("DELETE FROM dispositivo_licenca")
             cursor.execute("""
                 INSERT INTO dispositivo_licenca (chave, data_expiracao, status)
                 VALUES (?, ?, ?)
@@ -270,13 +306,19 @@ if not dispositivo_ativado:
             st.success(f"Dispositivo ativado com sucesso! Válido por {dias_validade} dias.")
             st.rerun()
         else:
-            st.error("Chave de ativação inválida. Verifique e tente novamente.")
+            st.error("Chave de ativação inválida. Tente novamente.")
             
-    st.stop() # Interrompe o carregamento do resto do app se não estiver ativado
+    st.stop()
 
-# --- EXIBE O STATUS NA BARRA LATERAL ---
+# Carrega o nome da empresa atual para o sistema de forma dinâmica
+try:
+    df_cfg_global = pd.read_sql_query("SELECT * FROM configuracoes ORDER BY id DESC LIMIT 1", conn)
+    NOME_EMPRESA_ATUAL = df_cfg_global.iloc[0]['nome_empresa'] if not df_cfg_global.empty else "REY DA CEBOLA"
+except Exception:
+    NOME_EMPRESA_ATUAL = "REY DA CEBOLA"
+
 dias_disp = st.session_state.get("dias_licenca", dias_restantes)
-st.sidebar.caption(f"🟢 **Dispositivo Ativado** ({dias_disp} dias de acesso)")
+st.sidebar.caption(f"🟢 **Dispositivo Ativado** ({dias_disp} dias)")
 # =========================================================
 # =========================================================
 # ESTILO VISUAL METÁLICO/CLÁSSICO PDV (FÊNIX STYLE)
