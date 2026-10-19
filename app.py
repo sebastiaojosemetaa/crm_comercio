@@ -173,27 +173,59 @@ CHAVES_SISTEMA = {
     "CRM-SEVEN-DIAS": 7
 }
 
-if not st.session_state["licenca_libertada"]:
-    st.markdown("---")
-    st.title("🔐 Ativação de Licença do Dispositivo")
+# =========================================================
+# VERIFICAÇÃO DE LICENÇA PERSISTENTE (BASE DE DADOS)
+# =========================================================
+
+# 1. Garante que a tabela de ativação existe na base de dados
+cursor = conn.cursor()
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS dispositivo_licenca (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        chave TEXT,
+        data_expiracao DATETIME,
+        status TEXT
+    )
+""")
+conn.commit()
+
+# 2. Verifica se já existe uma licença válida gravada na base de dados
+df_licenca = carregar_dados("SELECT * FROM dispositivo_licenca WHERE status = 'ATIVADO' ORDER BY id DESC LIMIT 1")
+
+dispositivo_ativado = False
+
+if not df_licenca.empty:
+    data_exp = pd.to_datetime(df_licenca.iloc[0]['data_expiracao'])
+    # Compara a data atual com a data de expiração da licença
+    if data_exp > datetime.now():
+        dispositivo_ativado = True
+
+# 3. Se não estiver ativado na base de dados, mostra a tela de ativação
+if not dispositivo_ativado:
+    st.markdown("## 🔐 Ativação de Licença do Dispositivo")
     st.warning("⚠️ Este dispositivo/navegador precisa de ser ativado para aceder ao sistema.")
     
-    with st.form("form_ativacao_dispositivo"):
-        chave_input = st.text_input("🔑 Chave de Ativação:", placeholder="Digite a sua chave...", type="password")
-        btn_ativar = st.form_submit_button("🔓 Ativar Este Dispositivo", use_container_width=True)
-        
-        if btn_ativar:
-            chave_limpa = chave_input.strip().upper()
-            if chave_limpa in CHAVES_SISTEMA:
-                dias = CHAVES_SISTEMA[chave_limpa]
-                st.session_state["licenca_libertada"] = True
-                st.session_state["dias_licenca"] = dias
-                st.success("✅ Dispositivo ativado com sucesso!")
-                st.rerun()
-            else:
-                st.error("❌ Chave inválida. Verifique o código e tente novamente.")
-                
-    st.stop()
+    chave_digitada = st.text_input("🔑 Chave de Ativação:", type="password", placeholder="Digite a sua chave...")
+    
+    if st.button("🔓 Ativar Este Dispositivo", type="primary"):
+        # Substitua aqui pela sua lógica de validação da chave secreta
+        if chave_digitada == "SUA_CHAVE_SECRETA_MESTRE_2026": 
+            # Define uma validade (ex: 30 dias ou 1 ano a partir de hoje)
+            nova_expiracao = (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d %H:%M:%S')
+            
+            cursor.execute("DELETE FROM dispositivo_licenca") # Limpa licenças anteriores
+            cursor.execute("""
+                INSERT INTO dispositivo_licenca (chave, data_expiracao, status)
+                VALUES (?, ?, ?)
+            """, (chave_digitada, nova_expiracao, 'ATIVADO'))
+            conn.commit()
+            
+            st.success("Dispositivo ativado com sucesso!")
+            st.rerun()
+        else:
+            st.error("Chave de ativação inválida.")
+            
+    st.stop() # Para a execução do app aqui se não estiver ativado
 
 dias_disp = st.session_state.get("dias_licenca", 0)
 st.sidebar.caption(f"🟢 **Dispositivo Ativado** ({dias_disp} dias de acesso)")
