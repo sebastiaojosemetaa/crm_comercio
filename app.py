@@ -1172,7 +1172,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     </div>
                     """.replace(",", "X").replace(".", ",").replace("X", "."), unsafe_allow_html=True)
         
-                if st.button("🟢 [ F12 ] Finalizar Venda", type="primary", use_container_width=True):
+                if st.button("🟢 Finalizar Venda [ Alt + V ]", type="primary", use_container_width=True):
                     if not df_caixa_aberto.empty and len(st.session_state.carrinho_pdv) > 0:
                         cursor = conn.cursor()
                         sessao_id = int(df_caixa_aberto.iloc[0]['id'])
@@ -1201,6 +1201,15 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.rerun()
                     else:
                         st.error("Verifique se o caixa está aberto e se há itens no carrinho.")
+        
+                # --- LEGENDA DE ATALHOS COMPACTA E VISÍVEL ---
+                st.markdown("""
+                <div style="background-color: #2b2b2b; color: #ffffff; padding: 4px; border-radius: 6px; text-align: center; font-family: monospace; font-size: 11px; margin-top: 4px;">
+                    <span style="color: #00ffcc;">[ Enter ]</span> Incluir &nbsp;|&nbsp; 
+                    <span style="color: #00ffcc;">[ Alt + C ]</span> Limpar &nbsp;|&nbsp; 
+                    <span style="color: #00ffcc;">[ Alt + V ]</span> Finalizar
+                </div>
+                """, unsafe_allow_html=True)
         
             # =========================================================
             # ATALHOS REALMENTE FUNCIONAIS (SEM CONFLITO COM O WINDOWS)
