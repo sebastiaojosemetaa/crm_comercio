@@ -1134,41 +1134,58 @@ if perfil_selecionado == "👤 Portal do Cliente":
                         st.warning("Digite um CNPJ ou CPF.")
         
         # =========================================================
+        # PAINEL DO DESENVOLVEDOR (GERADOR DE CHAVES SECRETO)
+        # =========================================================
+        with st.sidebar.expander("🛠️ Gerador de Chaves (Dev)"):
+            senha_dev = st.text_input("Senha Mestre Dev", type="password", key="pwd_dev_key")
+            
+            if senha_dev == "123456": 
+                doc_cliente = st.text_input("CNPJ ou CPF do Cliente:", key="doc_dev_key")
+                if st.button("🔑 Gerar Chave do Cliente", key="btn_dev_key"):
+                    if doc_cliente.strip():
+                        chave_gerada = gerar_chave_por_documento(doc_cliente)
+                        st.code(chave_gerada, language="text")
+                        st.success("Chave gerada com sucesso!")
+                    else:
+                        st.warning("Digite um CNPJ ou CPF.")
+        
+        # =========================================================
         # AMBIENTE 2: ADMINISTRADOR / VENDEDOR
         # =========================================================
         if perfil_seleccionado == "🔒 Administração / Vendedor":
             if not st.session_state.admin_logged:
                 st.title("🔒 Autenticação Administrativa")
-                senha_admin = st.sidebar.text_input("Digite a Senha do Admin:", type="password")
-        if st.sidebar.button("Entrar como Admin"):
-            if senha_admin == "13142715":
-                st.session_state.admin_logged = True
-                st.rerun()
+                senha_admin = st.sidebar.text_input("Digite a Senha do Admin:", type="password", key="senha_admin_input")
+                
+                if st.sidebar.button("Entrar como Admin"):
+                    if senha_admin == "13142715":
+                        st.session_state.admin_logged = True
+                        st.rerun()
+                    else:
+                        st.sidebar.error("Senha incorreta!")
             else:
-                st.sidebar.error("Senha incorreta!")
-    else:
-        st.sidebar.subheader("🔒 Área Restrita")
-        if st.sidebar.button("Sair do Modo Admin"):
-            st.session_state.admin_logged = False
-            st.rerun()
-            
-        menu_admin = st.sidebar.radio(
-            "Navegação",
-            [
-                "🛒 PDV — Frente de Caixa",
-                "🔓 Abertura e Fechamento de Caixa",
-                "⚙️ Configurações da Empresa",
-                "📊 Fechamento & Financeiro",
-                "📋 Pedidos / Orçamentos",
-                "🛒 Registrar Venda",
-                "📥 Entrada de Estoque (Compras)",
-                "👥 Cadastros (Clientes / Fornecedores / Grupos)",
-                "👥 Gestão de Recursos Humanos (RH)",
-                "💾 Backup e Restauração",
-                "💸 Contas a Receber",
-                "📦 Estoque de Produtos"
-            ]
-        )
+                st.sidebar.subheader("🔒 Área Restrita")
+                if st.sidebar.button("Sair do Modo Admin"):
+                    st.session_state.admin_logged = False
+                    st.rerun()
+                    
+                menu_admin = st.sidebar.radio(
+                    "Navegação",
+                    [
+                        "🛒 PDV — Frente de Caixa",
+                        "🔓 Abertura e Fechamento de Caixa",
+                        "⚙️ Configurações da Empresa",
+                        "📊 Fechamento & Financeiro",
+                        "📋 Pedidos / Orçamentos",
+                        "🛒 Registrar Venda",
+                        "📥 Entrada de Estoque (Compras)",
+                        "👥 Cadastros (Clientes / Fornecedores / Grupos)",
+                        "👥 Gestão de Recursos Humanos (RH)",
+                        "💾 Backup e Restauração",
+                        "💸 Contas a Receber",
+                        "📦 Estoque de Produtos"
+                    ]
+                )
         
         if menu_admin == "🛒 PDV — Frente de Caixa":
             # CSS para compactar e estilizar os botões de atalho no rodapé
