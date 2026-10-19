@@ -14,7 +14,7 @@ import hashlib
 import uuid
 
 # -----------------------------------------------------------------------------
-# CONFIGURAÇÃO DA PÁGINA (Deve ser a primeira instrução Streamlit)
+# CONFIGURAÇÃO DA PÁGINA
 # -----------------------------------------------------------------------------
 st.set_page_config(page_title="CRM Comércio - Rey da Cebola", layout="wide", page_icon="🛍️")
 
@@ -26,10 +26,9 @@ if "device_id" not in st.query_params:
 device_id = st.query_params["device_id"]
 
 # =========================================================
-# FUNÇÃO 1: GERADOR DE CHAVE ÚNICA POR CNPJ / CPF
+# FUNÇÃO: GERADOR DE CHAVE ÚNICA POR CNPJ / CPF
 # =========================================================
 def gerar_chave_por_documento(documento):
-    # Remove tudo o que não for número para evitar divergências de pontos/traços
     apenas_digitos = ''.join(filter(str.isdigit, str(documento)))
     segredo_mestre = "REY_CEBOLA_2026"
     combinado = apenas_digitos + segredo_mestre
@@ -38,170 +37,19 @@ def gerar_chave_por_documento(documento):
     return chave_formatada
 
 # =========================================================
-# PAINEL DO DESENVOLVEDOR (SEMPRE DISPONÍVEL NA BARRA LATERAL)
+# CONEXÃO E TABELAS MULTI-EMPRESA
 # =========================================================
-with st.sidebar.expander("🛠️ Gerador de Chaves (Dev)"):
-    senha_dev = st.text_input("Senha Mestre Dev", type="password", key="pwd_dev_topo_unico")
-    if senha_dev == "13142715":  # Sua senha mestre
-        doc_cliente = st.text_input("CNPJ ou CPF do Cliente:", key="doc_dev_topo_doc_unico")
-        if st.button("🔑 Gerar Chave", key="btn_dev_topo_acao_unico"):
-            if doc_cliente.strip():
-                chave_gerada = gerar_chave_por_documento(doc_cliente)
-                st.code(chave_gerada, language="text")
-                st.success("Chave gerada com sucesso!")
-            else:
-                st.warning("Digite um CNPJ ou CPF.")
-
-st.sidebar.markdown("---")
-def sanear_df_vendas(df):
-    """Trata campos nulos (None) e ajusta o cálculo do valor restante por item."""
-    if df is None or df.empty:
-        return df
-    df = df.copy()
-    
-    if 'forma_pagamento' in df.columns:
-        df['forma_pagamento'] = df['forma_pagamento'].fillna('-').replace({'None': '-', '': '-'})
-    
-    for col in ['quantidade', 'valor_venda', 'valor_total', 'valor_recebido', 'troco', 'restante']:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
-            
-    if 'valor_total' in df.columns and 'valor_recebido' in df.columns and 'restante' in df.columns:
-        mask_excesso = df['restante'] > df['valor_total']
-        df.loc[mask_excesso, 'restante'] = (df.loc[mask_excesso, 'valor_total'] - df.loc[mask_excesso, 'valor_recebido']).clip(lower=0.0)
-
-    return df
-
-# -----------------------------------------------------------------------------
-# GERADOR DE PDF
-# -----------------------------------------------------------------------------
-def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=15, bottomMargin=30)
-    story = []
-
-    styles = getSampleStyleSheet()
-
-    style_empresa = ParagraphStyle(
-        'Empresa', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=16, 
-        leading=20, alignment=1, textColor=colors.HexColor("#0f2a4a"), spaceAfter=4
-    )
-    style_sub = ParagraphStyle(
-        'Sub', parent=styles['Normal'], fontName='Helvetica', fontSize=9, 
-        leading=12, alignment=1, spaceAfter=10
-    )
-    style_titulo = ParagraphStyle(
-        'Titulo', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=12, 
-        leading=15, alignment=1, textColor=colors.HexColor("#0f2a4a"), spaceAfter=4
-    )
-    style_info = ParagraphStyle(
-        'Info', parent=styles['Normal'], fontName='Helvetica', fontSize=9, 
-        leading=12, alignment=1, spaceAfter=15
-    )
-
-    story.append(Paragraph("REY DA CEBOLA", style_empresa))
-    story.append(Paragraph("CNPJ: 194.174.39/0001-42 INSC.EST.: 12.426725-4<br/>CONTATO: (99) 98814-9722 OU (99) 98414-3943", style_sub))
-
-    data_atual = (datetime.utcnow() - timedelta(hours=3)).strftime('%Y-%m-%d %H:%M:%S')
-
-    if cliente_nome not in ["Todos", "Geral", ""]:
-        story.append(Paragraph("Relatório de Pedidos / Orçamentos", style_titulo))
-        story.append(Paragraph(f"<b>Cliente:</b> {cliente_nome} | <b>Gerado em:</b> {data_atual}", style_info))
-    else:
-        story.append(Paragraph("Relatório de Pedidos / Orçamentos - Geral", style_titulo))
-        story.append(Paragraph(f"<b>Gerado em:</b> {data_atual}", style_info))
-
-    if not df_dados.empty:
-        df_proc = df_dados.copy()
-        
-        if 'Excluir' in df_proc.columns:
-            df_proc = df_proc.drop(columns=['Excluir'])
-
-        col_qtd = next((c for c in ['quantidade', 'qtd'] if c in df_proc.columns), df_proc.columns[3] if len(df_proc.columns) > 3 else df_proc.columns[0])
-        col_unit = next((c for c in ['valor_venda', 'valor_unitario', 'preco_unitario', 'Valor Unitário (R$)'] if c in df_proc.columns), df_proc.columns[4] if len(df_proc.columns) > 4 else df_proc.columns[0])
-        col_tot = next((c for c in ['valor_total', 'total', 'Total (R$)'] if c in df_proc.columns), df_proc.columns[5] if len(df_proc.columns) > 5 else df_proc.columns[0])
-
-        def tratar_num(val):
-            if pd.isna(val) or val == '':
-                return 0.0
-            if isinstance(val, (int, float)):
-                return float(val)
-            s = str(val).replace('R$', '').strip()
-            if ',' in s and '.' in s:
-                s = s.replace('.', '').replace(',', '.')
-            elif ',' in s:
-                s = s.replace(',', '.')
-            try:
-                return float(s)
-            except:
-                return 0.0
-
-        df_proc[col_qtd] = df_proc[col_qtd].apply(tratar_num)
-        df_proc[col_unit] = df_proc[col_unit].apply(tratar_num)
-        df_proc[col_tot] = df_proc[col_tot].apply(tratar_num)
-
-        df_agrupado = df_proc.groupby('produto', as_index=False).agg({
-            col_qtd: 'sum',
-            col_unit: 'mean',
-            col_tot: 'sum'
-        })
-    else:
-        df_agrupado = pd.DataFrame(columns=['produto', 'quantidade', 'valor_venda', 'valor_total'])
-
-    table_data = [["Produto", "Qtd Total", "Preço Unitário (R$)", "Valor Total (R$)"]]
-    total_geral = 0.0
-
-    for _, row in df_agrupado.iterrows():
-        qtd = float(row[col_qtd])
-        unit = float(row[col_unit])
-        tot = float(row[col_tot])
-        total_geral += tot
-
-        table_data.append([
-            str(row['produto']),
-            f"{qtd:.2f}",
-            f"R$ {unit:.2f}",
-            f"R$ {tot:.2f}"
-        ])
-
-    table_data.append(["VALOR TOTAL GERAL", "", "", f"R$ {total_geral:.2f}"])
-
-    tabela = Table(table_data, colWidths=[240, 80, 110, 120])
-    tabela.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#1f4e8c")),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 9),
-        ('ALIGN', (1, 0), (-1, -1), 'CENTER'),
-        ('ALIGN', (0, 0), (0, -1), 'LEFT'),
-        ('GRID', (0, 0), (-1, -2), 0.5, colors.HexColor("#d3d3d3")),
-        ('SPAN', (0, -1), (2, -1)),
-        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor("#0d1b2a")),
-        ('TEXTCOLOR', (0, -1), (-1, -1), colors.white),
-        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
-        ('ALIGN', (0, -1), (0, -1), 'LEFT'),
-        ('ALIGN', (-1, -1), (-1, -1), 'RIGHT'),
-    ]))
-
-    story.append(tabela)
-    doc.build(story)
-    buffer.seek(0)
-    return buffer
-
-# -----------------------------------------------------------------------------
-# CONEXÃO E MIGRAÇÃO DO BANCO DE DADOS
-# -----------------------------------------------------------------------------
 def get_connection():
     return sqlite3.connect("crm_comercio.db", check_same_thread=False)
 
 conn = get_connection()
 
-# Garante a tabela de configurações da empresa
-try:
+def inicializar_tabelas_multiempresas():
     cursor = conn.cursor()
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS configuracoes (
+        CREATE TABLE IF NOT EXISTS empresas_dispositivos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            device_id TEXT UNIQUE,
             nome_empresa TEXT,
             cnpj TEXT,
             ie TEXT,
@@ -209,26 +57,35 @@ try:
             endereco TEXT
         )
     """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS dispositivo_licenca (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            device_id TEXT UNIQUE,
+            chave TEXT,
+            data_expiracao DATETIME,
+            status TEXT
+        )
+    """)
     conn.commit()
-except Exception:
-    pass
 
-# =========================================================
-# PASSO 1: VERIFICA SE A EMPRESA JÁ ESTÁ CADASTRADA
-# =========================================================
-try:
-    df_empresa_check = pd.read_sql_query("SELECT * FROM configuracoes ORDER BY id DESC LIMIT 1", conn)
-    empresa_registrada = not df_empresa_check.empty and bool(str(df_empresa_check.iloc[0].get('cnpj', '')).strip())
-    cnpj_registrado = df_empresa_check.iloc[0]['cnpj'] if empresa_registrada else ""
-except Exception:
-    empresa_registrada = False
-    cnpj_registrado = ""
+inicializar_tabelas_multiempresas()
+
+# -----------------------------------------------------------------------------
+# 1. VERIFICA A EMPRESA DESTE DISPOSITIVO ESPECÍFICO
+# -----------------------------------------------------------------------------
+df_emp_dev = pd.read_sql_query(
+    "SELECT * FROM empresas_dispositivos WHERE device_id = ?", 
+    conn, 
+    params=(device_id,)
+)
+
+empresa_registrada = not df_emp_dev.empty and bool(str(df_emp_dev.iloc[0].get('cnpj', '')).strip())
 
 if not empresa_registrada:
     st.markdown("## 🏢 Bem-vindo! Cadastre os Dados da sua Empresa")
-    st.warning("⚠️ Por favor, preencha os dados abaixo para configurar o seu sistema comercial.")
+    st.warning("⚠️ Este dispositivo/navegador ainda não tem uma empresa configurada. Insira os seus dados abaixo.")
     
-    with st.form("form_config_inicial_empresa"):
+    with st.form("form_config_inicial_empresa_dev"):
         c_nome = st.text_input("Nome / Razão Social")
         c_cnpj = st.text_input("CNPJ ou CPF")
         c_ie = st.text_input("Inscrição Estadual (IE)")
@@ -238,127 +95,64 @@ if not empresa_registrada:
         btn_salvar_emp = st.form_submit_button("💾 Salvar Dados e Ir para Ativação", type="primary")
         if btn_salvar_emp:
             if c_nome.strip() and c_cnpj.strip():
+                cnpj_limpo = ''.join(filter(str.isdigit, c_cnpj))
                 cursor = conn.cursor()
                 cursor.execute("""
-                    INSERT INTO configuracoes (nome_empresa, cnpj, ie, fone, endereco)
-                    VALUES (?, ?, ?, ?, ?)
-                """, (c_nome.strip(), c_cnpj.strip(), c_ie.strip(), c_tel.strip(), c_end.strip()))
+                    INSERT OR REPLACE INTO empresas_dispositivos (device_id, nome_empresa, cnpj, ie, fone, endereco)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (device_id, c_nome.strip(), cnpj_limpo, c_ie.strip(), c_tel.strip(), c_end.strip()))
                 conn.commit()
-                st.success("Empresa registada com sucesso! Recarregando...")
+                st.success("Empresa cadastrada com sucesso para este dispositivo!")
                 st.rerun()
             else:
-                st.error("Preencha pelo menos o Nome e o CNPJ/CPF.")
+                st.error("Preencha o Nome e o CNPJ/CPF.")
     st.stop()
 
-# =========================================================
-# SISTEMA DE LICENÇA INDEPENDENTE POR DISPOSITIVO
-# =========================================================
-try:
-    cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS dispositivo_licenca (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            device_id TEXT,
-            chave TEXT,
-            data_expiracao DATETIME,
-            status TEXT
-        )
-    """)
-    try:
-        cursor.execute("ALTER TABLE dispositivo_licenca ADD COLUMN device_id TEXT")
-    except Exception:
-        pass
-    conn.commit()
-except Exception as e:
-    pass
+cnpj_registrado = df_emp_dev.iloc[0]['cnpj']
+nome_empresa_registrada = df_emp_dev.iloc[0]['nome_empresa']
+
+# -----------------------------------------------------------------------------
+# 2. VERIFICA A LICENÇA DESTE DISPOSITIVO ESPECÍFICO
+# -----------------------------------------------------------------------------
+df_lic = pd.read_sql_query(
+    "SELECT * FROM dispositivo_licenca WHERE device_id = ? AND status = 'ATIVADO'", 
+    conn, 
+    params=(device_id,)
+)
 
 dispositivo_ativado = False
-dias_restantes = 0
-
-try:
-    df_licenca = pd.read_sql_query(
-        "SELECT * FROM dispositivo_licenca WHERE device_id = ? AND status = 'ATIVADO' ORDER BY id DESC LIMIT 1", 
-        conn, 
-        params=(device_id,)
-    )
-    if not df_licenca.empty:
-        data_exp = pd.to_datetime(df_licenca.iloc[0]['data_expiracao'])
-        agora = datetime.now()
-        if data_exp > agora:
-            dispositivo_ativado = True
-            dias_restantes = (data_exp - agora).days
-            st.session_state["licenca_libertada"] = True
-            st.session_state["dias_licenca"] = dias_restantes
-except Exception as e:
-    dispositivo_ativado = False
+if not df_lic.empty:
+    data_exp = pd.to_datetime(df_lic.iloc[0]['data_expiracao'])
+    if data_exp > datetime.now():
+        dispositivo_ativado = True
 
 if not dispositivo_ativado:
-    st.markdown("## 🔐 Ativação de Licença deste Dispositivo")
-    st.info(f"Empresa registada com o CNPJ/CPF: **{cnpj_registrado}**. Insira a chave de ativação correspondente para liberar este aparelho.")
+    st.markdown("## 🔐 Ativação de Licença do Dispositivo")
+    st.info(f"Empresa: **{nome_empresa_registrada}** (CNPJ/CPF: **{cnpj_registrado}**)")
     
-    with st.expander("✏️ Errou o CNPJ/CPF ou nome da empresa? Clique aqui para corrigir"):
-        with st.form("form_corrigir_empresa_atv"):
-            df_atual_emp = pd.read_sql_query("SELECT * FROM configuracoes ORDER BY id DESC LIMIT 1", conn)
-            reg_atual = df_atual_emp.iloc[0] if not df_atual_emp.empty else {}
-            
-            novo_nome_emp = st.text_input("Nome / Razão Social", value=str(reg_atual.get('nome_empresa', '')))
-            novo_cnpj_emp = st.text_input("CNPJ ou CPF Correto", value=str(reg_atual.get('cnpj', '')))
-            novo_fone_emp = st.text_input("Telefone", value=str(reg_atual.get('fone', '')))
-            
-            if st.form_submit_button("💾 Salvar Correção dos Dados"):
-                if novo_nome_emp.strip() and novo_cnpj_emp.strip():
-                    cursor = conn.cursor()
-                    cursor.execute("""
-                        UPDATE configuracoes 
-                        SET nome_empresa = ?, cnpj = ?, fone = ? 
-                        WHERE id = ?
-                    """, (novo_nome_emp.strip(), novo_cnpj_emp.strip(), novo_fone_emp.strip(), int(reg_atual.get('id', 1))))
-                    conn.commit()
-                    st.success("✅ Dados corrigidos com sucesso! Recarregando...")
-                    st.rerun()
-                else:
-                    st.error("Preencha o Nome e o CNPJ/CPF corretamente.")
-
     chave_digitada = st.text_input("🔑 Chave de Ativação:", type="password", placeholder="Digite a sua chave...", key="input_chave_ativacao_tela")
     
     if st.button("🔓 Ativar Este Dispositivo", type="primary", key="btn_ativar_dispositivo_tela"):
         chave_limpa = chave_digitada.strip().upper()
-        
-        try:
-            df_emp_novo = pd.read_sql_query("SELECT cnpj FROM configuracoes ORDER BY id DESC LIMIT 1", conn)
-            cnpj_atualizado = df_emp_novo.iloc[0]['cnpj'] if not df_emp_novo.empty else cnpj_registrado
-        except Exception:
-            cnpj_atualizado = cnpj_registrado
-
-        # Limpa rigorosamente o CNPJ recuperado da base de dados
-        cnpj_limpo_bd = ''.join(filter(str.isdigit, str(cnpj_atualizado)))
+        cnpj_limpo_bd = ''.join(filter(str.isdigit, str(cnpj_registrado)))
         chave_esperada = gerar_chave_por_documento(cnpj_limpo_bd)
+        CHAVE_MESTRE = "CRM-REYSAL-MESTRE"
         
-        CHAVE_MESTRE_GLOBAL = "CRM-REYSAL-MESTRE"
-        
-        # Aceita a chave específica do CNPJ OU a chave mestre global de testes
-        if chave_limpa == chave_esperada or chave_limpa == CHAVE_MESTRE_GLOBAL:
-            dias_validade = 365 
-            nova_expiracao = (datetime.now() + timedelta(days=dias_validade)).strftime('%Y-%m-%d %H:%M:%S')
-            
+        if chave_limpa == chave_esperada or chave_limpa == CHAVE_MESTRE:
+            nova_exp = (datetime.now() + timedelta(days=365)).strftime('%Y-%m-%d %H:%M:%S')
             cursor = conn.cursor()
-            cursor.execute("DELETE FROM dispositivo_licenca WHERE device_id = ?", (device_id,))
             cursor.execute("""
-                INSERT INTO dispositivo_licenca (device_id, chave, data_expiracao, status)
-                VALUES (?, ?, ?, ?)
-            """, (device_id, chave_limpa, nova_expiracao, 'ATIVADO'))
+                INSERT OR REPLACE INTO dispositivo_licenca (device_id, chave, data_expiracao, status)
+                VALUES (?, ?, ?, 'ATIVADO')
+            """, (device_id, chave_limpa, nova_exp))
             conn.commit()
-            
-            st.session_state["licenca_libertada"] = True
-            st.session_state["dias_licenca"] = dias_validade
-            
-            st.success(f"Dispositivo ativado com sucesso para o CNPJ {cnpj_atualizado}!")
+            st.success("Dispositivo ativado com sucesso!")
             st.rerun()
         else:
-            st.error(f"Chave inválida. (Esperada para o CNPJ limpo: {chave_esperada}). Verifique os dados.")            
+            st.error("Chave inválida para este CNPJ.")
     st.stop()
 
-dias_disp = st.session_state.get("dias_licenca", dias_restantes)
+dias_disp = 365
 st.sidebar.caption(f"🟢 **Dispositivo Ativado** ({dias_disp} dias de acesso)")
 # =========================================================
 # ESTILO VISUAL METÁLICO/CLÁSSICO PDV (FÊNIX STYLE)
