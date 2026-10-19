@@ -11,9 +11,17 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 import io
 import datetime as dt
 import hashlib
-# =========================================================
-# PAINEL DO DESENVOLVEDOR (SEMPRE DISPONÍVEL NO TOPO)
-# =========================================================
+
+# 1. Defina a função primeiro
+def gerar_chave_por_documento(documento):
+    apenas_digitos = ''.join(filter(str.isdigit, str(documento)))
+    segredo_mestre = "REY_CEBOLA_2026"
+    combinado = apenas_digitos + segredo_mestre
+    hash_hex = hashlib.md5(combinado.encode()).hexdigest().upper()
+    chave_formatada = f"CRM-{hash_hex[:4]}-{hash_hex[4:8]}-{hash_hex[8:12]}"
+    return chave_formatada
+
+# 2. Logo abaixo, coloque o painel que chama a função
 with st.sidebar.expander("🛠️ Gerador de Chaves (Dev)"):
     senha_dev = st.text_input("Senha Mestre Dev", type="password", key="pwd_dev_topo")
     if senha_dev == "13142715":  # Sua senha mestre
