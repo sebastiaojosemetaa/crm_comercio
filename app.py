@@ -160,9 +160,34 @@ def get_connection():
     return sqlite3.connect("crm_comercio.db", check_same_thread=False)
 
 conn = get_connection()
-# =========================================================
-# SISTEMA DE LICENÇA POR DISPOSITIVO / SESSÃO (PERSISTENTE)
-# =========================================================
+
+    # =========================================================
+    # TABELA DE CONFIGURAÇÕES DA EMPRESA
+    # =========================================================
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS configuracoes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome_empresa TEXT,
+                cnpj TEXT,
+                ie TEXT,
+                endereco TEXT,
+                bairro TEXT,
+                cep TEXT,
+                cidade TEXT,
+                estado TEXT,
+                fone TEXT,
+                email TEXT
+            )
+        """)
+        conn.commit()
+    except Exception as e:
+        pass
+
+    # =========================================================
+    # SISTEMA DE LICENÇA POR DISPOSITIVO / SESSÃO (PERSISTENTE)
+    # =========================================================
 
 CHAVES_SISTEMA = {
     "CRM-DEMO-30DIAS": 30,
