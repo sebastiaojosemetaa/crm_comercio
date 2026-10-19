@@ -279,17 +279,48 @@ if not dispositivo_ativado:
     st.markdown("## 🔐 Ativação de Licença do Dispositivo")
     st.info(f"Empresa registada com o CNPJ/CPF: **{cnpj_registrado}**. Insira a chave de ativação correspondente para aceder ao sistema.")
     
+    # --- NOVO: OPÇÃO PARA CORRIGIR OS DADOS CASO TENHA SIDO DIGITADO ERRADO ---
+    with st.expander("✏️ Errou o CNPJ/CPF ou nome da empresa? Clique aqui para corrigir"):
+        with st.form("form_corrigir_empresa_atv"):
+            df_atual_emp = pd.read_sql_query("SELECT * FROM configuracoes ORDER BY id DESC LIMIT 1", conn)
+            reg_atual = df_atual_emp.iloc[0] if not df_atual_emp.empty else {}
+            
+            novo_nome_emp = st.text_input("Nome / Razão Social", value=str(reg_atual.get('nome_empresa', '')))
+            novo_cnpj_emp = st.text_input("CNPJ ou CPF Correto", value=str(reg_atual.get('cnpj', '')))
+            novo_fone_emp = st.text_input("Telefone", value=str(reg_atual.get('fone', '')))
+            
+            if st.form_submit_button("💾 Salvar Correção dos Dados"):
+                if novo_nome_emp.strip() and novo_cnpj_emp.strip():
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        UPDATE configuracoes 
+                        SET nome_empresa = ?, cnpj = ?, fone = ? 
+                        WHERE id = ?
+                    """, (novo_nome_emp.strip(), novo_cnpj_emp.strip(), novo_fone_emp.strip(), int(reg_atual.get('id', 1))))
+                    conn.commit()
+                    st.success("✅ Dados corrigidos com sucesso! Recarregando...")
+                    st.rerun()
+                else:
+                    st.error("Preencha o Nome e o CNPJ/CPF corretamente.")
+
+    # --- CAMPO DE ATIVAÇÃO DA LICENÇA ---
     chave_digitada = st.text_input("🔑 Chave de Ativação:", type="password", placeholder="Digite a sua chave...", key="input_chave_ativacao_tela")
     
     if st.button("🔓 Ativar Este Dispositivo", type="primary", key="btn_ativar_dispositivo_tela"):
         chave_limpa = chave_digitada.strip().upper()
         
-        # Gera a chave esperada com base no CNPJ que acabou de ser cadastrado
-        chave_esperada = gerar_chave_por_documento(cnpj_registrado)
+        # Pega o CNPJ atualizado (caso tenha acabado de ser corrigido)
+        try:
+            df_emp_novo = pd.read_sql_query("SELECT cnpj FROM configuracoes ORDER BY id DESC LIMIT 1", conn)
+            cnpj_atualizado = df_emp_novo.iloc[0]['cnpj'] if not df_emp_novo.empty else cnpj_registrado
+        except Exception:
+            cnpj_atualizado = cnpj_registrado
+
+        chave_esperada = gerar_chave_por_documento(cnpj_atualizado)
         CHAVE_MESTRE_GLOBAL = "CRM-REYSAL-MESTRE"
         
         if chave_limpa == chave_esperada or chave_limpa == CHAVE_MESTRE_GLOBAL:
-            dias_validade = 365 # Licença anual
+            dias_validade = 365 
             nova_expiracao = (datetime.now() + timedelta(days=dias_validade)).strftime('%Y-%m-%d %H:%M:%S')
             
             cursor = conn.cursor()
@@ -303,13 +334,12 @@ if not dispositivo_ativado:
             st.session_state["licenca_libertada"] = True
             st.session_state["dias_licenca"] = dias_validade
             
-            st.success(f"Dispositivo ativado com sucesso para o CNPJ {cnpj_registrado}!")
+            st.success(f"Dispositivo ativado com sucesso para o CNPJ {cnpj_atualizado}!")
             st.rerun()
         else:
             st.error("Chave de ativação inválida para este CNPJ/CPF. Verifique os dados no gerador de chaves.")
             
     st.stop()
-
 dias_disp = st.session_state.get("dias_licenca", dias_restantes)
 st.sidebar.caption(f"🟢 **Dispositivo Ativado** ({dias_disp} dias de acesso)")
 # =========================================================
