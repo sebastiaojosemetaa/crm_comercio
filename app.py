@@ -1049,6 +1049,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             [
                 "🛒 PDV — Frente de Caixa",
                 "🔓 Abertura e Fechamento de Caixa",
+                "⚙️ Configurações da Empresa",
                 "📊 Fechamento & Financeiro",
                 "📋 Pedidos / Orçamentos",
                 "🛒 Registrar Venda",
