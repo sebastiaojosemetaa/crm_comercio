@@ -188,17 +188,63 @@ def get_connection():
 
 conn = get_connection()
 
-# =========================================================
-# SISTEMA DE LICENÇA POR DISPOSITIVO / SESSÃO (PERSISTENTE)
-# =========================================================
+# Garante a tabela de configurações da empresa
+try:
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS configuracoes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome_empresa TEXT,
+            cnpj TEXT,
+            ie TEXT,
+            fone TEXT,
+            endereco TEXT
+        )
+    """)
+    conn.commit()
+except Exception:
+    pass
 
-CHAVES_SISTEMA = {
-    "CRM-DEMO-30DIAS": 30,
-    "CRM-ANUAL-2026": 365,
-    "CRM-REYSAL-MESTRE": 9999,
-    "CRM-SEVEN-DIAS": 7
-}
+# =========================================================
+# PASSO 1: VERIFICA SE A EMPRESA JÁ ESTÁ CADASTRADA
+# =========================================================
+try:
+    df_empresa_check = pd.read_sql_query("SELECT * FROM configuracoes ORDER BY id DESC LIMIT 1", conn)
+    empresa_registrada = not df_empresa_check.empty and bool(str(df_empresa_check.iloc[0].get('cnpj', '')).strip())
+    cnpj_registrado = df_empresa_check.iloc[0]['cnpj'] if empresa_registrada else ""
+except Exception:
+    empresa_registrada = False
+    cnpj_registrado = ""
 
+if not empresa_registrada:
+    st.markdown("## 🏢 Bem-vindo! Cadastre os Dados da sua Empresa")
+    st.warning("⚠️ Por favor, preencha os dados abaixo para configurar o seu sistema comercial.")
+    
+    with st.form("form_config_inicial_empresa"):
+        c_nome = st.text_input("Nome / Razão Social")
+        c_cnpj = st.text_input("CNPJ ou CPF")
+        c_ie = st.text_input("Inscrição Estadual (IE)")
+        c_tel = st.text_input("Telefone de Contato")
+        c_end = st.text_input("Endereço Completo")
+        
+        btn_salvar_emp = st.form_submit_button("💾 Salvar Dados e Ir para Ativação", type="primary")
+        if btn_salvar_emp:
+            if c_nome.strip() and c_cnpj.strip():
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT INTO configuracoes (nome_empresa, cnpj, ie, fone, endereco)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (c_nome.strip(), c_cnpj.strip(), c_ie.strip(), c_tel.strip(), c_end.strip()))
+                conn.commit()
+                st.success("Empresa registada com sucesso! Recarregando...")
+                st.rerun()
+            else:
+                st.error("Preencha pelo menos o Nome e o CNPJ/CPF.")
+    st.stop()
+
+# =========================================================
+# PASSO 2: SISTEMA DE LICENÇA POR DISPOSITIVO (POR CNPJ)
+# =========================================================
 try:
     cursor = conn.cursor()
     cursor.execute("""
@@ -231,24 +277,19 @@ except Exception as e:
 
 if not dispositivo_ativado:
     st.markdown("## 🔐 Ativação de Licença do Dispositivo")
-    st.warning("⚠️ Este dispositivo/navegador precisa de ser ativado para aceder ao sistema.")
+    st.info(f"Empresa registada com o CNPJ/CPF: **{cnpj_registrado}**. Insira a chave de ativação correspondente para aceder ao sistema.")
     
     chave_digitada = st.text_input("🔑 Chave de Ativação:", type="password", placeholder="Digite a sua chave...", key="input_chave_ativacao_tela")
     
     if st.button("🔓 Ativar Este Dispositivo", type="primary", key="btn_ativar_dispositivo_tela"):
         chave_limpa = chave_digitada.strip().upper()
         
-        # Busca o CNPJ/CPF cadastrado
-        try:
-            df_emp = pd.read_sql_query("SELECT cpf, doc FROM clientes ORDER BY id DESC LIMIT 1", conn)
-            doc_cadastrado = df_emp.iloc[0]['cpf'] if not df_emp.empty and pd.notna(df_emp.iloc[0]['cpf']) else (df_emp.iloc[0]['doc'] if not df_emp.empty else "")
-        except Exception:
-            doc_cadastrado = ""
-            
-        chave_esperada = gerar_chave_por_documento(doc_cadastrado) if doc_cadastrado else ""
+        # Gera a chave esperada com base no CNPJ que acabou de ser cadastrado
+        chave_esperada = gerar_chave_por_documento(cnpj_registrado)
+        CHAVE_MESTRE_GLOBAL = "CRM-REYSAL-MESTRE"
         
-        if chave_limpa in CHAVES_SISTEMA or (chave_esperada and chave_limpa == chave_esperada):
-            dias_validade = CHAVES_SISTEMA.get(chave_limpa, 365)
+        if chave_limpa == chave_esperada or chave_limpa == CHAVE_MESTRE_GLOBAL:
+            dias_validade = 365 # Licença anual
             nova_expiracao = (datetime.now() + timedelta(days=dias_validade)).strftime('%Y-%m-%d %H:%M:%S')
             
             cursor = conn.cursor()
@@ -262,16 +303,15 @@ if not dispositivo_ativado:
             st.session_state["licenca_libertada"] = True
             st.session_state["dias_licenca"] = dias_validade
             
-            st.success(f"Dispositivo ativado com sucesso! Válido por {dias_validade} dias.")
+            st.success(f"Dispositivo ativado com sucesso para o CNPJ {cnpj_registrado}!")
             st.rerun()
         else:
-            st.error("Chave de ativação inválida. Verifique e tente novamente.")
+            st.error("Chave de ativação inválida para este CNPJ/CPF. Verifique os dados no gerador de chaves.")
             
     st.stop()
 
 dias_disp = st.session_state.get("dias_licenca", dias_restantes)
 st.sidebar.caption(f"🟢 **Dispositivo Ativado** ({dias_disp} dias de acesso)")
-
 # =========================================================
 # ESTILO VISUAL METÁLICO/CLÁSSICO PDV (FÊNIX STYLE)
 # =========================================================
