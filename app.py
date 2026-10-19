@@ -541,7 +541,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 "👥 Gestão de Recursos Humanos (RH)",
                 "💾 Backup e Restauração",
                 "💸 Contas a Receber",
-                "📦 Estoque de Produtos"
+                "📦 Estoque de Produtos",
                 "🏢 Configurações da Empresa"
             ],
             key="radio_menu_admin_opcoes"
