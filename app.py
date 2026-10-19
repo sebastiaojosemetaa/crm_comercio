@@ -62,8 +62,27 @@ def gerar_pdf_tabela_pedidos(df_dados, cliente_nome="Geral"):
         leading=12, alignment=1, spaceAfter=15
     )
 
-    story.append(Paragraph("REY DA CEBOLA", style_empresa))
-    story.append(Paragraph("CNPJ: 194.174.39/000-42 INSC.EST.: 12.426725-4<br/>CONTATO: (99) 98814-9722 OU (99) 98414-3943", style_sub))
+    # Busca os dados cadastrados da empresa no banco
+    try:
+        df_empresa_pdf = pd.read_sql_query("SELECT * FROM configuracoes ORDER BY id DESC LIMIT 1", conn)
+        if not df_empresa_pdf.empty:
+            empresa_nome = df_empresa_pdf.iloc[0]['nome_empresa']
+            empresa_cnpj = df_empresa_pdf.iloc[0]['cnpj']
+            empresa_ie = df_empresa_pdf.iloc[0]['ie']
+            empresa_tel = df_empresa_pdf.iloc[0]['fone']
+        else:
+            empresa_nome = "REY DA CEBOLA"
+            empresa_cnpj = "00.000.000/0001-00"
+            empresa_ie = "0000000"
+            empresa_tel = "(00) 0000-0000"
+    except Exception:
+        empresa_nome = "REY DA CEBOLA"
+        empresa_cnpj = "00.000.000/0001-00"
+        empresa_ie = "0000000"
+        empresa_tel = "(00) 0000-0000"
+
+    story.append(Paragraph(empresa_nome, style_empresa))
+    story.append(Paragraph(f"CNPJ: {empresa_cnpj} INSC.EST.: {empresa_ie}<br/>CONTATO: {empresa_tel}", style_sub))
 
     data_atual = (datetime.utcnow() - timedelta(hours=3)).strftime('%Y-%m-%d %H:%M:%S')
 
