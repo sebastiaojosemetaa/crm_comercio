@@ -161,10 +161,8 @@ def get_connection():
 
 conn = get_connection()
 # =========================================================
-# SISTEMA DE LICENÇA POR DISPOSITIVO / SESSÃO
+# SISTEMA DE LICENÇA POR DISPOSITIVO / SESSÃO (PERSISTENTE)
 # =========================================================
-if "licenca_libertada" not in st.session_state:
-    st.session_state["licenca_libertada"] = False
 
 CHAVES_SISTEMA = {
     "CRM-DEMO-30DIAS": 30,
@@ -173,34 +171,39 @@ CHAVES_SISTEMA = {
     "CRM-SEVEN-DIAS": 7
 }
 
-# =========================================================
-# VERIFICAÇÃO DE LICENÇA PERSISTENTE (BASE DE DADOS)
-# =========================================================
+# 1. Garante a criação da tabela de licença no SQLite
+try:
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS dispositivo_licenca (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            chave TEXT,
+            data_expiracao DATETIME,
+            status TEXT
+        )
+    """)
+    conn.commit()
+except Exception as e:
+    pass
 
-# 1. Garante que a tabela de ativação existe na base de dados
-cursor = conn.cursor()
-cursor.execute("""
-    CREATE TABLE IF NOT EXISTS dispositivo_licenca (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        chave TEXT,
-        data_expiracao DATETIME,
-        status TEXT
-    )
-""")
-conn.commit()
-
-# 2. Verifica se já existe uma licença válida gravada na base de dados
-df_licenca = carregar_dados("SELECT * FROM dispositivo_licenca WHERE status = 'ATIVADO' ORDER BY id DESC LIMIT 1")
-
+# 2. Verifica na base de dados se já existe uma licença ativa
 dispositivo_ativado = False
+dias_restantes = 0
 
-if not df_licenca.empty:
-    data_exp = pd.to_datetime(df_licenca.iloc[0]['data_expiracao'])
-    # Compara a data atual com a data de expiração da licença
-    if data_exp > datetime.now():
-        dispositivo_ativado = True
+try:
+    df_licenca = pd.read_sql_query("SELECT * FROM dispositivo_licenca WHERE status = 'ATIVADO' ORDER BY id DESC LIMIT 1", conn)
+    if not df_licenca.empty:
+        data_exp = pd.to_datetime(df_licenca.iloc[0]['data_expiracao'])
+        agora = datetime.now()
+        if data_exp > agora:
+            dispositivo_ativado = True
+            dias_restantes = (data_exp - agora).days
+            st.session_state["licenca_libertada"] = True
+            st.session_state["dias_licenca"] = dias_restantes
+except Exception as e:
+    dispositivo_ativado = False
 
-# 3. Se não estiver ativado na base de dados, mostra a tela de ativação
+# 3. Se não estiver ativado, exibe o ecrã de validação da chave
 if not dispositivo_ativado:
     st.markdown("## 🔐 Ativação de Licença do Dispositivo")
     st.warning("⚠️ Este dispositivo/navegador precisa de ser ativado para aceder ao sistema.")
@@ -208,26 +211,32 @@ if not dispositivo_ativado:
     chave_digitada = st.text_input("🔑 Chave de Ativação:", type="password", placeholder="Digite a sua chave...")
     
     if st.button("🔓 Ativar Este Dispositivo", type="primary"):
-        # Substitua aqui pela sua lógica de validação da chave secreta
-        if chave_digitada == "SUA_CHAVE_SECRETA_MESTRE_2026": 
-            # Define uma validade (ex: 30 dias ou 1 ano a partir de hoje)
-            nova_expiracao = (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d %H:%M:%S')
+        chave_limpa = chave_digitada.strip().upper()
+        
+        if chave_limpa in CHAVES_SISTEMA:
+            dias_validade = CHAVES_SISTEMA[chave_limpa]
+            nova_expiracao = (datetime.now() + timedelta(days=dias_validade)).strftime('%Y-%m-%d %H:%M:%S')
             
-            cursor.execute("DELETE FROM dispositivo_licenca") # Limpa licenças anteriores
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM dispositivo_licenca") # Limpa licenças antigas
             cursor.execute("""
                 INSERT INTO dispositivo_licenca (chave, data_expiracao, status)
                 VALUES (?, ?, ?)
-            """, (chave_digitada, nova_expiracao, 'ATIVADO'))
+            """, (chave_limpa, nova_expiracao, 'ATIVADO'))
             conn.commit()
             
-            st.success("Dispositivo ativado com sucesso!")
+            st.session_state["licenca_libertada"] = True
+            st.session_state["dias_licenca"] = dias_validade
+            
+            st.success(f"Dispositivo ativado com sucesso! Válido por {dias_validade} dias.")
             st.rerun()
         else:
-            st.error("Chave de ativação inválida.")
+            st.error("Chave de ativação inválida. Verifique e tente novamente.")
             
-    st.stop() # Para a execução do app aqui se não estiver ativado
+    st.stop() # Interrompe o carregamento do resto do app se não estiver ativado
 
-dias_disp = st.session_state.get("dias_licenca", 0)
+# --- EXIBE O STATUS NA BARRA LATERAL ---
+dias_disp = st.session_state.get("dias_licenca", dias_restantes)
 st.sidebar.caption(f"🟢 **Dispositivo Ativado** ({dias_disp} dias de acesso)")
 # =========================================================
 # =========================================================
