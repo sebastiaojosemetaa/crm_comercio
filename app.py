@@ -186,6 +186,20 @@ except Exception as e:
     pass
 
 # =========================================================
+# CARREGA CONFIGURAÇÕES DA EMPRESA (GLOBAL)
+# =========================================================
+try:
+    df_cfg_global = pd.read_sql_query("SELECT * FROM configuracoes ORDER BY id DESC LIMIT 1", conn)
+    if not df_cfg_global.empty:
+        NOME_EMPRESA_ATUAL = df_cfg_global.iloc[0]['nome_empresa']
+        CNPJ_EMPRESA_ATUAL = df_cfg_global.iloc[0]['cnpj']
+    else:
+        NOME_EMPRESA_ATUAL = "REY DA CEBOLA"
+        CNPJ_EMPRESA_ATUAL = "00.000.000/0001-00"
+except Exception:
+    NOME_EMPRESA_ATUAL = "REY DA CEBOLA"
+    CNPJ_EMPRESA_ATUAL = "00.000.000/0001-00"
+# =========================================================
 # SISTEMA DE LICENÇA POR DISPOSITIVO / SESSÃO (PERSISTENTE)
 # =========================================================
 
@@ -1297,6 +1311,66 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             });
             </script>
             """, height=0)
+        if menu_admin == "⚙️ Configurações da Empresa":
+            st.title("⚙️ Dados da Empresa e Outras Configurações")
+            
+            # Carrega dados atuais se já existirem
+            df_config = carregar_dados("SELECT * FROM configuracoes ORDER BY id DESC LIMIT 1")
+            
+            # Valores padrão caso esteja vazio
+            cfg_nome = df_config.iloc[0]['nome_empresa'] if not df_config.empty else "REY DA CEBOLA"
+            cfg_cnpj = df_config.iloc[0]['cnpj'] if not df_config.empty else "00.000.000/0001-00"
+            cfg_ie = df_config.iloc[0]['ie'] if not df_config.empty else "00000000"
+            cfg_end = df_config.iloc[0]['endereco'] if not df_config.empty else "RUA NOVA HORIZONTE, 74"
+            cfg_bairro = df_config.iloc[0]['bairro'] if not df_config.empty else "NOVO HORIZONTE"
+            cfg_cep = df_config.iloc[0]['cep'] if not df_config.empty else "55460-000"
+            cfg_cidade = df_config.iloc[0]['cidade'] if not df_config.empty else "ARAME"
+            cfg_estado = df_config.iloc[0]['estado'] if not df_config.empty else "MA"
+            cfg_fone = df_config.iloc[0]['fone'] if not df_config.empty else "(00) 0000-0000"
+            cfg_email = df_config.iloc[0]['email'] if not df_config.empty else "contato@empresa.com"
+        
+            with st.form("form_config_empresa"):
+                st.markdown("### 🏢 Dados da Empresa")
+                
+                col1, col2, col3 = st.columns([2, 1.5, 1])
+                with col1:
+                    nome_empresa = st.text_input("Nome / Razão Social", value=cfg_nome)
+                with col2:
+                    cnpj = st.text_input("CNPJ", value=cfg_cnpj)
+                with col3:
+                    ie = st.text_input("IE", value=cfg_ie)
+                    
+                endereco = st.text_input("Endereço", value=cfg_end)
+                
+                col4, col5, col6, col7 = st.columns([1.5, 1, 1.5, 0.6])
+                with col4:
+                    bairro = st.text_input("Bairro", value=cfg_bairro)
+                with col5:
+                    cep = st.text_input("CEP", value=cfg_cep)
+                with col6:
+                    cidade = st.text_input("Cidade", value=cfg_cidade)
+                with col7:
+                    estado = st.text_input("Estado", value=cfg_estado)
+                    
+                col8, col9 = st.columns(2)
+                with col8:
+                    fone = st.text_input("Telefone", value=cfg_fone)
+                with col9:
+                    email = st.text_input("E-mail", value=cfg_email)
+                    
+                st.markdown("<br>", unsafe_allow_html=True)
+                salvar_cfg = st.form_submit_button("💾 Salvar Alterações da Empresa", type="primary", use_container_width=True)
+                
+                if salvar_cfg:
+                    cursor = conn.cursor()
+                    cursor.execute("DELETE FROM configuracoes") # Mantém apenas a configuração ativa atual
+                    cursor.execute("""
+                        INSERT INTO configuracoes (nome_empresa, cnpj, ie, endereco, bairro, cep, cidade, estado, fone, email)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (nome_empresa, cnpj, ie, endereco, bairro, cep, cidade, estado, fone, email))
+                    conn.commit()
+                    st.success("Dados da empresa atualizados com sucesso!")
+                    st.rerun()
         elif menu_admin == "🔓 Abertura e Fechamento de Caixa":
             st.title("🔓 Abertura e Fechamento de Caixa")
             df_caixa_atual = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
