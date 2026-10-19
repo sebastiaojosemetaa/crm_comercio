@@ -10,7 +10,24 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 import io
 import datetime as dt
-
+import hashlib
+# =========================================================
+# FUNÇÃO 1: GERADOR DE CHAVE ÚNICA POR CNPJ / CPF
+# =========================================================
+def gerar_chave_por_documento(documento):
+    # Remove pontos, barras e traços, mantendo apenas os números
+    apenas_digitos = ''.join(filter(str.isdigit, str(documento)))
+    
+    # O seu "segredo" de desenvolvedor (mantenha guardado apenas com você)
+    segredo_mestre = "REY_CEBOLA_2026"
+    
+    # Combina o documento do cliente com o segredo e gera um hash único
+    combinado = apenas_digitos + segredo_mestre
+    hash_hex = hashlib.md5(combinado.encode()).hexdigest().upper()
+    
+    # Formata a chave num padrão bonito (Ex: CRM-A1B2-C3D4-E5F6)
+    chave_formatada = f"CRM-{hash_hex[:4]}-{hash_hex[4:8]}-{hash_hex[8:12]}"
+    return chave_formatada
 # -----------------------------------------------------------------------------
 # CONFIGURAÇÃO DA PÁGINA (Deve ser a primeira instrução Streamlit)
 # -----------------------------------------------------------------------------
@@ -305,10 +322,25 @@ if not dispositivo_ativado:
     chave_digitada = st.text_input("🔑 Chave de Ativação:", type="password", placeholder="Digite a sua chave...")
     
     if st.button("🔓 Ativar Este Dispositivo", type="primary"):
-        chave_limpa = chave_digitada.strip().upper()
+        chave_digitada = chave_digitada.strip().upper()
         
-        if chave_limpa in CHAVES_SISTEMA:
-            dias_validade = CHAVES_SISTEMA[chave_limpa]
+        # Busca o CNPJ ou CPF cadastrado na tabela de configurações da empresa
+        try:
+            df_emp = pd.read_sql_query("SELECT cnpj, ie FROM configuracoes ORDER BY id DESC LIMIT 1", conn)
+            documento_cadastrado = df_emp.iloc[0]['cnpj'] if not df_emp.empty else ""
+        except Exception:
+            documento_cadastrado = ""
+            
+        # Gera a chave esperada para este documento específico
+        chave_esperada = gerar_chave_por_documento(documento_cadastrado)
+        
+        # Valida se a chave digitada pelo cliente confere com a chave gerada para o CNPJ dele
+        # (Ou você também pode aceitar uma chave mestre global de suporte, se quiser)
+        CHAVE_MESTRE_SUPORTE = "CRM-REYSAL-MESTRE"
+        
+        if chave_digitada == chave_esperada or chave_digitada == CHAVE_MESTRE_SUPORTE:
+            # Define validade (ex: 30 dias ou 365 dias)
+            dias_validade = 365 # Ex: Licença anual por CNPJ
             nova_expiracao = (datetime.now() + timedelta(days=dias_validade)).strftime('%Y-%m-%d %H:%M:%S')
             
             cursor = conn.cursor()
@@ -316,16 +348,16 @@ if not dispositivo_ativado:
             cursor.execute("""
                 INSERT INTO dispositivo_licenca (chave, data_expiracao, status)
                 VALUES (?, ?, ?)
-            """, (chave_limpa, nova_expiracao, 'ATIVADO'))
+            """, (chave_digitada, nova_expiracao, 'ATIVADO'))
             conn.commit()
             
             st.session_state["licenca_libertada"] = True
             st.session_state["dias_licenca"] = dias_validade
             
-            st.success(f"Dispositivo ativado com sucesso! Válido por {dias_validade} dias.")
+            st.success(f"Dispositivo ativado com sucesso para o CNPJ: {documento_cadastrado}!")
             st.rerun()
         else:
-            st.error("Chave de ativação inválida. Tente novamente.")
+            st.error("Chave de ativação inválida para este CNPJ/CPF. Verifique os dados da empresa.")
             
     st.stop()
 
