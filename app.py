@@ -1203,18 +1203,27 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.error("Verifique se o caixa está aberto e se há itens no carrinho.")
         
             # =========================================================
-            # BARRA DE ATALHOS NO RODAPÉ (ESTILO TERMINAL FÊNIX)
+            # ATALHOS REALMENTE FUNCIONAIS (SEM CONFLITO COM O WINDOWS)
             # =========================================================
-            st.markdown("""
-            <div class="barra-atalhos">
-                . . . : : 
-                <span class="atalho-item">[ F1 ]</span> Conferência de Caixa &nbsp;|&nbsp; 
-                <span class="atalho-item">[ Ctrl+Del ]</span> Deletar Item &nbsp;|&nbsp; 
-                <span class="atalho-item">[ F8 ]</span> Qtd. Lançamento &nbsp;|&nbsp; 
-                <span class="atalho-item">[ F12 ]</span> Finalizar Venda
-                : : . . .
-            </div>
-            """, unsafe_allow_html=True)
+            st.components.v1.html("""
+            <script>
+            const doc = window.parent.document;
+            doc.addEventListener('keydown', function(e) {
+                // Alt + V (Finalizar Venda)
+                if (e.altKey && (e.key === 'v' || e.key === 'V')) {
+                    e.preventDefault();
+                    const btns = doc.querySelectorAll('button');
+                    btns.forEach(b => { if (b.innerText.includes('Finalizar Venda')) b.click(); });
+                }
+                // Alt + C ou Delete (Limpar Carrinho)
+                if (e.altKey && (e.key === 'c' || e.key === 'C')) {
+                    e.preventDefault();
+                    const btns = doc.querySelectorAll('button');
+                    btns.forEach(b => { if (b.innerText.includes('Limpar Carrinho')) b.click(); });
+                }
+            });
+            </script>
+            """, height=0)
         elif menu_admin == "🔓 Abertura e Fechamento de Caixa":
             st.title("🔓 Abertura e Fechamento de Caixa")
             df_caixa_atual = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
