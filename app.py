@@ -1141,15 +1141,14 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 st.error(f"Erro ao carregar histórico: {e_hist}")      
                 
         # =========================================================
-        # 1. PAINEL DO DESENVOLVEDOR (NA BARRA LATERAL)
+        # 1. PAINEL DO DESENVOLVEDOR (CHAVE ÚNICA E SEGURA)
         # =========================================================
         with st.sidebar.expander("🛠️ Gerador de Chaves (Dev)"):
-            senha_dev = st.text_input("Senha Mestre Dev", type="password", key="pwd_dev_topo")
+            senha_dev = st.text_input("Senha Mestre Dev", type="password", key="pwd_dev_unico_gerador")
             
-            # O campo de CNPJ e o botão SÓ APARECEM se a senha estiver correta
             if senha_dev == "13142715":  
-                doc_cliente = st.text_input("CNPJ ou CPF do Cliente:", key="pwd_dev_topo_doc")
-                if st.button("🔑 Gerar Chave", key="btn_dev_topo_acao"):
+                doc_cliente = st.text_input("CNPJ ou CPF do Cliente:", key="doc_cli_unico_gerador")
+                if st.button("🔑 Gerar Chave", key="btn_gerar_chave_unico"):
                     if doc_cliente.strip():
                         chave_gerada = gerar_chave_por_documento(doc_cliente)
                         st.code(chave_gerada, language="text")
@@ -1160,32 +1159,34 @@ if perfil_selecionado == "👤 Portal do Cliente":
         st.sidebar.markdown("---")
         
         # =========================================================
-        # 2. SELEÇÃO DE PERFIL E LOGIN DE ADMINISTRADOR
+        # 2. MENU DE NAVEGAÇÃO E PERFIS CORRIGIDOS
         # =========================================================
-        perfil_seleccionado = st.sidebar.radio("Selecione o Perfil:", ["Portal do Cliente", "Administração / Vendedor"])
+        st.sidebar.subheader("Acesso ao Sistema")
+        perfil_seleccionado = st.sidebar.radio("Selecione o Perfil:", ["Portal do Cliente", "Administração / Vendedor"], key="radio_perfil_principal")
         
         if perfil_seleccionado == "Administração / Vendedor":
             if not st.session_state.get("admin_logged", False):
                 st.title("🔒 Autenticação Administrativa")
-                st.warning("⚠️ Insira a senha de administrador para aceder ao painel de gestão.")
+                st.warning("⚠️ Insira a senha de administrador para aceder ao sistema.")
                 
-                senha_admin = st.text_input("Digite a Senha do Admin:", type="password", key="senha_admin_input")
+                senha_admin = st.text_input("Digite a Senha do Admin:", type="password", key="input_senha_admin_login")
                 
-                if st.button("🔓 Entrar como Admin", type="primary"):
+                if st.button("🔓 Entrar como Admin", type="primary", key="btn_login_admin_acao"):
                     if senha_admin == "13142715":
                         st.session_state.admin_logged = True
-                        st.success("Login efetuado com sucesso! A carregar...")
+                        st.success("Login efetuado com sucesso!")
                         st.rerun()
                     else:
                         st.error("Senha incorreta!")
                 
-                st.stop() # Para a execução aqui enquanto o admin não fizer login
+                st.stop() # Para a execução aqui para não mostrar o painel sem logar
             else:
                 st.sidebar.subheader("🔒 Área Restrita")
-                if st.sidebar.button("Sair do Modo Admin"):
+                if st.sidebar.button("Sair do Modo Admin", key="btn_sair_modo_admin"):
                     st.session_state.admin_logged = False
                     st.rerun()
                     
+                # Menu completo do Administrador
                 menu_admin = st.sidebar.radio(
                     "Navegação",
                     [
@@ -1201,7 +1202,8 @@ if perfil_selecionado == "👤 Portal do Cliente":
                         "💾 Backup e Restauração",
                         "💸 Contas a Receber",
                         "📦 Estoque de Produtos"
-                    ]
+                    ],
+                    key="menu_admin_opcoes"
                 )
         
         if menu_admin == "🛒 PDV — Frente de Caixa":
