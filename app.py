@@ -982,7 +982,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         )
         
         if menu_admin == "🛒 PDV — Frente de Caixa":
-            # CSS para compactar espaçamentos verticais e fazer a tela caber sem scroll
+            # CSS para compactar e estilizar os botões de atalho no rodapé
             st.markdown("""
             <style>
                 .block-container { padding-top: 1rem !important; padding-bottom: 0rem !important; }
@@ -990,6 +990,23 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 .stMarkdown { margin-bottom: -10px !important; }
                 div[data-baseweb="input"] { min-height: 35px !important; }
                 h3, h4 { margin-top: 0px !important; margin-bottom: 5px !important; font-size: 16px !important; }
+                
+                /* Estilo da barra de atalhos inferior */
+                .barra-atalhos {
+                    background-color: #2b2b2b;
+                    color: #ffffff;
+                    padding: 8px 15px;
+                    border-radius: 8px;
+                    border: 2px solid #555555;
+                    margin-top: 15px;
+                    font-family: monospace;
+                    font-size: 13px;
+                    text-align: center;
+                }
+                .atalho-item {
+                    color: #00ffcc;
+                    font-weight: bold;
+                }
             </style>
             """, unsafe_allow_html=True)
         
@@ -1013,7 +1030,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             else:
                 produtos_opt = ["AMEIXA IMPORTADA", "ABACATE"]
         
-            # --- BARRA DE CÓDIGO DE BARRAS NO TOPO (COMPACTA) ---
+            # --- BARRA DE CÓDIGO DE BARRAS NO TOPO ---
             col_cb1, col_cb2 = st.columns([4.5, 1])
             with col_cb1:
                 cod_barras_lido = st.text_input(
@@ -1101,7 +1118,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 </div>
                 """.replace(",", "X").replace(".", ",").replace("X", "."), unsafe_allow_html=True)
         
-                if st.button("➕ Incluir Produto", type="primary", use_container_width=True):
+                if st.button("➕ [ Enter ] Incluir Produto", type="primary", use_container_width=True):
                     st.session_state.carrinho_pdv.append({
                         "produto": str(prod_item).split(" — R$")[0],
                         "fornecedor": forn_item,
@@ -1113,15 +1130,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.rerun()
         
             # =========================================================
-            # COLUNA DIREITA
+            # COLUNA DIREITA: CARRINHO E FINALIZAÇÃO
             # =========================================================
             with col_pdv_dir:
                 st.markdown("#### 📋 Carrinho")
                 if len(st.session_state.carrinho_pdv) > 0:
                     df_carrinho = pd.DataFrame(st.session_state.carrinho_pdv)
-                    # Altura dinâmica: 38px por cabeçalho + 35px por cada produto adicionado
                     altura_dinamica = 38 + (len(df_carrinho) * 35)
-                    
                     st.dataframe(
                         df_carrinho[['produto', 'quantidade', 'valor_venda', 'valor_total']], 
                         use_container_width=True, 
@@ -1157,7 +1172,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     </div>
                     """.replace(",", "X").replace(".", ",").replace("X", "."), unsafe_allow_html=True)
         
-                if st.button("🟢 Finalizar Venda", type="primary", use_container_width=True):
+                if st.button("🟢 [ F12 ] Finalizar Venda", type="primary", use_container_width=True):
                     if not df_caixa_aberto.empty and len(st.session_state.carrinho_pdv) > 0:
                         cursor = conn.cursor()
                         sessao_id = int(df_caixa_aberto.iloc[0]['id'])
@@ -1186,6 +1201,20 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.rerun()
                     else:
                         st.error("Verifique se o caixa está aberto e se há itens no carrinho.")
+        
+            # =========================================================
+            # BARRA DE ATALHOS NO RODAPÉ (ESTILO TERMINAL FÊNIX)
+            # =========================================================
+            st.markdown("""
+            <div class="barra-atalhos">
+                . . . : : 
+                <span class="atalho-item">[ F1 ]</span> Conferência de Caixa &nbsp;|&nbsp; 
+                <span class="atalho-item">[ Ctrl+Del ]</span> Deletar Item &nbsp;|&nbsp; 
+                <span class="atalho-item">[ F8 ]</span> Qtd. Lançamento &nbsp;|&nbsp; 
+                <span class="atalho-item">[ F12 ]</span> Finalizar Venda
+                : : . . .
+            </div>
+            """, unsafe_allow_html=True)
         elif menu_admin == "🔓 Abertura e Fechamento de Caixa":
             st.title("🔓 Abertura e Fechamento de Caixa")
             df_caixa_atual = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
