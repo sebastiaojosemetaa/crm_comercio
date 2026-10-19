@@ -33,8 +33,26 @@ def gerar_chave_por_documento(documento):
     segredo_mestre = "REY_CEBOLA_2026"
     combinado = apenas_digitos + segredo_mestre
     hash_hex = hashlib.md5(combinado.encode()).hexdigest().upper()
-    chave_formatada = f"CRM-{hash_hex[:4]}-{hash_hex[4:8]}-{hash_hex[8:12]}"
-    return chave_formatada
+    chave_formatada = f"CRM-{hash_hex[:4]}-{hash_hex[:8][-4:]}-{hash_hex[8:12]}" # Mantém o padrão de formato
+    return f"CRM-{hash_hex[:4]}-{hash_hex[4:8]}-{hash_hex[8:12]}"
+
+# =========================================================
+# PAINEL DO DESENVOLVEDOR (SEMPRE VISÍVEL NA BARRA LATERAL)
+# =========================================================
+with st.sidebar.expander("🛠️ Gerador de Chaves (Dev)"):
+    senha_dev = st.text_input("Senha Mestre Dev", type="password", key="pwd_dev_topo_unico")
+    if senha_dev == "13142715":  # Sua senha mestre
+        doc_cliente = st.text_input("CNPJ ou CPF do Cliente:", key="doc_dev_topo_doc_unico")
+        if st.button("🔑 Gerar Chave", key="btn_dev_topo_acao_unico"):
+            if doc_cliente.strip():
+                doc_limpo = ''.join(filter(str.isdigit, str(doc_cliente)))
+                chave_gerada = gerar_chave_por_documento(doc_limpo)
+                st.code(chave_gerada, language="text")
+                st.success("Chave gerada com sucesso!")
+            else:
+                st.warning("Digite um CNPJ ou CPF.")
+
+st.sidebar.markdown("---")
 
 # =========================================================
 # CONEXÃO E TABELAS MULTI-EMPRESA
