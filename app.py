@@ -12,6 +12,27 @@ import io
 import datetime as dt
 import hashlib
 
+# =========================================================
+# FUNÇÃO 1: GERADOR DE CHAVE ÚNICA POR CNPJ / CPF
+# =========================================================
+def gerar_chave_por_documento(documento):
+    # Remove pontos, barras e traços, mantendo apenas os números
+    apenas_digitos = ''.join(filter(str.isdigit, str(documento)))
+    
+    # O seu "segredo" de desenvolvedor (mantenha guardado apenas com você)
+    segredo_mestre = "REY_CEBOLA_2026"
+    
+    # Combina o documento do cliente com o segredo e gera um hash único
+    combinado = apenas_digitos + segredo_mestre
+    hash_hex = hashlib.md5(combinado.encode()).hexdigest().upper()
+    
+    # Formata a chave num padrão bonito (Ex: CRM-A1B2-C3D4-E5F6)
+    chave_formatada = f"CRM-{hash_hex[:4]}-{hash_hex[4:8]}-{hash_hex[8:12]}"
+    return chave_formatada
+# -----------------------------------------------------------------------------
+# CONFIGURAÇÃO DA PÁGINA (Deve ser a primeira instrução Streamlit)
+# -----------------------------------------------------------------------------
+
 # 1. Defina a função primeiro
 def gerar_chave_por_documento(documento):
     apenas_digitos = ''.join(filter(str.isdigit, str(documento)))
@@ -33,26 +54,6 @@ with st.sidebar.expander("🛠️ Gerador de Chaves (Dev)"):
                 st.success("Chave gerada com sucesso!")
             else:
                 st.warning("Digite um CNPJ ou CPF.")
-# =========================================================
-# FUNÇÃO 1: GERADOR DE CHAVE ÚNICA POR CNPJ / CPF
-# =========================================================
-def gerar_chave_por_documento(documento):
-    # Remove pontos, barras e traços, mantendo apenas os números
-    apenas_digitos = ''.join(filter(str.isdigit, str(documento)))
-    
-    # O seu "segredo" de desenvolvedor (mantenha guardado apenas com você)
-    segredo_mestre = "REY_CEBOLA_2026"
-    
-    # Combina o documento do cliente com o segredo e gera um hash único
-    combinado = apenas_digitos + segredo_mestre
-    hash_hex = hashlib.md5(combinado.encode()).hexdigest().upper()
-    
-    # Formata a chave num padrão bonito (Ex: CRM-A1B2-C3D4-E5F6)
-    chave_formatada = f"CRM-{hash_hex[:4]}-{hash_hex[4:8]}-{hash_hex[8:12]}"
-    return chave_formatada
-# -----------------------------------------------------------------------------
-# CONFIGURAÇÃO DA PÁGINA (Deve ser a primeira instrução Streamlit)
-# -----------------------------------------------------------------------------
 st.set_page_config(page_title="CRM Comércio - Rey da Cebola", layout="wide", page_icon="🛍️")
 
 def sanear_df_vendas(df):
