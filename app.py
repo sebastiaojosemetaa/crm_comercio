@@ -29,6 +29,7 @@ device_id = st.query_params["device_id"]
 # FUNÇÃO 1: GERADOR DE CHAVE ÚNICA POR CNPJ / CPF
 # =========================================================
 def gerar_chave_por_documento(documento):
+    # Remove tudo o que não for número para evitar divergências de pontos/traços
     apenas_digitos = ''.join(filter(str.isdigit, str(documento)))
     segredo_mestre = "REY_CEBOLA_2026"
     combinado = apenas_digitos + segredo_mestre
@@ -329,15 +330,18 @@ if not dispositivo_ativado:
         except Exception:
             cnpj_atualizado = cnpj_registrado
 
-        chave_esperada = gerar_chave_por_documento(cnpj_atualizado)
+        # Limpa rigorosamente o CNPJ recuperado da base de dados
+        cnpj_limpo_bd = ''.join(filter(str.isdigit, str(cnpj_atualizado)))
+        chave_esperada = gerar_chave_por_documento(cnpj_limpo_bd)
+        
         CHAVE_MESTRE_GLOBAL = "CRM-REYSAL-MESTRE"
         
+        # Aceita a chave específica do CNPJ OU a chave mestre global de testes
         if chave_limpa == chave_esperada or chave_limpa == CHAVE_MESTRE_GLOBAL:
             dias_validade = 365 
             nova_expiracao = (datetime.now() + timedelta(days=dias_validade)).strftime('%Y-%m-%d %H:%M:%S')
             
             cursor = conn.cursor()
-            # Remove licença anterior apenas deste device_id específico
             cursor.execute("DELETE FROM dispositivo_licenca WHERE device_id = ?", (device_id,))
             cursor.execute("""
                 INSERT INTO dispositivo_licenca (device_id, chave, data_expiracao, status)
@@ -351,8 +355,7 @@ if not dispositivo_ativado:
             st.success(f"Dispositivo ativado com sucesso para o CNPJ {cnpj_atualizado}!")
             st.rerun()
         else:
-            st.error("Chave de ativação inválida para este CNPJ/CPF. Verifique os dados no gerador de chaves.")
-            
+            st.error(f"Chave inválida. (Esperada para o CNPJ limpo: {chave_esperada}). Verifique os dados.")            
     st.stop()
 
 dias_disp = st.session_state.get("dias_licenca", dias_restantes)
