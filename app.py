@@ -2115,7 +2115,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                                         
                                         self.set_font('Arial', '', 9)
                                         self.set_text_color(50, 50, 50)
-                                        self.cell(0, 4, "CNPJ: 194.174.39/000-42   INSC.EST.: 12.426725-4", 0, 1, 'C')
+                                        self.cell(0, 4, "CNPJ: 194.174.39/0001-42   INSC.EST.: 12.426725-4", 0, 1, 'C')
                                         self.cell(0, 4, "CONTATO: (99) 98814-9722 OU (99) 98414-3943", 0, 1, 'C')
                                         
                                         self.set_font('Arial', 'B', 11)
@@ -2586,7 +2586,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     pdf.set_x(12)
                     pdf.cell(126, 3.5, "Endereço: Rua Principal, S/N - BA", 0, 1)
                     pdf.set_x(12)
-                    pdf.cell(126, 3.5, "CNPJ: 194.174.39/000-42", 0, 1)
+                    pdf.cell(126, 3.5, "CNPJ: 194.174.39/0001-42", 0, 1)
                     
                     pdf.set_xy(142, 11)
                     pdf.set_font("Arial", "B", 8.5)
