@@ -1202,10 +1202,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     else:
                         st.error("Verifique se o caixa está aberto e se há itens no carrinho.")
         
-                # --- BARRA DE ATALHOS NO RODAPÉ (100% BRANCO) ---
+                # --- BARRA DE ATALHOS NO RODAPÉ (100% BRANCO FORÇADO) ---
                 st.markdown("""
                 <div style="background-color: #0d1b2a; padding: 8px; border-radius: 6px; text-align: center; font-family: monospace; font-size: 14px; font-weight: bold; margin-top: 4px;">
-                    <span style="color: #ffffff !important;">[ Enter ] Incluir &nbsp;|&nbsp; [ Alt + C ] Limpar &nbsp;|&nbsp; [ Alt + V ] Finalizar</span>
+                    <span style="color: #ffffff !important; -webkit-text-fill-color: #ffffff;">&#91; Enter &#93; Incluir &nbsp;|&nbsp; &#91; Alt + C &#93; Limpar &nbsp;|&nbsp; &#91; Alt + V &#93; Finalizar</span>
                 </div>
                 """, unsafe_allow_html=True)
         
