@@ -12,6 +12,20 @@ import io
 import datetime as dt
 import hashlib
 # =========================================================
+# PAINEL DO DESENVOLVEDOR (SEMPRE DISPONÍVEL NO TOPO)
+# =========================================================
+with st.sidebar.expander("🛠️ Gerador de Chaves (Dev)"):
+    senha_dev = st.text_input("Senha Mestre Dev", type="password", key="pwd_dev_topo")
+    if senha_dev == "13142715":  # Sua senha mestre
+        doc_cliente = st.text_input("CNPJ ou CPF do Cliente:", key="doc_dev_topo_doc")
+        if st.button("🔑 Gerar Chave", key="btn_dev_topo_acao"):
+            if doc_cliente.strip():
+                chave_gerada = gerar_chave_por_documento(doc_cliente)
+                st.code(chave_gerada, language="text")
+                st.success("Chave gerada com sucesso!")
+            else:
+                st.warning("Digite um CNPJ ou CPF.")
+# =========================================================
 # FUNÇÃO 1: GERADOR DE CHAVE ÚNICA POR CNPJ / CPF
 # =========================================================
 def gerar_chave_por_documento(documento):
