@@ -220,29 +220,25 @@ if img_fundo is not None:
     </style>
     """
     st.markdown(css_fundo, unsafe_allow_html=True)
-    # =========================================================
-    # ESTILO VISUAL PERSONALIZADO PARA O PDV (ESTILO TERMINAL)
-    # =========================================================
-    estilo_pdv_classico = """
-    <style>
-        /* Fundo geral com tom cinzento suave e moderno */
-        .stApp {
-            background-color: #d1d5db;
-        }
-    
-        /* Estilização dos blocos de entrada de dados */
-        div[data-baseweb="input"] {
-            background-color: #ffffff;
-            border-radius: 6px;
-        }
-    
-        /* Destacar a área do carrinho de compras */
-        section[data-testid="stSidebar"] {
-            background-color: #1f2937;
-        }
-    </style>
-    """
-    st.markdown(estilo_pdv_classico, unsafe_allow_html=True)
+
+# =========================================================
+# ESTILO VISUAL PERSONALIZADO PARA O PDV (ESTILO TERMINAL)
+# =========================================================
+estilo_pdv_classico = """
+<style>
+    /* Estilização dos blocos de entrada de dados */
+    div[data-baseweb="input"] {
+        background-color: #ffffff;
+        border-radius: 6px;
+    }
+
+    /* Destacar a área do carrinho / barra lateral */
+    section[data-testid="stSidebar"] {
+        background-color: #1f2937;
+    }
+</style>
+"""
+st.markdown(estilo_pdv_classico, unsafe_allow_html=True)
 def adequar_banco_e_migrar():
     try:
         cursor = conn.cursor()
