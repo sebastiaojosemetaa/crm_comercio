@@ -19,42 +19,45 @@ def gerar_pdf_tabela_pedidos(df_pedidos, cliente_nome="Geral"):
     import pandas as pd
     import sqlite3
     
-    # Valores iniciais vazios para forçar a leitura correta do banco de dados
-    nome_empresa = ""
-    cnpj_empresa = ""
+    # Valores padrão iniciais
+    nome_empresa = "ALENCARSOFT"
+    cnpj_empresa = "95451161100"
     ie_empresa = ""
-    tel_empresa = ""
-    end_empresa = ""
+    tel_empresa = "(99) 98501-6050"
+    end_empresa = "RUA CAIPIRA, Nº: 174"
     
-    # Tenta buscar os dados gravados na tabela de configuração do banco de dados
-    try:
-        conn = sqlite3.connect('banco.db')  # Altere para o nome do seu banco se necessário
-        cursor = conn.cursor()
-        cursor.execute("SELECT nome, cnpj, ie, telefone, endereco FROM configuracao LIMIT 1")
-        row_emp = cursor.fetchone()
-        if row_emp:
-            nome_empresa = row_emp[0] or ""
-            cnpj_empresa = row_emp[1] or ""
-            ie_empresa = row_emp[2] or ""
-            tel_empresa = row_emp[3] or ""
-            end_empresa = row_emp[4] or ""
-        conn.close()
-    except Exception:
-        pass
-        
-    # Se não encontrar no banco, tenta buscar na sessão
-    if not nome_empresa and 'dados_empresa' in st.session_state:
+    # 1. Tenta ler primeiro do session_state (memória atual do Streamlit)
+    if 'dados_empresa' in st.session_state and isinstance(st.session_state['dados_empresa'], dict):
         emp = st.session_state['dados_empresa']
-        nome_empresa = emp.get('nome', '')
-        cnpj_empresa = emp.get('cnpj', '')
-        ie_empresa = emp.get('ie', '')
-        tel_empresa = emp.get('telefone', '')
-        end_empresa = emp.get('endereco', '')
+        nome_empresa = emp.get('nome', nome_empresa)
+        cnpj_empresa = emp.get('cnpj', cnpj_empresa)
+        ie_empresa = emp.get('ie', ie_empresa)
+        tel_empresa = emp.get('telefone', tel_empresa)
+        end_empresa = emp.get('endereco', end_empresa)
         
-    # Se mesmo assim estiver vazio, usa um nome genérico
-    if not nome_empresa:
-        nome_empresa = "EMPRESA NÃO CADASTRADA"
-
+    # 2. Tenta ler da base de dados SQLite testando os nomes de tabelas mais comuns
+    try:
+        for db_file in ['banco.db', 'crm.db', 'database.db']:
+            conn = sqlite3.connect(db_file)
+            cursor = conn.cursor()
+            for tabela in ['configuracao', 'config', 'empresa', 'dados_empresa']:
+                try:
+                    cursor.execute(f"SELECT nome, cnpj, ie, telefone, endereco FROM {tabela} LIMIT 1")
+                    row = cursor.fetchone()
+                    if row and row[0]:
+                        nome_empresa = row[0]
+                        cnpj_empresa = row[1] or cnpj_empresa
+                        ie_empresa = row[2] or ie_empresa
+                        tel_empresa = row[3] or tel_empresa
+                        end_empresa = row[4] or end_empresa
+                        break
+                except:
+                    pass
+            conn.close()
+            if nome_empresa:
+                break
+    except:
+        pass
     pdf = FPDF()
     pdf.add_page()
     
