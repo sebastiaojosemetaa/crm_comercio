@@ -17,38 +17,59 @@ def gerar_pdf_tabela_pedidos(df_pedidos, cliente_nome="Geral"):
     from fpdf import FPDF
     from datetime import datetime
     import pandas as pd
+    import sqlite3
     
-    # Tenta buscar os dados da empresa cadastrada no sistema
+    # Valores padrão iniciais
     nome_empresa = "SUPERMERCADO J. REZENDE"
     cnpj_empresa = ""
     ie_empresa = ""
     tel_empresa = ""
+    end_empresa = ""
     
-    if 'dados_empresa' in st.session_state:
-        emp = st.session_state['dados_empresa']
-        nome_empresa = emp.get('nome', nome_empresa)
-        cnpj_empresa = emp.get('cnpj', '')
-        ie_empresa = emp.get('ie', '')
-        tel_empresa = emp.get('telefone', '')
+    # Busca os dados atualizados diretamente da tabela de configurações no banco de dados
+    try:
+        conn = sqlite3.connect('banco.db')  # Altere para o nome do seu banco se for diferente (ex: crm.db)
+        cursor = conn.cursor()
+        cursor.execute("SELECT nome, cnpj, ie, telefone, endereco FROM configuracao LIMIT 1")
+        row_emp = cursor.fetchone()
+        if row_emp:
+            nome_empresa = row_emp[0] or nome_empresa
+            cnpj_empresa = row_emp[1] or ""
+            ie_empresa = row_emp[2] or ""
+            tel_empresa = row_emp[3] or ""
+            end_empresa = row_emp[4] or ""
+        conn.close()
+    except Exception:
+        # Alternativa caso os dados estejam na sessão
+        if 'dados_empresa' in st.session_state:
+            emp = st.session_state['dados_empresa']
+            nome_empresa = emp.get('nome', nome_empresa)
+            cnpj_empresa = emp.get('cnpj', '')
+            ie_empresa = emp.get('ie', '')
+            tel_empresa = emp.get('telefone', '')
+            end_empresa = emp.get('endereco', '')
 
     pdf = FPDF()
     pdf.add_page()
     
-    # Cabeçalho da Empresa
-    pdf.set_font("Arial", 'B', 15)
-    pdf.cell(0, 8, txt=nome_empresa.upper(), ln=True, align="C")
+    # Cabeçalho dinâmico com os dados da empresa cadastrada
+    pdf.set_font("Arial", 'B', 14)
+    pdf.cell(0, 7, txt=str(nome_empresa).upper(), ln=True, align="C")
     
-    pdf.set_font("Arial", size=9)
+    pdf.set_font("Arial", size=8)
     info_linha = []
     if cnpj_empresa:
         info_linha.append(f"CNPJ: {cnpj_empresa}")
     if ie_empresa:
         info_linha.append(f"INSC. EST.: {ie_empresa}")
     if info_linha:
-        pdf.cell(0, 5, txt=" - ".join(info_linha), ln=True, align="C")
+        pdf.cell(0, 4, txt=" - ".join(info_linha), ln=True, align="C")
         
     if tel_empresa:
-        pdf.cell(0, 5, txt=f"CONTATO: {tel_empresa}", ln=True, align="C")
+        pdf.cell(0, 4, txt=f"CONTATO: {tel_empresa}", ln=True, align="C")
+        
+    if end_empresa:
+        pdf.cell(0, 4, txt=f"ENDEREÇO: {end_empresa}", ln=True, align="C")
         
     pdf.ln(5)
     
@@ -61,7 +82,7 @@ def gerar_pdf_tabela_pedidos(df_pedidos, cliente_nome="Geral"):
     pdf.cell(0, 5, txt=f"Gerado em: {data_atual}", ln=True, align="C")
     pdf.ln(8)
     
-    # Cabeçalho da Tabela (Azul Escuro com texto branco)
+    # Cabeçalho da Tabela
     pdf.set_font("Arial", 'B', 9)
     pdf.set_fill_color(20, 60, 120)
     pdf.set_text_color(255, 255, 255)
@@ -86,13 +107,11 @@ def gerar_pdf_tabela_pedidos(df_pedidos, cliente_nome="Geral"):
     for index, row in df_pedidos.iterrows():
         produto = str(row.get('produto', ''))
         
-        # Quantidade
         try:
             qtd = float(str(row.get('quantidade', 0)).replace(',', '.'))
         except:
             qtd = 0.0
             
-        # Valor Unitário
         v_unit = 0.0
         for col in ['Valor Unitário', 'valor_unitario', 'preco']:
             if col in row and pd.notna(row[col]):
@@ -103,7 +122,6 @@ def gerar_pdf_tabela_pedidos(df_pedidos, cliente_nome="Geral"):
                 except:
                     pass
                     
-        # Valor Total
         v_tot = 0.0
         for col in ['Valor Total', 'valor_total', 'total']:
             if col in row and pd.notna(row[col]):
@@ -127,7 +145,7 @@ def gerar_pdf_tabela_pedidos(df_pedidos, cliente_nome="Geral"):
         pdf.cell(w_vtotal, 6, txt=f"R$ {v_tot:.2f}", border=1, align="R")
         pdf.ln()
         
-    # Linha de Valor Total Geral no final
+    # Rodapé com o Valor Total Geral
     pdf.set_font("Arial", 'B', 9)
     pdf.set_fill_color(40, 40, 40)
     pdf.set_text_color(255, 255, 255)
