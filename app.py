@@ -25,7 +25,6 @@ def gerar_pdf_tabela_pedidos(df_pedidos, cliente_nome="Geral"):
     ie_empresa = ""
     tel_empresa = "(99) 98501-6050"
     end_empresa = "RUA CAIPIRA, Nº: 174"
-    
     # 1. Tenta ler primeiro do session_state (memória atual do Streamlit)
     if 'dados_empresa' in st.session_state and isinstance(st.session_state['dados_empresa'], dict):
         emp = st.session_state['dados_empresa']
