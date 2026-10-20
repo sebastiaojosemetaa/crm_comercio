@@ -12,7 +12,135 @@ import io
 import datetime as dt
 import hashlib
 import uuid
+def gerar_pdf_tabela_pedidos(df_pedidos, cliente_nome="Geral"):
+    from io import BytesIO
+    from fpdf import FPDF
+    from datetime import datetime
+    import pandas as pd
+    
+    # Tenta buscar os dados da empresa cadastrada no sistema
+    nome_empresa = "SUPERMERCADO J. REZENDE"
+    cnpj_empresa = ""
+    ie_empresa = ""
+    tel_empresa = ""
+    
+    if 'dados_empresa' in st.session_state:
+        emp = st.session_state['dados_empresa']
+        nome_empresa = emp.get('nome', nome_empresa)
+        cnpj_empresa = emp.get('cnpj', '')
+        ie_empresa = emp.get('ie', '')
+        tel_empresa = emp.get('telefone', '')
 
+    pdf = FPDF()
+    pdf.add_page()
+    
+    # Cabeçalho da Empresa
+    pdf.set_font("Arial", 'B', 15)
+    pdf.cell(0, 8, txt=nome_empresa.upper(), ln=True, align="C")
+    
+    pdf.set_font("Arial", size=9)
+    info_linha = []
+    if cnpj_empresa:
+        info_linha.append(f"CNPJ: {cnpj_empresa}")
+    if ie_empresa:
+        info_linha.append(f"INSC. EST.: {ie_empresa}")
+    if info_linha:
+        pdf.cell(0, 5, txt=" - ".join(info_linha), ln=True, align="C")
+        
+    if tel_empresa:
+        pdf.cell(0, 5, txt=f"CONTATO: {tel_empresa}", ln=True, align="C")
+        
+    pdf.ln(5)
+    
+    # Título do Relatório e Data
+    pdf.set_font("Arial", 'B', 11)
+    pdf.cell(0, 6, txt=f"Relatório de Pedidos / Orçamentos - {cliente_nome}", ln=True, align="C")
+    
+    pdf.set_font("Arial", size=8)
+    data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    pdf.cell(0, 5, txt=f"Gerado em: {data_atual}", ln=True, align="C")
+    pdf.ln(8)
+    
+    # Cabeçalho da Tabela (Azul Escuro com texto branco)
+    pdf.set_font("Arial", 'B', 9)
+    pdf.set_fill_color(20, 60, 120)
+    pdf.set_text_color(255, 255, 255)
+    
+    w_prod = 90
+    w_qtd = 30
+    w_vunit = 35
+    w_vtotal = 35
+    
+    pdf.cell(w_prod, 7, txt="Produto", border=1, fill=True, align="L")
+    pdf.cell(w_qtd, 7, txt="Qtd Total", border=1, fill=True, align="C")
+    pdf.cell(w_vunit, 7, txt="Preço Unitário (R$)", border=1, fill=True, align="R")
+    pdf.cell(w_vtotal, 7, txt="Valor Total (R$)", border=1, fill=True, align="R")
+    pdf.ln()
+    
+    # Linhas de Dados
+    pdf.set_font("Arial", size=9)
+    pdf.set_text_color(0, 0, 0)
+    
+    total_geral = 0.0
+    
+    for index, row in df_pedidos.iterrows():
+        produto = str(row.get('produto', ''))
+        
+        # Quantidade
+        try:
+            qtd = float(str(row.get('quantidade', 0)).replace(',', '.'))
+        except:
+            qtd = 0.0
+            
+        # Valor Unitário
+        v_unit = 0.0
+        for col in ['Valor Unitário', 'valor_unitario', 'preco']:
+            if col in row and pd.notna(row[col]):
+                try:
+                    val_str = str(row[col]).replace('R$', '').replace('.', '').replace(',', '.').strip()
+                    v_unit = float(val_str)
+                    break
+                except:
+                    pass
+                    
+        # Valor Total
+        v_tot = 0.0
+        for col in ['Valor Total', 'valor_total', 'total']:
+            if col in row and pd.notna(row[col]):
+                try:
+                    val_str = str(row[col]).replace('R$', '').replace('.', '').replace(',', '.').strip()
+                    v_tot = float(val_str)
+                    break
+                except:
+                    pass
+                    
+        if v_tot == 0.0 and v_unit > 0:
+            v_tot = qtd * v_unit
+        elif v_unit == 0.0 and qtd > 0 and v_tot > 0:
+            v_unit = v_tot / qtd
+            
+        total_geral += v_tot
+        
+        pdf.cell(w_prod, 6, txt=produto, border=1, align="L")
+        pdf.cell(w_qtd, 6, txt=f"{qtd:.2f}", border=1, align="C")
+        pdf.cell(w_vunit, 6, txt=f"R$ {v_unit:.2f}", border=1, align="R")
+        pdf.cell(w_vtotal, 6, txt=f"R$ {v_tot:.2f}", border=1, align="R")
+        pdf.ln()
+        
+    # Linha de Valor Total Geral no final
+    pdf.set_font("Arial", 'B', 9)
+    pdf.set_fill_color(40, 40, 40)
+    pdf.set_text_color(255, 255, 255)
+    
+    pdf.cell(w_prod + w_qtd + w_vunit, 7, txt="VALOR TOTAL GERAL", border=1, fill=True, align="R")
+    pdf.cell(w_vtotal, 7, txt=f"R$ {total_geral:.2f}", border=1, fill=True, align="R")
+    pdf.ln()
+    
+    pdf_output = pdf.output(dest='S')
+    if isinstance(pdf_output, str):
+        pdf_output = pdf_output.encode('latin1')
+        
+    return BytesIO(pdf_output)
 # -----------------------------------------------------------------------------
 # CONFIGURAÇÃO DA PÁGINA
 # -----------------------------------------------------------------------------
