@@ -19,35 +19,41 @@ def gerar_pdf_tabela_pedidos(df_pedidos, cliente_nome="Geral"):
     import pandas as pd
     import sqlite3
     
-    # Valores padrão iniciais
-    nome_empresa = "SUPERMERCADO J. REZENDE"
+    # Valores iniciais vazios para forçar a leitura correta do banco de dados
+    nome_empresa = ""
     cnpj_empresa = ""
     ie_empresa = ""
     tel_empresa = ""
     end_empresa = ""
     
-    # Busca os dados atualizados diretamente da tabela de configurações no banco de dados
+    # Tenta buscar os dados gravados na tabela de configuração do banco de dados
     try:
-        conn = sqlite3.connect('banco.db')  # Altere para o nome do seu banco se for diferente (ex: crm.db)
+        conn = sqlite3.connect('banco.db')  # Altere para o nome do seu banco se necessário
         cursor = conn.cursor()
         cursor.execute("SELECT nome, cnpj, ie, telefone, endereco FROM configuracao LIMIT 1")
         row_emp = cursor.fetchone()
         if row_emp:
-            nome_empresa = row_emp[0] or nome_empresa
+            nome_empresa = row_emp[0] or ""
             cnpj_empresa = row_emp[1] or ""
             ie_empresa = row_emp[2] or ""
             tel_empresa = row_emp[3] or ""
             end_empresa = row_emp[4] or ""
         conn.close()
     except Exception:
-        # Alternativa caso os dados estejam na sessão
-        if 'dados_empresa' in st.session_state:
-            emp = st.session_state['dados_empresa']
-            nome_empresa = emp.get('nome', nome_empresa)
-            cnpj_empresa = emp.get('cnpj', '')
-            ie_empresa = emp.get('ie', '')
-            tel_empresa = emp.get('telefone', '')
-            end_empresa = emp.get('endereco', '')
+        pass
+        
+    # Se não encontrar no banco, tenta buscar na sessão
+    if not nome_empresa and 'dados_empresa' in st.session_state:
+        emp = st.session_state['dados_empresa']
+        nome_empresa = emp.get('nome', '')
+        cnpj_empresa = emp.get('cnpj', '')
+        ie_empresa = emp.get('ie', '')
+        tel_empresa = emp.get('telefone', '')
+        end_empresa = emp.get('endereco', '')
+        
+    # Se mesmo assim estiver vazio, usa um nome genérico
+    if not nome_empresa:
+        nome_empresa = "EMPRESA NÃO CADASTRADA"
 
     pdf = FPDF()
     pdf.add_page()
