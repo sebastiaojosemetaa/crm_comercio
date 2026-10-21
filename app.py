@@ -338,10 +338,12 @@ doc_atual = "95451161100"
 if 'dados_empresa' in st.session_state and st.session_state['dados_empresa'].get('cnpj'):
     doc_atual = st.session_state['dados_empresa'].get('cnpj')
 st.info(f"Empresa: ALENCARSOFT (CNPJ/CPF: {doc_atual})")
+chave_digitada = st.text_input("Chave de Ativação:", key="input_chave_ativacao")
 if st.button("Ativar Este Dispositivo"):
     import hashlib
     apenas_digitos = ''.join(filter(str.isdigit, str(doc_atual)))
     segredo_mestre = "REY_CEBOLA_2026"
+    chave_limpa = str(chave_digitada).strip().upper()
     # Testa os tipos de planos e guarda as chaves geradas para diagnóstico
     chaves_calculadas = {}
     sucesso = False
