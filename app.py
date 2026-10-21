@@ -205,22 +205,16 @@ def validar_chave_inserida(chave_digitada, documento):
     segredo_mestre = "REY_CEBOLA_2026"
     chave_limpa = str(chave_digitada).strip().upper()
     
-    # Identifica o sufixo pelo tipo de chave
-    if "TESTE" in chave_limpa:
-        sufixo = "TESTE"
-    elif "ANUAL" in chave_limpa:
-        sufixo = "ANUAL"
-    elif "MENSAL" in chave_limpa:
-        sufixo = "MENSAL"
-    else:
-        sufixo = "MENSAL"
+    # Testa automaticamente contra todos os tipos de planos para evitar erros de prefixo
+    for sufixo in ["TESTE", "MENSAL", "ANUAL"]:
+        combinado = apenas_digitos + segredo_mestre + sufixo
+        hash_hex = hashlib.md5(combinado.encode()).hexdigest().upper()
+        chave_esperada = f"CRM-{sufixo}-{hash_hex[:4]}-{hash_hex[4:8]}-{hash_hex[8:12]}"
         
-    # Gera o hash exato
-    combinado = apenas_digitos + segredo_mestre + sufixo
-    hash_hex = hashlib.md5(combinado.encode()).hexdigest().upper()
-    chave_esperada = f"CRM-{sufixo}-{hash_hex[:4]}-{hash_hex[4:8]}-{hash_hex[8:12]}"
-    
-    return chave_limpa == chave_esperada
+        if chave_limpa == chave_esperada:
+            return True
+            
+    return False
 
 # =========================================================
 # PAINEL DO DESENVOLVEDOR (SEMPRE VISÍVEL NA BARRA LATERAL)
