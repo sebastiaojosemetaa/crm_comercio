@@ -182,21 +182,37 @@ device_id = st.query_params["device_id"]
 # =========================================================
 # FUNÇÃO: GERADOR DE CHAVE ÚNICA POR CNPJ / CPF
 # =========================================================
-def gerar_chave_por_documento(documento, tipo_plano="MENSAL"):
+def validar_chave_inserida(chave_digitada, documento):
+    import hashlib
+    
     apenas_digitos = ''.join(filter(str.isdigit, str(documento)))
     segredo_mestre = "REY_CEBOLA_2026"
+    chave_limpa = chave_digitada.strip().upper()
     
-    if "TESTE" in str(tipo_plano).upper():
+    # Identifica o tipo de chave pelo prefixo
+    if "TESTE" in chave_limpa:
         sufixo = "TESTE"
-    elif "ANUAL" in str(tipo_plano).upper():
+    elif "ANUAL" in chave_limpa:
         sufixo = "ANUAL"
-    else:
+    elif "MENSAL" in chave_limpa:
         sufixo = "MENSAL"
+    else:
+        sufixo = ""
         
-    combinado = apenas_digitos + segredo_mestre + sufixo
+    # Gera a combinação exata usada na criação
+    if sufixo:
+        combinado = apenas_digitos + segredo_mestre + sufixo
+    else:
+        combinado = apenas_digitos + segredo_mestre
+        
     hash_hex = hashlib.md5(combinado.encode()).hexdigest().upper()
     
-    return f"CRM-{sufixo}-{hash_hex[:4]}-{hash_hex[4:8]}-{hash_hex[8:12]}"
+    if sufixo:
+        chave_esperada = f"CRM-{sufixo}-{hash_hex[:4]}-{hash_hex[4:8]}-{hash_hex[8:12]}"
+    else:
+        chave_esperada = f"CRM-{hash_hex[:4]}-{hash_hex[4:8]}-{hash_hex[8:12]}"
+        
+    return chave_limpa == chave_esperada
 
 # =========================================================
 # PAINEL DO DESENVOLVEDOR (SEMPRE VISÍVEL NA BARRA LATERAL)
