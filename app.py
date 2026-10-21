@@ -772,7 +772,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.markdown("---")
                 
             else:
-                # SE JÁ ESTIVER ATIVADO, MOSTRA A MENSAGEM DE SUCESSO E O FORMULÁRIO DE DADOS
+                # SÓ APARECE O FORMULÁRIO SE ESTIVER REALMENTE ATIVADO
                 dias_ativos = st.session_state.get('dias_licenca', 30)
                 st.success(f"✅ Dispositivo Ativado com Sucesso! Licença válida por {dias_ativos} dias.")
                 st.markdown("---")
