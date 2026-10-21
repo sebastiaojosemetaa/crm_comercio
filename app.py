@@ -365,28 +365,24 @@ if not dispositivo_ativado:
     
     chave_digitada = st.text_input("🔑 Chave de Ativação:", type="password", placeholder="Digite a sua chave...", key="input_chave_ativacao_tela")
     
-    if st.button("🔓 Ativar Este Dispositivo", type="primary", key="btn_ativar_dispositivo_tela"):
-        chave_limpa = chave_digitada.strip().upper()
-        cnpj_limpo_bd = ''.join(filter(str.isdigit, str(cnpj_registrado)))
-        chave_esperada = gerar_chave_por_documento(cnpj_limpo_bd)
-        CHAVE_MESTRE = "CRM-REYSAL-MESTRE"
+    # Lógica do botão de ativação do dispositivo
+    if st.button("Ativar Este Dispositivo"):
+        chave_digitada = st.session_state.get("input_chave_ativacao", "") # Ou a variável do seu input de chave
         
-        if chave_limpa == chave_esperada or chave_limpa == CHAVE_MESTRE:
-            nova_exp = (datetime.now() + timedelta(days=365)).strftime('%Y-%m-%d %H:%M:%S')
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT OR REPLACE INTO dispositivo_licenca (device_id, chave, data_expiracao, status)
-                VALUES (?, ?, ?, 'ATIVADO')
-            """, (device_id, chave_limpa, nova_exp))
-            conn.commit()
+        # Pega o CNPJ/CPF cadastrado atualmente na empresa
+        cnpj_atual = ""
+        if 'dados_empresa' in st.session_state:
+            cnpj_atual = st.session_state['dados_empresa'].get('cnpj', '95451161100')
+        else:
+            cnpj_atual = '95451161100' # CNPJ da empresa atual (ex: Alencarsoft)
+            
+        # Valida usando a função atualizada
+        if validar_chave_inserida(chave_digitada, cnpj_atual):
             st.success("Dispositivo ativado com sucesso!")
+            st.session_state['dispositivo_ativado'] = True
             st.rerun()
         else:
             st.error("Chave inválida para este CNPJ.")
-    st.stop()
-
-dias_disp = 365
-st.sidebar.caption(f"🟢 **Dispositivo Ativado** ({dias_disp} dias de acesso)")
 # =========================================================
 # ESTILO VISUAL METÁLICO/CLÁSSICO PDV (FÊNIX STYLE)
 # =========================================================
