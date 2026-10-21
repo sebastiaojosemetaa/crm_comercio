@@ -333,6 +333,19 @@ nome_empresa_registrada = df_emp_dev.iloc[0]['nome_empresa']
 # -----------------------------------------------------------------------------
 # 2. VERIFICA A LICENÇA DESTE DISPOSITIVO ESPECÍFICO
 # -----------------------------------------------------------------------------
+df_lic = pd.read_sql_query(
+    "SELECT * FROM dispositivo_licenca WHERE device_id = ? AND status = 'ATIVADO'", 
+    conn, 
+    params=(device_id,)
+)
+
+dispositivo_ativado = False
+if not df_lic.empty:
+    data_exp = pd.to_datetime(df_lic.iloc[0]['data_expiracao'])
+    if data_exp > datetime.now():
+        dispositivo_ativado = True
+
+if not dispositivo_ativado:
 st.markdown("### Ativação de Licença do Dispositivo")
 # Puxa o documento atual da empresa
 doc_atual = "95451161100"
