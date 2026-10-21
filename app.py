@@ -782,9 +782,15 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.markdown("---")
                 
             else:
-                # SÓ APARECE O FORMULÁRIO SE ESTIVER REALMENTE ATIVADO
+                # SE JÁ ESTIVER ATIVADO, MOSTRA O STATUS E O BOTÃO DE RENOVAR
                 dias_ativos = st.session_state.get('dias_licenca', 30)
                 st.success(f"✅ Dispositivo Ativado com Sucesso! Licença válida por {dias_ativos} dias.")
+                
+                # Botão para permitir inserir uma nova chave / renovar
+                if st.button("🔄 Inserir Nova Chave / Renovar Licença", key="btn_renovar_licenca"):
+                    st.session_state['dispositivo_ativado'] = False
+                    st.rerun()
+                    
                 st.markdown("---")
                 
                 with st.form("form_atualizar_dados_empresa"):
