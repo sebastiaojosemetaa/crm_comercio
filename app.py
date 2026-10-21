@@ -12,6 +12,22 @@ import io
 import datetime as dt
 import hashlib
 import uuid
+def gerar_chave_por_documento(documento, tipo_plano="MENSAL"):
+    import hashlib
+    apenas_digitos = ''.join(filter(str.isdigit, str(documento)))
+    segredo_mestre = "REY_CEBOLA_2026"
+    
+    if "TESTE" in str(tipo_plano).upper():
+        sufixo = "TESTE"
+    elif "ANUAL" in str(tipo_plano).upper():
+        sufixo = "ANUAL"
+    else:
+        sufixo = "MENSAL"
+        
+    combinado = apenas_digitos + segredo_mestre + sufixo
+    hash_hex = hashlib.md5(combinado.encode()).hexdigest().upper()
+    
+    return f"CRM-{sufixo}-{hash_hex[:4]}-{hash_hex[4:8]}-{hash_hex[8:12]}"
 def gerar_pdf_tabela_pedidos(df_pedidos, cliente_nome="Geral"):
     from io import BytesIO
     from fpdf import FPDF
