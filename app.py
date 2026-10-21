@@ -333,53 +333,50 @@ nome_empresa_registrada = df_emp_dev.iloc[0]['nome_empresa']
 # -----------------------------------------------------------------------------
 # 2. VERIFICA A LICENÇA DESTE DISPOSITIVO ESPECÍFICO
 # -----------------------------------------------------------------------------
-df_lic = pd.read_sql_query(
-    "SELECT * FROM dispositivo_licenca WHERE device_id = ? AND status = 'ATIVADO'", 
-    conn, 
-    params=(device_id,)
-)
+st.markdown("### Ativação de Licença do Dispositivo")
 
-dispositivo_ativado = False
-if not df_lic.empty:
-    data_exp = pd.to_datetime(df_lic.iloc[0]['data_expiracao'])
-    if data_exp > datetime.now():
-        dispositivo_ativado = True
+# Puxa o documento atual da empresa
+doc_atual = "95451161100"
+if 'dados_empresa' in st.session_state and st.session_state['dados_empresa'].get('cnpj'):
+    doc_atual = st.session_state['dados_empresa'].get('cnpj')
 
-if not dispositivo_ativado:
-    st.markdown("## 🔐 Ativação de Licença do Dispositivo")
-    st.info(f"Empresa: **{nome_empresa_registrada}** (CNPJ/CPF: **{cnpj_registrado}**)")
+st.info(f"Empresa: ALENCARSOFT (CNPJ/CPF: {doc_atual})")
+
+chave_digitada = st.text_input("Chave de Ativação:", key="input_chave_ativacao")
+
+if st.button("Ativar Este Dispositivo"):
+    import hashlib
     
-    chave_digitada = st.text_input("🔑 Chave de Ativação:", type="password", placeholder="Digite a sua chave...", key="input_chave_ativacao_tela")
+    apenas_digitos = ''.join(filter(str.isdigit, str(doc_atual)))
+    segredo_mestre = "REY_CEBOLA_2026"
+    chave_limpa = str(chave_digitada).strip().upper()
     
-    # Lógica do botão de ativação do dispositivo
-    if st.button("Ativar Este Dispositivo"):
-        # Obtém o valor digitado no campo de chave de ativação
-        chave_digitada = st.session_state.get("input_chave_ativacao", "")
+    # Testa os tipos de planos e guarda as chaves geradas para diagnóstico
+    chaves_calculadas = {}
+    sucesso = False
+    
+    for sufixo in ["TESTE", "MENSAL", "ANUAL"]:
+        combinado = apenas_digitos + segredo_mestre + sufixo
+        hash_hex = hashlib.md5(combinado.encode()).hexdigest().upper()
+        chave_esperada = f"CRM-{sufixo}-{hash_hex[:4]}-{hash_hex[4:8]}-{hash_hex[8:12]}"
+        chaves_calculadas[sufixo] = chave_esperada
         
-        # Busca e limpa o CNPJ atual da empresa registada no sistema
-        cnpj_verificacao = "95451161100" # Valor predefinido da empresa atual
-        if 'dados_empresa' in st.session_state and st.session_state['dados_empresa'].get('cnpj'):
-            cnpj_verificacao = st.session_state['dados_empresa'].get('cnpj')
-        else:
-            try:
-                import sqlite3
-                conn = sqlite3.connect('banco.db')
-                cursor = conn.cursor()
-                cursor.execute("SELECT cnpj FROM configuracao LIMIT 1")
-                row_db = cursor.fetchone()
-                if row_db and row_db[0]:
-                    cnpj_verificacao = row_db[0]
-                conn.close()
-            except:
-                pass
-                
-        # Valida a chave utilizando a função de verificação
-        if validar_chave_inserida(chave_digitada, cnpj_verificacao):
-            st.success("Dispositivo ativado com sucesso!")
-            st.session_state['dispositivo_ativado'] = True
-            st.rerun()
-        else:
-            st.error("Chave inválida para este CNPJ.")
+        if chave_limpa == chave_esperada:
+            sucesso = True
+            break
+            
+    if sucesso:
+        st.success("Dispositivo ativado com sucesso!")
+        st.session_state['dispositivo_ativado'] = True
+        st.rerun()
+    else:
+        st.error("Chave inválida para este CPF/CNPJ.")
+        
+        # MOSTRA O DIAGNÓSTICO NA TELA PARA COMPARAÇÃO
+        st.warning("🔍 **Painel de Diagnóstico (Chaves esperadas pelo sistema):**")
+        for tipo, c_gerada in chaves_calculadas.items():
+            st.text(f"Gerada para {tipo}: {c_gerada}")
+        st.text(f"Chave que você digitou: {chave_limpa}")
 # =========================================================
 # ESTILO VISUAL METÁLICO/CLÁSSICO PDV (FÊNIX STYLE)
 # =========================================================
