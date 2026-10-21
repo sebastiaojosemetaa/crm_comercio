@@ -720,9 +720,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             df_emp_atual = pd.read_sql_query("SELECT * FROM empresas_dispositivos WHERE device_id = ?", conn, params=(device_id,))
             reg_emp = df_emp_atual.iloc[0] if not df_emp_atual.empty else {}
         
-            # === BLOCO DE ATIVAÇÃO EXCLUSIVO DESTA TELA ===
+            # === VERIFICAÇÃO DE ATIVAÇÃO ===
             if not st.session_state.get('dispositivo_ativado', False):
                 st.markdown("### 🔑 Ativação de Licença do Dispositivo")
+                st.warning("⚠️ Insira a chave de ativação correspondente ao seu documento para liberar o sistema.")
                 
                 doc_atual = reg_emp.get('cnpj', '95451161100') if reg_emp else '95451161100'
                 st.info(f"Empresa Atual (CNPJ/CPF): {doc_atual}")
@@ -731,18 +732,26 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 
                 if st.button("Ativar Este Dispositivo", key="btn_ativar_dispositivo_config"):
                     import hashlib
+                    
                     apenas_digitos = ''.join(filter(str.isdigit, str(doc_atual)))
                     segredo_mestre = "REY_CEBOLA_2026"
                     chave_limpa = str(chave_digitada).strip().upper()
                     
+                    chaves_calculadas = {}
                     sucesso = False
                     dias_validade = 0
-                    mapeamento_dias = {"TESTE": 7, "MENSAL": 30, "ANUAL": 365}
+                    
+                    mapeamento_dias = {
+                        "TESTE": 7,
+                        "MENSAL": 30,
+                        "ANUAL": 365
+                    }
                     
                     for sufixo, dias in mapeamento_dias.items():
                         combinado = apenas_digitos + segredo_mestre + sufixo
                         hash_hex = hashlib.md5(combinado.encode()).hexdigest().upper()
                         chave_esperada = f"CRM-{sufixo}-{hash_hex[:4]}-{hash_hex[4:8]}-{hash_hex[8:12]}"
+                        chaves_calculadas[sufixo] = chave_esperada
                         
                         if chave_limpa == chave_esperada:
                             sucesso = True
@@ -750,39 +759,44 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             break
                             
                     if sucesso:
-                        st.session_state['dispositivo_ativado'] = False
+                        st.session_state['dispositivo_ativado'] = True
                         st.session_state['dias_licenca'] = dias_validade
                         st.success(f"Dispositivo ativado com sucesso! Validade: {dias_validade} dias.")
                         st.rerun()
                     else:
                         st.error("Chave inválida para este CPF/CNPJ.")
+                        st.warning("🔍 **Painel de Diagnóstico (Chaves esperadas pelo sistema):**")
+                        for tipo, c_gerada in chaves_calculadas.items():
+                            st.text(f"Gerada para {tipo}: {c_gerada}")
+                        st.text(f"Chave que você digitou: {chave_limpa}")
                 st.markdown("---")
+                
             else:
+                # SE JÁ ESTIVER ATIVADO, MOSTRA A MENSAGEM DE SUCESSO E O FORMULÁRIO DE DADOS
                 dias_ativos = st.session_state.get('dias_licenca', 30)
                 st.success(f"✅ Dispositivo Ativado com Sucesso! Licença válida por {dias_ativos} dias.")
                 st.markdown("---")
-        
-            # Formulário de dados da empresa abaixo da ativação
-            with st.form("form_atualizar_dados_empresa"):
-                c_nome_alt = st.text_input("Nome / Razão Social", value=str(reg_emp.get('nome_empresa', '')))
-                c_cnpj_alt = st.text_input("CNPJ ou CPF", value=str(reg_emp.get('cnpj', '')))
-                c_ie_alt = st.text_input("Inscrição Estadual (IE)", value=str(reg_emp.get('ie', '')))
-                c_tel_alt = st.text_input("Telefone de Contato", value=str(reg_emp.get('fone', '')))
-                c_end_alt = st.text_input("Endereço Completo", value=str(reg_emp.get('endereco', '')))
                 
-                if st.form_submit_button("💾 Salvar Alterações da Empresa", type="primary"):
-                    if c_nome_alt.strip() and c_cnpj_alt.strip():
-                        cnpj_limpo = ''.join(filter(str.isdigit, c_cnpj_alt))
-                        cursor = conn.cursor()
-                        cursor.execute("""
-                            INSERT OR REPLACE INTO empresas_dispositivos (device_id, nome_empresa, cnpj, ie, fone, endereco)
-                            VALUES (?, ?, ?, ?, ?, ?)
-                        """, (device_id, c_nome_alt.strip(), cnpj_limpo, c_ie_alt.strip(), c_tel_alt.strip(), c_end_alt.strip()))
-                        conn.commit()
-                        st.success("✅ Dados da empresa atualizados com sucesso!")
-                        st.rerun()
-                    else:
-                        st.error("Preencha o Nome e o CNPJ/CPF.")
+                with st.form("form_atualizar_dados_empresa"):
+                    c_nome_alt = st.text_input("Nome / Razão Social", value=str(reg_emp.get('nome_empresa', '')))
+                    c_cnpj_alt = st.text_input("CNPJ ou CPF", value=str(reg_emp.get('cnpj', '')))
+                    c_ie_alt = st.text_input("Inscrição Estadual (IE)", value=str(reg_emp.get('ie', '')))
+                    c_tel_alt = st.text_input("Telefone de Contato", value=str(reg_emp.get('fone', '')))
+                    c_end_alt = st.text_input("Endereço Completo", value=str(reg_emp.get('endereco', '')))
+                    
+                    if st.form_submit_button("💾 Salvar Alterações da Empresa", type="primary"):
+                        if c_nome_alt.strip() and c_cnpj_alt.strip():
+                            cnpj_limpo = ''.join(filter(str.isdigit, c_cnpj_alt))
+                            cursor = conn.cursor()
+                            cursor.execute("""
+                                INSERT OR REPLACE INTO empresas_dispositivos (device_id, nome_empresa, cnpj, ie, fone, endereco)
+                                VALUES (?, ?, ?, ?, ?, ?)
+                            """, (device_id, c_nome_alt.strip(), cnpj_limpo, c_ie_alt.strip(), c_tel_alt.strip(), c_end_alt.strip()))
+                            conn.commit()
+                            st.success("✅ Dados da empresa atualizados com sucesso!")
+                            st.rerun()
+                        else:
+                            st.error("Preencha o Nome e o CNPJ/CPF.")
         if menu_admin == "🛒 PDV — Frente de Caixa":
             # CSS para compactar e estilizar os botões de atalho no rodapé
             st.markdown("""
