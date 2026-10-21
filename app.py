@@ -203,9 +203,9 @@ def validar_chave_inserida(chave_digitada, documento):
     
     apenas_digitos = ''.join(filter(str.isdigit, str(documento)))
     segredo_mestre = "REY_CEBOLA_2026"
-    chave_limpa = chave_digitada.strip().upper()
+    chave_limpa = str(chave_digitada).strip().upper()
     
-    # Identifica o tipo de chave pelo prefixo
+    # Identifica o sufixo pelo tipo de chave
     if "TESTE" in chave_limpa:
         sufixo = "TESTE"
     elif "ANUAL" in chave_limpa:
@@ -213,21 +213,13 @@ def validar_chave_inserida(chave_digitada, documento):
     elif "MENSAL" in chave_limpa:
         sufixo = "MENSAL"
     else:
-        sufixo = ""
+        sufixo = "MENSAL"
         
-    # Gera a combinação exata usada na criação
-    if sufixo:
-        combinado = apenas_digitos + segredo_mestre + sufixo
-    else:
-        combinado = apenas_digitos + segredo_mestre
-        
+    # Gera o hash exato
+    combinado = apenas_digitos + segredo_mestre + sufixo
     hash_hex = hashlib.md5(combinado.encode()).hexdigest().upper()
+    chave_esperada = f"CRM-{sufixo}-{hash_hex[:4]}-{hash_hex[4:8]}-{hash_hex[8:12]}"
     
-    if sufixo:
-        chave_esperada = f"CRM-{sufixo}-{hash_hex[:4]}-{hash_hex[4:8]}-{hash_hex[8:12]}"
-    else:
-        chave_esperada = f"CRM-{hash_hex[:4]}-{hash_hex[4:8]}-{hash_hex[8:12]}"
-        
     return chave_limpa == chave_esperada
 
 # =========================================================
