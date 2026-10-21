@@ -333,20 +333,10 @@ nome_empresa_registrada = df_emp_dev.iloc[0]['nome_empresa']
 # -----------------------------------------------------------------------------
 # 2. VERIFICA A LICENÇA DESTE DISPOSITIVO ESPECÍFICO
 # -----------------------------------------------------------------------------
-df_lic = pd.read_sql_query(
-    "SELECT * FROM dispositivo_licenca WHERE device_id = ? AND status = 'ATIVADO'", 
-    conn, 
-    params=(device_id,)
-)
-
-dispositivo_ativado = False
-if not df_lic.empty:
-    data_exp = pd.to_datetime(df_lic.iloc[0]['data_expiracao'])
-    if data_exp > datetime.now():
-        dispositivo_ativado = True
-
-if not dispositivo_ativado:
+# Verifique se o menu atual é a página de configurações
+if menu == "Configurações da Empresa":
     st.markdown("### Ativação de Licença do Dispositivo")
+    # ... o restante do código que já está aí embaixo ...
     # Puxa o documento atual da empresa
     doc_atual = "95451161100"
     if 'dados_empresa' in st.session_state and st.session_state['dados_empresa'].get('cnpj'):
@@ -549,7 +539,13 @@ st.sidebar.title("🔑 Acesso ao Sistema")
 opcoes_perfil = ["👤 Portal do Cliente", "🔒 Administração / Vendedor"]
 perfil_selecionado = st.sidebar.radio("Selecione o Perfil:", opcoes_perfil, key="perfil_principal_radio_v2")
 st.sidebar.markdown("---")
+# Status do Dispositivo no Topo da Barra Lateral
+if st.session_state.get('dispositivo_ativado', False):
+    st.sidebar.success("🟢 Dispositivo Ativado (Acesso Liberado)")
+else:
+    st.sidebar.error("🔴 Dispositivo Não Ativado")
 
+st.sidebar.markdown("---")
 # ==========================================
 # AMBIENTE 1: PORTAL DO CLIENTE
 # ==========================================
