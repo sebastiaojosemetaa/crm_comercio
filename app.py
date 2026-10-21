@@ -367,33 +367,33 @@ if not dispositivo_ativado:
     
     # Lógica do botão de ativação do dispositivo
     if st.button("Ativar Este Dispositivo"):
-    # Obtém o valor digitado no campo de chave de ativação
-    chave_digitada = st.session_state.get("input_chave_ativacao", "")
-    
-    # Busca e limpa o CNPJ atual da empresa registada no sistema
-    cnpj_verificacao = "95451161100" # Valor predefinido da empresa atual
-    if 'dados_empresa' in st.session_state and st.session_state['dados_empresa'].get('cnpj'):
-        cnpj_verificacao = st.session_state['dados_empresa'].get('cnpj')
-    else:
-        try:
-            import sqlite3
-            conn = sqlite3.connect('banco.db')
-            cursor = conn.cursor()
-            cursor.execute("SELECT cnpj FROM configuracao LIMIT 1")
-            row_db = cursor.fetchone()
-            if row_db and row_db[0]:
-                cnpj_verificacao = row_db[0]
-            conn.close()
-        except:
-            pass
-            
-    # Valida a chave utilizando a função de verificação
-    if validar_chave_inserida(chave_digitada, cnpj_verificacao):
-        st.success("Dispositivo ativado com sucesso!")
-        st.session_state['dispositivo_ativado'] = True
-        st.rerun()
-    else:
-        st.error("Chave inválida para este CNPJ.")
+        # Obtém o valor digitado no campo de chave de ativação
+        chave_digitada = st.session_state.get("input_chave_ativacao", "")
+        
+        # Busca e limpa o CNPJ atual da empresa registada no sistema
+        cnpj_verificacao = "95451161100" # Valor predefinido da empresa atual
+        if 'dados_empresa' in st.session_state and st.session_state['dados_empresa'].get('cnpj'):
+            cnpj_verificacao = st.session_state['dados_empresa'].get('cnpj')
+        else:
+            try:
+                import sqlite3
+                conn = sqlite3.connect('banco.db')
+                cursor = conn.cursor()
+                cursor.execute("SELECT cnpj FROM configuracao LIMIT 1")
+                row_db = cursor.fetchone()
+                if row_db and row_db[0]:
+                    cnpj_verificacao = row_db[0]
+                conn.close()
+            except:
+                pass
+                
+        # Valida a chave utilizando a função de verificação
+        if validar_chave_inserida(chave_digitada, cnpj_verificacao):
+            st.success("Dispositivo ativado com sucesso!")
+            st.session_state['dispositivo_ativado'] = True
+            st.rerun()
+        else:
+            st.error("Chave inválida para este CNPJ.")
 # =========================================================
 # ESTILO VISUAL METÁLICO/CLÁSSICO PDV (FÊNIX STYLE)
 # =========================================================
