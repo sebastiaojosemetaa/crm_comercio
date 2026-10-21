@@ -781,7 +781,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     sucesso = False
                     dias_validade = 0
                     
-                    # Mapeia os dias de acordo com o sufixo da chave
+                    # Mapeia os dias de acordo com o sufixo da chave gerada
                     mapeamento_dias = {
                         "TESTE": 7,
                         "MENSAL": 30,
@@ -815,27 +815,28 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 dias_ativos = st.session_state.get('dias_licenca', 30)
                 st.success(f"✅ Dispositivo Ativado com Sucesso! Licença válida por {dias_ativos} dias.")
                 st.markdown("---")
+        
+            # Formulário de dados da empresa abaixo da ativação
+            with st.form("form_atualizar_dados_empresa"):
+                c_nome_alt = st.text_input("Nome / Razão Social", value=str(reg_emp.get('nome_empresa', '')))
+                c_cnpj_alt = st.text_input("CNPJ ou CPF", value=str(reg_emp.get('cnpj', '')))
+                c_ie_alt = st.text_input("Inscrição Estadual (IE)", value=str(reg_emp.get('ie', '')))
+                c_tel_alt = st.text_input("Telefone de Contato", value=str(reg_emp.get('fone', '')))
+                c_end_alt = st.text_input("Endereço Completo", value=str(reg_emp.get('endereco', '')))
                 
-                with st.form("form_atualizar_dados_empresa"):
-                    c_nome_alt = st.text_input("Nome / Razão Social", value=str(reg_emp.get('nome_empresa', '')))
-                    c_cnpj_alt = st.text_input("CNPJ ou CPF", value=str(reg_emp.get('cnpj', '')))
-                    c_ie_alt = st.text_input("Inscrição Estadual (IE)", value=str(reg_emp.get('ie', '')))
-                    c_tel_alt = st.text_input("Telefone de Contato", value=str(reg_emp.get('fone', '')))
-                    c_end_alt = st.text_input("Endereço Completo", value=str(reg_emp.get('endereco', '')))
-                    
-                    if st.form_submit_button("💾 Salvar Alterações da Empresa", type="primary"):
-                        if c_nome_alt.strip() and c_cnpj_alt.strip():
-                            cnpj_limpo = ''.join(filter(str.isdigit, c_cnpj_alt))
-                            cursor = conn.cursor()
-                            cursor.execute("""
-                                INSERT OR REPLACE INTO empresas_dispositivos (device_id, nome_empresa, cnpj, ie, fone, endereco)
-                                VALUES (?, ?, ?, ?, ?, ?)
-                            """, (device_id, c_nome_alt.strip(), cnpj_limpo, c_ie_alt.strip(), c_tel_alt.strip(), c_end_alt.strip()))
-                            conn.commit()
-                            st.success("✅ Dados da empresa atualizados com sucesso!")
-                            st.rerun()
-                        else:
-                            st.error("Preencha o Nome e o CNPJ/CPF.")
+                if st.form_submit_button("💾 Salvar Alterações da Empresa", type="primary"):
+                    if c_nome_alt.strip() and c_cnpj_alt.strip():
+                        cnpj_limpo = ''.join(filter(str.isdigit, c_cnpj_alt))
+                        cursor = conn.cursor()
+                        cursor.execute("""
+                            INSERT OR REPLACE INTO empresas_dispositivos (device_id, nome_empresa, cnpj, ie, fone, endereco)
+                            VALUES (?, ?, ?, ?, ?, ?)
+                        """, (device_id, c_nome_alt.strip(), cnpj_limpo, c_ie_alt.strip(), c_tel_alt.strip(), c_end_alt.strip()))
+                        conn.commit()
+                        st.success("✅ Dados da empresa atualizados com sucesso!")
+                        st.rerun()
+                    else:
+                        st.error("Preencha o Nome e o CNPJ/CPF.")
         if menu_admin == "🛒 PDV — Frente de Caixa":
             # CSS para compactar e estilizar os botões de atalho no rodapé
             st.markdown("""
