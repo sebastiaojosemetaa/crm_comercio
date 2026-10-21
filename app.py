@@ -755,7 +755,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         
         if menu_admin == "🏢 Configurações da Empresa":
             st.title("🏢 Configurações e Dados da Empresa")
-            # === BLOCO DE ATIVAÇÃO EXCLUSIVO DESTA TELA ===
+        # === BLOCO DE ATIVAÇÃO EXCLUSIVO DESTA TELA ===
         if not st.session_state.get('dispositivo_ativado', False):
             st.markdown("### 🔑 Ativação de Licença do Dispositivo")
             
@@ -774,8 +774,16 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 
                 chaves_calculadas = {}
                 sucesso = False
+                dias_validade = 0
                 
-                for sufixo in ["TESTE", "MENSAL", "ANUAL"]:
+                # Mapeia os dias de acordo com o sufixo da chave
+                mapeamento_dias = {
+                    "TESTE": 7,
+                    "MENSAL": 30,
+                    "ANUAL": 365
+                }
+                
+                for sufixo, dias in mapeamento_dias.items():
                     combinado = apenas_digitos + segredo_mestre + sufixo
                     hash_hex = hashlib.md5(combinado.encode()).hexdigest().upper()
                     chave_esperada = f"CRM-{sufixo}-{hash_hex[:4]}-{hash_hex[4:8]}-{hash_hex[8:12]}"
@@ -783,11 +791,13 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     
                     if chave_limpa == chave_esperada:
                         sucesso = True
+                        dias_validade = dias
                         break
                         
                 if sucesso:
-                    st.success("Dispositivo ativado com sucesso!")
+                    st.success(f"Dispositivo ativado com sucesso! Validade: {dias_validade} dias.")
                     st.session_state['dispositivo_ativado'] = True
+                    st.session_state['dias_licenca'] = dias_validade
                     st.rerun()
                 else:
                     st.error("Chave inválida para este CPF/CNPJ.")
@@ -795,6 +805,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     for tipo, c_gerada in chaves_calculadas.items():
                         st.text(f"Gerada para {tipo}: {c_gerada}")
                     st.text(f"Chave que você digitou: {chave_limpa}")
+            st.markdown("---")
+        else:
+            dias_ativos = st.session_state.get('dias_licenca', 30)
+            st.success(f"✅ Dispositivo Ativado com Sucesso! Licença válida por {dias_ativos} dias.")
             st.markdown("---")
             # Carrega os dados da empresa deste dispositivo específico
             df_emp_atual = pd.read_sql_query("SELECT * FROM empresas_dispositivos WHERE device_id = ?", conn, params=(device_id,))
