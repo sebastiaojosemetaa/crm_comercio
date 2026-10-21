@@ -715,7 +715,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         
         if menu_admin == "🏢 Configurações da Empresa":
             st.title("🏢 Configurações e Dados da Empresa")
-            
+            doc_cliente = st.text_input("CNPJ ou CPF do Cliente:", key="doc_dev_topo_doc_unico")
             # Carrega os dados da empresa deste dispositivo específico
             df_emp_atual = pd.read_sql_query("SELECT * FROM empresas_dispositivos WHERE device_id = ?", conn, params=(device_id,))
             reg_emp = df_emp_atual.iloc[0] if not df_emp_atual.empty else {}
