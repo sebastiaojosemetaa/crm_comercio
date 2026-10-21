@@ -334,7 +334,6 @@ nome_empresa_registrada = df_emp_dev.iloc[0]['nome_empresa']
 # 2. VERIFICA A LICENÇA DESTE DISPOSITIVO ESPECÍFICO
 # -----------------------------------------------------------------------------
 # Verifique se o menu atual é a página de configurações
-if pagina == "Configurações da Empresa":
     st.markdown("### Ativação de Licença do Dispositivo")
     # ... resto do código de ativação ...
 # Puxa o documento atual da empresa
