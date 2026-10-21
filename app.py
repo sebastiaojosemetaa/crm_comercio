@@ -732,7 +732,10 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 st.markdown("### 🔑 Ativação de Licença do Dispositivo")
                 st.warning("⚠️ Insira a chave de ativação correspondente ao seu documento para liberar o sistema.")
                 
-                doc_atual = reg_emp.get('cnpj', '95451161100') if reg_emp else '95451161100'
+                # Forma 100% segura para evitar o erro do Pandas
+                doc_atual = "95451161100"
+                if not df_emp_atual.empty:
+                    doc_atual = str(df_emp_atual.iloc[0].get('cnpj', '95451161100'))
                 st.info(f"Empresa Atual (CNPJ/CPF): {doc_atual}")
                 
                 chave_digitada = st.text_input("Chave de Ativação:", key="input_chave_ativacao_config")
