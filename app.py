@@ -337,43 +337,43 @@ nome_empresa_registrada = df_emp_dev.iloc[0]['nome_empresa']
 if menu == "Configurações da Empresa":
     st.markdown("### Ativação de Licença do Dispositivo")
     # ... o restante do código que já está aí embaixo ...
-    # Puxa o documento atual da empresa
-    doc_atual = "95451161100"
-    if 'dados_empresa' in st.session_state and st.session_state['dados_empresa'].get('cnpj'):
-        doc_atual = st.session_state['dados_empresa'].get('cnpj')
-    st.info(f"Empresa: ALENCARSOFT (CNPJ/CPF: {doc_atual})")
-    chave_digitada = st.text_input("Chave de Ativação:", key="input_chave_ativacao")
-    if st.button("Ativar Este Dispositivo"):
-        import hashlib
-        apenas_digitos = ''.join(filter(str.isdigit, str(doc_atual)))
-        segredo_mestre = "REY_CEBOLA_2026"
-        chave_limpa = str(chave_digitada).strip().upper()
-        # Testa os tipos de planos e guarda as chaves geradas para diagnóstico
-        chaves_calculadas = {}
-        sucesso = False
+# Puxa o documento atual da empresa
+doc_atual = "95451161100"
+if 'dados_empresa' in st.session_state and st.session_state['dados_empresa'].get('cnpj'):
+    doc_atual = st.session_state['dados_empresa'].get('cnpj')
+st.info(f"Empresa: ALENCARSOFT (CNPJ/CPF: {doc_atual})")
+chave_digitada = st.text_input("Chave de Ativação:", key="input_chave_ativacao")
+if st.button("Ativar Este Dispositivo"):
+    import hashlib
+    apenas_digitos = ''.join(filter(str.isdigit, str(doc_atual)))
+    segredo_mestre = "REY_CEBOLA_2026"
+    chave_limpa = str(chave_digitada).strip().upper()
+    # Testa os tipos de planos e guarda as chaves geradas para diagnóstico
+    chaves_calculadas = {}
+    sucesso = False
+    
+    for sufixo in ["TESTE", "MENSAL", "ANUAL"]:
+        combinado = apenas_digitos + segredo_mestre + sufixo
+        hash_hex = hashlib.md5(combinado.encode()).hexdigest().upper()
+        chave_esperada = f"CRM-{sufixo}-{hash_hex[:4]}-{hash_hex[4:8]}-{hash_hex[8:12]}"
+        chaves_calculadas[sufixo] = chave_esperada
         
-        for sufixo in ["TESTE", "MENSAL", "ANUAL"]:
-            combinado = apenas_digitos + segredo_mestre + sufixo
-            hash_hex = hashlib.md5(combinado.encode()).hexdigest().upper()
-            chave_esperada = f"CRM-{sufixo}-{hash_hex[:4]}-{hash_hex[4:8]}-{hash_hex[8:12]}"
-            chaves_calculadas[sufixo] = chave_esperada
+        if chave_limpa == chave_esperada:
+            sucesso = True
+            break
             
-            if chave_limpa == chave_esperada:
-                sucesso = True
-                break
-                
-        if sucesso:
-            st.success("Dispositivo ativado com sucesso!")
-            st.session_state['dispositivo_ativado'] = True
-            st.rerun()
-        else:
-            st.error("Chave inválida para este CPF/CNPJ.")
-            
-            # MOSTRA O DIAGNÓSTICO NA TELA PARA COMPARAÇÃO
-            st.warning("🔍 **Painel de Diagnóstico (Chaves esperadas pelo sistema):**")
-            for tipo, c_gerada in chaves_calculadas.items():
-                st.text(f"Gerada para {tipo}: {c_gerada}")
-            st.text(f"Chave que você digitou: {chave_limpa}")
+    if sucesso:
+        st.success("Dispositivo ativado com sucesso!")
+        st.session_state['dispositivo_ativado'] = True
+        st.rerun()
+    else:
+        st.error("Chave inválida para este CPF/CNPJ.")
+        
+        # MOSTRA O DIAGNÓSTICO NA TELA PARA COMPARAÇÃO
+        st.warning("🔍 **Painel de Diagnóstico (Chaves esperadas pelo sistema):**")
+        for tipo, c_gerada in chaves_calculadas.items():
+            st.text(f"Gerada para {tipo}: {c_gerada}")
+        st.text(f"Chave que você digitou: {chave_limpa}")
 # =========================================================
 # ESTILO VISUAL METÁLICO/CLÁSSICO PDV (FÊNIX STYLE)
 # =========================================================
