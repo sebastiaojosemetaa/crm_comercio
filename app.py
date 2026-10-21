@@ -718,7 +718,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             key="radio_menu_admin_opcoes"
         )
         
-        st.title(f"⚙️ Painel do Administrador — {menu_admin}")
+        #st.title(f"⚙️ Painel do Administrador — {menu_admin}")
         
         if menu_admin == "🏢 Configurações da Empresa":
             st.title("🏢 Configurações e Dados da Empresa")
