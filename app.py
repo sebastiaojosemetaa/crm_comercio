@@ -12,6 +12,13 @@ import io
 import datetime as dt
 import hashlib
 import uuid
+# --- ADICIONE ESTAS LINHAS NO TOPO DO SEU APP.PY ---
+if "dispositivo_ativado" not in st.session_state:
+    st.session_state["dispositivo_ativado"] = False
+
+if "dias_licenca" not in st.session_state:
+    st.session_state["dias_licenca"] = 30
+# --------------------------------------------------
 def gerar_chave_por_documento(documento, tipo_plano="MENSAL"):
     import hashlib
     apenas_digitos = ''.join(filter(str.isdigit, str(documento)))
