@@ -193,20 +193,41 @@ def gerar_chave_por_documento(documento):
 # =========================================================
 # PAINEL DO DESENVOLVEDOR (SEMPRE VISÍVEL NA BARRA LATERAL)
 # =========================================================
-with st.sidebar.expander("🛠️ Gerador de Chaves (Dev)"):
+with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
     senha_dev = st.text_input("Senha Mestre Dev", type="password", key="pwd_dev_topo_unico")
-    if senha_dev == "13142715":  # Sua senha mestre
+    if senha_dev == "13142715":
+        tipo_plano = st.selectbox(
+            "Tipo de Chave:",
+            ["Teste (7 Dias)", "Mensal (30 Dias)", "Anual (365 Dias)"],
+            key="select_tipo_plano_dev_novo"
+        )
         doc_cliente = st.text_input("CNPJ ou CPF do Cliente:", key="doc_dev_topo_doc_unico")
-        if st.button("🔑 Gerar Chave", key="btn_dev_topo_acao_unico"):
+        if st.button("Gerar Chave", key="btn_dev_topo_acao_unico"):
             if doc_cliente.strip():
+                import hashlib
+                if "Teste" in tipo_plano:
+                    sufixo_tipo = "TESTE"
+                    dias = 7
+                elif "Mensal" in tipo_plano:
+                    sufixo_tipo = "MENSAL"
+                    dias = 30
+                else:
+                    sufixo_tipo = "ANUAL"
+                    dias = 365
+                    
                 doc_limpo = ''.join(filter(str.isdigit, str(doc_cliente)))
-                chave_gerada = gerar_chave_por_documento(doc_limpo)
+                segredo_mestre = "REY_CEBOLA_2026"
+                combinado = doc_limpo + segredo_mestre + sufixo_tipo
+                hash_hex = hashlib.md5(combinado.encode()).hexdigest().upper()
+                
+                chave_gerada = f"CRM-{sufixo_tipo}-{hash_hex[:4]}-{hash_hex[4:8]}-{hash_hex[8:12]}"
+                st.info(f"Validade: {dias} dias")
                 st.code(chave_gerada, language="text")
                 st.success("Chave gerada com sucesso!")
             else:
                 st.warning("Digite um CNPJ ou CPF.")
-
-st.sidebar.markdown("---")
+    elif senha_dev:
+        st.error("Senha incorreta!")
 
 # =========================================================
 # CONEXÃO E TABELAS MULTI-EMPRESA
