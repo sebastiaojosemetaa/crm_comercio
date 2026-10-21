@@ -342,7 +342,6 @@ if st.button("Ativar Este Dispositivo"):
     import hashlib
     apenas_digitos = ''.join(filter(str.isdigit, str(doc_atual)))
     segredo_mestre = "REY_CEBOLA_2026"
-    chave_limpa = str(chave_digitada).strip().upper()
     # Testa os tipos de planos e guarda as chaves geradas para diagnóstico
     chaves_calculadas = {}
     sucesso = False
