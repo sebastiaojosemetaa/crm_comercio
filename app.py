@@ -759,7 +759,47 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         
         if menu_admin == "🏢 Configurações da Empresa":
             st.title("🏢 Configurações e Dados da Empresa")
+            # === BLOCO DE ATIVAÇÃO EXCLUSIVO DESTA TELA ===
+        if not st.session_state.get('dispositivo_ativado', False):
+            st.markdown("### 🔑 Ativação de Licença do Dispositivo")
             
+            # Puxa o CNPJ/CPF diretamente da base de dados desta empresa
+            doc_atual = reg_emp.get('cnpj', '95451161100') if reg_emp else '95451161100'
+            st.info(f"Empresa Atual (CNPJ/CPF): {doc_atual}")
+            
+            chave_digitada = st.text_input("Chave de Ativação:", key="input_chave_ativacao_config")
+            
+            if st.button("Ativar Este Dispositivo", key="btn_ativar_dispositivo_config"):
+                import hashlib
+                
+                apenas_digitos = ''.join(filter(str.isdigit, str(doc_atual)))
+                segredo_mestre = "REY_CEBOLA_2026"
+                chave_limpa = str(chave_digitada).strip().upper()
+                
+                chaves_calculadas = {}
+                sucesso = False
+                
+                for sufixo in ["TESTE", "MENSAL", "ANUAL"]:
+                    combinado = apenas_digitos + segredo_mestre + sufixo
+                    hash_hex = hashlib.md5(combinado.encode()).hexdigest().upper()
+                    chave_esperada = f"CRM-{sufixo}-{hash_hex[:4]}-{hash_hex[4:8]}-{hash_hex[8:12]}"
+                    chaves_calculadas[sufixo] = chave_esperada
+                    
+                    if chave_limpa == chave_esperada:
+                        sucesso = True
+                        break
+                        
+                if sucesso:
+                    st.success("Dispositivo ativado com sucesso!")
+                    st.session_state['dispositivo_ativado'] = True
+                    st.rerun()
+                else:
+                    st.error("Chave inválida para este CPF/CNPJ.")
+                    st.warning("🔍 **Painel de Diagnóstico (Chaves esperadas pelo sistema):**")
+                    for tipo, c_gerada in chaves_calculadas.items():
+                        st.text(f"Gerada para {tipo}: {c_gerada}")
+                    st.text(f"Chave que você digitou: {chave_limpa}")
+            st.markdown("---")
             # Carrega os dados da empresa deste dispositivo específico
             df_emp_atual = pd.read_sql_query("SELECT * FROM empresas_dispositivos WHERE device_id = ?", conn, params=(device_id,))
             reg_emp = df_emp_atual.iloc[0] if not df_emp_atual.empty else {}
