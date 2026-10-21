@@ -182,13 +182,21 @@ device_id = st.query_params["device_id"]
 # =========================================================
 # FUNÇÃO: GERADOR DE CHAVE ÚNICA POR CNPJ / CPF
 # =========================================================
-def gerar_chave_por_documento(documento):
+def gerar_chave_por_documento(documento, tipo_plano="MENSAL"):
     apenas_digitos = ''.join(filter(str.isdigit, str(documento)))
     segredo_mestre = "REY_CEBOLA_2026"
-    combinado = apenas_digitos + segredo_mestre
+    
+    if "TESTE" in str(tipo_plano).upper():
+        sufixo = "TESTE"
+    elif "ANUAL" in str(tipo_plano).upper():
+        sufixo = "ANUAL"
+    else:
+        sufixo = "MENSAL"
+        
+    combinado = apenas_digitos + segredo_mestre + sufixo
     hash_hex = hashlib.md5(combinado.encode()).hexdigest().upper()
-    chave_formatada = f"CRM-{hash_hex[:4]}-{hash_hex[:8][-4:]}-{hash_hex[8:12]}" # Mantém o padrão de formato
-    return f"CRM-{hash_hex[:4]}-{hash_hex[4:8]}-{hash_hex[8:12]}"
+    
+    return f"CRM-{sufixo}-{hash_hex[:4]}-{hash_hex[4:8]}-{hash_hex[8:12]}"
 
 # =========================================================
 # PAINEL DO DESENVOLVEDOR (SEMPRE VISÍVEL NA BARRA LATERAL)
