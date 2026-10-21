@@ -724,7 +724,6 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
             if not st.session_state.get('dispositivo_ativado', False):
                 st.markdown("### 🔑 Ativação de Licença do Dispositivo")
                 
-                # Puxa o CNPJ/CPF diretamente da base de dados desta empresa
                 doc_atual = reg_emp.get('cnpj', '95451161100') if reg_emp else '95451161100'
                 st.info(f"Empresa Atual (CNPJ/CPF): {doc_atual}")
                 
@@ -732,27 +731,18 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                 
                 if st.button("Ativar Este Dispositivo", key="btn_ativar_dispositivo_config"):
                     import hashlib
-                    
                     apenas_digitos = ''.join(filter(str.isdigit, str(doc_atual)))
                     segredo_mestre = "REY_CEBOLA_2026"
                     chave_limpa = str(chave_digitada).strip().upper()
                     
-                    chaves_calculadas = {}
                     sucesso = False
                     dias_validade = 0
-                    
-                    # Mapeia os dias de acordo com o sufixo da chave gerada
-                    mapeamento_dias = {
-                        "TESTE": 7,
-                        "MENSAL": 30,
-                        "ANUAL": 365
-                    }
+                    mapeamento_dias = {"TESTE": 7, "MENSAL": 30, "ANUAL": 365}
                     
                     for sufixo, dias in mapeamento_dias.items():
                         combinado = apenas_digitos + segredo_mestre + sufixo
                         hash_hex = hashlib.md5(combinado.encode()).hexdigest().upper()
                         chave_esperada = f"CRM-{sufixo}-{hash_hex[:4]}-{hash_hex[4:8]}-{hash_hex[8:12]}"
-                        chaves_calculadas[sufixo] = chave_esperada
                         
                         if chave_limpa == chave_esperada:
                             sucesso = True
@@ -760,16 +750,12 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             break
                             
                     if sucesso:
-                        st.success(f"Dispositivo ativado com sucesso! Validade: {dias_validade} dias.")
                         st.session_state['dispositivo_ativado'] = True
                         st.session_state['dias_licenca'] = dias_validade
+                        st.success(f"Dispositivo ativado com sucesso! Validade: {dias_validade} dias.")
                         st.rerun()
                     else:
                         st.error("Chave inválida para este CPF/CNPJ.")
-                        st.warning("🔍 **Painel de Diagnóstico (Chaves esperadas pelo sistema):**")
-                        for tipo, c_gerada in chaves_calculadas.items():
-                            st.text(f"Gerada para {tipo}: {c_gerada}")
-                        st.text(f"Chave que você digitou: {chave_limpa}")
                 st.markdown("---")
             else:
                 dias_ativos = st.session_state.get('dias_licenca', 30)
