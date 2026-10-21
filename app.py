@@ -750,7 +750,7 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                             break
                             
                     if sucesso:
-                        st.session_state['dispositivo_ativado'] = True
+                        st.session_state['dispositivo_ativado'] = False
                         st.session_state['dias_licenca'] = dias_validade
                         st.success(f"Dispositivo ativado com sucesso! Validade: {dias_validade} dias.")
                         st.rerun()
