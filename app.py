@@ -512,7 +512,7 @@ st.sidebar.markdown("---")
 # ==========================================
 # AMBIENTE 1: PORTAL DO CLIENTE
 # ==========================================
-if perfil_seleccionado == "🚪 Portal do Cliente":
+if perfil_selecionado == "🚪 Portal do Cliente":
     
     # --- BLOCO DE RECUPERAÇÃO DE SENHA ---
     if st.session_state.get('fluxo_recuperacao', False):
