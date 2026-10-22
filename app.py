@@ -521,24 +521,30 @@ if perfil_selecionado == "👤 Portal do Cliente":
         st.session_state.fluxo_recuperacao = False
 
     # -------------------------------------------------------------
-    # 1. TELA DE RECUPERAÇÃO / REDEFINIÇÃO DE SENHA
+    # 1. TELA DE RECUPERAÇÃO / REDEFINIÇÃO DE SENHA (VIA CPF)
     # -------------------------------------------------------------
     if st.session_state.get('fluxo_recuperacao', False):
         st.markdown("---")
         st.markdown("### 🔒 Redefinição de Senha do Cliente")
-        st.info("Insira os dados abaixo para redefinir a sua senha de acesso.")
+        st.info("Insira o seu nome, a nova senha e confirme o seu CPF/CNPJ para validar a alteração.")
         
         with st.form("form_redefinir_senha_cliente"):
             try:
-                df_cli_rec = pd.read_sql_query("SELECT nome FROM clientes", conn)
-                lista_clientes_rec = df_cli_rec['nome'].tolist() if not df_cli_rec.empty else []
+                df_cli_rec = pd.read_sql_query("SELECT * FROM clientes", conn)
+                if not df_cli_rec.empty:
+                    df_cli_rec.columns = [c.lower() for c in df_cli_rec.columns]
+                    col_n = 'nome' if 'nome' in df_cli_rec.columns else ('cliente' if 'cliente' in df_cli_rec.columns else df_cli_rec.columns[0])
+                    lista_clientes_rec = df_cli_rec[col_n].dropna().astype(str).str.strip().unique().tolist()
+                else:
+                    lista_clientes_rec = []
             except Exception:
+                df_cli_rec = pd.DataFrame()
                 lista_clientes_rec = []
                 
-            cliente_alvo = st.selectbox("Confirme o seu Nome/Empresa:", options=lista_clientes_rec if lista_clientes_rec else ["Carlos Alberto"])
+            cliente_alvo = st.selectbox("Confirme o seu Nome/Empresa:", options=lista_clientes_rec if lista_clientes_rec else ["Nenhum cliente cadastrado"])
             nova_senha_cli = st.text_input("Nova Senha:", type="password", key="nova_s_cli")
             confirma_senha_cli = st.text_input("Confirme a Nova Senha:", type="password", key="conf_s_cli")
-            autorizacao_adm = st.text_input("Senha Mestre de Autorização (Lojista):", type="password", key="aut_adm_rec")
+            cpf_informado = st.text_input("Confirme o seu CPF / CNPJ (apenas números ou formatado):", key="cpf_confirmacao_rec")
             
             col_r1, col_r2 = st.columns(2)
             with col_r1:
@@ -551,13 +557,32 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 st.rerun()
                 
             if btn_salvar_nova:
-                if autorizacao_adm == "REY_CEBOLA_2026":
-                    if nova_senha_cli.strip() and nova_senha_cli == confirma_senha_cli:
+                if not nova_senha_cli.strip() or nova_senha_cli != confirma_senha_cli:
+                    st.error("As senhas não coincidem ou estão vazias.")
+                elif not cpf_informado.strip():
+                    st.error("Por favor, digite o seu CPF/CNPJ para confirmação.")
+                else:
+                    # Busca o CPF/CNPJ real cadastrado para o cliente
+                    cpf_cadastrado = ""
+                    if not df_cli_rec.empty:
+                        # Procura por colunas comuns de CPF/CNPJ
+                        col_cpf = next((c for c in ['cpf', 'cnpj', 'cpf_cnpj', 'documento'] if c in df_cli_rec.columns), None)
+                        col_n = 'nome' if 'nome' in df_cli_rec.columns else ('cliente' if 'cliente' in df_cli_rec.columns else df_cli_rec.columns[0])
+                        
+                        row_cli = df_cli_rec[df_cli_rec[col_n].astype(str).str.strip().str.upper() == cliente_alvo.strip().upper()]
+                        if not row_cli.empty and col_cpf and pd.notna(row_cli.iloc[0][col_cpf]):
+                            cpf_cadastrado = str(row_cli.iloc[0][col_cpf]).strip()
+
+                    # Limpa pontuações para comparação (deixa apenas dígitos)
+                    cpf_limpo_inf = ''.join(filter(str.isdigit, cpf_informado))
+                    cpf_limpo_cad = ''.join(filter(str.isdigit, cpf_cadastrado))
+
+                    # Se encontrou CPF cadastrado e bate com o informado (ou se não houver coluna de CPF na tabela e aceitar a validação)
+                    if (cpf_limpo_cad and cpf_limpo_inf == cpf_limpo_cad) or (not cpf_limpo_cad and cpf_informado.strip() != ""):
                         try:
                             cursor_rec = conn.cursor()
-                            cursor_rec.execute("""
-                                UPDATE clientes SET senha = ? WHERE nome = ?
-                            """, (nova_senha_cli.strip(), cliente_alvo))
+                            col_n_sql = 'nome' if 'nome' in df_cli_rec.columns else 'cliente'
+                            cursor_rec.execute(f"UPDATE clientes SET senha = ? WHERE {col_n_sql} = ?", (nova_senha_cli.strip(), cliente_alvo))
                             conn.commit()
                             st.success("✅ Senha alterada com sucesso! Já pode fazer login.")
                             st.session_state['fluxo_recuperacao'] = False
@@ -565,9 +590,7 @@ if perfil_selecionado == "👤 Portal do Cliente":
                         except Exception as e_upd:
                             st.error(f"Erro ao atualizar senha no banco de dados: {e_upd}")
                     else:
-                        st.error("As senhas não coincidem ou estão vazias.")
-                else:
-                    st.error("Senha Mestre de Autorização incorreta.")
+                        st.error("O CPF/CNPJ informado não coincide com o cadastro deste cliente.")
         st.markdown("---")
 
     # -------------------------------------------------------------
