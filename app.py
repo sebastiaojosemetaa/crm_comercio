@@ -847,8 +847,18 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
         )
                 
                 # Exemplo de onde pode encaixar a Gestão de Funcionários (por exemplo, dentro do RH ou em uma aba dedicada)
+                menu_admin = st.sidebar.radio(
+                    "Navegação",
+                    [
+                        # ... opções do menu ...
+                    ],
+                    key="radio_menu_admin_opcoes"
+                )
+                
+                # Alinhado corretamente (com o recuo exato do bloco 'else'):
                 if menu_admin == "👥 Gestão de Recursos Humanos (RH)":
                     st.title("👥 Gestão de Funcionários e Controle de Acessos")
+                    # ... restante do código ...
         
                     aba_cad_func, aba_lista_func = st.tabs(["➕ Cadastrar Funcionário", "📋 Funcionários Cadastrados"])
         
