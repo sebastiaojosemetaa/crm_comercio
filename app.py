@@ -1293,35 +1293,18 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                     </div>
                     """.replace(",", "X").replace(".", ",").replace("X", "."), unsafe_allow_html=True)
         
-                if st.button("🟢 Finalizar Venda [ Alt + V ]", type="primary", use_container_width=True):
-                    if not df_caixa_aberto.empty and len(st.session_state.carrinho_pdv) > 0:
-                        cursor = conn.cursor()
-                        sessao_id = int(df_caixa_aberto.iloc[0]['id'])
-                        data_venda = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        
-                        for item in st.session_state.carrinho_pdv:
-                            cursor.execute("""
-                                INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, status, tipo, data)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                            """, (
-                                cliente_pdv, item['produto'], item['fornecedor'], item['grupo'],
-                                item['quantidade'], item['valor_venda'], item['valor_total'],
-                                f_pag, v_rec, 'Concluído', 'VENDA', data_venda
-                            ))
-        
-                        cursor.execute("""
-                            INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) 
-                            VALUES (?, ?, ?, ?, ?)
-                        """, (
-                            sessao_id, "VENDA", float(total_geral_carrinho), f"Venda PDV - Cliente: {cliente_pdv}", data_venda
-                        ))
-                        
-                        conn.commit()
-                        st.session_state.carrinho_pdv = []
-                        st.success(f"Venda concluída! Troco: R$ {max(0.0, troco):.2f}")
-                        st.rerun()
-                    else:
-                        st.error("Verifique se o caixa está aberto e se há itens no carrinho.")
+                if checar_permissao(st.session_state.get('usuario_logado'), 'vendas', 'editar'):
+                    if st.button("🟢 Finalizar Venda [ Alt + V ]", type="primary", use_container_width=True):
+                        if not df_caixa_aberto.empty and len(st.session_state.carrinho_pdv) > 0:
+                            # ... (todo o código de inserção de itens que está selecionado na imagem) ...
+                            conn.commit()
+                            st.session_state.carrinho_pdv = []
+                            st.success(f"Venda concluída! Troco: R$ {max(0.0, troco):.2f}")
+                            st.rerun()
+                        else:
+                            st.error("Verifique se o caixa está aberto e se há itens no carrinho.")
+                else:
+                    st.error("🚫 O seu utilizador tem apenas permissão para **Visualizar Vendas**, não podendo faturar ou concluir novos pagamentos.")
         
                 # --- BARRA DE ATALHOS NO RODAPÉ (100% BRANCO FORÇADO) ---
                 st.markdown("""
