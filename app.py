@@ -771,10 +771,11 @@ if perfil_selecionado == "👤 Portal do Cliente":
                     st.info("Nenhum pedido anterior encontrado.")
             except Exception as e_hist:
                 st.error(f"Erro ao carregar histórico: {e_hist}")
+
 # ==========================================
 # AMBIENTE 2: ADMINISTRADOR / VENDEDOR
 # ==========================================
-elif perfil_selecionado == "🔒 Administração / Vendedor":
+if perfil_selecionado == "🔒 Administração / Vendedor":
     if not st.session_state.admin_logged:
         st.title("🔒 Autenticação Administrativa")
         st.warning("⚠️ Insira a senha de administrador para aceder ao painel de gestão.")
