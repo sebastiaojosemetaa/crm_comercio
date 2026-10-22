@@ -791,7 +791,7 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                 st.error("Senha incorreta!")
     else:
         # =============================================================
-        # 1. CRIAÇÃO DA TABELA DE USUÁRIOS E PERMISSÕES
+        # 1. CRIAÇÃO E ATUALIZAÇÃO DA TABELA DE USUÁRIOS E PERMISSÕES
         # =============================================================
         try:
             cursor = conn.cursor()
@@ -799,9 +799,9 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                 CREATE TABLE IF NOT EXISTS usuarios (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     nome TEXT NOT NULL,
-                    login TEXT UNIQUE NOT NULL,
-                    senha TEXT NOT NULL,
-                    cargo TEXT NOT NULL,
+                    login TEXT UNIQUE,
+                    senha TEXT,
+                    cargo TEXT,
                     cpf TEXT,
                     perm_produtos_ver INTEGER DEFAULT 1,
                     perm_produtos_editar INTEGER DEFAULT 0,
@@ -815,9 +815,25 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                     perm_relatorios_ver INTEGER DEFAULT 0
                 )
             """)
+            
+            # Garante que colunas essenciais existam caso a tabela seja de uma versão anterior
+            colunas_necessarias = [
+                "login TEXT", "senha TEXT", "cargo TEXT", "cpf TEXT",
+                "perm_produtos_ver INTEGER DEFAULT 1", "perm_produtos_editar INTEGER DEFAULT 0", "perm_produtos_excluir INTEGER DEFAULT 0",
+                "perm_vendas_ver INTEGER DEFAULT 1", "perm_vendas_editar INTEGER DEFAULT 0", "perm_vendas_excluir INTEGER DEFAULT 0",
+                "perm_clientes_ver INTEGER DEFAULT 1", "perm_clientes_editar INTEGER DEFAULT 0", "perm_clientes_excluir INTEGER DEFAULT 0",
+                "perm_relatorios_ver INTEGER DEFAULT 0"
+            ]
+            
+            for col_def in colunas_necessarias:
+                try:
+                    cursor.execute(f"ALTER TABLE usuarios ADD COLUMN {col_def}")
+                except Exception:
+                    pass # Se a coluna já existir, o SQLite apenas ignora
+                    
             conn.commit()
-        except Exception:
-            pass
+        except Exception as e:
+            st.error(f"Erro ao configurar tabela de usuários: {e}")
 
         # -------------------------------------------------------------
         # ÁREA RESTRITA E MENU DO ADMINISTRADOR
