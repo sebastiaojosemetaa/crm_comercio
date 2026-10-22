@@ -777,18 +777,40 @@ if perfil_selecionado == "👤 Portal do Cliente":
 # ==========================================
 if perfil_selecionado == "🔒 Administração / Vendedor":
     if not st.session_state.admin_logged:
-        st.title("🔒 Autenticação Administrativa")
-        st.warning("⚠️ Insira a senha de administrador para aceder ao painel de gestão.")
+        st.title("🔒 Autenticação do Sistema")
+        st.warning("⚠️ Insira o seu Usuário e Senha para aceder ao painel.")
         
-        senha_admin = st.text_input("Digite a Senha do Admin:", type="password", key="input_senha_admin_login_v2")
+        login_input = st.text_input("Usuário / Login:", key="input_login_usuario")
+        senha_input = st.text_input("Senha:", type="password", key="input_senha_usuario")
         
-        if st.button("🔓 Entrar como Admin", type="primary", key="btn_login_admin_v2"):
-            if senha_admin == "13142715":
+        if st.button("🔓 Entrar no Sistema", type="primary", key="btn_login_sistema"):
+            # 1. Verifica se é a Senha Mestra do Administrador
+            if senha_input == "13142715" and (not login_input or login_input.lower() == "admin"):
                 st.session_state.admin_logged = True
-                st.success("Login efetuado com sucesso!")
+                st.session_state.usuario_logado = "administrador"
+                st.session_state.cargo_logado = "Administrador"
+                st.success("✅ Login de Administrador Mestre efetuado com sucesso!")
                 st.rerun()
             else:
-                st.error("Senha incorreta!")
+                # 2. Verifica na base de dados de funcionários cadastrados
+                try:
+                    df_u = pd.read_sql_query(
+                        "SELECT * FROM usuarios WHERE login = ? AND senha = ?", 
+                        conn, 
+                        params=(login_input, senha_input)
+                    )
+                    
+                    if not df_u.empty:
+                        user_row = df_u.iloc[0]
+                        st.session_state.admin_logged = True
+                        st.session_state.usuario_logado = user_row['login']
+                        st.session_state.cargo_logado = user_row['cargo']
+                        st.success(f"✅ Bem-vindo(a), {user_row['nome']} ({user_row['cargo']})!")
+                        st.rerun()
+                    else:
+                        st.error("❌ Usuário ou senha incorretos. Verifique os dados.")
+                except Exception as e_log:
+                    st.error(f"Erro ao tentar autenticar: {e_log}")
     else:
         # =============================================================
         # 1. CRIAÇÃO E ATUALIZAÇÃO DA TABELA DE USUÁRIOS E PERMISSÕES
