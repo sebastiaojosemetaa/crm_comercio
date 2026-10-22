@@ -607,19 +607,7 @@ if perfil_selecionado == "🚪 Portal do Cliente":
                         if nome_reg.upper() == cliente_nome.strip().upper():
                             if pd.notna(r.get('senha')) and str(r.get('senha')).strip() != "":
                                 senha_cadastrada = str(r['senha']).strip()
-                            break
-                
-                if senha_cliente == senha_cadastrada:
-                    st.session_state.cliente_autenticado = cliente_nome
-                    st.rerun()
-                else:
-                    st.sidebar.error("Senha incorreta!")
-    else:
-        st.sidebar.success(f"Logado como:\n**{st.session_state.cliente_autenticado}**")
-        if st.sidebar.button("Sair / Trocar Cliente", key="btn_sair_cli_sessao"):
-            st.session_state.cliente_autenticado = None
-            st.rerun()
-            
+                  
         st.title(f"🛍️ Portal do Cliente — Meus Pedidos ({st.session_state.cliente_autenticado})")
 
         try:
