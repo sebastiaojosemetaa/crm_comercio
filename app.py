@@ -821,8 +821,12 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
         senha_input = st.text_input("Senha:", type="password", key="input_senha_usuario")
         
         if st.button("🔓 Entrar no Sistema", type="primary", key="btn_login_sistema"):
+            # Remove espaços vazios acidentais que o teclado possa adicionar
+            limpar_login = login_input.strip() if login_input else ""
+            limpar_senha = senha_input.strip() if senha_input else ""
+            
             # 1. Verifica se é a Senha Mestra do Administrador
-            if senha_input == "13142715" and (not login_input or login_input.lower() == "admin"):
+            if limpar_senha == "13142715":
                 st.session_state.admin_logged = True
                 st.session_state.usuario_logado = "administrador"
                 st.session_state.cargo_logado = "Administrador"
@@ -831,18 +835,20 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
             else:
                 # 2. Verifica na base de dados de funcionários cadastrados
                 try:
-                    df_u = pd.read_sql_query(
+                    cursor_log = conn.cursor()
+                    cursor_log.execute(
                         "SELECT * FROM usuarios WHERE login = ? AND senha = ?", 
-                        conn, 
-                        params=(login_input, senha_input)
+                        (limpar_login, limpar_senha)
                     )
+                    user_row = cursor_log.fetchone()
+                    cursor_log.close()
                     
-                    if not df_u.empty:
-                        user_row = df_u.iloc[0]
+                    if user_row:
+                        # user_row[1] = nome, user_row[2] = login, user_row[4] = cargo
                         st.session_state.admin_logged = True
-                        st.session_state.usuario_logado = user_row['login']
-                        st.session_state.cargo_logado = user_row['cargo']
-                        st.success(f"✅ Bem-vindo(a), {user_row['nome']} ({user_row['cargo']})!")
+                        st.session_state.usuario_logado = user_row[2]
+                        st.session_state.cargo_logado = user_row[4]
+                        st.success(f"✅ Bem-vindo(a), {user_row[1]} ({user_row[4]})!")
                         st.rerun()
                     else:
                         st.error("❌ Usuário ou senha incorretos. Verifique os dados.")
