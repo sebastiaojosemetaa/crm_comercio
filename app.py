@@ -560,51 +560,60 @@ if perfil_selecionado == "🚪 Portal do Cliente":
         st.markdown("---")
         
     else:
-        # 2. Caso contrário, mostra o ecrã normal de login do Portal do Cliente
-        if not st.session_state.cliente_autenticado:
+        # 2. Se o cliente JÁ ESTIVER LOGADO
+        if st.session_state.get('cliente_autenticado'):
+            st.sidebar.success(f"Logado como:\n**{st.session_state.cliente_autenticado}**")
+            if st.sidebar.button("Sair / Trocar Cliente", key="btn_sair_cli_sessao"):
+                st.session_state.cliente_autenticado = None
+                st.rerun()
+                
+            st.title(f"🛍️ Portal do Cliente — Meus Pedidos ({st.session_state.cliente_autenticado})")
+            
+        else:
+            # 3. Se NÃO ESTIVER LOGADO (Mostra a tela de login)
             st.title("🔒 Portal do Cliente")
             st.info("Por favor, selecione o seu nome no menu lateral e insira a sua senha para aceder aos seus pedidos.")
             
-            # (O restante do seu código original de carregamento e listagem de clientes deve estar aqui dentro)
-        
-        df_cli_select = carregar_dados("SELECT * FROM clientes")
-        lista_clientes = []
-        
-        if not df_cli_select.empty:
-            df_cli_select.columns = [c.lower() for c in df_cli_select.columns]
-            for col_cand in ['cliente', 'nome', 'razao_social']:
-                if col_cand in df_cli_select.columns:
-                    vals = df_cli_select[col_cand].dropna().astype(str).str.strip()
-                    lista_clientes.extend(vals[vals != ''].unique().tolist())
-            lista_clientes = list(dict.fromkeys(lista_clientes))
-    
-        if not lista_clientes:
-            lista_clientes = ["Carlos Alberto"]
-        
-        cliente_nome = st.sidebar.selectbox("Identifique o seu Nome/Empresa:", lista_clientes, key="sb_cli_nome_login")
-        senha_cliente = st.sidebar.text_input("Digite a sua Senha:", type="password", key="inp_cli_senha_login")
-        if st.sidebar.button("🔑 Esqueci minha senha?", key="btn_esqueci_cliente"):
-            st.session_state['fluxo_recuperacao'] = True
-            st.rerun()
-        if st.sidebar.button("Acessar Meus Pedidos", key="btn_login_cli_acao"):
-            senha_cadastrada = "123"
-            if not df_cli_select.empty:
-                for _, r in df_cli_select.iterrows():
-                    nome_reg = ""
-                    for col_c in ['cliente', 'nome', 'razao_social']:
-                        if col_c in df_cli_select.columns and pd.notna(r[col_c]):
-                            nome_reg = str(r[col_c]).strip()
-                            break
-                    if nome_reg.upper() == cliente_nome.strip().upper():
-                        if pd.notna(r.get('senha')) and str(r.get('senha')).strip() != "":
-                            senha_cadastrada = str(r['senha']).strip()
-                        break
+            df_cli_select = carregar_dados("SELECT * FROM clientes")
+            lista_clientes = []
             
-            if senha_cliente == senha_cadastrada:
-                st.session_state.cliente_autenticado = cliente_nome
+            if not df_cli_select.empty:
+                df_cli_select.columns = [c.lower() for c in df_cli_select.columns]
+                for col_cand in ['cliente', 'nome', 'razao_social']:
+                    if col_cand in df_cli_select.columns:
+                        vals = df_cli_select[col_cand].dropna().astype(str).str.strip()
+                        lista_clientes.extend(vals[vals != ''].unique().tolist())
+                lista_clientes = list(dict.fromkeys(lista_clientes))
+        
+            if not lista_clientes:
+                lista_clientes = ["Carlos Alberto"]
+            
+            cliente_nome = st.sidebar.selectbox("Identifique o seu Nome/Empresa:", lista_clientes, key="sb_cli_nome_login")
+            senha_cliente = st.sidebar.text_input("Digite a sua Senha:", type="password", key="inp_cli_senha_login")
+            
+            if st.sidebar.button("🔑 Esqueci minha senha?", key="btn_esqueci_cliente"):
+                st.session_state['fluxo_recuperacao'] = True
                 st.rerun()
-            else:
-                st.sidebar.error("Senha incorreta!")
+                
+            if st.sidebar.button("Acessar Meus Pedidos", key="btn_login_cli_acao"):
+                senha_cadastrada = "123"
+                if not df_cli_select.empty:
+                    for _, r in df_cli_select.iterrows():
+                        nome_reg = ""
+                        for col_c in ['cliente', 'nome', 'razao_social']:
+                            if col_c in df_cli_select.columns and pd.notna(r[col_c]):
+                                nome_reg = str(r[col_c]).strip()
+                                break
+                        if nome_reg.upper() == cliente_nome.strip().upper():
+                            if pd.notna(r.get('senha')) and str(r.get('senha')).strip() != "":
+                                senha_cadastrada = str(r['senha']).strip()
+                            break
+                
+                if senha_cliente == senha_cadastrada:
+                    st.session_state.cliente_autenticado = cliente_nome
+                    st.rerun()
+                else:
+                    st.sidebar.error("Senha incorreta!")
     else:
         st.sidebar.success(f"Logado como:\n**{st.session_state.cliente_autenticado}**")
         if st.sidebar.button("Sair / Trocar Cliente", key="btn_sair_cli_sessao"):
