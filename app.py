@@ -1319,6 +1319,24 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                         st.rerun()
 
         elif menu_admin == "📊 Fechamento & Financeiro":
+            # Verifica se o utilizador logado tem permissão para ver relatórios
+            if not checar_permissao(st.session_state.get('usuario_logado'), "relatorios", "ver"):
+                st.warning("⚠️ Você não tem permissão para aceder aos relatórios financeiros.")
+            else:
+                # Todo o código original do painel financeiro fica recuado aqui dentro:
+                st.header("📊 Painel Financeiro & Fechamento por Data")
+                st.subheader("💳 Contas a Receber (Parcelas / Fiado)")
+                
+                df_vendas_fin = carregar_dados("SELECT id, cliente, produto, fornecedor, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, troco, restante, data, grupo")
+                df_pedidos_fin = carregar_dados("SELECT * FROM pedidos ORDER BY id DESC")
+                
+                if not df_vendas_fin.empty and 'restante' in df_vendas_fin.columns:
+                    df_vendas_fin['restante'] = pd.to_numeric(df_vendas_fin['restante'], errors='coerce').fillna(0.0)
+                    df_pendentes_fin = df_vendas_fin[df_vendas_fin['restante'] > 0]
+                    if not df_pendentes_fin.empty:
+                        st.warning(f"⚠️ Existem {len(df_pendentes_fin)} registos de crediário com saldo pendente.")
+                    else:
+                        pass
             st.header("📊 Painel Financeiro & Fechamento por Data")
             st.subheader("💳 Contas a Receber (Parcelas / Fiado)")
 
@@ -2913,6 +2931,22 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     lista_produtos_excluir = df_produtos_gerenciar['produto'].tolist() if not df_produtos_gerenciar.empty else []
                     prod_para_excluir = st.selectbox("Selecione um produto para excluir", options=lista_produtos_excluir, key="sel_prod_excluir")
                     if st.button("🗑️ Excluir Produto Selecionado", key="btn_excluir_produto"):
+                        # Verifica se o usuário logado tem permissão para excluir produtos
+                        if checar_permissao(st.session_state.get('usuario_logado'), "produtos", "excluir"):
+                            if prod_para_excluir:
+                                try:
+                                    with conn:
+                                        cursor = conn.cursor()
+                                        cursor.execute("DELETE FROM produtos WHERE produto = ?", (prod_para_excluir,))
+                                        st.cache_data.clear()
+                                        st.success(f"✅ Produto '{prod_para_excluir}' excluído com sucesso!")
+                                        st.rerun()
+                                except Exception as e:
+                                    st.error(f"Erro ao excluir produto: {e}")
+                            else:
+                                st.warning("Nenhum produto selecionado para exclusão.")
+                        else:
+                            st.error("🚫 Acesso negado: Você não tem permissão para excluir produtos.")
                         if prod_para_excluir:
                             try:
                                 with conn:
