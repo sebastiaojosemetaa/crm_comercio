@@ -897,23 +897,25 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
                     st.info("Nenhum funcionário cadastrado além do administrador mestre.")
             except Exception:
                 st.info("Carregando tabela de usuários...")
-        st.title("🔒 Autenticação Administrativa")
-        st.warning("⚠️ Insira a senha de administrador para aceder ao painel de gestão.")
-        
-        senha_admin = st.text_input("Digite a Senha do Admin:", type="password", key="input_senha_admin_login_v2")
-        
-        if st.button("🔓 Entrar como Admin", type="primary", key="btn_login_admin_v2"):
-            if senha_admin == "13142715":
-                st.session_state.admin_logged = True
-                st.success("Login efetuado com sucesso!")
+        if not st.session_state.admin_logged:
+            st.title("🔒 Autenticação Administrativa")
+            st.warning("⚠️ Insira a senha de administrador para aceder ao painel de gestão.")
+            
+            senha_admin = st.text_input("Digite a Senha do Admin:", type="password", key="input_senha_admin_login_v2")
+            
+            if st.button("🔓 Entrar como Admin", type="primary", key="btn_login_admin_v2"):
+                if senha_admin == "13142715":
+                    st.session_state.admin_logged = True
+                    st.success("Login efetuado com sucesso!")
+                    st.rerun()
+                else:
+                    st.error("Senha incorreta!")
+        else:
+            # Tudo o que acontece quando o admin JÁ está logado:
+            st.sidebar.subheader("🔒 Área Restrita")
+            if st.sidebar.button("Sair do Modo Admin", key="btn_logout_admin"):
+                st.session_state.admin_logged = False
                 st.rerun()
-            else:
-                st.error("Senha incorreta!")
-    else:
-        st.sidebar.subheader("🔒 Área Restrita")
-        if st.sidebar.button("Sair do Modo Admin", key="btn_logout_admin"):
-            st.session_state.admin_logged = False
-            st.rerun()
             
         menu_admin = st.sidebar.radio(
             "Navegação",
