@@ -611,11 +611,11 @@ if perfil_selecionado == "👤 Portal do Cliente":
                 st.rerun()
             else:
                 st.sidebar.error("Senha incorreta!")
-    else:
-        st.sidebar.success(f"Logado como:\n**{st.session_state.cliente_autenticado}**")
-        if st.sidebar.button("Sair / Trocar Cliente", key="btn_sair_cli_sessao"):
-            st.session_state.cliente_autenticado = None
-            st.rerun()
+        else:
+            st.sidebar.success(f"Logado como:\n**{st.session_state.cliente_autenticado}**")
+            if st.sidebar.button("Sair / Trocar Cliente", key="btn_sair_cli_sessao"):
+                st.session_state.cliente_autenticado = None
+                st.rerun()
             
         st.title(f"🛍️ Portal do Cliente — Meus Pedidos ({st.session_state.cliente_autenticado})")
 
