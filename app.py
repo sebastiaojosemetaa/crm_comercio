@@ -97,7 +97,7 @@ def gerar_pdf_tabela_pedidos(df_pedidos, cliente_nome="Geral"):
     # 2. Tenta ler da base de dados SQLite testando os nomes de tabelas mais comuns
     try:
         for db_file in ['banco.db', 'crm.db', 'database.db']:
-            conn = sqlite3.connect(db_file)
+            conn = sqlite3.connect(db_file, timeout=10.0)
             cursor = conn.cursor()
             for tabela in ['configuracao', 'config', 'empresa', 'dados_empresa']:
                 try:
@@ -1059,6 +1059,7 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
 
                                 if btn_atualizar_func:
                                     try:
+                                        cursor_ed = conn.cursor()
                                         cursor_ed.execute("""
                                             UPDATE usuarios SET 
                                                 nome = ?, senha = ?, cargo = ?, cpf = ?,
@@ -1075,6 +1076,7 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                                             int(e_rel_v), usuario_selecionado
                                         ))
                                         conn.commit()
+                                        cursor_ed.close()  # Fecha o cursor para liberar o banco de dados
                                         st.success(f"✅ Permissões e dados de '{novo_nome}' atualizados com sucesso!")
                                         st.rerun()
                                     except Exception as e_up:
