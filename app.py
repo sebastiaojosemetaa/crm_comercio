@@ -1017,21 +1017,25 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                         lista_logins = df_edit_users['login'].tolist()
                         usuario_selecionado = st.selectbox("Selecione o Funcionário para Editar:", lista_logins, key="select_func_edit")
                         
+                        # Ativa a leitura por nome de coluna para evitar erros de posições
+                        conn.row_factory = sqlite3.Row
                         cursor_ed = conn.cursor()
                         cursor_ed.execute("SELECT * FROM usuarios WHERE login = ?", (usuario_selecionado,))
                         user_data = cursor_ed.fetchone()
+                        conn.row_factory = None  # Restaura o padrão
                         
                         if user_data:
                             with st.form("form_edicao_funcionario"):
                                 col_e1, col_e2 = st.columns(2)
                                 with col_e1:
-                                    novo_nome = st.text_input("Nome Completo:", value=user_data[1])
-                                    novo_login = st.text_input("Login de Acesso:", value=user_data[2], disabled=True)
-                                    nova_senha = st.text_input("Senha:", value=user_data[3], type="password")
+                                    novo_nome = st.text_input("Nome Completo:", value=user_data['nome'] or "")
+                                    novo_login = st.text_input("Login de Acesso:", value=user_data['login'] or "", disabled=True)
+                                    nova_senha = st.text_input("Senha:", value=user_data['senha'] or "", type="password")
                                 with col_e2:
-                                    novo_cpf = st.text_input("CPF / Documento:", value=str(user_data[5]) if user_data[5] else "")
+                                    novo_cpf = st.text_input("CPF / Documento:", value=str(user_data['cpf']) if user_data['cpf'] else "")
                                     cargos_disp = ["Supervisor", "Gerente", "Vendedor", "Operador de Caixa", "Estoque", "Administrador"]
-                                    cargo_atual_idx = cargos_disp.index(user_data[4]) if user_data[4] in cargos_disp else 0
+                                    cargo_salvo = user_data['cargo'] if user_data['cargo'] in cargos_disp else "Operador de Caixa"
+                                    cargo_atual_idx = cargos_disp.index(cargo_salvo)
                                     novo_cargo = st.selectbox("Cargo / Função:", cargos_disp, index=cargo_atual_idx)
                                     
                                 st.markdown("---")
@@ -1041,32 +1045,32 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                                 
                                 with col_em1:
                                     st.markdown("**📦 Produtos**")
-                                    e_prod_v = st.checkbox("Ver Produtos", value=bool(user_data[6]), key="e_p_v")
-                                    e_prod_e = st.checkbox("Criar / Editar", value=bool(user_data[7]), key="e_p_e")
-                                    e_prod_x = st.checkbox("Excluir", value=bool(user_data[8]), key="e_p_x")
+                                    e_prod_v = st.checkbox("Ver Produtos", value=bool(user_data['perm_produtos_ver']), key="e_p_v")
+                                    e_prod_e = st.checkbox("Criar / Editar", value=bool(user_data['perm_produtos_editar']), key="e_p_e")
+                                    e_prod_x = st.checkbox("Excluir", value=bool(user_data['perm_produtos_excluir']), key="e_p_x")
                                     
                                 with col_em2:
                                     st.markdown("**🛒 Vendas / PDV**")
-                                    e_vend_v = st.checkbox("Ver Vendas", value=bool(user_data[9]), key="e_v_v")
-                                    e_vend_e = st.checkbox("Realizar Vendas", value=bool(user_data[10]), key="e_v_e")
-                                    e_vend_x = st.checkbox("Cancelar Vendas", value=bool(user_data[11]), key="e_v_x")
+                                    e_vend_v = st.checkbox("Ver Vendas", value=bool(user_data['perm_vendas_ver']), key="e_v_v")
+                                    e_vend_e = st.checkbox("Realizar Vendas", value=bool(user_data['perm_vendas_editar']), key="e_v_e")
+                                    e_vend_x = st.checkbox("Cancelar Vendas", value=bool(user_data['perm_vendas_excluir']), key="e_v_x")
                                     
                                 with col_em3:
                                     st.markdown("**👥 Clientes**")
-                                    e_cli_v = st.checkbox("Ver Clientes", value=bool(user_data[12]), key="e_c_v")
-                                    e_cli_e = st.checkbox("Cadastrar/Editar", value=bool(user_data[13]), key="e_c_e")
-                                    e_cli_x = st.checkbox("Excluir", value=bool(user_data[14]), key="e_c_x")
+                                    e_cli_v = st.checkbox("Ver Clientes", value=bool(user_data['perm_clientes_ver']), key="e_c_v")
+                                    e_cli_e = st.checkbox("Cadastrar/Editar", value=bool(user_data['perm_clientes_editar']), key="e_c_e")
+                                    e_cli_x = st.checkbox("Excluir", value=bool(user_data['perm_clientes_excluir']), key="e_c_x")
 
                                 with col_em4:
                                     st.markdown("**📊 Relatórios**")
-                                    e_rel_v = st.checkbox("Acessar Relatórios", value=bool(user_data[15]), key="e_r_v")
+                                    e_rel_v = st.checkbox("Acessar Relatórios", value=bool(user_data['perm_relatorios_ver']), key="e_r_v")
 
                                 btn_atualizar_func = st.form_submit_button("💾 Salvar Alterações", type="primary")
 
                                 if btn_atualizar_func:
                                     try:
-                                        cursor_ed = conn.cursor()
-                                        cursor_ed.execute("""
+                                        cursor_up = conn.cursor()
+                                        cursor_up.execute("""
                                             UPDATE usuarios SET 
                                                 nome = ?, senha = ?, cargo = ?, cpf = ?,
                                                 perm_produtos_ver = ?, perm_produtos_editar = ?, perm_produtos_excluir = ?,
@@ -1082,7 +1086,7 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                                             int(e_rel_v), usuario_selecionado
                                         ))
                                         conn.commit()
-                                        cursor_ed.close()  # Fecha o cursor para liberar o banco de dados
+                                        cursor_up.close()
                                         st.success(f"✅ Permissões e dados de '{novo_nome}' atualizados com sucesso!")
                                         st.rerun()
                                     except Exception as e_up:
