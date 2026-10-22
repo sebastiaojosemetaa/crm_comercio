@@ -845,124 +845,94 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
             ],
             key="radio_menu_admin_opcoes"
         )
-                
-                # Exemplo de onde pode encaixar a Gestão de Funcionários (por exemplo, dentro do RH ou em uma aba dedicada)
-                menu_admin = st.sidebar.radio(
-                    "Navegação",
-                    [
-                        # ... opções do menu ...
-                    ],
-                    key="radio_menu_admin_opcoes"
-                )
-                
-                # Alinhado corretamente (com o recuo exato do bloco 'else'):
-                if menu_admin == "👥 Gestão de Recursos Humanos (RH)":
-                    st.title("👥 Gestão de Funcionários e Controle de Acessos")
-                    # ... restante do código ...
         
-                    aba_cad_func, aba_lista_func = st.tabs(["➕ Cadastrar Funcionário", "📋 Funcionários Cadastrados"])
-        
-                    with aba_cad_func:
-                        st.subheader("Dados do Funcionário")
+        # Módulo de Gestão de Funcionários vinculado ao RH
+        if menu_admin == "👥 Gestão de Recursos Humanos (RH)":
+            st.title("👥 Gestão de Funcionários e Controle de Acessos")
+
+            aba_cad_func, aba_lista_func = st.tabs(["➕ Cadastrar Funcionário", "📋 Funcionários Cadastrados"])
+
+            with aba_cad_func:
+                st.subheader("Dados do Funcionário")
+                
+                with st.form("form_cadastro_funcionario"):
+                    col_f1, col_f2 = st.columns(2)
+                    with col_f1:
+                        nome_func = st.text_input("Nome Completo:")
+                        login_func = st.text_input("Login de Acesso (Usuário):")
+                        senha_func = st.text_input("Senha:", type="password")
+                    with col_f2:
+                        cpf_func = st.text_input("CPF / Documento:")
+                        cargos_disponiveis = ["Supervisor", "Gerente", "Vendedor", "Operador de Caixa", "Estoque", "Administrador"]
+                        cargo_func = st.selectbox("Cargo / Função:", cargos_disponiveis)
                         
-                        with st.form("form_cadastro_funcionario"):
-                            col_f1, col_f2 = st.columns(2)
-                            with col_f1:
-                                nome_func = st.text_input("Nome Completo:")
-                                login_func = st.text_input("Login de Acesso (Usuário):")
-                                senha_func = st.text_input("Senha:", type="password")
-                            with col_f2:
-                                cpf_func = st.text_input("CPF / Documento:")
-                                cargos_disponiveis = ["Supervisor", "Gerente", "Vendedor", "Operador de Caixa", "Estoque", "Administrador"]
-                                cargo_func = st.selectbox("Cargo / Função:", cargos_disponiveis)
-                                
-                            st.markdown("---")
-                            st.subheader("🔒 Matriz de Permissões de Acesso")
-                            st.caption("Marque o que este funcionário poderá fazer dentro de cada módulo:")
-                            
-                            col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-                            
-                            with col_m1:
-                                st.markdown("**📦 Produtos**")
-                                p_prod_v = st.checkbox("Ver Produtos", value=True, key="p_p_v")
-                                p_prod_e = st.checkbox("Criar / Editar", value=False, key="p_p_e")
-                                p_prod_x = st.checkbox("Excluir", value=False, key="p_p_x")
-                                
-                            with col_m2:
-                                st.markdown("**🛒 Vendas / PDV**")
-                                p_vend_v = st.checkbox("Ver Vendas", value=True, key="p_v_v")
-                                p_vend_e = st.checkbox("Realizar Vendas", value=True, key="p_v_e")
-                                p_vend_x = st.checkbox("Cancelar Vendas", value=False, key="p_v_x")
-                                
-                            with col_m3:
-                                st.markdown("**👥 Clientes**")
-                                p_cli_v = st.checkbox("Ver Clientes", value=True, key="p_c_v")
-                                p_cli_e = st.checkbox("Cadastrar/Editar", value=False, key="p_c_e")
-                                p_cli_x = st.checkbox("Excluir", value=False, key="p_c_x")
-        
-                            with col_m4:
-                                st.markdown("**📊 Relatórios**")
-                                p_rel_v = st.checkbox("Acessar Relatórios", value=False, key="p_r_v")
-        
-                            btn_salvar_func = st.form_submit_button("💾 Salvar Funcionário", type="primary")
-        
-                            if btn_salvar_func:
-                                if not nome_func or not login_func or not senha_func:
-                                    st.error("Por favor, preencha Nome, Login e Senha.")
-                                else:
-                                    try:
-                                        cursor = conn.cursor()
-                                        cursor.execute("""
-                                            CREATE TABLE IF NOT EXISTS usuarios (
-                                                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                                nome TEXT NOT NULL,
-                                                login TEXT UNIQUE NOT NULL,
-                                                senha TEXT NOT NULL,
-                                                cargo TEXT NOT NULL,
-                                                cpf TEXT,
-                                                perm_produtos_ver INTEGER DEFAULT 1,
-                                                perm_produtos_editar INTEGER DEFAULT 0,
-                                                perm_produtos_excluir INTEGER DEFAULT 0,
-                                                perm_vendas_ver INTEGER DEFAULT 1,
-                                                perm_vendas_editar INTEGER DEFAULT 0,
-                                                perm_vendas_excluir INTEGER DEFAULT 0,
-                                                perm_clientes_ver INTEGER DEFAULT 1,
-                                                perm_clientes_editar INTEGER DEFAULT 0,
-                                                perm_clientes_excluir INTEGER DEFAULT 0,
-                                                perm_relatorios_ver INTEGER DEFAULT 0
-                                            )
-                                        """)
-                                        cursor.execute("""
-                                            INSERT INTO usuarios (
-                                                nome, login, senha, cargo, cpf,
-                                                perm_produtos_ver, perm_produtos_editar, perm_produtos_excluir,
-                                                perm_vendas_ver, perm_vendas_editar, perm_vendas_excluir,
-                                                perm_clientes_ver, perm_clientes_editar, perm_clientes_excluir,
-                                                perm_relatorios_ver
-                                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                                        """, (
-                                            nome_func, login_func, senha_func, cargo_func, cpf_func,
-                                            int(p_prod_v), int(p_prod_e), int(p_prod_x),
-                                            int(p_vend_v), int(p_vend_e), int(p_vend_x),
-                                            int(p_cli_v), int(p_cli_e), int(p_cli_x),
-                                            int(p_rel_v)
-                                        ))
-                                        conn.commit()
-                                        st.success(f"✅ Funcionário '{nome_func}' cadastrado com sucesso!")
-                                        st.rerun()
-                                    except Exception as e_cad:
-                                        st.error(f"Erro ao cadastrar funcionário: {e_cad}")
-        
-                    with aba_lista_func:
-                        st.subheader("📋 Lista de Usuários Cadastrados")
-                        try:
-                            df_users = pd.read_sql_query("SELECT id, nome, login, cargo, cpf FROM usuarios", conn)
-                            if not df_users.empty:
-                                st.dataframe(df_users, use_container_width=True, hide_index=True)
-                            else:
-                                st.info("Nenhum funcionário cadastrado além do administrador mestre.")
-                        except Exception:
-                            st.info("Carregando tabela de usuários...")
+                    st.markdown("---")
+                    st.subheader("🔒 Matriz de Permissões de Acesso")
+                    st.caption("Marque o que este funcionário poderá fazer dentro de cada módulo:")
+                    
+                    col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+                    
+                    with col_m1:
+                        st.markdown("**📦 Produtos**")
+                        p_prod_v = st.checkbox("Ver Produtos", value=True, key="p_p_v")
+                        p_prod_e = st.checkbox("Criar / Editar", value=False, key="p_p_e")
+                        p_prod_x = st.checkbox("Excluir", value=False, key="p_p_x")
+                        
+                    with col_m2:
+                        st.markdown("**🛒 Vendas / PDV**")
+                        p_vend_v = st.checkbox("Ver Vendas", value=True, key="p_v_v")
+                        p_vend_e = st.checkbox("Realizar Vendas", value=True, key="p_v_e")
+                        p_vend_x = st.checkbox("Cancelar Vendas", value=False, key="p_v_x")
+                        
+                    with col_m3:
+                        st.markdown("**👥 Clientes**")
+                        p_cli_v = st.checkbox("Ver Clientes", value=True, key="p_c_v")
+                        p_cli_e = st.checkbox("Cadastrar/Editar", value=False, key="p_c_e")
+                        p_cli_x = st.checkbox("Excluir", value=False, key="p_c_x")
+
+                    with col_m4:
+                        st.markdown("**📊 Relatórios**")
+                        p_rel_v = st.checkbox("Acessar Relatórios", value=False, key="p_r_v")
+
+                    btn_salvar_func = st.form_submit_button("💾 Salvar Funcionário", type="primary")
+
+                    if btn_salvar_func:
+                        if not nome_func or not login_func or not senha_func:
+                            st.error("Por favor, preencha Nome, Login e Senha.")
+                        else:
+                            try:
+                                cursor = conn.cursor()
+                                cursor.execute("""
+                                    INSERT INTO usuarios (
+                                        nome, login, senha, cargo, cpf,
+                                        perm_produtos_ver, perm_produtos_editar, perm_produtos_excluir,
+                                        perm_vendas_ver, perm_vendas_editar, perm_vendas_excluir,
+                                        perm_clientes_ver, perm_clientes_editar, perm_clientes_excluir,
+                                        perm_relatorios_ver
+                                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                """, (
+                                    nome_func, login_func, senha_func, cargo_func, cpf_func,
+                                    int(p_prod_v), int(p_prod_e), int(p_prod_x),
+                                    int(p_vend_v), int(p_vend_e), int(p_vend_x),
+                                    int(p_cli_v), int(p_cli_e), int(p_cli_x),
+                                    int(p_rel_v)
+                                ))
+                                conn.commit()
+                                st.success(f"✅ Funcionário '{nome_func}' cadastrado com sucesso!")
+                                st.rerun()
+                            except Exception as e_cad:
+                                st.error(f"Erro ao cadastrar funcionário: {e_cad}")
+
+            with aba_lista_func:
+                st.subheader("📋 Lista de Usuários Cadastrados")
+                try:
+                    df_users = pd.read_sql_query("SELECT id, nome, login, cargo, cpf FROM usuarios", conn)
+                    if not df_users.empty:
+                        st.dataframe(df_users, use_container_width=True, hide_index=True)
+                    else:
+                        st.info("Nenhum funcionário cadastrado além do administrador mestre.")
+                except Exception:
+                    st.info("Carregando tabela de usuários...")
         
         if menu_admin == "🏢 Configurações da Empresa":
             st.title("🏢 Configurações e Dados da Empresa")
