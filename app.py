@@ -512,7 +512,61 @@ st.sidebar.markdown("---")
 # ==========================================
 # AMBIENTE 1: PORTAL DO CLIENTE
 # ==========================================
-if perfil_selecionado == "👤 Portal do Cliente":
+if perfil_seleccionado == "🚪 Portal do Cliente":
+    
+    # --- BLOCO DE RECUPERAÇÃO DE SENHA ---
+    if st.session_state.get('fluxo_recuperacao', False):
+        st.markdown("---")
+        st.markdown("### 🔒 Redefinição de Senha do Cliente")
+        st.info("Insira os dados abaixo para redefinir a sua senha de acesso.")
+        
+        with st.form("form_redefinir_senha_cliente"):
+            try:
+                df_cli_rec = pd.read_sql_query("SELECT nome FROM clientes", conn)
+                lista_clientes_rec = df_cli_rec['nome'].tolist() if not df_cli_rec.empty else []
+            except:
+                lista_clientes_rec = []
+                
+            cliente_alvo = st.selectbox("Confirme o seu Nome/Empresa:", options=lista_clientes_rec)
+            nova_senha_cli = st.text_input("Nova Senha:", type="password", key="nova_s_cli")
+            confirma_senha_cli = st.text_input("Confirme a Nova Senha:", type="password", key="conf_s_cli")
+            autorizacao_adm = st.text_input("Senha Mestre de Autorização (Lojista):", type="password", key="aut_adm_rec")
+            
+            col_r1, col_r2 = st.columns(2)
+            with col_r1:
+                btn_salvar_nova = st.form_submit_button("💾 Salvar Nova Senha", type="primary")
+            with col_r2:
+                btn_cancelar_rec = st.form_submit_button("❌ Cancelar")
+                
+            if btn_cancelar_rec:
+                st.session_state['fluxo_recuperacao'] = False
+                st.rerun()
+                
+            if btn_salvar_nova:
+                if autorizacao_adm == "REY_CEBOLA_2026":
+                    if nova_senha_cli.strip() and nova_senha_cli == confirma_senha_cli:
+                        cursor_rec = conn.cursor()
+                        cursor_rec.execute("""
+                            UPDATE clientes SET senha = ? WHERE nome = ?
+                        """, (nova_senha_cli.strip(), cliente_alvo))
+                        conn.commit()
+                        st.success("✅ Senha alterada com sucesso! Já pode fazer login.")
+                        st.session_state['fluxo_recuperacao'] = False
+                        st.rerun()
+                    else:
+                        st.error("As senhas não coincidem ou estão vazias.")
+                else:
+                    st.error("Senha Mestre de Autorização incorreta.")
+        st.markdown("---")
+        
+    else:
+        # --- O SEU CÓDIGO NORMAL DO PORTAL DO CLIENTE COMEÇA AQUI ---
+        if not st.session_state.cliente_autenticado:
+            st.title("🔒 Portal do Cliente")
+            st.info("Por favor, selecione o seu nome no menu lateral e insira a sua senha para aceder aos seus pedidos.")
+            
+            df_cli_select = carregar_dados("SELECT * FROM clientes")
+            # ... (o resto do seu código original continua normalmente daqui para baixo)
     if not st.session_state.cliente_autenticado:
         st.title("🔒 Portal do Cliente")
         st.info("Por favor, selecione o seu nome no menu lateral e insira a sua senha para aceder aos seus pedidos.")
@@ -533,7 +587,9 @@ if perfil_selecionado == "👤 Portal do Cliente":
         
         cliente_nome = st.sidebar.selectbox("Identifique o seu Nome/Empresa:", lista_clientes, key="sb_cli_nome_login")
         senha_cliente = st.sidebar.text_input("Digite a sua Senha:", type="password", key="inp_cli_senha_login")
-        
+        if st.sidebar.button("🔑 Esqueci minha senha?", key="btn_esqueci_cliente"):
+            st.session_state['fluxo_recuperacao'] = True
+            st.rerun()
         if st.sidebar.button("Acessar Meus Pedidos", key="btn_login_cli_acao"):
             senha_cadastrada = "123"
             if not df_cli_select.empty:
