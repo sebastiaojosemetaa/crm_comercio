@@ -776,9 +776,18 @@ if perfil_selecionado == "👤 Portal do Cliente":
 # ==========================================
 elif perfil_selecionado == "🔒 Administração / Vendedor":
     if not st.session_state.admin_logged:
-        # (O seu código atual de login de administrador fica aqui...)
         st.title("🔒 Autenticação Administrativa")
-        # ...
+        st.warning("⚠️ Insira a senha de administrador para aceder ao painel de gestão.")
+        
+        senha_admin = st.text_input("Digite a Senha do Admin:", type="password", key="input_senha_admin_login_v2")
+        
+        if st.button("🔓 Entrar como Admin", type="primary", key="btn_login_admin_v2"):
+            if senha_admin == "13142715":
+                st.session_state.admin_logged = True
+                st.success("Login efetuado com sucesso!")
+                st.rerun()
+            else:
+                st.error("Senha incorreta!")
     else:
         # =============================================================
         # 1. CRIAÇÃO DA TABELA DE USUÁRIOS E PERMISSÕES
@@ -809,48 +818,32 @@ elif perfil_selecionado == "🔒 Administração / Vendedor":
         except Exception:
             pass
 
-        # =============================================================
-        # 2. TELA DE GESTÃO DE FUNCIONÁRIOS
-        # =============================================================
-        elif perfil_selecionado == "🔒 Administração / Vendedor":
-            if not st.session_state.admin_logged:
-                st.title("🔒 Autenticação Administrativa")
-                st.warning("⚠️ Insira a senha de administrador para aceder ao painel de gestão.")
-                
-                senha_admin = st.text_input("Digite a Senha do Admin:", type="password", key="input_senha_admin_login_v2")
-                
-                if st.button("🔓 Entrar como Admin", type="primary", key="btn_login_admin_v2"):
-                    if senha_admin == "13142715":
-                        st.session_state.admin_logged = True
-                        st.success("Login efetuado com sucesso!")
-                        st.rerun()
-                    else:
-                        st.error("Senha incorreta!")
-            else:
-                # Tudo o que acontece quando o admin JÁ está logado:
-                st.sidebar.subheader("🔒 Área Restrita")
-                if st.sidebar.button("Sair do Modo Admin", key="btn_logout_admin"):
-                    st.session_state.admin_logged = False
-                    st.rerun()
-                    
-                menu_admin = st.sidebar.radio(
-                    "Navegação",
-                    [
-                        "🛒 PDV — Frente de Caixa",
-                        "🔓 Abertura e Fechamento de Caixa",
-                        "📊 Fechamento & Financeiro",
-                        "📋 Pedidos / Orçamentos",
-                        "🛒 Registrar Venda",
-                        "📥 Entrada de Estoque (Compras)",
-                        "👥 Cadastros (Clientes / Fornecedores / Grupos)",
-                        "👥 Gestão de Recursos Humanos (RH)",
-                        "💾 Backup e Restauração",
-                        "💸 Contas a Receber",
-                        "📦 Estoque de Produtos",
-                        "🏢 Configurações da Empresa"
-                    ],
-                    key="radio_menu_admin_opcoes"
-                )
+        # -------------------------------------------------------------
+        # ÁREA RESTRITA E MENU DO ADMINISTRADOR
+        # -------------------------------------------------------------
+        st.sidebar.subheader("🔒 Área Restrita")
+        if st.sidebar.button("Sair do Modo Admin", key="btn_logout_admin"):
+            st.session_state.admin_logged = False
+            st.rerun()
+            
+        menu_admin = st.sidebar.radio(
+            "Navegação",
+            [
+                "🛒 PDV — Frente de Caixa",
+                "🔓 Abertura e Fechamento de Caixa",
+                "📊 Fechamento & Financeiro",
+                "📋 Pedidos / Orçamentos",
+                "🛒 Registrar Venda",
+                "📥 Entrada de Estoque (Compras)",
+                "👥 Cadastros (Clientes / Fornecedores / Grupos)",
+                "👥 Gestão de Recursos Humanos (RH)",
+                "💾 Backup e Restauração",
+                "💸 Contas a Receber",
+                "📦 Estoque de Produtos",
+                "🏢 Configurações da Empresa"
+            ],
+            key="radio_menu_admin_opcoes"
+        )
                 
                 # Exemplo de onde pode encaixar a Gestão de Funcionários (por exemplo, dentro do RH ou em uma aba dedicada)
                 if menu_admin == "👥 Gestão de Recursos Humanos (RH)":
