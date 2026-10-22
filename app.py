@@ -514,7 +514,7 @@ st.sidebar.markdown("---")
 # ==========================================
 if perfil_selecionado == "🚪 Portal do Cliente":
     
-    # --- BLOCO DE RECUPERAÇÃO DE SENHA ---
+    # 1. Se o cliente clicou em "Esqueci minha senha", exibe o formulário de recuperação
     if st.session_state.get('fluxo_recuperacao', False):
         st.markdown("---")
         st.markdown("### 🔒 Redefinição de Senha do Cliente")
@@ -560,16 +560,12 @@ if perfil_selecionado == "🚪 Portal do Cliente":
         st.markdown("---")
         
     else:
-        # --- O SEU CÓDIGO NORMAL DO PORTAL DO CLIENTE COMEÇA AQUI ---
+        # 2. Caso contrário, mostra o ecrã normal de login do Portal do Cliente
         if not st.session_state.cliente_autenticado:
             st.title("🔒 Portal do Cliente")
             st.info("Por favor, selecione o seu nome no menu lateral e insira a sua senha para aceder aos seus pedidos.")
             
-            df_cli_select = carregar_dados("SELECT * FROM clientes")
-            # ... (o resto do seu código original continua normalmente daqui para baixo)
-    if not st.session_state.cliente_autenticado:
-        st.title("🔒 Portal do Cliente")
-        st.info("Por favor, selecione o seu nome no menu lateral e insira a sua senha para aceder aos seus pedidos.")
+            # (O restante do seu código original de carregamento e listagem de clientes deve estar aqui dentro)
         
         df_cli_select = carregar_dados("SELECT * FROM clientes")
         lista_clientes = []
