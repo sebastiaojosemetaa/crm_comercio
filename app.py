@@ -18,6 +18,43 @@ if "dispositivo_ativado" not in st.session_state:
 
 if "dias_licenca" not in st.session_state:
     st.session_state["dias_licenca"] = 30
+# ==========================================
+# FUNÇÃO DE VERIFICAÇÃO DE PERMISSÕES
+# ==========================================
+def checar_permissao(usuario, modulo, acao):
+    # Se for o Administrador Mestre, libera acesso total imediato
+    if not usuario or usuario == "administrador" or st.session_state.get('cargo_logado') == "Administrador":
+        return True
+    
+    try:
+        cursor = conn.cursor()
+        
+        # Mapeia o módulo e a ação para a coluna correspondente na tabela de usuários
+        coluna_map = {
+            ("produtos", "ver"): "perm_produtos_ver",
+            ("produtos", "editar"): "perm_produtos_editar",
+            ("produtos", "excluir"): "perm_produtos_excluir",
+            ("vendas", "ver"): "perm_vendas_ver",
+            ("vendas", "editar"): "perm_vendas_editar",
+            ("vendas", "excluir"): "perm_vendas_excluir",
+            ("clientes", "ver"): "perm_clientes_ver",
+            ("clientes", "editar"): "perm_clientes_editar",
+            ("clientes", "excluir"): "perm_clientes_excluir",
+            ("relatorios", "ver"): "perm_relatorios_ver",
+        }
+        
+        coluna_db = coluna_map.get((modulo, acao))
+        if not coluna_db:
+            return False
+            
+        cursor.execute(f"SELECT {coluna_db} FROM usuarios WHERE login = ?", (usuario,))
+        res = cursor.fetchone()
+        
+        if res and res[0] == 1:
+            return True
+        return False
+    except Exception:
+        return False  # Por segurança, se houver qualquer erro, bloqueia o acesso
 # --------------------------------------------------
 def gerar_chave_por_documento(documento, tipo_plano="MENSAL"):
     import hashlib
