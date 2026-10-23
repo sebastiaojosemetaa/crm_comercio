@@ -19,15 +19,19 @@ if "dispositivo_ativado" not in st.session_state:
 if "dias_licenca" not in st.session_state:
     st.session_state["dias_licenca"] = 30
 # ==========================================
-# FUNÇÃO DE VERIFICAÇÃO DE PERMISSÕES
+# FUNÇÃO DE VERIFICAÇÃO DE PERMISSÕES BLINDADA
 # ==========================================
 def checar_permissao(usuario, modulo, acao):
-    # Se for o Administrador Mestre, libera acesso total imediato
-    if not usuario or usuario == "administrador" or st.session_state.get('cargo_logado') == "Administrador":
+    # Se não houver usuário logado, bloqueia imediatamente por segurança
+    if not usuario:
+        return False
+        
+    # Se for estritamente o Administrador Mestre
+    if usuario.lower() == "administrador" or st.session_state.get('cargo_logado') == "Administrador":
         return True
     
     try:
-        cursor = conn.cursor()
+        cursor_p = conn.cursor()
         
         # Mapeia o módulo e a ação para a coluna correspondente na tabela de usuários
         coluna_map = {
@@ -45,16 +49,19 @@ def checar_permissao(usuario, modulo, acao):
         
         coluna_db = coluna_map.get((modulo, acao))
         if not coluna_db:
+            cursor_p.close()
             return False
             
-        cursor.execute(f"SELECT {coluna_db} FROM usuarios WHERE login = ?", (usuario,))
-        res = cursor.fetchone()
+        cursor_p.execute(f"SELECT {coluna_db} FROM usuarios WHERE login = ?", (usuario,))
+        res = cursor_p.fetchone()
+        cursor_p.close()
         
+        # Se encontrou o registro e o valor na coluna é 1, permite; caso contrário, bloqueia
         if res and res[0] == 1:
             return True
         return False
     except Exception:
-        return False  # Por segurança, se houver qualquer erro, bloqueia o acesso
+        return False  # Em caso de qualquer erro, bloqueia por segurança
 # --------------------------------------------------
 def gerar_chave_por_documento(documento, tipo_plano="MENSAL"):
     import hashlib
@@ -98,6 +105,17 @@ def gerar_pdf_tabela_pedidos(df_pedidos, cliente_nome="Geral"):
     try:
         for db_file in ['banco.db', 'crm.db', 'database.db']:
             conn = sqlite3.connect(db_file, timeout=10.0)
+            
+            # 🟢 ADICIONE ESTAS LINHAS AQUI:
+            try:
+                cursor_v = conn.cursor()
+                cursor_v.execute("ALTER TABLE vendas ADD COLUMN vendedor TEXT")
+                conn.commit()
+                cursor_v.close()
+            except Exception:
+                pass  # Se a coluna já existir, ignora e segue em frente
+                
+            cursor = conn.cursor()
             cursor = conn.cursor()
             for tabela in ['configuracao', 'config', 'empresa', 'dados_empresa']:
                 try:
@@ -907,7 +925,12 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
         if st.sidebar.button("Sair do Modo Admin", key="btn_logout_admin"):
             st.session_state.admin_logged = False
             st.rerun()
-            
+        if st.session_state.get('admin_logged'):
+            usuario_atual = st.session_state.get('usuario_logado', 'Administrador')
+            cargo_atual = st.session_state.get('cargo_logado', 'Administrador')
+            st.sidebar.markdown("---")
+            st.sidebar.markdown(f"👤 **Usuário:** `{usuario_atual}`")
+            st.sidebar.markdown(f"🏷️ **Cargo:** `{cargo_atual}`")          
         menu_admin = st.sidebar.radio(
             "Navegação",
             [
@@ -1394,10 +1417,37 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                 if checar_permissao(st.session_state.get('usuario_logado'), 'vendas', 'editar'):
                     if st.button("🟢 Finalizar Venda [ Alt + V ]", type="primary", use_container_width=True):
                         if not df_caixa_aberto.empty and len(st.session_state.carrinho_pdv) > 0:
-                            # ... (todo o código de inserção de itens que está selecionado na imagem) ...
+                            cursor = conn.cursor()
+                            sessao_id = int(df_caixa_aberto.iloc[0]['id'])
+                            data_venda = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                            
+                            # Pega o login do funcionário logado no momento
+                            vendedor_atual = st.session_state.get('usuario_logado', 'administrador')
+                            
+                            for item in st.session_state.carrinho_pdv:
+                                cursor.execute("""
+                                    INSERT INTO vendas (
+                                        cliente, produto, fornecedor, grupo, quantidade, 
+                                        valor_venda, valor_total, forma_pagamento, valor_recebido, 
+                                        status, tipo, data, vendedor
+                                    )
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                """, (
+                                    cliente_pdv, item['produto'], item['fornecedor'], item['grupo'],
+                                    item['quantidade'], item['valor_venda'], item['valor_total'],
+                                    f_pag, v_rec, 'Concluído', 'VENDA', data_venda, vendedor_atual
+                                ))
+                            
+                            cursor.execute("""
+                                INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data)
+                                VALUES (?, ?, ?, ?, ?)
+                            """, (sessao_id, "VENDA", float(total_geral_carrinho), f"Venda PDV - Cliente: {cliente_pdv} (Por: {vendedor_atual})", data_venda))
+                            
                             conn.commit()
+                            cursor.close()
+                            
                             st.session_state.carrinho_pdv = []
-                            st.success(f"Venda concluída! Troco: R$ {max(0.0, troco):.2f}")
+                            st.success(f"Venda concluída por {vendedor_atual}! Troco: R$ {max(0.0, troco):.2f}")
                             st.rerun()
                         else:
                             st.error("Verifique se o caixa está aberto e se há itens no carrinho.")
