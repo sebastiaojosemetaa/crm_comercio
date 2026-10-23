@@ -554,7 +554,7 @@ if 'carrinho_pdv' not in st.session_state:
     st.session_state.carrinho_pdv = []
 
 st.sidebar.title("🔑 Acesso ao Sistema")
-opcoes_perfil = ["👤 Portal do Cliente", "🔒 Administração / Vendedor"]
+opcoes_perfil = ["🔒 Administração / Vendedor"]
 perfil_selecionado = st.sidebar.radio("Selecione o Perfil:", opcoes_perfil, key="perfil_principal_radio_v2")
 st.sidebar.markdown("---")
 # Status do Dispositivo no Topo da Barra Lateral
