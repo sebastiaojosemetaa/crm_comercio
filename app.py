@@ -674,7 +674,6 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                 "🛒 PDV — Frente de Caixa",
                 "🔓 Abertura e Fechamento de Caixa",
                 "📊 Fechamento & Financeiro",
-                "📋 Pedidos / Orçamentos",
                 "🛒 Registrar Venda",
                 "📥 Entrada de Estoque (Compras)",
                 "👥 Cadastros (Clientes / Fornecedores / Grupos)",
@@ -1387,7 +1386,7 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
             else:
                 st.info("Nenhum registro encontrado para os filtros selecionados.")
 
-        elif menu_admin in ["📋 Pedidos / Orçamentos", "🛒 Registrar Venda"]:
+        elif menu_admin in ["🛒 Registrar Venda"]:
             st.title(f"🛒 {menu_admin}")
         
             aba_cad, aba_list = st.tabs(["+ Novo Registro / Pedido", "🔧 Tabela Editável"])
