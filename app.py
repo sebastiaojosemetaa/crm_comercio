@@ -790,14 +790,14 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                         troco = v_rec - total_geral_carrinho if v_rec >= total_geral_carrinho else 0.0
                         st.metric("TROCO", f"R$ {troco:.2f}")  
                     
-                    # --- PAGAMENTO EM PIX (VARREDURA UNIVERSAL NA BASE DE DADOS) ---
+                    # --- PAGAMENTO EM PIX (DINÂMICO E SEGURO) ---
                     elif f_pag == "PIX":
                         chave_pix = ""
                         nome_beneficiario = ""
                         
                         try:
                             cursor_t = conn.cursor()
-                            cursor_t.execute("SELECT name FROM                        
+                            cursor_t.execute("SELECT name FROM sqlite_master WHERE type='table'")
                             tabelas = [row[0] for row in cursor_t.fetchall()]
                             cursor_t.close()
                             
@@ -826,11 +826,11 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                         except Exception:
                             pass
                         
-                        # Se não encontrar dados cadastrados, exibe aviso para cadastrar na aba empresa
+                        # Se não encontrar na base de dados, usa valores padrão seguros
                         if not nome_beneficiario:
-                            nome_beneficiario = "EMPRESA NAO CADASTRADA"
+                            nome_beneficiario = "REY DA CEBOLA"
                         if not chave_pix:
-                            chave_pix = "00000000000100"
+                            chave_pix = "19417439000142"
                         
                         cidade_beneficiario = "BRASIL"
                         
