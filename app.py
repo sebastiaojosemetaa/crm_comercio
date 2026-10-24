@@ -797,11 +797,7 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                         
                         try:
                             cursor_t = conn.cursor()
-                            cursor_t.execute("SELECT name FROM
-                        
-                        try:
-                            cursor_t = conn.cursor()
-                            cursor_t.execute("SELECT name FROM sqlite_master WHERE type='table'")
+                            cursor_t.execute("SELECT name FROM                        
                             tabelas = [row[0] for row in cursor_t.fetchall()]
                             cursor_t.close()
                             
