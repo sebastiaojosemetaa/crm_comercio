@@ -1008,7 +1008,7 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                 st.markdown("---")
                 st.markdown("### 💳 Tela de Fechamento e Pagamento")
                 
-                col_ pag_esq, col_pag_dir = st.columns([1, 1])
+                col_pag_esq, col_pag_dir = st.columns([1, 1])
                 
                 with col_pag_esq:
                     st.metric("TOTAL A PAGAR", f"R$ {total_geral_carrinho:.2f}")
