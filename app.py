@@ -1155,34 +1155,34 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                                 st.session_state.carrinho_pdv = []
                                 st.success(f"Venda concluída por {vendedor_atual}!")
                                 st.rerun()
-                            # --- BARRA DE ATALHOS NO RODAPÉ E SCRIPT PARA O TECLADO ---
-                            st.markdown("""
-                            <div style="background-color: #2b2b2b; color: #ffffff; padding: 8px 15px; border-radius: 8px; border: 2px solid #555555; margin-top: 15px; font-family: monospace; font-size: 13px; text-align: center;">
-                                Atalhos: <span style="color: #00ffcc; font-weight: bold;">[ Enter ]</span> Incluir | 
-                                <span style="color: #00ffcc; font-weight: bold;">[ Alt + C ]</span> Cancelar Venda | 
-                                <span style="color: #00ffcc; font-weight: bold;">[ Alt + V ]</span> Finalizar Venda
-                            </div>
-                            """, unsafe_allow_html=True)
-                        
-                            st.components.v1.html("""
-                            <script>
-                            const doc = window.parent.document;
-                            doc.addEventListener('keydown', function(e) {
-                                // Alt + V (Finalizar Venda)
-                                if (e.altKey && (e.key === 'v' || e.key === 'V')) {
-                                    e.preventDefault();
-                                    const btns = doc.querySelectorAll('button');
-                                    btns.forEach(b => { if (b.innerText.includes('Finalizar Venda')) b.click(); });
-                                }
-                                // Alt + C (Cancelar Venda)
-                                if (e.altKey && (e.key === 'c' || e.key === 'C')) {
-                                    e.preventDefault();
-                                    const btns = doc.querySelectorAll('button');
-                                    btns.forEach(b => { if (b.innerText.includes('Cancelar Venda')) b.click(); });
-                                }
-                            });
-                            </script>
-                            """, height=0)
+        # --- BARRA DE ATALHOS NO RODAPÉ E SCRIPT PARA O TECLADO ---
+        st.markdown("""
+        <div style="background-color: #2b2b2b; color: #ffffff; padding: 8px 15px; border-radius: 8px; border: 2px solid #555555; margin-top: 15px; font-family: monospace; font-size: 13px; text-align: center;">
+            Atalhos: <span style="color: #00ffcc; font-weight: bold;">[ Enter ]</span> Incluir | 
+            <span style="color: #00ffcc; font-weight: bold;">[ Alt + C ]</span> Cancelar Venda | 
+            <span style="color: #00ffcc; font-weight: bold;">[ Alt + V ]</span> Finalizar Venda
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.components.v1.html("""
+        <script>
+        const doc = window.parent.document;
+        doc.addEventListener('keydown', function(e) {
+            // Alt + V (Finalizar Venda)
+            if (e.altKey && (e.key === 'v' || e.key === 'V')) {
+                e.preventDefault();
+                const btns = doc.querySelectorAll('button');
+                btns.forEach(b => { if (b.innerText.includes('Finalizar Venda')) b.click(); });
+            }
+            // Alt + C (Cancelar Venda)
+            if (e.altKey && (e.key === 'c' || e.key === 'C')) {
+                e.preventDefault();
+                const btns = doc.querySelectorAll('button');
+                btns.forEach(b => { if (b.innerText.includes('Cancelar Venda')) b.click(); });
+            }
+        });
+        </script>
+        """, height=0)
                             else:
                                 st.error("Verifique se o caixa está aberto e se há itens no carrinho.")
                     else:
