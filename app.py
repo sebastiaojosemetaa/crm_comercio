@@ -248,7 +248,7 @@ def gerar_pdf_tabela_pedidos(df_pedidos, cliente_nome="Geral"):
 # -----------------------------------------------------------------------------
 # CONFIGURAÇÃO DA PÁGINA
 # -----------------------------------------------------------------------------
-st.set_page_config(page_title="CRM Comércio - Rey da Cebola", layout="wide", page_icon="🛍️")
+st.set_page_config(page_title="CRM Comércio - SEBASTIÃO JOSE DE ALENCAR NETO", layout="wide", page_icon="🛍️")
 
 # =========================================================
 # IDENTIFICADOR ÚNICO POR NAVEGADOR / APARELHO
@@ -981,7 +981,7 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
             if 'etapa_pagamento' not in st.session_state:
                 st.session_state.etapa_pagamento = False
             
-            st.subheader("🛒 PDV — Frente de Caixa — REY DA CEBOLA")
+            st.subheader("🛒 PDV — Frente de Caixa — SEBASTIÃO JOSE DE ALENCAR NETO")
             
             # --- CARREGAR DADOS DO CAIXA E PRODUTOS ---
             df_caixa_aberto = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
@@ -1040,7 +1040,7 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                         with col_qr1:
                             st.image(qr_code_url, caption="Aponte a câmara para pagar", width=160)
                         with col_qr2:
-                            st.write(f"**Empresa:** {nome_empresa if 'nome_empresa' in globals() else 'REY DA CEBOLA'}")
+                            st.write(f"**Empresa:** {nome_empresa if 'nome_empresa' in globals() else 'SEBASTIÃO JOSE DE ALENCAR NETO'}")
                             st.write(f"**Valor do PIX:** R$ {total_geral_carrinho:.2f}")
                             st.success("Aguarde a confirmação do cliente após o escaneamento.")
         
@@ -2335,7 +2335,7 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                                     def header(self):
                                         self.set_font('Arial', 'B', 14)
                                         self.set_text_color(20, 70, 140)
-                                        self.cell(0, 6, "REY DA CEBOLA", 0, 1, 'C')
+                                        self.cell(0, 6, "SEBASTIÃO JOSE DE ALENCAR NETO", 0, 1, 'C')
                                         
                                         self.set_font('Arial', '', 9)
                                         self.set_text_color(50, 50, 50)
