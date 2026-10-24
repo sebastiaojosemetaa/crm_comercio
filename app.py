@@ -1111,78 +1111,83 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                 
                 st.markdown("---")
                 
-                # --- BOTÕES DE AÇÃO: CANCELAR VENDA E FINALIZAR VENDA ---
-                col_acao1, col_acao2 = st.columns(2)
-                
-                with col_acao1:
-                    if st.button("❌ Cancelar Venda [ Alt + C ]", use_container_width=True):
-                        st.session_state.carrinho_pdv = []
-                        st.warning("Venda cancelada e carrinho limpo.")
-                        st.rerun()
-                        
-                with col_acao2:
-                    # Botão de Finalizar Venda com Validação de Permissão
-                    if checar_permissao(st.session_state.get('usuario_logado'), 'vendas', 'editar'):
-                        if st.button("🟢 Finalizar Venda [ Alt + V ]", type="primary", use_container_width=True):
-                            if not df_caixa_aberto.empty and len(st.session_state.carrinho_pdv) > 0:
-                                cursor = conn.cursor()
-                                sessao_id = int(df_caixa_aberto.iloc[0]['id'])
-                                data_venda = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                                vendedor_atual = st.session_state.get('usuario_logado', 'administrador')
-                                
-                                for item in st.session_state.carrinho_pdv:
-                                    cursor.execute("""
-                                        INSERT INTO vendas (
-                                            cliente, produto, fornecedor, grupo, quantidade, 
-                                            valor_venda, valor_total, forma_pagamento, valor_recebido, 
-                                            status, tipo, data, vendedor
-                                        )
-                                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                                    """, (
-                                        "Cliente Balcão", item['produto'], item['fornecedor'], item['grupo'],
-                                        item['quantidade'], item['valor_venda'], item['valor_total'],
-                                        f_pag, v_rec, 'Concluído', 'VENDA', data_venda, vendedor_atual
-                                    ))
-                                
-                                cursor.execute("""
-                                    INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data)
-                                    VALUES (?, ?, ?, ?, ?)
-                                """, (sessao_id, "VENDA", float(total_geral_carrinho), f"Venda PDV (Por: {vendedor_atual})", data_venda))
-                                
-                                conn.commit()
-                                cursor.close()
-                                
-                                st.session_state.carrinho_pdv = []
-                                st.success(f"Venda concluída por {vendedor_atual}!")
-                                st.rerun()
-        # --- BARRA DE ATALHOS NO RODAPÉ E SCRIPT PARA O TECLADO ---
-        st.markdown("""
-        <div style="background-color: #2b2b2b; color: #ffffff; padding: 8px 15px; border-radius: 8px; border: 2px solid #555555; margin-top: 15px; font-family: monospace; font-size: 13px; text-align: center;">
-            Atalhos: <span style="color: #00ffcc; font-weight: bold;">[ Enter ]</span> Incluir | 
-            <span style="color: #00ffcc; font-weight: bold;">[ Alt + C ]</span> Cancelar Venda | 
-            <span style="color: #00ffcc; font-weight: bold;">[ Alt + V ]</span> Finalizar Venda
-        </div>
-        """, unsafe_allow_html=True)
+                st.markdown("---")
         
-        st.components.v1.html("""
-        <script>
-        const doc = window.parent.document;
-        doc.addEventListener('keydown', function(e) {
-            // Alt + V (Finalizar Venda)
-            if (e.altKey && (e.key === 'v' || e.key === 'V')) {
-                e.preventDefault();
-                const btns = doc.querySelectorAll('button');
-                btns.forEach(b => { if (b.innerText.includes('Finalizar Venda')) b.click(); });
-            }
-            // Alt + C (Cancelar Venda)
-            if (e.altKey && (e.key === 'c' || e.key === 'C')) {
-                e.preventDefault();
-                const btns = doc.querySelectorAll('button');
-                btns.forEach(b => { if (b.innerText.includes('Cancelar Venda')) b.click(); });
-            }
-        });
-        </script>
-        """, height=0)
+        # --- BOTÕES DE AÇÃO: CANCELAR VENDA E FINALIZAR VENDA ---
+        col_acao1, col_acao2 = st.columns(2)
+        
+        with col_acao1:
+            if st.button("❌ Cancelar Venda [ Alt + C ]", use_container_width=True):
+                st.session_state.carrinho_pdv = []
+                st.warning("Venda cancelada e carrinho limpo.")
+                st.rerun()
+                
+        with col_acao2:
+            # Botão de Finalizar Venda com Validação de Permissão
+            if checar_permissao(st.session_state.get('usuario_logado'), 'vendas', 'editar'):
+                if st.button("🟢 Finalizar Venda [ Alt + V ]", type="primary", use_container_width=True):
+                    if not df_caixa_aberto.empty and len(st.session_state.carrinho_pdv) > 0:
+                        cursor = conn.cursor()
+                        sessao_id = int(df_caixa_aberto.iloc[0]['id'])
+                        data_venda = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        vendedor_atual = st.session_state.get('usuario_logado', 'administrador')
+                        
+                        for item in st.session_state.carrinho_pdv:
+                            cursor.execute("""
+                                INSERT INTO vendas (
+                                    cliente, produto, fornecedor, grupo, quantidade, 
+                                    valor_venda, valor_total, forma_pagamento, valor_recebido, 
+                                    status, tipo, data, vendedor
+                                )
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            """, (
+                                "Cliente Balcão", item['produto'], item['fornecedor'], item['grupo'],
+                                item['quantidade'], item['valor_venda'], item['valor_total'],
+                                f_pag, v_rec, 'Concluído', 'VENDA', data_venda, vendedor_atual
+                            ))
+                        
+                        cursor.execute("""
+                            INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data)
+                            VALUES (?, ?, ?, ?, ?)
+                        """, (sessao_id, "VENDA", float(total_geral_carrinho), f"Venda PDV (Por: {vendedor_atual})", data_venda))
+                        
+                        conn.commit()
+                        cursor.close()
+                        
+                        st.session_state.carrinho_pdv = []
+                        st.success(f"Venda concluída por {vendedor_atual}!")
+                        st.rerun()
+                    else:
+                        st.error("Verifique se o caixa está aberto e se há itens no carrinho.")
+            else:
+                st.error("🚫 Sem permissão para faturar vendas.")
+
+    # --- BARRA DE ATALHOS NO RODAPÉ E SCRIPT PARA O TECLADO ---
+    st.markdown("""
+    <div style="background-color: #2b2b2b; color: #ffffff; padding: 8px 15px; border-radius: 8px; border: 2px solid #555555; margin-top: 15px; font-family: monospace; font-size: 13px; text-align: center;">
+        Atalhos: <span style="color: #00ffcc; font-weight: bold;">[ Enter ]</span> Incluir | 
+        <span style="color: #00ffcc; font-weight: bold;">[ Alt + C ]</span> Cancelar Venda | 
+        <span style="color: #00ffcc; font-weight: bold;">[ Alt + V ]</span> Finalizar Venda
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.components.v1.html("""
+    <script>
+    const doc = window.parent.document;
+    doc.addEventListener('keydown', function(e) {
+        if (e.altKey && (e.key === 'v' || e.key === 'V')) {
+            e.preventDefault();
+            const btns = doc.querySelectorAll('button');
+            btns.forEach(b => { if (b.innerText.includes('Finalizar Venda')) b.click(); });
+        }
+        if (e.altKey && (e.key === 'c' || e.key === 'C')) {
+            e.preventDefault();
+            const btns = doc.querySelectorAll('button');
+            btns.forEach(b => { if (b.innerText.includes('Cancelar Venda')) b.click(); });
+        }
+    });
+    </script>
+    """, height=0)
                             else:
                                 st.error("Verifique se o caixa está aberto e se há itens no carrinho.")
                     else:
