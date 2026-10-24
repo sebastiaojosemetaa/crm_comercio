@@ -748,7 +748,7 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
             if 'etapa_pagamento' not in st.session_state:
                 st.session_state.etapa_pagamento = False
             
-            st.subheader("🛒 PDV — Frente de Caixa — REY DA CEBOLA")
+            st.subheader("🛒 PDV — Frente de Caixa — SEBASTIÃO JOSE DE ALENCAR NETO")
             
             # --- CARREGAR DADOS DO CAIXA E PRODUTOS ---
             df_caixa_aberto = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
