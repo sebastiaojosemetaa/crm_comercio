@@ -172,7 +172,6 @@ def gerar_pdf_tabela_pedidos(df_pedidos, cliente_nome="Geral"):
                     pass
             conn.close()
             if nome_empresa:
-                break
     except:
         pass
     pdf = FPDF()
