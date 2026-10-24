@@ -788,12 +788,16 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                     if f_pag == "Dinheiro":
                         v_rec = st.number_input("Valor Recebido (R$):", min_value=0.0, value=float(total_geral_carrinho), format="%.2f")
                         troco = v_rec - total_geral_carrinho if v_rec >= total_geral_carrinho else 0.0
-                        st.metric("TROCO", f"R$ {troco:.2f}")
-                        
-                    # --- PAGAMENTO EM PIX (PUXANDO EXCLUSIVAMENTE DA BASE DE DADOS) ---
+                        st.metric("TROCO", f"R$ {troco:.2f}")  
+                    
+                    # --- PAGAMENTO EM PIX (VARREDURA UNIVERSAL NA BASE DE DADOS) ---
                     elif f_pag == "PIX":
                         chave_pix = ""
                         nome_beneficiario = ""
+                        
+                        try:
+                            cursor_t = conn.cursor()
+                            cursor_t.execute("SELECT name FROM
                         
                         try:
                             cursor_t = conn.cursor()
