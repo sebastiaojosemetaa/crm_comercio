@@ -987,12 +987,31 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                 }
             </style>
             """, unsafe_allow_html=True)
+            
+            # Inicializa o estado do carrinho e modo do PDV se não existirem
+            if 'carrinho_pdv' not in st.session_state:
+                st.session_state.carrinho_pdv = []
         
-            # Inicializa o estado do modo de exibição do PDV se não existir
             if 'pdv_modo_completo' not in st.session_state:
                 st.session_state.pdv_modo_completo = False
             
             st.subheader("🛒 PDV — Frente de Caixa — REY DA CEBOLA")
+            
+            # --- CARREGAR DADOS DO CAIXA E PRODUTOS (Correção do erro) ---
+            df_caixa_aberto = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
+            
+            try:
+                df_prod_pdv = pd.read_sql_query("SELECT * FROM produtos", conn)
+                lista_produtos_pdv = df_prod_pdv['produto'].tolist() if not df_prod_pdv.empty else []
+            except Exception:
+                lista_produtos_pdv = []
+                df_prod_pdv = pd.DataFrame()
+        
+            def obter_dados_produto(nome_prod):
+                if not df_prod_pdv.empty and nome_prod in lista_produtos_pdv:
+                    p_row = df_prod_pdv[df_prod_pdv['produto'] == nome_prod].iloc[0]
+                    return float(p_row.get('valor_venda', 0.0)), str(p_row.get('fornecedor', '')), str(p_row.get('grupo', ''))
+                return 0.0, "", ""
             
             # --- CABEÇALHO COM BOTÃO DE ALTERNÂNCIA DE MODO ---
             col_hdr1, col_hdr2 = st.columns([3, 1])
@@ -1028,6 +1047,8 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                 # Seletor de produto
                 produto_selecionado = st.selectbox("Selecione o Produto:", lista_produtos_pdv, key="select_prod_pdv")
                 
+                preco_padrao_prod, fornecedor_prod, grupo_prod = obter_dados_produto(produto_selecionado)
+                
                 # SE A VERSÃO COMPLETA ESTIVER ATIVADA, MOSTRA QTD E PREÇO EDITÁVEIS
                 if st.session_state.pdv_modo_completo:
                     col_q1, col_q2 = st.columns(2)
@@ -1043,7 +1064,7 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                     qtd_item = 1.00
                     preco_item = preco_padrao_prod
                     subtotal_item = preco_item
-            
+                
                 # Botão Incluir Produto
                 if st.button("➕ [ Enter ] Incluir Produto", type="primary", use_container_width=True):
                     if produto_selecionado:
@@ -1095,9 +1116,9 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                     v_rec = float(total_geral_carrinho)
                     troco = 0.0
                     st.metric("TOTAL A PAGAR", f"R$ {total_geral_carrinho:.2f}")
-            
+                
                 st.markdown("---")
-            
+                
                 # Botão de Finalizar Venda com Validação de Permissão
                 if checar_permissao(st.session_state.get('usuario_logado'), 'vendas', 'editar'):
                     if st.button("🟢 Finalizar Venda [ Alt + V ]", type="primary", use_container_width=True):
