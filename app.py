@@ -960,7 +960,7 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                         else:
                             st.error("Preencha o Nome e o CNPJ/CPF.")
         if menu_admin == "🛒 PDV — Frente de Caixa":
-            # CSS para compactar e estilizar os botões de atalho no rodapé
+            # CSS para compactar e estilizar os botões e campos
             st.markdown("""
             <style>
                 .block-container { padding-top: 1rem !important; padding-bottom: 0rem !important; }
@@ -968,23 +968,6 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                 .stMarkdown { margin-bottom: -10px !important; }
                 div[data-baseweb="input"] { min-height: 35px !important; }
                 h3, h4 { margin-top: 0px !important; margin-bottom: 5px !important; font-size: 16px !important; }
-                
-                /* Estilo da barra de atalhos inferior */
-                .barra-atalhos {
-                    background-color: #2b2b2b;
-                    color: #ffffff;
-                    padding: 8px 15px;
-                    border-radius: 8px;
-                    border: 2px solid #555555;
-                    margin-top: 15px;
-                    font-family: monospace;
-                    font-size: 13px;
-                    text-align: center;
-                }
-                .atalho-item {
-                    color: #00ffcc;
-                    font-weight: bold;
-                }
             </style>
             """, unsafe_allow_html=True)
             
@@ -997,7 +980,7 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
             
             st.subheader("🛒 PDV — Frente de Caixa — REY DA CEBOLA")
             
-            # --- CARREGAR DADOS DO CAIXA E PRODUTOS (Correção do erro) ---
+            # --- CARREGAR DADOS DO CAIXA E PRODUTOS ---
             df_caixa_aberto = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
             
             try:
@@ -1090,6 +1073,15 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                 if st.session_state.carrinho_pdv:
                     df_carrinho = pd.DataFrame(st.session_state.carrinho_pdv)
                     st.dataframe(df_carrinho[['produto', 'quantidade', 'valor_venda', 'valor_total']], use_container_width=True, hide_index=True)
+                    
+                    # --- NOVO: Opção para remover item específico do carrinho ---
+                    opcoes_remover = [f"{i}: {item['produto']} (Qtd: {item['quantidade']})" for i, item in enumerate(st.session_state.carrinho_pdv)]
+                    item_para_remover = st.selectbox("Selecione o item para excluir do carrinho:", opcoes_remover, key="select_remover_item")
+                    if st.button("🗑️ Excluir Item Selecionado", use_container_width=True):
+                        indice = int(item_para_remover.split(":")[0])
+                        removido = st.session_state.carrinho_pdv.pop(indice)
+                        st.warning(f"Item '{removido['produto']}' removido do carrinho.")
+                        st.rerun()
                 else:
                     st.info("Carrinho vazio.")
                     
@@ -1119,44 +1111,54 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                 
                 st.markdown("---")
                 
-                # Botão de Finalizar Venda com Validação de Permissão
-                if checar_permissao(st.session_state.get('usuario_logado'), 'vendas', 'editar'):
-                    if st.button("🟢 Finalizar Venda [ Alt + V ]", type="primary", use_container_width=True):
-                        if not df_caixa_aberto.empty and len(st.session_state.carrinho_pdv) > 0:
-                            cursor = conn.cursor()
-                            sessao_id = int(df_caixa_aberto.iloc[0]['id'])
-                            data_venda = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                            vendedor_atual = st.session_state.get('usuario_logado', 'administrador')
-                            
-                            for item in st.session_state.carrinho_pdv:
+                # --- BOTÕES DE AÇÃO: CANCELAR VENDA E FINALIZAR VENDA ---
+                col_acao1, col_acao2 = st.columns(2)
+                
+                with col_acao1:
+                    if st.button("❌ Cancelar Venda [ Alt + C ]", use_container_width=True):
+                        st.session_state.carrinho_pdv = []
+                        st.warning("Venda cancelada e carrinho limpo.")
+                        st.rerun()
+                        
+                with col_acao2:
+                    # Botão de Finalizar Venda com Validação de Permissão
+                    if checar_permissao(st.session_state.get('usuario_logado'), 'vendas', 'editar'):
+                        if st.button("🟢 Finalizar Venda [ Alt + V ]", type="primary", use_container_width=True):
+                            if not df_caixa_aberto.empty and len(st.session_state.carrinho_pdv) > 0:
+                                cursor = conn.cursor()
+                                sessao_id = int(df_caixa_aberto.iloc[0]['id'])
+                                data_venda = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                                vendedor_atual = st.session_state.get('usuario_logado', 'administrador')
+                                
+                                for item in st.session_state.carrinho_pdv:
+                                    cursor.execute("""
+                                        INSERT INTO vendas (
+                                            cliente, produto, fornecedor, grupo, quantidade, 
+                                            valor_venda, valor_total, forma_pagamento, valor_recebido, 
+                                            status, tipo, data, vendedor
+                                        )
+                                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                    """, (
+                                        "Cliente Balcão", item['produto'], item['fornecedor'], item['grupo'],
+                                        item['quantidade'], item['valor_venda'], item['valor_total'],
+                                        f_pag, v_rec, 'Concluído', 'VENDA', data_venda, vendedor_atual
+                                    ))
+                                
                                 cursor.execute("""
-                                    INSERT INTO vendas (
-                                        cliente, produto, fornecedor, grupo, quantidade, 
-                                        valor_venda, valor_total, forma_pagamento, valor_recebido, 
-                                        status, tipo, data, vendedor
-                                    )
-                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                                """, (
-                                    "Cliente Balcão", item['produto'], item['fornecedor'], item['grupo'],
-                                    item['quantidade'], item['valor_venda'], item['valor_total'],
-                                    f_pag, v_rec, 'Concluído', 'VENDA', data_venda, vendedor_atual
-                                ))
-                            
-                            cursor.execute("""
-                                INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data)
-                                VALUES (?, ?, ?, ?, ?)
-                            """, (sessao_id, "VENDA", float(total_geral_carrinho), f"Venda PDV (Por: {vendedor_atual})", data_venda))
-                            
-                            conn.commit()
-                            cursor.close()
-                            
-                            st.session_state.carrinho_pdv = []
-                            st.success(f"Venda concluída por {vendedor_atual}!")
-                            st.rerun()
-                        else:
-                            st.error("Verifique se o caixa está aberto e se há itens no carrinho.")
-                else:
-                    st.error("🚫 O seu utilizador tem apenas permissão para **Visualizar Vendas**, não podendo faturar ou concluir novos pagamentos.")
+                                    INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data)
+                                    VALUES (?, ?, ?, ?, ?)
+                                """, (sessao_id, "VENDA", float(total_geral_carrinho), f"Venda PDV (Por: {vendedor_atual})", data_venda))
+                                
+                                conn.commit()
+                                cursor.close()
+                                
+                                st.session_state.carrinho_pdv = []
+                                st.success(f"Venda concluída por {vendedor_atual}!")
+                                st.rerun()
+                            else:
+                                st.error("Verifique se o caixa está aberto e se há itens no carrinho.")
+                    else:
+                        st.error("🚫 Sem permissão para faturar vendas.")
         elif menu_admin == "🔓 Abertura e Fechamento de Caixa":
             st.title("🔓 Abertura e Fechamento de Caixa")
             df_caixa_atual = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
