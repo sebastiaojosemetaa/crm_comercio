@@ -790,7 +790,7 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                         troco = v_rec - total_geral_carrinho if v_rec >= total_geral_carrinho else 0.0
                         st.metric("TROCO", f"R$ {troco:.2f}")
                         
-                    # --- PAGAMENTO EM PIX (LEITURA DINÂMICA UNIFICADA DA EMPRESA) ---
+                    # --- PAGAMENTO EM PIX (PUXANDO EXCLUSIVAMENTE DA BASE DE DADOS) ---
                     elif f_pag == "PIX":
                         chave_pix = ""
                         nome_beneficiario = ""
@@ -801,14 +801,12 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                             tabelas = [row[0] for row in cursor_t.fetchall()]
                             cursor_t.close()
                             
-                            # Procura em qual tabela estão os dados da empresa
                             for tabela in ['empresa', 'configuracoes', 'config', 'dados_empresa', 'empresa_cfg']:
                                 if tabela in tabelas:
                                     df_emp = pd.read_sql_query(f"SELECT * FROM {tabela}", conn)
                                     if not df_emp.empty:
-                                        row = df_emp.iloc[-1] # Pega o registo mais recente
+                                        row = df_emp.iloc[-1]
                                         
-                                        # Busca o nome
                                         for col_n in ['nome', 'razao_social', 'empresa', 'nome_empresa', 'razao']:
                                             if col_n in df_emp.columns and pd.notna(row[col_n]):
                                                 val = str(row[col_n]).strip()
@@ -816,7 +814,6 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                                                     nome_beneficiario = val
                                                     break
                                                     
-                                        # Busca o CNPJ/CPF
                                         for col_c in ['cnpj', 'cnpj_cpf', 'cpf', 'documento']:
                                             if col_c in df_emp.columns and pd.notna(row[col_c]):
                                                 doc = str(row[col_c]).strip()
@@ -829,11 +826,11 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                         except Exception:
                             pass
                         
-                        # Se por algum motivo não encontrar na base de dados, usa os dados do formulário atual
+                        # Se não encontrar dados cadastrados, exibe aviso para cadastrar na aba empresa
                         if not nome_beneficiario:
-                            nome_beneficiario = "REY DA CEBOLA"
+                            nome_beneficiario = "EMPRESA NAO CADASTRADA"
                         if not chave_pix:
-                            chave_pix = "19417439000142"
+                            chave_pix = "00000000000100"
                         
                         cidade_beneficiario = "BRASIL"
                         
