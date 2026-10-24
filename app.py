@@ -790,30 +790,38 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                         troco = v_rec - total_geral_carrinho if v_rec >= total_geral_carrinho else 0.0
                         st.metric("TROCO", f"R$ {troco:.2f}")
                         
-                    # --- PAGAMENTO EM PIX (COM PAYLOAD EMV VÁLIDO DINÂMICO) ---
+                    # --- PAGAMENTO EM PIX (DINÂMICO: LÊ EXATAMENTE DO CADASTRO DA EMPRESA) ---
                     elif f_pag == "PIX":
-                        # Busca as informações diretamente da tabela de empresa/configurações do banco
+                        chave_pix = ""
+                        nome_beneficiario = "EMPRESA"
+                        
                         try:
-                            df_empresa_cfg = pd.read_sql_query("SELECT * FROM empresa LIMIT 1", conn)
+                            df_empresa_cfg = pd.read_sql_query("SELECT * FROM empresa", conn)
                             if not df_empresa_cfg.empty:
                                 emp_row = df_empresa_cfg.iloc[0]
-                                # Pega o CNPJ/CPF cadastrado e remove pontos, traços e barras
-                                cnpj_raw = str(emp_row.get('cnpj', emp_row.get('cpf', '')))
-                                chave_pix = ''.join(filter(str.isdigit, cnpj_raw))
                                 
-                                # Pega o nome da empresa cadastrado
-                                nome_beneficiario = str(emp_row.get('nome', emp_row.get('razao_social', 'REY DA CEBOLA')))
-                            else:
-                                chave_pix = "19417439000142"
-                                nome_beneficiario = "REY DA CEBOLA"
+                                # Procura o nome da empresa nas colunas mais comuns da tabela
+                                for col_n in ['nome', 'razao_social', 'empresa', 'nome_empresa']:
+                                    if col_n in df_empresa_cfg.columns and pd.notna(emp_row[col_n]):
+                                        val = str(emp_row[col_n]).strip()
+                                        if val:
+                                            nome_beneficiario = val
+                                            break
+                                            
+                                # Procura o CNPJ ou CPF nas colunas mais comuns da tabela
+                                for col_c in ['cnpj', 'cnpj_cpf', 'cpf']:
+                                    if col_c in df_empresa_cfg.columns and pd.notna(emp_row[col_c]):
+                                        cnpj_raw = str(emp_row[col_c])
+                                        chave_pix = ''.join(filter(str.isdigit, cnpj_raw))
+                                        if chave_pix:
+                                            break
                         except Exception:
-                            chave_pix = "19417439000142"
-                            nome_beneficiario = "REY DA CEBOLA"
-        
-                        # Se a chave obtida estiver vazia, utiliza o CNPJ da empresa por padrão
+                            pass
+                        
+                        # Caso não encontre chave preenchida, utiliza um aviso visual para o operador
                         if not chave_pix:
-                            chave_pix = "19417439000142"
-        
+                            chave_pix = "00000000000100"
+                        
                         cidade_beneficiario = "BRASIL"
                         
                         def gerar_payload_pix(pix_key, nome, cidade, valor):
