@@ -790,37 +790,53 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                         troco = v_rec - total_geral_carrinho if v_rec >= total_geral_carrinho else 0.0
                         st.metric("TROCO", f"R$ {troco:.2f}")
                         
-                    # --- PAGAMENTO EM PIX (DINÂMICO: LÊ EXATAMENTE DO CADASTRO DA EMPRESA) ---
+                    # --- PAGAMENTO EM PIX (DETEÇÃO AUTOMÁTICA DA TABELA E DADOS) ---
                     elif f_pag == "PIX":
                         chave_pix = ""
-                        nome_beneficiario = "EMPRESA"
+                        nome_beneficiario = ""
                         
                         try:
-                            df_empresa_cfg = pd.read_sql_query("SELECT * FROM empresa", conn)
-                            if not df_empresa_cfg.empty:
-                                emp_row = df_empresa_cfg.iloc[0]
-                                
-                                # Procura o nome da empresa nas colunas mais comuns da tabela
-                                for col_n in ['nome', 'razao_social', 'empresa', 'nome_empresa']:
-                                    if col_n in df_empresa_cfg.columns and pd.notna(emp_row[col_n]):
-                                        val = str(emp_row[col_n]).strip()
-                                        if val:
-                                            nome_beneficiario = val
-                                            break
-                                            
-                                # Procura o CNPJ ou CPF nas colunas mais comuns da tabela
-                                for col_c in ['cnpj', 'cnpj_cpf', 'cpf']:
-                                    if col_c in df_empresa_cfg.columns and pd.notna(emp_row[col_c]):
-                                        cnpj_raw = str(emp_row[col_c])
-                                        chave_pix = ''.join(filter(str.isdigit, cnpj_raw))
-                                        if chave_pix:
-                                            break
+                            # Verifica quais tabelas existem na base de dados SQLite
+                            cursor_t = conn.cursor()
+                            cursor_t.execute("SELECT name FROM sqlite_master WHERE type='table'")
+                            tabelas = [row[0] for row in cursor_t.fetchall()]
+                            cursor_t.close()
+                            
+                            # Procura pela tabela de configuração da empresa
+                            tabela_alvo = None
+                            for t in ['empresa', 'configuracoes', 'config', 'dados_empresa', 'empresa_cfg']:
+                                if t in tabelas:
+                                    tabela_alvo = t
+                                    break
+                            
+                            if tabela_alvo:
+                                df_empresa_cfg = pd.read_sql_query(f"SELECT * FROM {tabela_alvo}", conn)
+                                if not df_empresa_cfg.empty:
+                                    emp_row = df_empresa_cfg.iloc[0]
+                                    
+                                    # Procura o nome da empresa em várias colunas possíveis
+                                    for col_n in ['nome', 'razao_social', 'empresa', 'nome_empresa', 'razao']:
+                                        if col_n in df_empresa_cfg.columns and pd.notna(emp_row[col_n]):
+                                            val = str(emp_row[col_n]).strip()
+                                            if val:
+                                                nome_beneficiario = val
+                                                break
+                                                
+                                    # Procura o CNPJ/CPF em várias colunas possíveis
+                                    for col_c in ['cnpj', 'cnpj_cpf', 'cpf', 'documento']:
+                                        if col_c in df_empresa_cfg.columns and pd.notna(emp_row[col_c]):
+                                            cnpj_raw = str(emp_row[col_c])
+                                            chave_pix = ''.join(filter(str.isdigit, cnpj_raw))
+                                            if chave_pix:
+                                                break
                         except Exception:
                             pass
                         
-                        # Caso não encontre chave preenchida, utiliza um aviso visual para o operador
+                        # Se não encontrar na base de dados, usa os dados padrão do Sebastião
+                        if not nome_beneficiario:
+                            nome_beneficiario = "SEBASTIAO JOSE DE ALENCAR NETO"
                         if not chave_pix:
-                            chave_pix = "00000000000100"
+                            chave_pix = "95451161100"
                         
                         cidade_beneficiario = "BRASIL"
                         
