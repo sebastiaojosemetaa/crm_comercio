@@ -1285,7 +1285,7 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                 
                 with col_esquerda:
                     st.markdown("### 📦 Dados do Item")
-                    busca_produto = st.text_input("Passe o leitor ou digite o código/nome:", key="input_busca_pdv")
+                    busca_produto = st.text_input("Passe o leitor ou digite o código/nome:", key="input_busca_pdv_unico")
                     produto_selecionado = st.selectbox("Selecione o Produto:", lista_produtos_pdv, key="select_prod_pdv")
                     
                     preco_padrao_prod, fornecedor_prod, grupo_prod = obter_dados_produto(produto_selecionado)
