@@ -748,7 +748,9 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
             if 'etapa_pagamento' not in st.session_state:
                 st.session_state.etapa_pagamento = False
             
-            st.subheader("🛒 PDV — Frente de Caixa — SEBASTIÃO JOSE DE ALENCAR NETO")
+            # Nome seguro do beneficiário para o Pix e cabeçalho
+            nome_beneficiario = nome_empresa if 'nome_empresa' in globals() and nome_empresa else "SEBASTIÃO JOSE DE ALENCAR NETO"
+            st.subheader(f"🛒 PDV — Frente de Caixa — {nome_beneficiario}")
             
             # --- CARREGAR DADOS DO CAIXA E PRODUTOS ---
             df_caixa_aberto = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
@@ -779,24 +781,22 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                 
                 with col_pag_esq:
                     st.metric("TOTAL A PAGAR", f"R$ {total_geral_carrinho:.2f}")
-                    f_pag = st.selectbox("Forma de Pagamento:", ["Dinheiro", "Cartão de Crédito", "Cartão de Débito", "PIX"])
+                    f_pag = st.selectbox("Forma de Pagamento:", ["Dinheiro", "Cartão de Crédito", "Cartão de Débito", "PIX"], key="select_forma_pag_pdv")
                     
                     v_rec = float(total_geral_carrinho)
                     troco = 0.0
                     
                     # --- PAGAMENTO EM DINHEIRO ---
                     if f_pag == "Dinheiro":
-                        v_rec = st.number_input("Valor Recebido (R$):", min_value=0.0, value=float(total_geral_carrinho), format="%.2f")
+                        v_rec = st.number_input("Valor Recebido (R$):", min_value=0.0, value=float(total_geral_carrinho), format="%.2f", key="input_val_recebido_pdv")
                         troco = v_rec - total_geral_carrinho if v_rec >= total_geral_carrinho else 0.0
                         st.metric("TROCO", f"R$ {troco:.2f}")
                         
                     # --- PAGAMENTO EM PIX (COM PAYLOAD EMV VÁLIDO) ---
                     elif f_pag == "PIX":
                         chave_pix = cnpj_empresa if 'cnpj_empresa' in globals() and cnpj_empresa else "95451161100"
-                        nome_beneficiario = nome_empresa if 'nome_empresa' in globals() and nome_empresa else "REY DA CEBOLA"
                         cidade_beneficiario = "BRASIL"
                         
-                        # Função interna para gerar Payload Pix oficial (BR Code)
                         def gerar_payload_pix(pix_key, nome, cidade, valor):
                             def tlv(tag, value):
                                 return f"{tag}{len(value):02d}{value}"
@@ -820,7 +820,6 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                                 "6304"
                             )
                             
-                            # Cálculo CRC16-CCITT
                             crc = 0xFFFF
                             for byte in payload.encode('ascii'):
                                 crc ^= (byte << 8)
@@ -837,7 +836,6 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                         st.markdown("#### 📱 Pagamento via QR Code PIX")
                         st.info(f"**Chave PIX:** `{chave_pix}`")
                         
-                        # Gera o QR Code utilizando o payload oficial
                         qr_code_url = f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={pix_payload}"
                         
                         col_qr1, col_qr2 = st.columns([1, 2])
@@ -858,13 +856,13 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                 col_botoes1, col_botoes2 = st.columns(2)
                 
                 with col_botoes1:
-                    if st.button("⬅️ Voltar ao Carrinho", use_container_width=True):
+                    if st.button("⬅️ Voltar ao Carrinho", key="btn_voltar_carrinho_pag", use_container_width=True):
                         st.session_state.etapa_pagamento = False
                         st.rerun()
                         
                 with col_botoes2:
                     if checar_permissao(st.session_state.get('usuario_logado'), 'vendas', 'editar'):
-                        if st.button("🟢 Confirmar e Concluir Venda", type="primary", use_container_width=True):
+                        if st.button("🟢 Confirmar e Concluir Venda", key="btn_confirmar_venda_final", type="primary", use_container_width=True):
                             if not df_caixa_aberto.empty and len(st.session_state.carrinho_pdv) > 0:
                                 cursor = conn.cursor()
                                 sessao_id = int(df_caixa_aberto.iloc[0]['id'])
@@ -916,11 +914,11 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                 
                 with col_hdr2:
                     if st.session_state.pdv_modo_completo:
-                        if st.button("⚡ MODO SIMPLIFICADO", use_container_width=True):
+                        if st.button("⚡ MODO SIMPLIFICADO", key="btn_modo_simplificado_pdv", use_container_width=True):
                             st.session_state.pdv_modo_completo = False
                             st.rerun()
                     else:
-                        if st.button("🟢 VERSÃO COMPLETA", type="primary", use_container_width=True):
+                        if st.button("🟢 VERSÃO COMPLETA", key="btn_versao_completa_pdv", type="primary", use_container_width=True):
                             st.session_state.pdv_modo_completo = True
                             st.rerun()
                 
@@ -938,9 +936,9 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                     if st.session_state.pdv_modo_completo:
                         col_q1, col_q2 = st.columns(2)
                         with col_q1:
-                            qtd_item = st.number_input("Qtd:", min_value=0.01, value=1.00, step=1.0, format="%.2f")
+                            qtd_item = st.number_input("Qtd:", min_value=0.01, value=1.00, step=1.0, format="%.2f", key="input_qtd_completo_pdv")
                         with col_q2:
-                            preco_item = st.number_input("Preço Unit. (R$):", value=preco_padrao_prod, format="%.2f")
+                            preco_item = st.number_input("Preço Unit. (R$):", value=preco_padrao_prod, format="%.2f", key="input_preco_completo_pdv")
                         
                         subtotal_item = qtd_item * preco_item
                         st.markdown(f"#### SUBTOTAL: **R$ {subtotal_item:.2f}**")
@@ -949,7 +947,7 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                         preco_item = preco_padrao_prod
                         subtotal_item = preco_item
                     
-                    if st.button("➕ [ Enter ] Incluir Produto", type="primary", use_container_width=True):
+                    if st.button("➕ [ Enter ] Incluir Produto", key="btn_incluir_prod_pdv", type="primary", use_container_width=True):
                         if produto_selecionado:
                             item_carrinho = {
                                 'produto': produto_selecionado,
@@ -971,9 +969,9 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                         st.dataframe(df_carrinho[['produto', 'quantidade', 'valor_venda', 'valor_total']], use_container_width=True, hide_index=True)
                         
                         opcoes_remover = [f"{i}: {item['produto']} (Qtd: {item['quantidade']})" for i, item in enumerate(st.session_state.carrinho_pdv)]
-                        item_para_remover = st.selectbox("Selecione o item para excluir do carrinho:", opcoes_remover, key="select_remover_item")
-                        if st.button("🗑️ Excluir Item Selecionado", use_container_width=True):
-                            indice = int(item_para_reremor.split(":")[0]) if 'item_para_remover' in locals() else 0
+                        item_para_remover = st.selectbox("Selecione o item para excluir do carrinho:", opcoes_remover, key="select_remover_item_pdv")
+                        if st.button("🗑️ Excluir Item Selecionado", key="btn_excluir_item_pdv", use_container_width=True):
+                            indice = int(item_para_remover.split(":")[0])
                             removido = st.session_state.carrinho_pdv.pop(indice)
                             st.warning(f"Item '{removido['produto']}' removido do carrinho.")
                             st.rerun()
@@ -987,13 +985,13 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                     col_acao1, col_acao2 = st.columns(2)
                     
                     with col_acao1:
-                        if st.button("❌ Cancelar Venda [ Alt + C ]", use_container_width=True):
+                        if st.button("❌ Cancelar Venda [ Alt + C ]", key="btn_cancelar_venda_pdv", use_container_width=True):
                             st.session_state.carrinho_pdv = []
                             st.warning("Venda cancelada e carrinho limpo.")
                             st.rerun()
                             
                     with col_acao2:
-                        if st.button("🟢 Finalizar Venda [ Alt + V ]", type="primary", use_container_width=True):
+                        if st.button("🟢 Finalizar Venda [ Alt + V ]", key="btn_finalizar_venda_pdv", type="primary", use_container_width=True):
                             if len(st.session_state.carrinho_pdv) > 0:
                                 st.session_state.etapa_pagamento = True
                                 st.rerun()
