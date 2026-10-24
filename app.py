@@ -106,22 +106,22 @@ def gerar_pdf_tabela_pedidos(df_pedidos, cliente_nome="Geral"):
         for db_file in ['banco.db', 'crm.db', 'database.db']:
             conn = sqlite3.connect(db_file, timeout=10.0)
             try:
-            for col_nome, col_tipo in [
-                ("vendedor", "TEXT"),
-                ("grupo", "TEXT"),
-                ("fornecedor", "TEXT"),
-                ("forma_pagamento", "TEXT"),
-                ("valor_recebido", "REAL")
-            ]:
-                try:
-                    cursor_mig = conn.cursor()
-                    cursor_mig.execute(f"ALTER TABLE vendas ADD COLUMN {col_nome} {col_tipo}")
-                    conn.commit()
-                    cursor_mig.close()
-                except Exception:
-                    pass # Se a coluna já existir, ignora e continua
-        except Exception:
-            pass
+                for col_nome, col_tipo in [
+                    ("vendedor", "TEXT"),
+                    ("grupo", "TEXT"),
+                    ("fornecedor", "TEXT"),
+                    ("forma_pagamento", "TEXT"),
+                    ("valor_recebido", "REAL")
+                ]:
+                    try:
+                        cursor_mig = conn.cursor()
+                        cursor_mig.execute(f"ALTER TABLE vendas ADD COLUMN {col_nome} {col_tipo}")
+                        conn.commit()
+                        cursor_mig.close()
+                    except Exception:
+                        pass
+            except Exception:
+                pass
             
                 cursor_v = conn.cursor()
                 cursor_v.execute("ALTER TABLE vendas ADD COLUMN vendedor TEXT")
