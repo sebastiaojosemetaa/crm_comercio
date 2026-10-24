@@ -287,7 +287,7 @@ def gerar_pdf_tabela_pedidos(df_pedidos, cliente_nome="Geral"):
 # -----------------------------------------------------------------------------
 # CONFIGURAÇÃO DA PÁGINA
 # -----------------------------------------------------------------------------
-st.set_page_config(page_title="CRM Comércio - REY DA CEBOLA", layout="wide", page_icon="🛍️")
+st.set_page_config(page_title="CRM Comércio - SEBASTIÃO JOSE DE ALENCAR NETO", layout="wide", page_icon="🛍️")
 
 # =========================================================
 # IDENTIFICADOR ÚNICO POR NAVEGADOR / APARELHO
@@ -749,7 +749,7 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                 st.session_state.etapa_pagamento = False
             
             # Nome seguro do beneficiário para o Pix e cabeçalho
-            nome_beneficiario = nome_empresa if 'nome_empresa' in globals() and nome_empresa else "REY DA CEBOLA"
+            nome_beneficiario = nome_empresa if 'nome_empresa' in globals() and nome_empresa else "SEBASTIÃO JOSE DE ALENCAR NETO"
             st.subheader(f"🛒 PDV — Frente de Caixa — {nome_beneficiario}")
             
             # --- CARREGAR DADOS DO CAIXA E PRODUTOS ---
@@ -2239,12 +2239,12 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                                     def header(self):
                                         self.set_font('Arial', 'B', 14)
                                         self.set_text_color(20, 70, 140)
-                                        self.cell(0, 6, "REY DA CEBOLA", 0, 1, 'C')
+                                        self.cell(0, 6, "SEBASTIÃO JOSE DE ALENCAR NETO", 0, 1, 'C')
                                         
                                         self.set_font('Arial', '', 9)
                                         self.set_text_color(50, 50, 50)
-                                        self.cell(0, 4, "CNPJ: 194.174.39/0001-42   INSC.EST.: 12.426725-4", 0, 1, 'C')
-                                        self.cell(0, 4, "CONTATO: (99) 98814-9722 OU (99) 98414-3943", 0, 1, 'C')
+                                        self.cell(0, 4, "CNPJ: 954.511.611-00   INSC.EST.:", 0, 1, 'C')
+                                        self.cell(0, 4, "CONTATO: (99) 98814-9722 OU (99) 98501-6050", 0, 1, 'C')
                                         
                                         self.set_font('Arial', 'B', 11)
                                         self.cell(0, 6, "Extrato Financeiro / Comprovante do Cliente", 0, 1, 'C')
@@ -2730,7 +2730,7 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                     pdf.set_x(12)
                     pdf.cell(126, 3.5, "Endereço: Rua Principal, S/N - BA", 0, 1)
                     pdf.set_x(12)
-                    pdf.cell(126, 3.5, "CNPJ: 194.174.39/0001-42", 0, 1)
+                    pdf.cell(126, 3.5, "CNPJ: 954.511.611-00", 0, 1)
                     
                     pdf.set_xy(142, 11)
                     pdf.set_font("Arial", "B", 8.5)
