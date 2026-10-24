@@ -829,6 +829,42 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                     if checar_permissao(st.session_state.get('usuario_logado'), 'vendas', 'editar'):
                         if st.button("🟢 Confirmar e Concluir Venda", type="primary", use_container_width=True):
                             if not df_caixa_aberto.empty and len(st.session_state.carrinho_pdv) > 0:
+                                # Bloco protetor para garantir que a tabela vendas e colunas existem
+                                cursor_chk = conn.cursor()
+                                cursor_chk.execute("""
+                                    CREATE TABLE IF NOT EXISTS vendas (
+                                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                        cliente TEXT,
+                                        produto TEXT,
+                                        fornecedor TEXT,
+                                        grupo TEXT,
+                                        quantidade REAL,
+                                        valor_venda REAL,
+                                        valor_total REAL,
+                                        forma_pagamento TEXT,
+                                        valor_recebido REAL,
+                                        status TEXT,
+                                        tipo TEXT,
+                                        data TEXT,
+                                        vendedor TEXT
+                                    )
+                                """)
+                                conn.commit()
+                                
+                                for col_nome, col_tipo in [
+                                    ("vendedor", "TEXT"),
+                                    ("grupo", "TEXT"),
+                                    ("fornecedor", "TEXT"),
+                                    ("forma_pagamento", "TEXT"),
+                                    ("valor_recebido", "REAL")
+                                ]:
+                                    try:
+                                        cursor_chk.execute(f"ALTER TABLE vendas ADD COLUMN {col_nome} {col_tipo}")
+                                        conn.commit()
+                                    except Exception:
+                                        pass
+                                cursor_chk.close()
+                                
                                 cursor = conn.cursor()
                                 sessao_id = int(df_caixa_aberto.iloc[0]['id'])
                                 data_venda = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
