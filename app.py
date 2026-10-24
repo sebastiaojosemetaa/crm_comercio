@@ -147,7 +147,8 @@ def gerar_pdf_tabela_pedidos(df_pedidos, cliente_nome="Geral"):
             cursor_mig.close()
         except Exception:
             pass
-            
+            try:
+                cursor_v = conn.cursor()
                 cursor_v.execute("ALTER TABLE vendas ADD COLUMN vendedor TEXT")
                 conn.commit()
                 cursor_v.close()
