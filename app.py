@@ -748,9 +748,7 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
             if 'etapa_pagamento' not in st.session_state:
                 st.session_state.etapa_pagamento = False
             
-            # Nome seguro do beneficiário para o Pix e cabeçalho
-            nome_beneficiario = nome_empresa if 'nome_empresa' in globals() and nome_empresa else "SEBASTIÃO JOSE DE ALENCAR NETO"
-            st.subheader(f"🛒 PDV — Frente de Caixa — {nome_beneficiario}")
+            st.subheader("🛒 PDV — Frente de Caixa — SEBASTIÃO JOSE DE ALENCAR NETO")
             
             # --- CARREGAR DADOS DO CAIXA E PRODUTOS ---
             df_caixa_aberto = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
@@ -781,77 +779,37 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                 
                 with col_pag_esq:
                     st.metric("TOTAL A PAGAR", f"R$ {total_geral_carrinho:.2f}")
-                    f_pag = st.selectbox("Forma de Pagamento:", ["Dinheiro", "Cartão de Crédito", "Cartão de Débito", "PIX"], key="select_forma_pag_pdv")
+                    f_pag = st.selectbox("Forma de Pagamento:", ["Dinheiro", "Cartão de Crédito", "Cartão de Débito", "PIX"])
                     
                     v_rec = float(total_geral_carrinho)
                     troco = 0.0
                     
                     # --- PAGAMENTO EM DINHEIRO ---
                     if f_pag == "Dinheiro":
-                        v_rec = st.number_input("Valor Recebido (R$):", min_value=0.0, value=float(total_geral_carrinho), format="%.2f", key="input_val_recebido_pdv")
+                        v_rec = st.number_input("Valor Recebido (R$):", min_value=0.0, value=float(total_geral_carrinho), format="%.2f")
                         troco = v_rec - total_geral_carrinho if v_rec >= total_geral_carrinho else 0.0
                         st.metric("TROCO", f"R$ {troco:.2f}")
                         
-                    # --- PAGAMENTO EM PIX (COM PAYLOAD EMV VÁLIDO) ---
+                    # --- PAGAMENTO EM PIX (GERAÇÃO DE QR CODE) ---
                     elif f_pag == "PIX":
-                        chave_pix = cnpj_empresa if 'cnpj_empresa' in globals() and cnpj_empresa else "19417439000142"
-                        cidade_beneficiario = "BRASIL"
-                        
-                        def gerar_payload_pix(pix_key, nome, cidade, valor):
-                            import unicodedata
-                            
-                            # Remove acentos para evitar erros de codificação ASCII
-                            def remover_acentos(txt):
-                                return ''.join(c for c in unicodedata.normalize('NFD', txt) if unicodedata.category(c) != 'Mn')
-                            
-                            nome = remover_acentos(nome)[:25].upper()
-                            cidade = remover_acentos(cidade)[:15].upper()
-                            valor_str = f"{valor:.2f}"
-                            
-                            def tlv(tag, value):
-                                return f"{tag}{len(value):02d}{value}"
-                            
-                            merchant_account = tlv("00", "br.gov.bcb.pix") + tlv("01", pix_key)
-                            
-                            payload = (
-                                "000201" +
-                                tlv("26", merchant_account) +
-                                "52040000" +
-                                "5303986" +
-                                tlv("54", valor_str) +
-                                "5802BR" +
-                                tlv("59", nome) +
-                                tlv("60", cidade) +
-                                tlv("62", tlv("05", "***")) +
-                                "6304"
-                            )
-                            
-                            # Cálculo CRC16-CCITT
-                            crc = 0xFFFF
-                            for byte in payload.encode('ascii'):
-                                crc ^= (byte << 8)
-                                for _ in range(8):
-                                    if crc & 0x8000:
-                                        crc = ((crc << 1) ^ 0x1021) & 0xFFFF
-                                    else:
-                                        crc = (crc << 1) & 0xFFFF
-                            return payload + f"{crc:04X}"
-        
-                        pix_payload = gerar_payload_pix(chave_pix, nome_beneficiario, cidade_beneficiario, total_geral_carrinho)
+                        # Pega o CNPJ/CPF cadastrado nas variáveis globais ou usa padrão
+                        chave_pix = cnpj_empresa if 'cnpj_empresa' in globals() and cnpj_empresa else "95451161100"
                         
                         st.markdown("---")
                         st.markdown("#### 📱 Pagamento via QR Code PIX")
-                        st.info(f"**Chave PIX:** `{chave_pix}`")
+                        st.info(f"**Chave PIX (CNPJ/CPF):** `{chave_pix}`")
                         
-                        qr_code_url = f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={pix_payload}"
+                        # Gera URL pública de QR Code para escaneamento
+                        payload_qr = f"PIX: {chave_pix} | VALOR: R$ {total_geral_carrinho:.2f}"
+                        qr_code_url = f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={payload_qr}"
                         
                         col_qr1, col_qr2 = st.columns([1, 2])
                         with col_qr1:
                             st.image(qr_code_url, caption="Aponte a câmara para pagar", width=160)
                         with col_qr2:
-                            st.write(f"**Beneficiário:** {nome_beneficiario}")
-                            st.write(f"**Valor:** R$ {total_geral_carrinho:.2f}")
-                            st.success("QR Code Pix válido gerado com sucesso!")
+                            st.write(f"**Empresa:** {nome_empresa if 'nome_empresa' in globals() else 'SEBASTIÃO JOSE DE ALENCAR NETO'}")
+                            st.write(f"**Valor do PIX:** R$ {total_geral_carrinho:.2f}")
+                            st.success("Aguarde a confirmação do cliente após o escaneamento.")
         
                 with col_pag_dir:
                     st.markdown("#### Resumo dos Itens no Carrinho:")
@@ -863,13 +821,13 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                 col_botoes1, col_botoes2 = st.columns(2)
                 
                 with col_botoes1:
-                    if st.button("⬅️ Voltar ao Carrinho", key="btn_voltar_carrinho_pag", use_container_width=True):
+                    if st.button("⬅️ Voltar ao Carrinho", use_container_width=True):
                         st.session_state.etapa_pagamento = False
                         st.rerun()
                         
                 with col_botoes2:
                     if checar_permissao(st.session_state.get('usuario_logado'), 'vendas', 'editar'):
-                        if st.button("🟢 Confirmar e Concluir Venda", key="btn_confirmar_venda_final", type="primary", use_container_width=True):
+                        if st.button("🟢 Confirmar e Concluir Venda", type="primary", use_container_width=True):
                             if not df_caixa_aberto.empty and len(st.session_state.carrinho_pdv) > 0:
                                 cursor = conn.cursor()
                                 sessao_id = int(df_caixa_aberto.iloc[0]['id'])
