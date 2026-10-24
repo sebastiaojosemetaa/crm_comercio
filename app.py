@@ -1017,11 +1017,32 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                     v_rec = float(total_geral_carrinho)
                     troco = 0.0
                     
-                    # Se for Dinheiro, exibe campo de valor recebido e calcula o troco
+                    # --- PAGAMENTO EM DINHEIRO ---
                     if f_pag == "Dinheiro":
                         v_rec = st.number_input("Valor Recebido (R$):", min_value=0.0, value=float(total_geral_carrinho), format="%.2f")
                         troco = v_rec - total_geral_carrinho if v_rec >= total_geral_carrinho else 0.0
                         st.metric("TROCO", f"R$ {troco:.2f}")
+                        
+                    # --- PAGAMENTO EM PIX (GERAÇÃO DE QR CODE) ---
+                    elif f_pag == "PIX":
+                        # Pega o CNPJ/CPF cadastrado nas variáveis globais ou usa padrão
+                        chave_pix = cnpj_empresa if 'cnpj_empresa' in globals() and cnpj_empresa else "95451161100"
+                        
+                        st.markdown("---")
+                        st.markdown("#### 📱 Pagamento via QR Code PIX")
+                        st.info(f"**Chave PIX (CNPJ/CPF):** `{chave_pix}`")
+                        
+                        # Gera URL pública de QR Code para escaneamento
+                        payload_qr = f"PIX: {chave_pix} | VALOR: R$ {total_geral_carrinho:.2f}"
+                        qr_code_url = f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={payload_qr}"
+                        
+                        col_qr1, col_qr2 = st.columns([1, 2])
+                        with col_qr1:
+                            st.image(qr_code_url, caption="Aponte a câmara para pagar", width=160)
+                        with col_qr2:
+                            st.write(f"**Empresa:** {nome_empresa if 'nome_empresa' in globals() else 'REY DA CEBOLA'}")
+                            st.write(f"**Valor do PIX:** R$ {total_geral_carrinho:.2f}")
+                            st.success("Aguarde a confirmação do cliente após o escaneamento.")
         
                 with col_pag_dir:
                     st.markdown("#### Resumo dos Itens no Carrinho:")
