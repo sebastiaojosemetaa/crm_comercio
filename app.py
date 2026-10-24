@@ -115,13 +115,43 @@ def gerar_pdf_tabela_pedidos(df_pedidos, cliente_nome="Geral"):
                 ]:
                     try:
                         cursor_mig = conn.cursor()
-                        cursor_mig.execute(f"ALTER TABLE vendas ADD COLUMN {col_nome} {col_tipo}")
+                        # Garante que a tabela vendas existe com todas as colunas necessárias
+                        cursor_mig.execute("""
+                            CREATE TABLE IF NOT EXISTS vendas (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                cliente TEXT,
+                                produto TEXT,
+                                fornecedor TEXT,
+                                grupo TEXT,
+                                quantidade REAL,
+                                valor_venda REAL,
+                                valor_total REAL,
+                                forma_pagamento TEXT,
+                                valor_recebido REAL,
+                                status TEXT,
+                                tipo TEXT,
+                                data TEXT,
+                                vendedor TEXT
+                            )
+                        """)
                         conn.commit()
+                        
+                        # Adiciona colunas caso a tabela já exista de uma versão anterior
+                        for col_nome, col_tipo in [
+                            ("vendedor", "TEXT"),
+                            ("grupo", "TEXT"),
+                            ("fornecedor", "TEXT"),
+                            ("forma_pagamento", "TEXT"),
+                            ("valor_recebido", "REAL")
+                        ]:
+                            try:
+                                cursor_mig.execute(f"ALTER TABLE vendas ADD COLUMN {col_nome} {col_tipo}")
+                                conn.commit()
+                            except Exception:
+                                pass
                         cursor_mig.close()
                     except Exception:
                         pass
-            except Exception:
-                pass
             
                 cursor_v = conn.cursor()
                 cursor_v.execute("ALTER TABLE vendas ADD COLUMN vendedor TEXT")
