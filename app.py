@@ -726,184 +726,306 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
         )
         
         # Módulo de Gestão de Funcionários vinculado ao RH
-        if menu_admin == "👥 Gestão de Recursos Humanos (RH)":
-            st.title("👥 Gestão de Funcionários e Controle de Acessos")
-
-            aba_cad_func, aba_edit_func, aba_lista_func = st.tabs([
-                "➕ Cadastrar Funcionário", 
-                "✏️ Editar Funcionário", 
-                "📋 Funcionários Cadastrados"
-            ])
-
-            with aba_cad_func:
-                st.subheader("Dados do Funcionário")
+        if menu_admin == "🛒 PDV — Frente de Caixa":
+            # CSS para compactar e estilizar os botões e campos
+            st.markdown("""
+            <style>
+                .block-container { padding-top: 1rem !important; padding-bottom: 0rem !important; }
+                div[data-testid="stVerticalBlock"] > div { padding: 4px 8px !important; margin-bottom: 0px !important; }
+                .stMarkdown { margin-bottom: -10px !important; }
+                div[data-baseweb="input"] { min-height: 35px !important; }
+                h3, h4 { margin-top: 0px !important; margin-bottom: 5px !important; font-size: 16px !important; }
+            </style>
+            """, unsafe_allow_html=True)
+            
+            # Inicializa estados necessários
+            if 'carrinho_pdv' not in st.session_state:
+                st.session_state.carrinho_pdv = []
+        
+            if 'pdv_modo_completo' not in st.session_state:
+                st.session_state.pdv_modo_completo = False
+        
+            if 'etapa_pagamento' not in st.session_state:
+                st.session_state.etapa_pagamento = False
+            
+            st.subheader("🛒 PDV — Frente de Caixa — REY DA CEBOLA")
+            
+            # --- CARREGAR DADOS DO CAIXA E PRODUTOS ---
+            df_caixa_aberto = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
+            
+            try:
+                df_prod_pdv = pd.read_sql_query("SELECT * FROM produtos", conn)
+                lista_produtos_pdv = df_prod_pdv['produto'].tolist() if not df_prod_pdv.empty else []
+            except Exception:
+                lista_produtos_pdv = []
+                df_prod_pdv = pd.DataFrame()
+        
+            def obter_dados_produto(nome_prod):
+                if not df_prod_pdv.empty and nome_prod in lista_produtos_pdv:
+                    p_row = df_prod_pdv[df_prod_pdv['produto'] == nome_prod].iloc[0]
+                    return float(p_row.get('valor_venda', 0.0)), str(p_row.get('fornecedor', '')), str(p_row.get('grupo', ''))
+                return 0.0, "", ""
+        
+            total_geral_carrinho = sum(item['valor_total'] for item in st.session_state.carrinho_pdv)
+        
+            # ==========================================
+            # 💳 TELA 2: SELEÇÃO DE PAGAMENTO E TROCO
+            # ==========================================
+            if st.session_state.etapa_pagamento:
+                st.markdown("---")
+                st.markdown("### 💳 Tela de Fechamento e Pagamento")
                 
-                with st.form("form_cadastro_funcionario"):
-                    col_f1, col_f2 = st.columns(2)
-                    with col_f1:
-                        nome_func = st.text_input("Nome Completo:")
-                        login_func = st.text_input("Login de Acesso (Usuário):")
-                        senha_func = st.text_input("Senha:", type="password")
-                    with col_f2:
-                        cpf_func = st.text_input("CPF / Documento:")
-                        cargos_disponiveis = ["Supervisor", "Gerente", "Vendedor", "Operador de Caixa", "Estoque", "Administrador"]
-                        cargo_func = st.selectbox("Cargo / Função:", cargos_disponiveis)
-                        
-                    st.markdown("---")
-                    st.subheader("🔒 Matriz de Permissões de Acesso")
-                    st.caption("Marque o que este funcionário poderá fazer dentro de cada módulo:")
+                col_pag_esq, col_pag_dir = st.columns([1, 1])
+                
+                with col_pag_esq:
+                    st.metric("TOTAL A PAGAR", f"R$ {total_geral_carrinho:.2f}")
+                    f_pag = st.selectbox("Forma de Pagamento:", ["Dinheiro", "Cartão de Crédito", "Cartão de Débito", "PIX"])
                     
-                    col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+                    v_rec = float(total_geral_carrinho)
+                    troco = 0.0
                     
-                    with col_m1:
-                        st.markdown("**📦 Produtos**")
-                        p_prod_v = st.checkbox("Ver Produtos", value=True, key="p_p_v")
-                        p_prod_e = st.checkbox("Criar / Editar", value=False, key="p_p_e")
-                        p_prod_x = st.checkbox("Excluir", value=False, key="p_p_x")
+                    # --- PAGAMENTO EM DINHEIRO ---
+                    if f_pag == "Dinheiro":
+                        v_rec = st.number_input("Valor Recebido (R$):", min_value=0.0, value=float(total_geral_carrinho), format="%.2f")
+                        troco = v_rec - total_geral_carrinho if v_rec >= total_geral_carrinho else 0.0
+                        st.metric("TROCO", f"R$ {troco:.2f}")
                         
-                    with col_m2:
-                        st.markdown("**🛒 Vendas / PDV**")
-                        p_vend_v = st.checkbox("Ver Vendas", value=True, key="p_v_v")
-                        p_vend_e = st.checkbox("Realizar Vendas", value=True, key="p_v_e")
-                        p_vend_x = st.checkbox("Cancelar Vendas", value=False, key="p_v_x")
+                    # --- PAGAMENTO EM PIX (COM PAYLOAD EMV VÁLIDO) ---
+                    elif f_pag == "PIX":
+                        chave_pix = cnpj_empresa if 'cnpj_empresa' in globals() and cnpj_empresa else "95451161100"
+                        nome_beneficiario = nome_empresa if 'nome_empresa' in globals() and nome_empresa else "REY DA CEBOLA"
+                        cidade_beneficiario = "BRASIL"
                         
-                    with col_m3:
-                        st.markdown("**👥 Clientes**")
-                        p_cli_v = st.checkbox("Ver Clientes", value=True, key="p_c_v")
-                        p_cli_e = st.checkbox("Cadastrar/Editar", value=False, key="p_c_e")
-                        p_cli_x = st.checkbox("Excluir", value=False, key="p_c_x")
-
-                    with col_m4:
-                        st.markdown("**📊 Relatórios**")
-                        p_rel_v = st.checkbox("Acessar Relatórios", value=False, key="p_r_v")
-
-                    btn_salvar_func = st.form_submit_button("💾 Salvar Funcionário", type="primary")
-
-                    if btn_salvar_func:
-                        if not nome_func or not login_func or not senha_func:
-                            st.error("Por favor, preencha Nome, Login e Senha.")
-                        else:
-                            try:
+                        # Função interna para gerar Payload Pix oficial (BR Code)
+                        def gerar_payload_pix(pix_key, nome, cidade, valor):
+                            def tlv(tag, value):
+                                return f"{tag}{len(value):02d}{value}"
+                            
+                            nome = nome[:25].upper()
+                            cidade = cidade[:15].upper()
+                            valor_str = f"{valor:.2f}"
+                            
+                            merchant_account = tlv("00", "br.gov.bcb.pix") + tlv("01", pix_key)
+                            
+                            payload = (
+                                "000201" +
+                                tlv("26", merchant_account) +
+                                "52040000" +
+                                "5303986" +
+                                tlv("54", valor_str) +
+                                "5802BR" +
+                                tlv("59", nome) +
+                                tlv("60", cidade) +
+                                tlv("62", tlv("05", "***")) +
+                                "6304"
+                            )
+                            
+                            # Cálculo CRC16-CCITT
+                            crc = 0xFFFF
+                            for byte in payload.encode('ascii'):
+                                crc ^= (byte << 8)
+                                for _ in range(8):
+                                    if crc & 0x8000:
+                                        crc = ((crc << 1) ^ 0x1021) & 0xFFFF
+                                    else:
+                                        crc = (crc << 1) & 0xFFFF
+                            return payload + f"{crc:04X}"
+        
+                        pix_payload = gerar_payload_pix(chave_pix, nome_beneficiario, cidade_beneficiario, total_geral_carrinho)
+                        
+                        st.markdown("---")
+                        st.markdown("#### 📱 Pagamento via QR Code PIX")
+                        st.info(f"**Chave PIX:** `{chave_pix}`")
+                        
+                        # Gera o QR Code utilizando o payload oficial
+                        qr_code_url = f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={pix_payload}"
+                        
+                        col_qr1, col_qr2 = st.columns([1, 2])
+                        with col_qr1:
+                            st.image(qr_code_url, caption="Aponte a câmara para pagar", width=160)
+                        with col_qr2:
+                            st.write(f"**Beneficiário:** {nome_beneficiario}")
+                            st.write(f"**Valor:** R$ {total_geral_carrinho:.2f}")
+                            st.success("QR Code Pix válido gerado com sucesso!")
+        
+                with col_pag_dir:
+                    st.markdown("#### Resumo dos Itens no Carrinho:")
+                    if st.session_state.carrinho_pdv:
+                        df_carrinho_resumo = pd.DataFrame(st.session_state.carrinho_pdv)
+                        st.dataframe(df_carrinho_resumo[['produto', 'quantidade', 'valor_total']], use_container_width=True, hide_index=True)
+        
+                st.markdown("---")
+                col_botoes1, col_botoes2 = st.columns(2)
+                
+                with col_botoes1:
+                    if st.button("⬅️ Voltar ao Carrinho", use_container_width=True):
+                        st.session_state.etapa_pagamento = False
+                        st.rerun()
+                        
+                with col_botoes2:
+                    if checar_permissao(st.session_state.get('usuario_logado'), 'vendas', 'editar'):
+                        if st.button("🟢 Confirmar e Concluir Venda", type="primary", use_container_width=True):
+                            if not df_caixa_aberto.empty and len(st.session_state.carrinho_pdv) > 0:
                                 cursor = conn.cursor()
+                                sessao_id = int(df_caixa_aberto.iloc[0]['id'])
+                                data_venda = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                                vendedor_atual = st.session_state.get('usuario_logado', 'administrador')
+                                
+                                for item in st.session_state.carrinho_pdv:
+                                    cursor.execute("""
+                                        INSERT INTO vendas (
+                                            cliente, produto, fornecedor, grupo, quantidade, 
+                                            valor_venda, valor_total, forma_pagamento, valor_recebido, 
+                                            status, tipo, data, vendedor
+                                        )
+                                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                    """, (
+                                        "Cliente Balcão", item['produto'], item['fornecedor'], item['grupo'],
+                                        item['quantidade'], item['valor_venda'], item['valor_total'],
+                                        f_pag, v_rec, 'Concluído', 'VENDA', data_venda, vendedor_atual
+                                    ))
+                                
                                 cursor.execute("""
-                                    INSERT INTO usuarios (
-                                        nome, login, senha, cargo, cpf,
-                                        perm_produtos_ver, perm_produtos_editar, perm_produtos_excluir,
-                                        perm_vendas_ver, perm_vendas_editar, perm_vendas_excluir,
-                                        perm_clientes_ver, perm_clientes_editar, perm_clientes_excluir,
-                                        perm_relatorios_ver
-                                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                                """, (
-                                    nome_func, login_func, senha_func, cargo_func, cpf_func,
-                                    int(p_prod_v), int(p_prod_e), int(p_prod_x),
-                                    int(p_vend_v), int(p_vend_e), int(p_vend_x),
-                                    int(p_cli_v), int(p_cli_e), int(p_cli_x),
-                                    int(p_rel_v)
-                                ))
+                                    INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data)
+                                    VALUES (?, ?, ?, ?, ?)
+                                """, (sessao_id, "VENDA", float(total_geral_carrinho), f"Venda PDV (Por: {vendedor_atual})", data_venda))
+                                
                                 conn.commit()
-                                st.success(f"✅ Funcionário '{nome_func}' cadastrado com sucesso!")
+                                cursor.close()
+                                
+                                st.session_state.carrinho_pdv = []
+                                st.session_state.etapa_pagamento = False
+                                st.success(f"Venda concluída por {vendedor_atual}!")
                                 st.rerun()
-                            except Exception as e_cad:
-                                st.error(f"Erro ao cadastrar funcionário: {e_cad}")
-
-            with aba_edit_func:
-                st.subheader("✏️ Alterar Dados e Permissões do Funcionário")
+                            else:
+                                st.error("Verifique se o caixa está aberto e se há itens no carrinho.")
+                    else:
+                        st.error("🚫 Sem permissão para faturar vendas.")
+        
+            # ==========================================
+            # 🛒 TELA 1: PDV PRINCIPAL (BUSCA E CARRINHO)
+            # ==========================================
+            else:
+                # --- CABEÇALHO COM BOTÃO DE ALTERNÂNCIA DE MODO ---
+                col_hdr1, col_hdr2 = st.columns([3, 1])
+                with col_hdr1:
+                    if not df_caixa_aberto.empty:
+                        st.success("🟢 Caixa Aberto e Operacional")
+                    else:
+                        st.warning("⚠️ Atenção: Não há nenhum caixa aberto no momento.")
                 
-                try:
-                    df_edit_users = pd.read_sql_query("SELECT id, nome, login FROM usuarios", conn)
-                    if not df_edit_users.empty:
-                        lista_logins = df_edit_users['login'].tolist()
-                        usuario_selecionado = st.selectbox("Selecione o Funcionário para Editar:", lista_logins, key="select_func_edit")
-                        
-                        # Ativa a leitura por nome de coluna para evitar erros de posições
-                        conn.row_factory = sqlite3.Row
-                        cursor_ed = conn.cursor()
-                        cursor_ed.execute("SELECT * FROM usuarios WHERE login = ?", (usuario_selecionado,))
-                        user_data = cursor_ed.fetchone()
-                        conn.row_factory = None  # Restaura o padrão
-                        
-                        if user_data:
-                            with st.form("form_edicao_funcionario"):
-                                col_e1, col_e2 = st.columns(2)
-                                with col_e1:
-                                    novo_nome = st.text_input("Nome Completo:", value=user_data['nome'] or "")
-                                    novo_login = st.text_input("Login de Acesso:", value=user_data['login'] or "", disabled=True)
-                                    nova_senha = st.text_input("Senha:", value=user_data['senha'] or "", type="password")
-                                with col_e2:
-                                    novo_cpf = st.text_input("CPF / Documento:", value=str(user_data['cpf']) if user_data['cpf'] else "")
-                                    cargos_disp = ["Supervisor", "Gerente", "Vendedor", "Operador de Caixa", "Estoque", "Administrador"]
-                                    cargo_salvo = user_data['cargo'] if user_data['cargo'] in cargos_disp else "Operador de Caixa"
-                                    cargo_atual_idx = cargos_disp.index(cargo_salvo)
-                                    novo_cargo = st.selectbox("Cargo / Função:", cargos_disp, index=cargo_atual_idx)
-                                    
-                                st.markdown("---")
-                                st.subheader("🔒 Matriz de Permissões de Acesso")
-                                
-                                col_em1, col_em2, col_em3, col_em4 = st.columns(4)
-                                
-                                with col_em1:
-                                    st.markdown("**📦 Produtos**")
-                                    e_prod_v = st.checkbox("Ver Produtos", value=bool(user_data['perm_produtos_ver']), key="e_p_v")
-                                    e_prod_e = st.checkbox("Criar / Editar", value=bool(user_data['perm_produtos_editar']), key="e_p_e")
-                                    e_prod_x = st.checkbox("Excluir", value=bool(user_data['perm_produtos_excluir']), key="e_p_x")
-                                    
-                                with col_em2:
-                                    st.markdown("**🛒 Vendas / PDV**")
-                                    e_vend_v = st.checkbox("Ver Vendas", value=bool(user_data['perm_vendas_ver']), key="e_v_v")
-                                    e_vend_e = st.checkbox("Realizar Vendas", value=bool(user_data['perm_vendas_editar']), key="e_v_e")
-                                    e_vend_x = st.checkbox("Cancelar Vendas", value=bool(user_data['perm_vendas_excluir']), key="e_v_x")
-                                    
-                                with col_em3:
-                                    st.markdown("**👥 Clientes**")
-                                    e_cli_v = st.checkbox("Ver Clientes", value=bool(user_data['perm_clientes_ver']), key="e_c_v")
-                                    e_cli_e = st.checkbox("Cadastrar/Editar", value=bool(user_data['perm_clientes_editar']), key="e_c_e")
-                                    e_cli_x = st.checkbox("Excluir", value=bool(user_data['perm_clientes_excluir']), key="e_c_x")
-
-                                with col_em4:
-                                    st.markdown("**📊 Relatórios**")
-                                    e_rel_v = st.checkbox("Acessar Relatórios", value=bool(user_data['perm_relatorios_ver']), key="e_r_v")
-
-                                btn_atualizar_func = st.form_submit_button("💾 Salvar Alterações", type="primary")
-
-                                if btn_atualizar_func:
-                                    try:
-                                        cursor_up = conn.cursor()
-                                        cursor_up.execute("""
-                                            UPDATE usuarios SET 
-                                                nome = ?, senha = ?, cargo = ?, cpf = ?,
-                                                perm_produtos_ver = ?, perm_produtos_editar = ?, perm_produtos_excluir = ?,
-                                                perm_vendas_ver = ?, perm_vendas_editar = ?, perm_vendas_excluir = ?,
-                                                perm_clientes_ver = ?, perm_clientes_editar = ?, perm_clientes_excluir = ?,
-                                                perm_relatorios_ver = ?
-                                            WHERE login = ?
-                                        """, (
-                                            novo_nome, nova_senha, novo_cargo, novo_cpf,
-                                            int(e_prod_v), int(e_prod_e), int(e_prod_x),
-                                            int(e_vend_v), int(e_vend_e), int(e_vend_x),
-                                            int(e_cli_v), int(e_cli_e), int(e_cli_x),
-                                            int(e_rel_v), usuario_selecionado
-                                        ))
-                                        conn.commit()
-                                        cursor_up.close()
-                                        st.success(f"✅ Permissões e dados de '{novo_nome}' atualizados com sucesso!")
-                                        st.rerun()
-                                    except Exception as e_up:
-                                        st.error(f"Erro ao atualizar funcionário: {e_up}")
+                with col_hdr2:
+                    if st.session_state.pdv_modo_completo:
+                        if st.button("⚡ MODO SIMPLIFICADO", use_container_width=True):
+                            st.session_state.pdv_modo_completo = False
+                            st.rerun()
                     else:
-                        st.info("Nenhum funcionário cadastrado para editar.")
-                except Exception as e_load:
-                    st.error(f"Erro ao carregar funcionários: {e_load}")
-
-            with aba_lista_func:
-                st.subheader("📋 Lista de Usuários Cadastrados")
-                try:
-                    df_users = pd.read_sql_query("SELECT id, nome, login, cargo, cpf FROM usuarios", conn)
-                    if not df_users.empty:
-                        st.dataframe(df_users, use_container_width=True, hide_index=True)
+                        if st.button("🟢 VERSÃO COMPLETA", type="primary", use_container_width=True):
+                            st.session_state.pdv_modo_completo = True
+                            st.rerun()
+                
+                st.markdown("---")
+                
+                col_esquerda, col_direita = st.columns([1, 1])
+                
+                with col_esquerda:
+                    st.markdown("### 📦 Dados do Item")
+                    busca_produto = st.text_input("Passe o leitor ou digite o código/nome:", key="input_busca_pdv")
+                    produto_selecionado = st.selectbox("Selecione o Produto:", lista_produtos_pdv, key="select_prod_pdv")
+                    
+                    preco_padrao_prod, fornecedor_prod, grupo_prod = obter_dados_produto(produto_selecionado)
+                    
+                    if st.session_state.pdv_modo_completo:
+                        col_q1, col_q2 = st.columns(2)
+                        with col_q1:
+                            qtd_item = st.number_input("Qtd:", min_value=0.01, value=1.00, step=1.0, format="%.2f")
+                        with col_q2:
+                            preco_item = st.number_input("Preço Unit. (R$):", value=preco_padrao_prod, format="%.2f")
+                        
+                        subtotal_item = qtd_item * preco_item
+                        st.markdown(f"#### SUBTOTAL: **R$ {subtotal_item:.2f}**")
                     else:
-                        st.info("Nenhum funcionário cadastrado além do administrador mestre.")
-                except Exception:
-                    st.info("Carregando tabela de usuários...")
+                        qtd_item = 1.00
+                        preco_item = preco_padrao_prod
+                        subtotal_item = preco_item
+                    
+                    if st.button("➕ [ Enter ] Incluir Produto", type="primary", use_container_width=True):
+                        if produto_selecionado:
+                            item_carrinho = {
+                                'produto': produto_selecionado,
+                                'fornecedor': fornecedor_prod,
+                                'grupo': grupo_prod,
+                                'quantidade': qtd_item,
+                                'valor_venda': preco_item,
+                                'valor_total': subtotal_item
+                            }
+                            st.session_state.carrinho_pdv.append(item_carrinho)
+                            st.success(f"Item '{produto_selecionado}' adicionado!")
+                            st.rerun()
+                
+                with col_direita:
+                    st.markdown("### 🛒 Carrinho")
+                    
+                    if st.session_state.carrinho_pdv:
+                        df_carrinho = pd.DataFrame(st.session_state.carrinho_pdv)
+                        st.dataframe(df_carrinho[['produto', 'quantidade', 'valor_venda', 'valor_total']], use_container_width=True, hide_index=True)
+                        
+                        opcoes_remover = [f"{i}: {item['produto']} (Qtd: {item['quantidade']})" for i, item in enumerate(st.session_state.carrinho_pdv)]
+                        item_para_remover = st.selectbox("Selecione o item para excluir do carrinho:", opcoes_remover, key="select_remover_item")
+                        if st.button("🗑️ Excluir Item Selecionado", use_container_width=True):
+                            indice = int(item_para_reremor.split(":")[0]) if 'item_para_remover' in locals() else 0
+                            removido = st.session_state.carrinho_pdv.pop(indice)
+                            st.warning(f"Item '{removido['produto']}' removido do carrinho.")
+                            st.rerun()
+                    else:
+                        st.info("Carrinho vazio.")
+                        
+                    st.metric("TOTAL A PAGAR", f"R$ {total_geral_carrinho:.2f}")
+                    
+                    st.markdown("---")
+                    
+                    col_acao1, col_acao2 = st.columns(2)
+                    
+                    with col_acao1:
+                        if st.button("❌ Cancelar Venda [ Alt + C ]", use_container_width=True):
+                            st.session_state.carrinho_pdv = []
+                            st.warning("Venda cancelada e carrinho limpo.")
+                            st.rerun()
+                            
+                    with col_acao2:
+                        if st.button("🟢 Finalizar Venda [ Alt + V ]", type="primary", use_container_width=True):
+                            if len(st.session_state.carrinho_pdv) > 0:
+                                st.session_state.etapa_pagamento = True
+                                st.rerun()
+                            else:
+                                st.error("Adicione itens ao carrinho antes de finalizar.")
+        
+                # --- BARRA DE ATALHOS NO RODAPÉ E SCRIPT PARA O TECLADO ---
+                st.markdown("""
+                <div style="background-color: #2b2b2b; color: #ffffff; padding: 8px 15px; border-radius: 8px; border: 2px solid #555555; margin-top: 15px; font-family: monospace; font-size: 13px; text-align: center;">
+                    Atalhos: <span style="color: #00ffcc; font-weight: bold;">[ Enter ]</span> Incluir | 
+                    <span style="color: #00ffcc; font-weight: bold;">[ Alt + C ]</span> Cancelar Venda | 
+                    <span style="color: #00ffcc; font-weight: bold;">[ Alt + V ]</span> Finalizar Venda
+                </div>
+                """, unsafe_allow_html=True)
+        
+                st.components.v1.html("""
+                <script>
+                const doc = window.parent.document;
+                doc.addEventListener('keydown', function(e) {
+                    if (e.altKey && (e.key === 'v' || e.key === 'V')) {
+                        e.preventDefault();
+                        const btns = doc.querySelectorAll('button');
+                        btns.forEach(b => { if (b.innerText.includes('Finalizar Venda')) b.click(); });
+                    }
+                    if (e.altKey && (e.key === 'c' || e.key === 'C')) {
+                        e.preventDefault();
+                        const btns = doc.querySelectorAll('button');
+                        btns.forEach(b => { if (b.innerText.includes('Cancelar Venda')) b.click(); });
+                    }
+                });
+                </script>
+                """, height=0)
         
         if menu_admin == "🏢 Configurações da Empresa":
             st.title("🏢 Configurações e Dados da Empresa")
