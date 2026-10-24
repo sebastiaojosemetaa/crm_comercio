@@ -798,12 +798,18 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                         cidade_beneficiario = "BRASIL"
                         
                         def gerar_payload_pix(pix_key, nome, cidade, valor):
+                            import unicodedata
+                            
+                            # Remove acentos para evitar erros de codificação ASCII
+                            def remover_acentos(txt):
+                                return ''.join(c for c in unicodedata.normalize('NFD', txt) if unicodedata.category(c) != 'Mn')
+                            
+                            nome = remover_acentos(nome)[:25].upper()
+                            cidade = remover_acentos(cidade)[:15].upper()
+                            valor_str = f"{valor:.2f}"
+                            
                             def tlv(tag, value):
                                 return f"{tag}{len(value):02d}{value}"
-                            
-                            nome = nome[:25].upper()
-                            cidade = cidade[:15].upper()
-                            valor_str = f"{valor:.2f}"
                             
                             merchant_account = tlv("00", "br.gov.bcb.pix") + tlv("01", pix_key)
                             
@@ -820,6 +826,7 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                                 "6304"
                             )
                             
+                            # Cálculo CRC16-CCITT
                             crc = 0xFFFF
                             for byte in payload.encode('ascii'):
                                 crc ^= (byte << 8)
