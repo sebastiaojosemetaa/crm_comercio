@@ -88,7 +88,7 @@ def gerar_pdf_tabela_pedidos(df_pedidos, cliente_nome="Geral"):
     
     # Valores padrão iniciais
     nome_empresa = "ALENCARSOFT"
-    cnpj_empresa = "95451161100"
+    cnpj_empresa = "19417439000142"
     ie_empresa = ""
     tel_empresa = "(99) 98501-6050"
     end_empresa = "RUA CAIPIRA, Nº: 174"
@@ -287,7 +287,7 @@ def gerar_pdf_tabela_pedidos(df_pedidos, cliente_nome="Geral"):
 # -----------------------------------------------------------------------------
 # CONFIGURAÇÃO DA PÁGINA
 # -----------------------------------------------------------------------------
-st.set_page_config(page_title="CRM Comércio - SEBASTIÃO JOSE DE ALENCAR NETO", layout="wide", page_icon="🛍️")
+st.set_page_config(page_title="CRM Comércio - REY DA CEBOLA", layout="wide", page_icon="🛍️")
 
 # =========================================================
 # IDENTIFICADOR ÚNICO POR NAVEGADOR / APARELHO
@@ -749,7 +749,7 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                 st.session_state.etapa_pagamento = False
             
             # Nome seguro do beneficiário para o Pix e cabeçalho
-            nome_beneficiario = nome_empresa if 'nome_empresa' in globals() and nome_empresa else "SEBASTIÃO JOSE DE ALENCAR NETO"
+            nome_beneficiario = nome_empresa if 'nome_empresa' in globals() and nome_empresa else "REY DA CEBOLA"
             st.subheader(f"🛒 PDV — Frente de Caixa — {nome_beneficiario}")
             
             # --- CARREGAR DADOS DO CAIXA E PRODUTOS ---
@@ -794,7 +794,7 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                         
                     # --- PAGAMENTO EM PIX (COM PAYLOAD EMV VÁLIDO) ---
                     elif f_pag == "PIX":
-                        chave_pix = cnpj_empresa if 'cnpj_empresa' in globals() and cnpj_empresa else "95451161100"
+                        chave_pix = cnpj_empresa if 'cnpj_empresa' in globals() and cnpj_empresa else "19417439000142"
                         cidade_beneficiario = "BRASIL"
                         
                         def gerar_payload_pix(pix_key, nome, cidade, valor):
@@ -1045,9 +1045,9 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                 st.warning("⚠️ Insira a chave de ativação correspondente ao seu documento para liberar o sistema.")
                 
                 # Forma 100% segura para evitar o erro do Pandas
-                doc_atual = "95451161100"
+                doc_atual = "19417439000142"
                 if not df_emp_atual.empty:
-                    doc_atual = str(df_emp_atual.iloc[0].get('cnpj', '95451161100'))
+                    doc_atual = str(df_emp_atual.iloc[0].get('cnpj', '19417439000142'))
                 st.info(f"Empresa Atual (CNPJ/CPF): {doc_atual}")
                 
                 chave_digitada = st.text_input("Chave de Ativação:", key="input_chave_ativacao_config")
@@ -2239,7 +2239,7 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                                     def header(self):
                                         self.set_font('Arial', 'B', 14)
                                         self.set_text_color(20, 70, 140)
-                                        self.cell(0, 6, "SEBASTIÃO JOSE DE ALENCAR NETO", 0, 1, 'C')
+                                        self.cell(0, 6, "REY DA CEBOLA", 0, 1, 'C')
                                         
                                         self.set_font('Arial', '', 9)
                                         self.set_text_color(50, 50, 50)
