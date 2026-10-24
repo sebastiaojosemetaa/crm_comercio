@@ -790,24 +790,83 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                         troco = v_rec - total_geral_carrinho if v_rec >= total_geral_carrinho else 0.0
                         st.metric("TROCO", f"R$ {troco:.2f}")
                         
-                    # --- PAGAMENTO EM PIX (GERAÇÃO DE QR CODE) ---
+                    # --- PAGAMENTO EM PIX (COM PAYLOAD EMV VÁLIDO DINÂMICO) ---
                     elif f_pag == "PIX":
-                        # Pega o CNPJ/CPF cadastrado nas variáveis globais ou usa padrão
-                        chave_pix = cnpj_empresa if 'cnpj_empresa' in globals() and cnpj_empresa else "95451161100"
+                        # Busca as informações diretamente da tabela de empresa/configurações do banco
+                        try:
+                            df_empresa_cfg = pd.read_sql_query("SELECT * FROM empresa LIMIT 1", conn)
+                            if not df_empresa_cfg.empty:
+                                emp_row = df_empresa_cfg.iloc[0]
+                                # Pega o CNPJ/CPF cadastrado e remove pontos, traços e barras
+                                cnpj_raw = str(emp_row.get('cnpj', emp_row.get('cpf', '')))
+                                chave_pix = ''.join(filter(str.isdigit, cnpj_raw))
+                                
+                                # Pega o nome da empresa cadastrado
+                                nome_beneficiario = str(emp_row.get('nome', emp_row.get('razao_social', 'REY DA CEBOLA')))
+                            else:
+                                chave_pix = "19417439000142"
+                                nome_beneficiario = "REY DA CEBOLA"
+                        except Exception:
+                            chave_pix = "19417439000142"
+                            nome_beneficiario = "REY DA CEBOLA"
+        
+                        # Se a chave obtida estiver vazia, utiliza o CNPJ da empresa por padrão
+                        if not chave_pix:
+                            chave_pix = "19417439000142"
+        
+                        cidade_beneficiario = "BRASIL"
+                        
+                        def gerar_payload_pix(pix_key, nome, cidade, valor):
+                            import unicodedata
+                            
+                            def remover_acentos(txt):
+                                return ''.join(c for c in unicodedata.normalize('NFD', txt) if unicodedata.category(c) != 'Mn')
+                            
+                            nome = remover_acentos(nome)[:25].upper()
+                            cidade = remover_acentos(cidade)[:15].upper()
+                            valor_str = f"{valor:.2f}"
+                            
+                            def tlv(tag, value):
+                                return f"{tag}{len(value):02d}{value}"
+                            
+                            merchant_account = tlv("00", "br.gov.bcb.pix") + tlv("01", pix_key)
+                            
+                            payload = (
+                                "000201" +
+                                tlv("26", merchant_account) +
+                                "52040000" +
+                                "5303986" +
+                                tlv("54", valor_str) +
+                                "5802BR" +
+                                tlv("59", nome) +
+                                tlv("60", cidade) +
+                                tlv("62", tlv("05", "***")) +
+                                "6304"
+                            )
+                            
+                            crc = 0xFFFF
+                            for byte in payload.encode('ascii'):
+                                crc ^= (byte << 8)
+                                for _ in range(8):
+                                    if crc & 0x8000:
+                                        crc = ((crc << 1) ^ 0x1021) & 0xFFFF
+                                    else:
+                                        crc = (crc << 1) & 0xFFFF
+                            return payload + f"{crc:04X}"
+        
+                        pix_payload = gerar_payload_pix(chave_pix, nome_beneficiario, cidade_beneficiario, total_geral_carrinho)
                         
                         st.markdown("---")
                         st.markdown("#### 📱 Pagamento via QR Code PIX")
-                        st.info(f"**Chave PIX (CNPJ/CPF):** `{chave_pix}`")
+                        st.info(f"**Chave PIX (CNPJ):** `{chave_pix}`")
                         
-                        # Gera URL pública de QR Code para escaneamento
-                        payload_qr = f"PIX: {chave_pix} | VALOR: R$ {total_geral_carrinho:.2f}"
-                        qr_code_url = f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={payload_qr}"
+                        qr_code_url = f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={pix_payload}"
                         
                         col_qr1, col_qr2 = st.columns([1, 2])
                         with col_qr1:
                             st.image(qr_code_url, caption="Aponte a câmara para pagar", width=160)
                         with col_qr2:
-                            st.write(f"**Empresa:** {nome_empresa if 'nome_empresa' in globals() else 'SEBASTIÃO JOSE DE ALENCAR NETO'}")
+                            st.write(f"**Empresa:** {nome_beneficiario}")
                             st.write(f"**Valor do PIX:** R$ {total_geral_carrinho:.2f}")
                             st.success("Aguarde a confirmação do cliente após o escaneamento.")
         
