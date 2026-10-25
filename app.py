@@ -2993,89 +2993,89 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
             ])
         
             with st.expander("➕ Adicionar Novo Colaborador"):
-        with st.form("form_cadastro_colaborador", clear_on_submit=True):
-            col_rh1, col_rh2 = st.columns(2)
-        with col_rh1:
-            nome_colab = st.text_input("Nome Completo do Colaborador")
-            cargo_colab = st.text_input("Cargo / Função")
-            cbo_colab = st.text_input("CBO (Ex: 5211-10)")
-            usuario_login = st.text_input("Usuário para Login no Sistema")
+                with st.form("form_cadastro_colaborador", clear_on_submit=True):
+                    col_rh1, col_rh2 = st.columns(2)
+                    with col_rh1:
+                        nome_colab = st.text_input("Nome Completo do Colaborador")
+                        cargo_colab = st.text_input("Cargo / Função")
+                        cbo_colab = st.text_input("CBO (Ex: 5211-10)")
+                        usuario_login = st.text_input("Usuário para Login no Sistema")
+                        
+                    with col_rh2:
+                        tel_colab = st.text_input("Telefone / Telemóvel")
+                        salario_colab = st.number_input("Salário Base (R$)", value=1412.00)
+                        data_adm = st.date_input("Data de Admissão")
+                        senha_login = st.text_input("Senha de Acesso", type="password")
             
-        with col_rh2:
-            tel_colab = st.text_input("Telefone / Telemóvel")
-            salario_colab = st.number_input("Salário Base (R$)", value=1412.00)
-            data_adm = st.date_input("Data de Admissão")
-            senha_login = st.text_input("Senha de Acesso", type="password")
-
-        submitted = st.form_submit_button("💾 Salvar Colaborador e Criar Acesso", type="primary")
-        
-        if submitted:
-            if nome_colab:
-                try:
-                    cursor = conn.cursor()
+                    submitted = st.form_submit_button("💾 Salvar Colaborador e Criar Acesso", type="primary")
                     
-                    # 1. Garante que a tabela funcionarios existe com todas as colunas necessárias
-                    cursor.execute("""
-                        CREATE TABLE IF NOT EXISTS funcionarios (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            nome TEXT,
-                            cargo TEXT,
-                            cbo TEXT,
-                            telefone TEXT,
-                            salario REAL,
-                            admissao TEXT,
-                            usuario TEXT
-                        )
-                    """)
-                    conn.commit()
-                    
-                    # Garante colunas caso a tabela já exista sem elas
-                    for col_nome, col_tipo in [("usuario", "TEXT"), ("cbo", "TEXT"), ("telefone", "TEXT"), ("admissao", "TEXT")]:
-                        try:
-                            cursor.execute(f"ALTER TABLE funcionarios ADD COLUMN {col_nome} {col_tipo}")
-                            conn.commit()
-                        except Exception:
-                            pass
-                    
-                    # 2. Garante que a tabela usuarios existe para o login no sistema
-                    cursor.execute("""
-                        CREATE TABLE IF NOT EXISTS usuarios (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            usuario TEXT,
-                            senha TEXT,
-                            cargo TEXT
-                        )
-                    """)
-                    conn.commit()
-                    
-                    for col_nome, col_tipo in [("usuario", "TEXT"), ("senha", "TEXT"), ("cargo", "TEXT")]:
-                        try:
-                            cursor.execute(f"ALTER TABLE usuarios ADD COLUMN {col_nome} {col_tipo}")
-                            conn.commit()
-                        except Exception:
-                            pass
-                    
-                    # 3. Insere o colaborador na tabela correta (funcionarios)
-                    cursor.execute("""
-                        INSERT INTO funcionarios (nome, cargo, cbo, telefone, salario, admissao, usuario)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """, (nome_colab, cargo_colab, cbo_colab, tel_colab, float(salario_colab), str(data_adm), usuario_login))
-                    
-                    # 4. Insere as credenciais de login se preenchidas
-                    if usuario_login and senha_login:
-                        cursor.execute("""
-                            INSERT INTO usuarios (usuario, senha, cargo)
-                            VALUES (?, ?, ?)
-                        """, (usuario_login, senha_login, cargo_colab))
-                    
-                    conn.commit()
-                    cursor.close()
-                    st.success("Colaborador cadastrado e acesso ao sistema criado com sucesso!")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Erro detalhado ao salvar: {e}")
-            else:
-                st.error("Preencha pelo menos o nome do colaborador.")
+                    if submitted:
+                        if nome_colab:
+                            try:
+                                cursor = conn.cursor()
+                                
+                                # 1. Garante que a tabela funcionarios existe com todas as colunas necessárias
+                                cursor.execute("""
+                                    CREATE TABLE IF NOT EXISTS funcionarios (
+                                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                        nome TEXT,
+                                        cargo TEXT,
+                                        cbo TEXT,
+                                        telefone TEXT,
+                                        salario REAL,
+                                        admissao TEXT,
+                                        usuario TEXT
+                                    )
+                                """)
+                                conn.commit()
+                                
+                                # Garante colunas caso a tabela já exista sem elas
+                                for col_nome, col_tipo in [("usuario", "TEXT"), ("cbo", "TEXT"), ("telefone", "TEXT"), ("admissao", "TEXT")]:
+                                    try:
+                                        cursor.execute(f"ALTER TABLE funcionarios ADD COLUMN {col_nome} {col_tipo}")
+                                        conn.commit()
+                                    except Exception:
+                                        pass
+                                
+                                # 2. Garante que a tabela usuarios existe para o login no sistema
+                                cursor.execute("""
+                                    CREATE TABLE IF NOT EXISTS usuarios (
+                                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                        usuario TEXT,
+                                        senha TEXT,
+                                        cargo TEXT
+                                    )
+                                """)
+                                conn.commit()
+                                
+                                for col_nome, col_tipo in [("usuario", "TEXT"), ("senha", "TEXT"), ("cargo", "TEXT")]:
+                                    try:
+                                        cursor.execute(f"ALTER TABLE usuarios ADD COLUMN {col_nome} {col_tipo}")
+                                        conn.commit()
+                                    except Exception:
+                                        pass
+                                
+                                # 3. Insere o colaborador na tabela correta (funcionarios)
+                                cursor.execute("""
+                                    INSERT INTO funcionarios (nome, cargo, cbo, telefone, salario, admissao, usuario)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                                """, (nome_colab, cargo_colab, cbo_colab, tel_colab, float(salario_colab), str(data_adm), usuario_login))
+                                
+                                # 4. Insere as credenciais de login se preenchidas
+                                if usuario_login and senha_login:
+                                    cursor.execute("""
+                                        INSERT INTO usuarios (usuario, senha, cargo)
+                                        VALUES (?, ?, ?)
+                                    """, (usuario_login, senha_login, cargo_colab))
+                                
+                                conn.commit()
+                                cursor.close()
+                                st.success("Colaborador cadastrado e acesso ao sistema criado com sucesso!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro detalhado ao salvar: {e}")
+                        else:
+                            st.error("Preencha pelo menos o nome do colaborador.")
         
                 st.markdown("---")
         
