@@ -2993,8 +2993,8 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
             ])
         
             with st.expander("➕ Adicionar Novo Colaborador"):
-    with st.form("form_cadastro_colaborador", clear_on_submit=True):
-        col_rh1, col_rh2 = st.columns(2)
+        with st.form("form_cadastro_colaborador", clear_on_submit=True):
+            col_rh1, col_rh2 = st.columns(2)
         with col_rh1:
             nome_colab = st.text_input("Nome Completo do Colaborador")
             cargo_colab = st.text_input("Cargo / Função")
