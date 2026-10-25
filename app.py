@@ -643,7 +643,6 @@ if st.button("Entrar no Sistema", type="primary", key="btn_login"):
                 st.rerun()
             else:
                 st.error(f"Erro ao autenticar: {e}")
-    else:
         # =============================================================
         # 1. CRIAÇÃO E ATUALIZAÇÃO DA TABELA DE USUÁRIOS E PERMISSÕES
         # =============================================================
