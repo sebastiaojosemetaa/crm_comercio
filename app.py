@@ -3015,7 +3015,7 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                                 try:
                                     cursor = conn.cursor()
                                     
-                                    # Garante que a tabela de colaboradores existe
+                                    # 1. Garante que a tabela colaboradores existe
                                     cursor.execute("""
                                         CREATE TABLE IF NOT EXISTS colaboradores (
                                             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -3029,22 +3029,32 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                                         )
                                     """)
                                     
-                                    # Insere o colaborador
+                                    # 2. Garante que a tabela usuarios existe e adiciona colunas em falta se necessário
+                                    cursor.execute("""
+                                        CREATE TABLE IF NOT EXISTS usuarios (
+                                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                            usuario TEXT,
+                                            senha TEXT,
+                                            cargo TEXT
+                                        )
+                                    """)
+                                    conn.commit()
+                                    
+                                    for col_nome, col_tipo in [("usuario", "TEXT"), ("senha", "TEXT"), ("cargo", "TEXT")]:
+                                        try:
+                                            cursor.execute(f"ALTER TABLE usuarios ADD COLUMN {col_nome} {col_tipo}")
+                                            conn.commit()
+                                        except Exception:
+                                            pass
+                                    
+                                    # 3. Insere o colaborador
                                     cursor.execute("""
                                         INSERT INTO colaboradores (nome, cargo, cbo, telefone, salario, data_admissao, usuario)
                                         VALUES (?, ?, ?, ?, ?, ?, ?)
                                     """, (nome_colab, cargo_colab, cbo_colab, tel_colab, float(salario_colab), str(data_adm), usuario_login))
                                     
-                                    # Se preencheu usuário e senha, cria o acesso de login no sistema
+                                    # 4. Insere as credenciais de login se preenchidas
                                     if usuario_login and senha_login:
-                                        cursor.execute("""
-                                            CREATE TABLE IF NOT EXISTS usuarios (
-                                                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                                usuario TEXT,
-                                                senha TEXT,
-                                                cargo TEXT
-                                            )
-                                        """)
                                         cursor.execute("""
                                             INSERT INTO usuarios (usuario, senha, cargo)
                                             VALUES (?, ?, ?)
