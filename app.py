@@ -2993,70 +2993,34 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
         
             with aba_colab:
                 with st.expander("➕ Adicionar Novo Colaborador"):
-                    with st.form("form_cadastro_colaborador", clear_on_submit=True):
-                        col_rh1, col_rh2 = st.columns(2)
-                        with col_rh1:
-                            nome_colab = st.text_input("Nome Completo do Colaborador")
-                            cargo_colab = st.text_input("Cargo / Função")
-                            cbo_colab = st.text_input("CBO (Ex: 5211-10)")
-                            usuario_login = st.text_input("Usuário para Login no Sistema")
-                            
-                        with col_rh2:
-                            tel_colab = st.text_input("Telefone / Telemóvel")
-                            salario_colab = st.number_input("Salário Base (R$)", value=1412.00)
-                            data_adm = st.date_input("Data de Admissão")
-                            senha_login = st.text_input("Senha de Acesso", type="password")
-                
-                        submitted = st.form_submit_button("💾 Salvar Colaborador e Criar Acesso", type="primary")
-                        
-                        if submitted:
-                            if nome_colab:
+                    with st.form("form_novo_funcionario", clear_on_submit=True):
+                        col_f1, col_f2 = st.columns(2)
+                        with col_f1:
+                            novo_nome = st.text_input("Nome Completo do Colaborador")
+                            novo_cargo = st.text_input("Cargo / Função")
+                            novo_cbo = st.text_input("CBO (Ex: 5211-10)", value="5211-10")
+                        with col_f2:
+                            novo_tel = st.text_input("Telefone / Telemóvel")
+                            novo_salario = st.number_input("Salário Base (R$)", min_value=0.0, value=1412.0, step=50.0)
+                            nova_admissao = st.date_input("Data de Admissão")
+        
+                        btn_salvar_func = st.form_submit_button("💾 Guardar Colaborador", use_container_width=True)
+                        if btn_salvar_func:
+                            if novo_nome.strip():
                                 try:
                                     cursor = conn.cursor()
-                                    
-                                    # Garante que a tabela de colaboradores existe
                                     cursor.execute("""
-                                        CREATE TABLE IF NOT EXISTS colaboradores (
-                                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                            nome TEXT,
-                                            cargo TEXT,
-                                            cbo TEXT,
-                                            telefone TEXT,
-                                            salario REAL,
-                                            data_admissao TEXT,
-                                            usuario TEXT
-                                        )
-                                    """)
-                                    
-                                    # Insere o colaborador
-                                    cursor.execute("""
-                                        INSERT INTO colaboradores (nome, cargo, cbo, telefone, salario, data_admissao, usuario)
-                                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                                    """, (nome_colab, cargo_colab, cbo_colab, tel_colab, float(salario_colab), str(data_adm), usuario_login))
-                                    
-                                    # Se preencheu usuário e senha, cria o acesso de login no sistema
-                                    if usuario_login and senha_login:
-                                        cursor.execute("""
-                                            CREATE TABLE IF NOT EXISTS usuarios (
-                                                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                                usuario TEXT,
-                                                senha TEXT,
-                                                cargo TEXT
-                                            )
-                                        """)
-                                        cursor.execute("""
-                                            INSERT INTO usuarios (usuario, senha, cargo)
-                                            VALUES (?, ?, ?)
-                                        """, (usuario_login, senha_login, cargo_colab))
-                                    
+                                        INSERT INTO funcionarios (nome, cargo, telefone, salario, admissao, cbo)
+                                        VALUES (?, ?, ?, ?, ?, ?)
+                                    """, (novo_nome, novo_cargo, novo_tel, novo_salario, str(nova_admissao), novo_cbo))
                                     conn.commit()
-                                    cursor.close()
-                                    st.success("Colaborador cadastrado e acesso ao sistema criado com sucesso!")
+                                    st.success("✅ Colaborador registado com sucesso!")
                                     st.rerun()
                                 except Exception as e:
-                                    st.error(f"Erro detalhado ao salvar: {e}")
+                                    st.error(f"Erro: {e}")
                             else:
-                                st.error("Preencha pelo menos o nome do colaborador.")        
+                                st.warning("⚠️ O nome do colaborador é obrigatório.")
+        
                 st.markdown("---")
         
                 try:
