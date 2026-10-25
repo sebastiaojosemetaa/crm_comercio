@@ -2993,69 +2993,70 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
         
             with aba_colab:
                 with st.expander("➕ Adicionar Novo Colaborador"):
-                    col_rh1, col_rh2 = st.columns(2)
-                    with col_rh1:
-                        nome_colab = st.text_input("Nome Completo do Colaborador", key="rh_nome_colab")
-                        cargo_colab = st.text_input("Cargo / Função", key="rh_cargo_colab")
-                        cbo_colab = st.text_input("CBO (Ex: 5211-10)", key="rh_cbo_colab")
-                        # 🔑 Novos campos de Login
-                        usuario_login = st.text_input("Usuário para Login no Sistema", key="rh_usuario_login")
-                        
-                    with col_rh2:
-                        tel_colab = st.text_input("Telefone / Telemóvel", key="rh_tel_colab")
-                        salario_colab = st.number_input("Salário Base (R$)", value=1412.00, key="rh_salario_colab")
-                        data_adm = st.date_input("Data de Admissão", key="rh_data_adm")
-                        # 🔑 Campo de Senha
-                        senha_login = st.text_input("Senha de Acesso", type="password", key="rh_senha_login")
+                    with st.form("form_cadastro_colaborador", clear_on_submit=True):
+                        col_rh1, col_rh2 = st.columns(2)
+                        with col_rh1:
+                            nome_colab = st.text_input("Nome Completo do Colaborador")
+                            cargo_colab = st.text_input("Cargo / Função")
+                            cbo_colab = st.text_input("CBO (Ex: 5211-10)")
+                            usuario_login = st.text_input("Usuário para Login no Sistema")
+                            
+                        with col_rh2:
+                            tel_colab = st.text_input("Telefone / Telemóvel")
+                            salario_colab = st.number_input("Salário Base (R$)", value=1412.00)
+                            data_adm = st.date_input("Data de Admissão")
+                            senha_login = st.text_input("Senha de Acesso", type="password")
                 
-                    if st.button("💾 Salvar Colaborador e Criar Acesso", type="primary", key="btn_salvar_colab_sistema"):
-                        if nome_colab:
-                            try:
-                                cursor = conn.cursor()
-                                
-                                # Garante que a tabela de colaboradores existe
-                                cursor.execute("""
-                                    CREATE TABLE IF NOT EXISTS colaboradores (
-                                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                        nome TEXT,
-                                        cargo TEXT,
-                                        cbo TEXT,
-                                        telefone TEXT,
-                                        salario REAL,
-                                        data_admissao TEXT,
-                                        usuario TEXT
-                                    )
-                                """)
-                                
-                                # Insere o colaborador
-                                cursor.execute("""
-                                    INSERT INTO colaboradores (nome, cargo, cbo, telefone, salario, data_admissao, usuario)
-                                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                                """, (nome_colab, cargo_colab, cbo_colab, tel_colab, float(salario_colab), str(data_adm), usuario_login))
-                                
-                                # Se preencheu usuário e senha, cria o acesso de login no sistema
-                                if usuario_login and senha_login:
+                        submitted = st.form_submit_button("💾 Salvar Colaborador e Criar Acesso", type="primary")
+                        
+                        if submitted:
+                            if nome_colab:
+                                try:
+                                    cursor = conn.cursor()
+                                    
+                                    # Garante que a tabela de colaboradores existe
                                     cursor.execute("""
-                                        CREATE TABLE IF NOT EXISTS usuarios (
+                                        CREATE TABLE IF NOT EXISTS colaboradores (
                                             id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                            usuario TEXT,
-                                            senha TEXT,
-                                            cargo TEXT
+                                            nome TEXT,
+                                            cargo TEXT,
+                                            cbo TEXT,
+                                            telefone TEXT,
+                                            salario REAL,
+                                            data_admissao TEXT,
+                                            usuario TEXT
                                         )
                                     """)
+                                    
+                                    # Insere o colaborador
                                     cursor.execute("""
-                                        INSERT INTO usuarios (usuario, senha, cargo)
-                                        VALUES (?, ?, ?)
-                                    """, (usuario_login, senha_login, cargo_colab))
-                                
-                                conn.commit()
-                                cursor.close()
-                                st.success("Colaborador cadastrado e acesso ao sistema criado com sucesso!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro detalhado ao salvar: {e}")
-                        else:
-                            st.error("Preencha pelo menos o nome do colaborador.")        
+                                        INSERT INTO colaboradores (nome, cargo, cbo, telefone, salario, data_admissao, usuario)
+                                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                                    """, (nome_colab, cargo_colab, cbo_colab, tel_colab, float(salario_colab), str(data_adm), usuario_login))
+                                    
+                                    # Se preencheu usuário e senha, cria o acesso de login no sistema
+                                    if usuario_login and senha_login:
+                                        cursor.execute("""
+                                            CREATE TABLE IF NOT EXISTS usuarios (
+                                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                                usuario TEXT,
+                                                senha TEXT,
+                                                cargo TEXT
+                                            )
+                                        """)
+                                        cursor.execute("""
+                                            INSERT INTO usuarios (usuario, senha, cargo)
+                                            VALUES (?, ?, ?)
+                                        """, (usuario_login, senha_login, cargo_colab))
+                                    
+                                    conn.commit()
+                                    cursor.close()
+                                    st.success("Colaborador cadastrado e acesso ao sistema criado com sucesso!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Erro detalhado ao salvar: {e}")
+                            else:
+                                st.error("Preencha pelo menos o nome do colaborador.")        
                 st.markdown("---")
         
                 try:
