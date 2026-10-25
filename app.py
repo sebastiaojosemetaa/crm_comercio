@@ -3010,47 +3010,50 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                 
                     if st.button("💾 Salvar Colaborador e Criar Acesso", type="primary", key="btn_salvar_colab_sistema"):
                         if nome_colab:
-                            cursor = conn.cursor()
-                            
-                            # Garante que a tabela de colaboradores existe
-                            cursor.execute("""
-                                CREATE TABLE IF NOT EXISTS colaboradores (
-                                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                    nome TEXT,
-                                    cargo TEXT,
-                                    cbo TEXT,
-                                    telefone TEXT,
-                                    salario REAL,
-                                    data_admissao TEXT,
-                                    usuario TEXT
-                                )
-                            """)
-                            
-                            # Insere o colaborador
-                            cursor.execute("""
-                                INSERT INTO colaboradores (nome, cargo, cbo, telefone, salario, data_admissao, usuario)
-                                VALUES (?, ?, ?, ?, ?, ?, ?)
-                            """, (nome_colab, cargo_colab, cbo_colab, tel_colab, salario_colab, str(data_adm), usuario_login))
-                            
-                            # Se preencheu usuário e senha, cria o acesso de login no sistema
-                            if usuario_login and senha_login:
+                            try:
+                                cursor = conn.cursor()
+                                
+                                # Garante que a tabela de colaboradores existe
                                 cursor.execute("""
-                                    CREATE TABLE IF NOT EXISTS usuarios (
+                                    CREATE TABLE IF NOT EXISTS colaboradores (
                                         id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                        usuario TEXT,
-                                        senha TEXT,
-                                        cargo TEXT
+                                        nome TEXT,
+                                        cargo TEXT,
+                                        cbo TEXT,
+                                        telefone TEXT,
+                                        salario REAL,
+                                        data_admissao TEXT,
+                                        usuario TEXT
                                     )
                                 """)
+                                
+                                # Insere o colaborador
                                 cursor.execute("""
-                                    INSERT INTO usuarios (usuario, senha, cargo)
-                                    VALUES (?, ?, ?)
-                                """, (usuario_login, senha_login, cargo_colab))
-                            
-                            conn.commit()
-                            cursor.close()
-                            st.success("Colaborador cadastrado e acesso ao sistema criado com sucesso!")
-                            st.rerun()
+                                    INSERT INTO colaboradores (nome, cargo, cbo, telefone, salario, data_admissao, usuario)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                                """, (nome_colab, cargo_colab, cbo_colab, tel_colab, float(salario_colab), str(data_adm), usuario_login))
+                                
+                                # Se preencheu usuário e senha, cria o acesso de login no sistema
+                                if usuario_login and senha_login:
+                                    cursor.execute("""
+                                        CREATE TABLE IF NOT EXISTS usuarios (
+                                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                            usuario TEXT,
+                                            senha TEXT,
+                                            cargo TEXT
+                                        )
+                                    """)
+                                    cursor.execute("""
+                                        INSERT INTO usuarios (usuario, senha, cargo)
+                                        VALUES (?, ?, ?)
+                                    """, (usuario_login, senha_login, cargo_colab))
+                                
+                                conn.commit()
+                                cursor.close()
+                                st.success("Colaborador cadastrado e acesso ao sistema criado com sucesso!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro detalhado ao salvar: {e}")
                         else:
                             st.error("Preencha pelo menos o nome do colaborador.")        
                 st.markdown("---")
