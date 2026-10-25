@@ -606,48 +606,43 @@ st.sidebar.markdown("---")
 # ==========================================
 # AMBIENTE 2: ADMINISTRADOR / VENDEDOR
 # ==========================================
-if perfil_selecionado == "🔒 Administração / Vendedor":
-    if not st.session_state.admin_logged:
-        st.title("🔒 Autenticação do Sistema")
-        st.warning("⚠️ Insira o seu Usuário e Senha para aceder ao painel.")
-        
-        login_input = st.text_input("Usuário / Login:", key="input_login_usuario")
-        senha_input = st.text_input("Senha:", type="password", key="input_senha_usuario")
-        
-        if st.button("🔓 Entrar no Sistema", type="primary", key="btn_login_sistema"):
-            # Remove espaços vazios acidentais que o teclado possa adicionar
-            limpar_login = login_input.strip() if login_input else ""
-            limpar_senha = senha_input.strip() if senha_input else ""
+# --- BLOCO DE AUTENTICAÇÃO SEGURO ---
+st.markdown("## 🔐 Autenticação do Sistema")
+usuario_input = st.text_input("Usuário / Login", key="login_usuario").strip().lower()
+senha_input = st.text_input("Senha", type="password", key="login_senha")
+
+if st.button("Entrar no Sistema", type="primary", key="btn_login"):
+    # Permissão padrão de administrador mestre
+    if usuario_input == "administrador" and senha_input == "admin": # ou sua senha mestre
+        st.session_state['autenticado'] = True
+        st.session_state['usuario_logado'] = "administrador"
+        st.session_state['cargo_logado'] = "Administrador"
+        st.success("Login efetuado com sucesso!")
+        st.rerun()
+    else:
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM usuarios WHERE LOWER(TRIM(usuario)) = ? AND senha = ?", (usuario_input, senha_input))
+            user_row = cursor.fetchone()
+            cursor.close()
             
-            # 1. Verifica se é a Senha Mestra do Administrador
-            if limpar_senha == "13142715":
-                st.session_state.admin_logged = True
-                st.session_state.usuario_logado = "administrador"
-                st.session_state.cargo_logado = "Administrador"
-                st.success("✅ Login de Administrador Mestre efetuado com sucesso!")
+            if user_row:
+                st.session_state['autenticado'] = True
+                st.session_state['usuario_logado'] = user_row[1] # Nome do usuário
+                st.session_state['cargo_logado'] = user_row[3] if len(user_row) > 3 else "Funcionário"
+                st.success("Login efetuado com sucesso!")
                 st.rerun()
             else:
-                # 2. Verifica na base de dados de funcionários cadastrados
-                try:
-                    cursor_log = conn.cursor()
-                    cursor_log.execute(
-                        "SELECT * FROM usuarios WHERE login = ? AND senha = ?", 
-                        (limpar_login, limpar_senha)
-                    )
-                    user_row = cursor_log.fetchone()
-                    cursor_log.close()
-                    
-                    if user_row:
-                        # user_row[1] = nome, user_row[2] = login, user_row[4] = cargo
-                        st.session_state.admin_logged = True
-                        st.session_state.usuario_logado = user_row[2]
-                        st.session_state.cargo_logado = user_row[4]
-                        st.success(f"✅ Bem-vindo(a), {user_row[1]} ({user_row[4]})!")
-                        st.rerun()
-                    else:
-                        st.error("❌ Usuário ou senha incorretos. Verifique os dados.")
-                except Exception as e_log:
-                    st.error(f"Erro ao tentar autenticar: {e_log}")
+                st.error("❌ Usuário ou senha incorretos. Verifique os dados.")
+        except Exception as e:
+            # Caso a tabela usuarios ainda não exista
+            if usuario_input == "admin" and senha_input == "123456":
+                st.session_state['autenticado'] = True
+                st.session_state['usuario_logado'] = "admin"
+                st.session_state['cargo_logado'] = "Administrador"
+                st.rerun()
+            else:
+                st.error(f"Erro ao autenticar: {e}")
     else:
         # =============================================================
         # 1. CRIAÇÃO E ATUALIZAÇÃO DA TABELA DE USUÁRIOS E PERMISSÕES
@@ -3129,7 +3124,53 @@ if perfil_selecionado == "🔒 Administração / Vendedor":
                             st.error(f"Erro: {e}")
                 else:
                     st.info("ℹ️ Ainda não existem colaboradores registados.")
+        st.markdown("### ⚙️ Restrições e Permissões de Acessos")
+        st.info("Selecione o funcionário e configure quais módulos ele pode aceder.")
         
+        try:
+            df_users_perm = pd.read_sql_query("SELECT * FROM usuarios", conn)
+        except Exception:
+            df_users_perm = pd.DataFrame()
+        
+        if not df_users_perm.empty:
+            utilizador_selecionado = st.selectbox("Selecione o Utilizador", df_users_perm['usuario'].tolist(), key="sel_user_perm")
+            
+            col_p1, col_p2, col_p3 = st.columns(3)
+            with col_p1:
+                p_pdv = st.checkbox("Aceder ao PDV (Frente de Caixa)", value=True, key=f"p_pdv_{utilizador_selecionado}")
+                p_estoque = st.checkbox("Aceder ao Estoque / Compras", value=False, key=f"p_est_{utilizador_selecionado}")
+            with col_p2:
+                p_financeiro = st.checkbox("Aceder ao Fechamento Financeiro", value=False, key=f"p_fin_{utilizador_selecionado}")
+                p_cadastros = st.checkbox("Gerir Clientes e Fornecedores", value=False, key=f"p_cad_{utilizador_selecionado}")
+            with col_p3:
+                p_rh = st.checkbox("Gerir RH e Funcionários", value=False, key=f"p_rh_{utilizador_selecionado}")
+                p_config = st.checkbox("Configurações da Empresa", value=False, key=f"p_cfg_{utilizador_selecionado}")
+                
+            if st.button("💾 Salvar Permissões do Utilizador", key="btn_salvar_permissoes"):
+                try:
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        CREATE TABLE IF NOT EXISTS permissoes_usuario (
+                            usuario TEXT PRIMARY KEY,
+                            pdv INTEGER,
+                            estoque INTEGER,
+                            financeiro INTEGER,
+                            cadastros INTEGER,
+                            rh INTEGER,
+                            config INTEGER
+                        )
+                    """)
+                    cursor.execute("""
+                        INSERT OR REPLACE INTO permissoes_usuario (usuario, pdv, estoque, financeiro, cadastros, rh, config)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """, (utilizador_selecionado, int(p_pdv), int(p_estoque), int(p_financeiro), int(p_cadastros), int(p_rh), int(p_config)))
+                    conn.commit()
+                    cursor.close()
+                    st.success(f"✅ Permissões atualizadas para o utilizador '{utilizador_selecionado}' com sucesso!")
+                except Exception as e:
+                    st.error(f"Erro ao salvar permissões: {e}")
+        else:
+            st.warning("⚠️ Nenhum utilizador criado no sistema. Cadastre um colaborador com login na aba de RH.")
                 # --- EXPANSOR PARA ELIMINAR COLABORADOR ---
                 with st.expander("🗑️ Eliminar Colaborador"):
                     try:
