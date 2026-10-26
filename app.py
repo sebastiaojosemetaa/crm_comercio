@@ -232,7 +232,7 @@ if df_emp_dev.empty:
     cursor = conn.cursor()
     cursor.execute("""
         INSERT OR IGNORE INTO empresas_dispositivos (device_id, nome_empresa, cnpj, ie, fone, endereco)
-        VALUES (?, 'REY DA CEBOLA', '19417439000142', '', '(99) 98501-6050', 'RUA CAIPIRA, Nº 174')
+        VALUES (?, 'REY DA CEBOLA', '19417439000142', '', '', '')
     """, (device_id,))
     conn.commit()
     df_emp_dev = carregar_dados(f"SELECT * FROM empresas_dispositivos WHERE device_id = '{device_id}'")
