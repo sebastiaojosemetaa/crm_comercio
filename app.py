@@ -38,16 +38,21 @@ if "carrinho_cliente" not in st.session_state:
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="CRM Comércio - REY DA CEBOLA", layout="wide", page_icon="🛍️")
 
-# --- CONEXÃO E TABELAS ---
+# --- CONEXÃO E FUNÇÕES DE SUPORTE PRIMÁRIAS ---
 def get_connection():
     return sqlite3.connect("crm_comercio.db", check_same_thread=False)
 
 conn = get_connection()
 
+def carregar_dados(query):
+    try:
+        return pd.read_sql_query(query, conn)
+    except Exception:
+        return pd.DataFrame()
+
 def adequar_banco_e_migrar():
     try:
         cursor = conn.cursor()
-        
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS empresas_dispositivos (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -70,11 +75,6 @@ def adequar_banco_e_migrar():
             try: cursor.execute(f"ALTER TABLE clientes ADD COLUMN {col} TEXT")
             except Exception: pass
 
-        cursor.execute("SELECT id FROM vendas LIMIT 1")
-    except Exception:
-        pass
-    try:
-        cursor = conn.cursor()
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS vendas (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -142,7 +142,7 @@ if df_emp_dev.empty:
     cursor = conn.cursor()
     cursor.execute("""
         INSERT OR IGNORE INTO empresas_dispositivos (device_id, nome_empresa, cnpj, ie, fone, endereco)
-        VALUES (?, 'REY DA CEBOLA', '19417439000142', '', '', '')
+        VALUES (?, 'REY DA CEBOLA', '19417439000142', '', '(99) 98501-6050', 'RUA CAIPIRA, Nº 174')
     """, (device_id,))
     conn.commit()
     df_emp_dev = carregar_dados(f"SELECT * FROM empresas_dispositivos WHERE device_id = '{device_id}'")
