@@ -606,10 +606,10 @@ st.sidebar.markdown("---")
 # ==========================================
 # AMBIENTE 2: ADMINISTRADOR / VENDEDOR
 # ==========================================
-# --- BLOCO DE AUTENTICAÇÃO COM CORREÇÃO AUTOMÁTICA DA TABELA ---
+# --- BLOCO DE AUTENTICAÇÃO COM LOGIN DE EMERGÊNCIA ---
 st.markdown("## 🔐 Autenticação do Sistema")
 
-# Garante que a tabela e as colunas existem antes de validar
+# Garante que a tabela e as colunas existem
 try:
     cursor = conn.cursor()
     cursor.execute("""
@@ -635,7 +635,8 @@ usuario_input = st.text_input("Usuário / Login", key="login_usuario").strip().l
 senha_input = st.text_input("Senha", type="password", key="login_senha")
 
 if st.button("Entrar no Sistema", type="primary", key="btn_login"):
-    if usuario_input == "administrador" and senha_input == "admin":
+    # Login mestre de emergência universal
+    if (usuario_input == "administrador" and senha_input == "admin") or (usuario_input == "admin" and senha_input == "123456"):
         st.session_state['autenticado'] = True
         st.session_state['usuario_logado'] = "administrador"
         st.session_state['cargo_logado'] = "Administrador"
