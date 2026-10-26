@@ -673,81 +673,80 @@ else:
     if st.sidebar.button("🚪 Sair do Sistema"):
         st.session_state['autenticado'] = False
         st.rerun()
-        # =============================================================
-        # 1. CRIAÇÃO E ATUALIZAÇÃO DA TABELA DE USUÁRIOS E PERMISSÕES
-        # =============================================================
-        try:
-            cursor = conn.cursor()
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS usuarios (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    nome TEXT NOT NULL,
-                    login TEXT UNIQUE,
-                    senha TEXT,
-                    cargo TEXT,
-                    cpf TEXT,
-                    perm_produtos_ver INTEGER DEFAULT 1,
-                    perm_produtos_editar INTEGER DEFAULT 0,
-                    perm_produtos_excluir INTEGER DEFAULT 0,
-                    perm_vendas_ver INTEGER DEFAULT 1,
-                    perm_vendas_editar INTEGER DEFAULT 0,
-                    perm_vendas_excluir INTEGER DEFAULT 0,
-                    perm_clientes_ver INTEGER DEFAULT 1,
-                    perm_clientes_editar INTEGER DEFAULT 0,
-                    perm_clientes_excluir INTEGER DEFAULT 0,
-                    perm_relatorios_ver INTEGER DEFAULT 0
-                )
-            """)
-            
-            # Garante que colunas essenciais existam caso a tabela seja de uma versão anterior
-            colunas_necessarias = [
-                "login TEXT", "senha TEXT", "cargo TEXT", "cpf TEXT",
-                "perm_produtos_ver INTEGER DEFAULT 1", "perm_produtos_editar INTEGER DEFAULT 0", "perm_produtos_excluir INTEGER DEFAULT 0",
-                "perm_vendas_ver INTEGER DEFAULT 1", "perm_vendas_editar INTEGER DEFAULT 0", "perm_vendas_excluir INTEGER DEFAULT 0",
-                "perm_clientes_ver INTEGER DEFAULT 1", "perm_clientes_editar INTEGER DEFAULT 0", "perm_clientes_excluir INTEGER DEFAULT 0",
-                "perm_relatorios_ver INTEGER DEFAULT 0"
-            ]
-            
-            for col_def in colunas_necessarias:
-                try:
-                    cursor.execute(f"ALTER TABLE usuarios ADD COLUMN {col_def}")
-                except Exception:
-                    pass # Se a coluna já existir, o SQLite apenas ignora
-                    
-            conn.commit()
-        except Exception as e:
-            st.error(f"Erro ao configurar tabela de usuários: {e}")
 
-        # -------------------------------------------------------------
-        # ÁREA RESTRITA E MENU DO ADMINISTRADOR
-        # -------------------------------------------------------------
-        st.sidebar.subheader("🔒 Área Restrita")
-        if st.sidebar.button("Sair do Modo Admin", key="btn_logout_admin"):
-            st.session_state.admin_logged = False
-            st.rerun()
-        if st.session_state.get('admin_logged'):
-            usuario_atual = st.session_state.get('usuario_logado', 'Administrador')
-            cargo_atual = st.session_state.get('cargo_logado', 'Administrador')
-            st.sidebar.markdown("---")
-            st.sidebar.markdown(f"👤 **Usuário:** `{usuario_atual}`")
-            st.sidebar.markdown(f"🏷️ **Cargo:** `{cargo_atual}`")          
-        menu_admin = st.sidebar.radio(
-            "Navegação",
-            [
-                "🛒 PDV — Frente de Caixa",
-                "🔓 Abertura e Fechamento de Caixa",
-                "📊 Fechamento & Financeiro",
-                "🛒 Registrar Venda",
-                "📦 Entrada de Estoque (Compras)",
-                "👥 Cadastros (Clientes / Fornecedores / Grupos)",
-                "👥 Gestão de Recursos Humanos (RH)",
-                "💾 Backup e Restauração",
-                "💸 Contas a Receber",
-                "📦 Estoque de Produtos",
-                "🏢 Configurações da Empresa"
-            ],
-            key="radio_menu_admin_opcoes"
-        )
+    # =============================================================
+    # 1. CRIAÇÃO E ATUALIZAÇÃO DA TABELA DE USUÁRIOS E PERMISSÕES
+    # =============================================================
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS usuarios (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome TEXT NOT NULL,
+                login TEXT UNIQUE,
+                senha TEXT,
+                cargo TEXT,
+                cpf TEXT,
+                perm_produtos_ver INTEGER DEFAULT 1,
+                perm_produtos_editar INTEGER DEFAULT 0,
+                perm_produtos_excluir INTEGER DEFAULT 0,
+                perm_vendas_ver INTEGER DEFAULT 1,
+                perm_vendas_editar INTEGER DEFAULT 0,
+                perm_vendas_excluir INTEGER DEFAULT 0,
+                perm_clientes_ver INTEGER DEFAULT 1,
+                perm_clientes_editar INTEGER DEFAULT 0,
+                perm_clientes_excluir INTEGER DEFAULT 0,
+                perm_relatorios_ver INTEGER DEFAULT 0
+            )
+        """)
+        
+        # Garante que colunas essenciais existam caso a tabela seja de uma versão anterior
+        colunas_necessarias = [
+            "login TEXT", "senha TEXT", "cargo TEXT", "cpf TEXT",
+            "perm_produtos_ver INTEGER DEFAULT 1", "perm_produtos_editar INTEGER DEFAULT 0", "perm_produtos_excluir INTEGER DEFAULT 0",
+            "perm_vendas_ver INTEGER DEFAULT 1", "perm_vendas_editar INTEGER DEFAULT 0", "perm_vendas_excluir INTEGER DEFAULT 0",
+            "perm_clientes_ver INTEGER DEFAULT 1", "perm_clientes_editar INTEGER DEFAULT 0", "perm_clientes_excluir INTEGER DEFAULT 0",
+            "perm_relatorios_ver INTEGER DEFAULT 0"
+        ]
+        
+        for col_def in colunas_necessarias:
+            try:
+                cursor.execute(f"ALTER TABLE usuarios ADD COLUMN {col_def}")
+            except Exception:
+                pass # Se a coluna já existir, o SQLite apenas ignora
+                
+        conn.commit()
+    except Exception as e:
+        st.error(f"Erro ao configurar tabela de usuários: {e}")
+
+    # -------------------------------------------------------------
+    # ÁREA RESTRITA E MENU DO ADMINISTRADOR
+    # -------------------------------------------------------------
+    st.sidebar.subheader("🔒 Área Restrita")
+    if st.session_state.get('admin_logged'):
+        usuario_atual = st.session_state.get('usuario_logado', 'Administrador')
+        cargo_atual = st.session_state.get('cargo_logado', 'Administrador')
+        st.sidebar.markdown("---")
+        st.sidebar.markdown(f"👤 **Usuário:** `{usuario_atual}`")
+        st.sidebar.markdown(f"🏷️ **Cargo:** `{cargo_atual}`")         
+        
+    menu_admin = st.sidebar.radio(
+        "Navegação",
+        [
+            "🛒 PDV — Frente de Caixa",
+            "🔓 Abertura e Fechamento de Caixa",
+            "📊 Fechamento & Financeiro",
+            "🛒 Registrar Venda",
+            "📦 Entrada de Estoque (Compras)",
+            "👥 Cadastros (Clientes / Fornecedores / Grupos)",
+            "👥 Gestão de Recursos Humanos (RH)",
+            "💾 Backup e Restauração",
+            "💸 Contas a Receber",
+            "📦 Estoque de Produtos",
+            "🏢 Configurações da Empresa"
+        ],
+        key="radio_menu_admin_opcoes"
+    )
         
         # Módulo de Gestão de Funcionários vinculado ao RH
         if menu_admin == "🛒 PDV — Frente de Caixa":
