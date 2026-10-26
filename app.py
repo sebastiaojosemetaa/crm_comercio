@@ -29,6 +29,9 @@ if 'usuario_logado' not in st.session_state or not st.session_state['usuario_log
 if 'cargo_logado' not in st.session_state:
     st.session_state['cargo_logado'] = "Administrador"
 
+if 'permissoes_usuario' not in st.session_state:
+    st.session_state['permissoes_usuario'] = {}
+
 if 'admin_logged' not in st.session_state:
     st.session_state.admin_logged = False
 
@@ -173,16 +176,17 @@ def adequar_banco_e_migrar():
                 login TEXT UNIQUE,
                 senha TEXT,
                 cargo TEXT,
-                perm_produtos_ver INTEGER DEFAULT 1,
-                perm_produtos_editar INTEGER DEFAULT 0,
-                perm_produtos_excluir INTEGER DEFAULT 0,
-                perm_vendas_ver INTEGER DEFAULT 1,
-                perm_vendas_editar INTEGER DEFAULT 0,
-                perm_vendas_excluir INTEGER DEFAULT 0,
-                perm_clientes_ver INTEGER DEFAULT 1,
-                perm_clientes_editar INTEGER DEFAULT 0,
-                perm_clientes_excluir INTEGER DEFAULT 0,
-                perm_relatorios_ver INTEGER DEFAULT 0
+                perm_pdv INTEGER DEFAULT 1,
+                perm_financeiro INTEGER DEFAULT 1,
+                perm_registrar_venda INTEGER DEFAULT 1,
+                perm_compras INTEGER DEFAULT 0,
+                perm_cadastros INTEGER DEFAULT 1,
+                perm_rh INTEGER DEFAULT 0,
+                perm_usuarios INTEGER DEFAULT 0,
+                perm_backup INTEGER DEFAULT 0,
+                perm_contas_receber INTEGER DEFAULT 1,
+                perm_estoque INTEGER DEFAULT 1,
+                perm_configuracoes INTEGER DEFAULT 0
             )
         """)
         
@@ -190,11 +194,17 @@ def adequar_banco_e_migrar():
         cols_atuais = [col[1] for col in cursor.fetchall()]
         colunas_necessarias = {
             "usuario": "TEXT", "login": "TEXT", "senha": "TEXT", "cargo": "TEXT",
-            "perm_produtos_ver": "INTEGER DEFAULT 1", "perm_produtos_editar": "INTEGER DEFAULT 0",
-            "perm_produtos_excluir": "INTEGER DEFAULT 0", "perm_vendas_ver": "INTEGER DEFAULT 1",
-            "perm_vendas_editar": "INTEGER DEFAULT 0", "perm_vendas_excluir": "INTEGER DEFAULT 0",
-            "perm_clientes_ver": "INTEGER DEFAULT 1", "perm_clientes_editar": "INTEGER DEFAULT 0",
-            "perm_clientes_excluir": "INTEGER DEFAULT 0", "perm_relatorios_ver": "INTEGER DEFAULT 0"
+            "perm_pdv": "INTEGER DEFAULT 1",
+            "perm_financeiro": "INTEGER DEFAULT 1",
+            "perm_registrar_venda": "INTEGER DEFAULT 1",
+            "perm_compras": "INTEGER DEFAULT 0",
+            "perm_cadastros": "INTEGER DEFAULT 1",
+            "perm_rh": "INTEGER DEFAULT 0",
+            "perm_usuarios": "INTEGER DEFAULT 0",
+            "perm_backup": "INTEGER DEFAULT 0",
+            "perm_contas_receber": "INTEGER DEFAULT 1",
+            "perm_estoque": "INTEGER DEFAULT 1",
+            "perm_configuracoes": "INTEGER DEFAULT 0"
         }
         for coluna, tipo in colunas_necessarias.items():
             if coluna not in cols_atuais:
@@ -277,6 +287,11 @@ if not st.session_state['autenticado']:
                 st.session_state['autenticado'] = True
                 st.session_state['usuario_logado'] = "administrador"
                 st.session_state['cargo_logado'] = "Administrador"
+                st.session_state['permissoes_usuario'] = {
+                    "pdv": 1, "financeiro": 1, "registrar_venda": 1, "compras": 1,
+                    "cadastros": 1, "rh": 1, "usuarios": 1, "backup": 1,
+                    "contas_receber": 1, "estoque": 1, "configuracoes": 1
+                }
                 st.success("Login efetuado com sucesso!")
                 st.rerun()
             else:
@@ -289,6 +304,13 @@ if not st.session_state['autenticado']:
                         st.session_state['autenticado'] = True
                         st.session_state['usuario_logado'] = user_row[2] if user_row[2] else user_row[1]
                         st.session_state['cargo_logado'] = user_row[4] if len(user_row) > 4 else "Funcionário"
+                        # Carrega permissões do BD (índices 5 a 15)
+                        st.session_state['permissoes_usuario'] = {
+                            "pdv": user_row[5], "financeiro": user_row[6], "registrar_venda": user_row[7],
+                            "compras": user_row[8], "cadastros": user_row[9], "rh": user_row[10],
+                            "usuarios": user_row[11], "backup": user_row[12], "contas_receber": user_row[13],
+                            "estoque": user_row[14], "configuracoes": user_row[15]
+                        }
                         st.success("Login efetuado com sucesso!")
                         st.rerun()
                     else:
@@ -304,30 +326,47 @@ else:
     if st.sidebar.button("🚪 Sair do Sistema"):
         st.session_state['autenticado'] = False
         st.session_state['usuario_logado'] = "administrador"
+        st.session_state['permissoes_usuario'] = {}
         st.rerun()
 
-    opcoes_menu = [
-        "🛒 PDV — Frente de Caixa",
-        "📊 Fechamento & Financeiro",
-        "🛒 Registrar Venda",
-        "📦 Entrada de Estoque (Compras)",
-        "👥 Cadastros (Clientes / Fornecedores / Grupos)",
-        "👥 Gestão de Recursos Humanos (RH)",
-        "🔐 Gestão de Utilizadores e Logins",
-        "💾 Backup e Restauração",
-        "💸 Contas a Receber",
-        "📦 Estoque de Produtos",
-        "🏢 Configurações da Empresa"
-    ]
+    # MONTAGEM DA NAVEGAÇÃO BASEADA NAS PERMISSÕES DO UTILIZADOR
+    perms = st.session_state.get('permissoes_usuario', {})
+    is_admin_master = (usr_exibicao.lower() == "administrador")
 
-    menu_admin = st.sidebar.radio("Navegação", opcoes_menu, key="radio_menu_admin_opcoes")
+    opcoes_menu_disponiveis = []
+    
+    if is_admin_master or perms.get("pdv", 1) == 1:
+        opcoes_menu_disponiveis.append("🛒 PDV — Frente de Caixa")
+    if is_admin_master or perms.get("financeiro", 0) == 1:
+        opcoes_menu_disponiveis.append("📊 Fechamento & Financeiro")
+    if is_admin_master or perms.get("registrar_venda", 1) == 1:
+        opcoes_menu_disponiveis.append("🛒 Registrar Venda")
+    if is_admin_master or perms.get("compras", 0) == 1:
+        opcoes_menu_disponiveis.append("📦 Entrada de Estoque (Compras)")
+    if is_admin_master or perms.get("cadastros", 1) == 1:
+        opcoes_menu_disponiveis.append("👥 Cadastros (Clientes / Fornecedores / Grupos)")
+    if is_admin_master or perms.get("rh", 0) == 1:
+        opcoes_menu_disponiveis.append("👥 Gestão de Recursos Humanos (RH)")
+    if is_admin_master or perms.get("usuarios", 0) == 1:
+        opcoes_menu_disponiveis.append("🔐 Gestão de Utilizadores e Logins")
+    if is_admin_master or perms.get("backup", 0) == 1:
+        opcoes_menu_disponiveis.append("💾 Backup e Restauração")
+    if is_admin_master or perms.get("contas_receber", 1) == 1:
+        opcoes_menu_disponiveis.append("💸 Contas a Receber")
+    if is_admin_master or perms.get("estoque", 1) == 1:
+        opcoes_menu_disponiveis.append("📦 Estoque de Produtos")
+    if is_admin_master or perms.get("configuracoes", 0) == 1:
+        opcoes_menu_disponiveis.append("🏢 Configurações da Empresa")
+
+    if not opcoes_menu_disponiveis:
+        opcoes_menu_disponiveis = ["🛒 PDV — Frente de Caixa"]
+
+    menu_admin = st.sidebar.radio("Navegação", opcoes_menu_disponiveis, key="radio_menu_admin_opcoes")
 
     # -------------------------------------------------------------
-    # 1. MÓDULO PDV — FRENTE DE CAIXA (LAYOUT ALINHADO EXATAMENTE AO PEDIDO)
+    # 1. MÓDULO PDV — FRENTE DE CAIXA
     # -------------------------------------------------------------
     if menu_admin == "🛒 PDV — Frente de Caixa":
-        
-        # --- LINHA DO TÍTULO DO PDV (RETÂNGULO VERDE NO LOCAL SOLICITADO) ---
         col_tit_pdv, col_modo_pdv = st.columns([2, 1], gap="small")
         with col_tit_pdv:
             st.markdown(f"### 🛒 PDV — Frente de Caixa — {nome_empresa_header} | 👤 Utilizador: {usr_exibicao}")
@@ -342,7 +381,6 @@ else:
 
         df_caixa_aberto = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
         
-        # --- AVISO DE CAIXA (RETÂNGULO VERMELHO NO LOCAL SOLICITADO) ---
         if not df_caixa_aberto.empty:
             st.success("🟢 Caixa Aberto e Operacional")
         else:
@@ -370,9 +408,6 @@ else:
                     return str(match.iloc[0]['produto'])
             return ""
 
-        # =========================================================================
-        # TABELA DE ITENS (CARRINHO) NO TOPO — ESTILO SISTEMA COMERCIAL
-        # =========================================================================
         total_geral_carrinho = sum(item['valor_total'] for item in st.session_state.carrinho_pdv) if st.session_state.carrinho_pdv else 0.0
         st.markdown(f"### 🛒 Itens Lançados no Carrinho | Subtotal / Total Geral: **R$ {total_geral_carrinho:,.2f}**")
 
@@ -413,9 +448,6 @@ else:
         else:
             st.info("Nenhum item lançado no carrinho ainda.")
 
-        # =========================================================================
-        # LOCALIZAÇÃO RÁPIDA E INCLUSÃO DE PRODUTOS NA PARTE INFERIOR
-        # =========================================================================
         col_bus1, col_bus2 = st.columns([1, 1], gap="medium")
         with col_bus1:
             codigo_barras_input = st.text_input("Código de Barras (Leitor / Digitação)", key="input_cod_barras_pdv")
@@ -436,7 +468,6 @@ else:
 
         val_venda_sug, forn_sug, grupo_sug, cod_sug = obter_dados_produto(prod_selecionado) if prod_selecionado else (0.0, "", "", "")
 
-        # --- QUANTIDADE E PREÇO (CONDICIONAL AO MODO) ---
         if is_simples:
             qtd_venda = 1.0
             preco_unit_venda = val_venda_sug
@@ -447,13 +478,9 @@ else:
                     st.error("Selecione um produto.")
                 else:
                     st.session_state.carrinho_pdv.append({
-                        "codigo": cod_sug,
-                        "produto": prod_selecionado,
-                        "quantidade": qtd_venda,
-                        "valor_unitario": preco_unit_venda,
-                        "valor_total": subtotal_item,
-                        "fornecedor": forn_sug,
-                        "grupo": grupo_sug
+                        "codigo": cod_sug, "produto": prod_selecionado, "quantidade": qtd_venda,
+                        "valor_unitario": preco_unit_venda, "valor_total": subtotal_item,
+                        "fornecedor": forn_sug, "grupo": grupo_sug
                     })
                     st.success(f"✅ '{prod_selecionado}' adicionado!")
                     st.rerun()
@@ -471,13 +498,9 @@ else:
                         st.error("Selecione um produto.")
                     else:
                         st.session_state.carrinho_pdv.append({
-                            "codigo": cod_sug,
-                            "produto": prod_selecionado,
-                            "quantidade": qtd_venda,
-                            "valor_unitario": preco_unit_venda,
-                            "valor_total": subtotal_item,
-                            "fornecedor": forn_sug,
-                            "grupo": grupo_sug
+                            "codigo": cod_sug, "produto": prod_selecionado, "quantidade": qtd_venda,
+                            "valor_unitario": preco_unit_venda, "valor_total": subtotal_item,
+                            "fornecedor": forn_sug, "grupo": grupo_sug
                         })
                         st.success(f"✅ '{prod_selecionado}' adicionado!")
                         st.rerun()
@@ -675,57 +698,136 @@ else:
                     st.rerun()
 
     # -------------------------------------------------------------
-    # 7. GESTÃO DE UTILIZADORES E LOGINS
+    # 7. GESTÃO DE UTILIZADORES E LOGINS (NOVO DESIGN COM ABAS: CADASTRAR / EDITAR E EXCLUIR)
     # -------------------------------------------------------------
     elif menu_admin == "🔐 Gestão de Utilizadores e Logins":
-        st.subheader("🔐 Gestão de Logins e Permissões de Funcionários")
+        st.subheader("🔐 Gestão de Logins e Permissões de Acesso aos Menus")
         
-        with st.form("form_cad_usuario"):
-            st.markdown("### Cadastrar Novo Utilizador / Funcionário")
-            col_u1, col_u2 = st.columns(2)
-            with col_u1:
-                nome_usuario = st.text_input("Nome Completo do Funcionário")
-                login_usuario = st.text_input("Login de Acesso (ex: joao.silva)")
-            with col_u2:
-                senha_usuario = st.text_input("Senha de Acesso", type="password")
-                cargo_usuario = st.selectbox("Cargo / Nível", ["Vendedor", "Caixa", "Gerente", "Administrador"])
+        tab_novo_usr, tab_ger_usr = st.tabs(["➕ Cadastrar Novo Utilizador", "🛠️ Editar / Excluir Utilizadores"])
 
-            st.markdown("#### Permissões do Sistema")
-            p_prod_ver = st.checkbox("Ver Produtos", value=True)
-            p_prod_ed = st.checkbox("Editar Produtos")
-            p_vend_ver = st.checkbox("Ver Vendas", value=True)
-            p_vend_ed = st.checkbox("Realizar Vendas", value=True)
-            p_cli_ver = st.checkbox("Ver Clientes", value=True)
-            p_rel_ver = st.checkbox("Ver Relatórios")
+        with tab_novo_usr:
+            with st.form("form_cad_usuario_novo"):
+                st.markdown("### Preencha os dados do novo funcionário")
+                col_u1, col_u2 = st.columns(2)
+                with col_u1:
+                    nome_usuario = st.text_input("Nome Completo do Funcionário")
+                    login_usuario = st.text_input("Login de Acesso (ex: joao.silva)")
+                with col_u2:
+                    senha_usuario = st.text_input("Senha de Acesso", type="password")
+                    cargo_usuario = st.selectbox("Cargo / Nível", ["Vendedor", "Caixa", "Gerente", "Administrador"])
 
-            if st.form_submit_button("💾 Salvar Utilizador / Login", type="primary"):
-                if not login_usuario.strip() or not senha_usuario.strip():
-                    st.error("Preencha o login e a senha.")
-                else:
-                    try:
-                        cursor = conn.cursor()
-                        cursor.execute("""
-                            INSERT INTO usuarios (usuario, login, senha, cargo, perm_produtos_ver, perm_produtos_editar, perm_vendas_ver, perm_vendas_editar, perm_clientes_ver, perm_relatorios_ver)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        """, (
-                            nome_usuario, login_usuario.strip().lower(), senha_usuario, cargo_usuario,
-                            1 if p_prod_ver else 0, 1 if p_prod_ed else 0,
-                            1 if p_vend_ver else 0, 1 if p_vend_ed else 0,
-                            1 if p_cli_ver else 0, 1 if p_rel_ver else 0
-                        ))
-                        conn.commit()
-                        st.success(f"✅ Utilizador '{login_usuario}' criado com sucesso!")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Erro ao salvar utilizador (talvez o login já exista): {e}")
+                st.markdown("#### 🎯 Permissões de Acesso (Menus Laterais)")
+                col_p1, col_p2, col_p3 = st.columns(3)
+                with col_p1:
+                    p_pdv = st.checkbox("🛒 PDV — Frente de Caixa", value=True)
+                    p_fin = st.checkbox("📊 Fechamento & Financeiro", value=False)
+                    p_reg_v = st.checkbox("🛒 Registrar Venda", value=True)
+                    p_comp = st.checkbox("📦 Entrada de Estoque", value=False)
+                with col_p2:
+                    p_cad = st.checkbox("👥 Cadastros (Clientes/Forn)", value=True)
+                    p_rh = st.checkbox("👥 Recursos Humanos (RH)", value=False)
+                    p_usr = st.checkbox("🔐 Gestão de Utilizadores", value=False)
+                    p_bkp = st.checkbox("💾 Backup e Restauração", value=False)
+                with col_p3:
+                    p_cr = st.checkbox("💸 Contas a Receber", value=True)
+                    p_est = st.checkbox("📦 Estoque de Produtos", value=True)
+                    p_cfg = st.checkbox("🏢 Configurações Empresa", value=False)
 
-        st.markdown("---")
-        st.markdown("### 📋 Utilizadores Cadastrados")
-        df_usuarios = carregar_dados("SELECT id, usuario, login, cargo FROM usuarios")
-        if not df_usuarios.empty:
-            st.dataframe(df_usuarios, use_container_width=True)
-        else:
-            st.info("Nenhum funcionário cadastrado além do administrador padrão.")
+                if st.form_submit_button("💾 Salvar Novo Utilizador", type="primary"):
+                    if not login_usuario.strip() or not senha_usuario.strip():
+                        st.error("Preencha o login e a senha.")
+                    else:
+                        try:
+                            cursor = conn.cursor()
+                            cursor.execute("""
+                                INSERT INTO usuarios (
+                                    usuario, login, senha, cargo, 
+                                    perm_pdv, perm_financeiro, perm_registrar_venda, perm_compras, 
+                                    perm_cadastros, perm_rh, perm_usuarios, perm_backup, 
+                                    perm_contas_receber, perm_estoque, perm_configuracoes
+                                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            """, (
+                                nome_usuario, login_usuario.strip().lower(), senha_usuario, cargo_usuario,
+                                1 if p_pdv else 0, 1 if p_fin else 0, 1 if p_reg_v else 0, 1 if p_comp else 0,
+                                1 if p_cad else 0, 1 if p_rh else 0, 1 if p_usr else 0, 1 if p_bkp else 0,
+                                1 if p_cr else 0, 1 if p_est else 0, 1 if p_cfg else 0
+                            ))
+                            conn.commit()
+                            st.success(f"✅ Utilizador '{login_usuario}' criado com sucesso!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro ao salvar utilizador (talvez o login já exista): {e}")
+
+        with tab_ger_usr:
+            st.markdown("### 📋 Selecione um Utilizador para Editar ou Excluir")
+            df_users_all = carregar_dados("SELECT * FROM usuarios")
+            if not df_users_all.empty:
+                lista_logins = df_users_all['login'].tolist()
+                user_selecionado_edit = st.selectbox("Selecione o Login do Utilizador", lista_logins, key="sel_user_edit_key")
+                
+                u_row = df_users_all[df_users_all['login'] == user_selecionado_edit].iloc[0]
+                
+                with st.form("form_edit_usuario"):
+                    ed_nome = st.text_input("Nome Completo", value=str(u_row.get('usuario', '')))
+                    ed_login = st.text_input("Login de Acesso", value=str(u_row.get('login', '')))
+                    ed_senha = st.text_input("Nova Senha (ou mantenha a atual)", value=str(u_row.get('senha', '')))
+                    ed_cargo = st.selectbox("Cargo", ["Vendedor", "Caixa", "Gerente", "Administrador"], index=["Vendedor", "Caixa", "Gerente", "Administrador"].index(str(u_row.get('cargo', 'Vendedor'))) if str(u_row.get('cargo', 'Vendedor')) in ["Vendedor", "Caixa", "Gerente", "Administrador"] else 0)
+
+                    st.markdown("#### 🎯 Atualizar Permissões de Acesso")
+                    ep_pdv = st.checkbox("🛒 PDV — Frente de Caixa", value=bool(u_row.get('perm_pdv', 1)))
+                    ep_fin = st.checkbox("📊 Fechamento & Financeiro", value=bool(u_row.get('perm_financeiro', 0)))
+                    ep_reg_v = st.checkbox("🛒 Registrar Venda", value=bool(u_row.get('perm_registrar_venda', 1)))
+                    ep_comp = st.checkbox("📦 Entrada de Estoque", value=bool(u_row.get('perm_compras', 0)))
+                    ep_cad = st.checkbox("👥 Cadastros (Clientes/Forn)", value=bool(u_row.get('perm_cadastros', 1)))
+                    ep_rh = st.checkbox("👥 Recursos Humanos (RH)", value=bool(u_row.get('perm_rh', 0)))
+                    ep_usr = st.checkbox("🔐 Gestão de Utilizadores", value=bool(u_row.get('perm_usuarios', 0)))
+                    ep_bkp = st.checkbox("💾 Backup e Restauração", value=bool(u_row.get('perm_backup', 0)))
+                    ep_cr = st.checkbox("💸 Contas a Receber", value=bool(u_row.get('perm_contas_receber', 1)))
+                    ep_est = st.checkbox("📦 Estoque de Produtos", value=bool(u_row.get('perm_estoque', 1)))
+                    ep_cfg = st.checkbox("🏢 Configurações Empresa", value=bool(u_row.get('perm_configuracoes', 0)))
+
+                    col_btn_ed1, col_btn_ed2 = st.columns(2)
+                    with col_btn_ed1:
+                        btn_salvar_alt = st.form_submit_button("✏️ Salvar / Alterar Utilizador", type="primary")
+                    with col_btn_ed2:
+                        btn_excluir_usr = st.form_submit_button("🗑️ Excluir Utilizador")
+
+                    if btn_salvar_alt:
+                        try:
+                            cursor = conn.cursor()
+                            cursor.execute("""
+                                UPDATE usuarios SET 
+                                    usuario = ?, login = ?, senha = ?, cargo = ?,
+                                    perm_pdv = ?, perm_financeiro = ?, perm_registrar_venda = ?, perm_compras = ?,
+                                    perm_cadastros = ?, perm_rh = ?, perm_usuarios = ?, perm_backup = ?,
+                                    perm_contas_receber = ?, perm_estoque = ?, perm_configuracoes = ?
+                                WHERE id = ?
+                            """, (
+                                ed_nome, ed_login.strip().lower(), ed_senha, ed_cargo,
+                                1 if ep_pdv else 0, 1 if ep_fin else 0, 1 if ep_reg_v else 0, 1 if ep_comp else 0,
+                                1 if ep_cad else 0, 1 if ep_rh else 0, 1 if ep_usr else 0, 1 if ep_bkp else 0,
+                                1 if ep_cr else 0, 1 if ep_est else 0, 1 if ep_cfg else 0, int(u_row['id'])
+                            ))
+                            conn.commit()
+                            st.success("✅ Utilizador atualizado com sucesso!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro ao atualizar utilizador: {e}")
+
+                    if btn_excluir_usr:
+                        if ed_login.strip().lower() == "administrador":
+                            st.error("❌ Não é permitido excluir o administrador principal do sistema.")
+                        else:
+                            try:
+                                cursor = conn.cursor()
+                                cursor.execute("DELETE FROM usuarios WHERE id = ?", (int(u_row['id']),))
+                                conn.commit()
+                                st.success("🗑️ Utilizador excluído com sucesso!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao excluir utilizador: {e}")
+            else:
+                st.info("Nenhum utilizador cadastrado além do administrador padrão.")
 
     # -------------------------------------------------------------
     # 8. BACKUP
