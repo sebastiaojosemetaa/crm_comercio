@@ -167,6 +167,26 @@ def adequar_banco_e_migrar():
                 nome_empresa TEXT, cnpj TEXT, ie TEXT, fone TEXT, endereco TEXT
             )
         """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS usuarios (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                usuario TEXT,
+                login TEXT UNIQUE,
+                senha TEXT,
+                cargo TEXT,
+                perm_produtos_ver INTEGER,
+                perm_produtos_editar INTEGER,
+                perm_produtos_excluir INTEGER,
+                perm_vendas_ver INTEGER,
+                perm_vendas_editar INTEGER,
+                perm_vendas_excluir INTEGER,
+                perm_clientes_ver INTEGER,
+                perm_clientes_editar INTEGER,
+                perm_clientes_excluir INTEGER,
+                perm_relatorios_ver INTEGER
+            )
+        """)
         conn.commit()
     except Exception as e:
         pass
@@ -247,13 +267,13 @@ if not st.session_state['autenticado']:
             else:
                 try:
                     cursor = conn.cursor()
-                    cursor.execute("SELECT * FROM usuarios WHERE LOWER(TRIM(usuario)) = ? AND senha = ?", (usuario_input, senha_input))
+                    cursor.execute("SELECT * FROM usuarios WHERE LOWER(TRIM(login)) = ? AND senha = ?", (usuario_input, senha_input))
                     user_row = cursor.fetchone()
                     cursor.close()
                     if user_row:
                         st.session_state['autenticado'] = True
-                        st.session_state['usuario_logado'] = user_row[1]
-                        st.session_state['cargo_logado'] = user_row[3] if len(user_row) > 3 else "Funcionário"
+                        st.session_state['usuario_logado'] = user_row[2] # login column index
+                        st.session_state['cargo_logado'] = user_row[4] if len(user_row) > 4 else "Funcionário"
                         st.success("Login efetuado com sucesso!")
                         st.rerun()
                     else:
@@ -277,6 +297,7 @@ else:
             "📦 Entrada de Estoque (Compras)",
             "👥 Cadastros (Clientes / Fornecedores / Grupos)",
             "👥 Gestão de Recursos Humanos (RH)",
+            "🔐 Gestão de Utilizadores e Logins",
             "💾 Backup e Restauração",
             "💸 Contas a Receber",
             "📦 Estoque de Produtos",
@@ -350,7 +371,6 @@ else:
 
             if st.session_state.carrinho_pdv:
                 df_carrinho = pd.DataFrame(st.session_state.carrinho_pdv)
-                # Seleciona apenas as colunas corretas para evitar KeyError
                 df_exibicao = df_carrinho[['produto', 'quantidade', 'valor_unitario', 'valor_total']].copy()
                 df_exibicao.columns = ['Produto', 'Qtd', 'Preço Unit.', 'Total']
                 
@@ -579,7 +599,60 @@ else:
                     st.rerun()
 
     # -------------------------------------------------------------
-    # 7. BACKUP
+    # 7. GESTÃO DE UTILIZADORES E LOGINS (NOVO)
+    # -------------------------------------------------------------
+    elif menu_admin == "🔐 Gestão de Utilizadores e Logins":
+        st.subheader("🔐 Gestão de Logins e Permissões de Funcionários")
+        
+        with st.form("form_cad_usuario"):
+            st.markdown("### Cadastrar Novo Utilizador / Funcionário")
+            col_u1, col_u2 = st.columns(2)
+            with col_u1:
+                nome_usuario = st.text_input("Nome Completo do Funcionário")
+                login_usuario = st.text_input("Login de Acesso (ex: joao.silva)")
+            with col_u2:
+                senha_usuario = st.text_input("Senha de Acesso", type="password")
+                cargo_usuario = st.selectbox("Cargo / Nível", ["Vendedor", "Caixa", "Gerente", "Administrador"])
+
+            st.markdown("#### Permissões do Sistema")
+            p_prod_ver = st.checkbox("Ver Produtos", value=True)
+            p_prod_ed = st.checkbox("Editar Produtos")
+            p_vend_ver = st.checkbox("Ver Vendas", value=True)
+            p_vend_ed = st.checkbox("Realizar Vendas", value=True)
+            p_cli_ver = st.checkbox("Ver Clientes", value=True)
+            p_rel_ver = st.checkbox("Ver Relatórios")
+
+            if st.form_submit_button("💾 Salvar Utilizador / Login", type="primary"):
+                if not login_usuario.strip() or not senha_usuario.strip():
+                    st.error("Preencha o login e a senha.")
+                else:
+                    try:
+                        cursor = conn.cursor()
+                        cursor.execute("""
+                            INSERT INTO usuarios (usuario, login, senha, cargo, perm_produtos_ver, perm_produtos_editar, perm_vendas_ver, perm_vendas_editar, perm_clientes_ver, perm_relatorios_ver)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (
+                            nome_usuario, login_usuario.strip().lower(), senha_usuario, cargo_usuario,
+                            1 if p_prod_ver else 0, 1 if p_prod_ed else 0,
+                            1 if p_vend_ver else 0, 1 if p_vend_ed else 0,
+                            1 if p_cli_ver else 0, 1 if p_rel_ver else 0
+                        ))
+                        conn.commit()
+                        st.success(f"✅ Utilizador '{login_usuario}' criado com sucesso!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao salvar utilizador (talvez o login já exista): {e}")
+
+        st.markdown("---")
+        st.markdown("### 📋 Utilizadores Cadastrados")
+        df_usuarios = carregar_dados("SELECT id, usuario, login, cargo FROM usuarios")
+        if not df_usuarios.empty:
+            st.dataframe(df_usuarios, use_container_width=True)
+        else:
+            st.info("Nenhum funcionário cadastrado além do administrador padrão.")
+
+    # -------------------------------------------------------------
+    # 8. BACKUP
     # -------------------------------------------------------------
     elif menu_admin == "💾 Backup e Restauração":
         st.subheader("💾 Central de Backup e Restauração")
@@ -597,7 +670,7 @@ else:
             st.warning("Banco de dados ainda não localizado.")
 
     # -------------------------------------------------------------
-    # 8. CONTAS A RECEBER
+    # 9. CONTAS A RECEBER
     # -------------------------------------------------------------
     elif menu_admin == "💸 Contas a Receber":
         st.subheader("💸 Contas a Receber")
@@ -609,7 +682,7 @@ else:
             st.info("Nenhuma conta pendente a receber no momento.")
 
     # -------------------------------------------------------------
-    # 9. ESTOQUE
+    # 10. ESTOQUE
     # -------------------------------------------------------------
     elif menu_admin == "📦 Estoque de Produtos":
         st.subheader("📦 Estoque de Produtos e Preços")
@@ -620,7 +693,7 @@ else:
             st.info("Nenhum produto cadastrado no estoque.")
 
     # -------------------------------------------------------------
-    # 10. CONFIGURAÇÕES
+    # 11. CONFIGURAÇÕES
     # -------------------------------------------------------------
     elif menu_admin == "🏢 Configurações da Empresa":
         st.subheader("🏢 Configurações e Dados da Empresa")
