@@ -3543,8 +3543,8 @@ if st.button("Entrar no Sistema", type="primary", key="btn_login"):
                 else:
                     st.info("ℹ️ Registe colaboradores na primeira aba.")
         
-        # --- ALINHAMENTO CORRETO (Sem recuo excessivo à esquerda) ---
-        elif menu_admin == "Entrada de Estoque (Compras)":
+        # --- MUDANÇA PARA IF INDEPENDENTE (Resolve o erro de sintaxe) ---
+        if menu_admin == "Entrada de Estoque (Compras)":
             st.subheader("📦 Entrada de Estoque (Compras)")
             st.subheader("Registrar Entrada de Estoque")
         
