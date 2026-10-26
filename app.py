@@ -747,19 +747,19 @@ else:
         ],
         key="radio_menu_admin_opcoes"
     )
-        
-        # Módulo de Gestão de Funcionários vinculado ao RH
-        if menu_admin == "🛒 PDV — Frente de Caixa":
-            # CSS para compactar e estilizar os botões e campos
-            st.markdown("""
-            <style>
-                .block-container { padding-top: 1rem !important; padding-bottom: 0rem !important; }
-                div[data-testid="stVerticalBlock"] > div { padding: 4px 8px !important; margin-bottom: 0px !important; }
-                .stMarkdown { margin-bottom: -10px !important; }
-                div[data-baseweb="input"] { min-height: 35px !important; }
-                h3, h4 { margin-top: 0px !important; margin-bottom: 5px !important; font-size: 16px !important; }
-            </style>
-            """, unsafe_allow_html=True)
+
+# Módulo do PDV (Alinhado exatamente com 4 espaços a contar da margem esquerda)
+if menu_admin == "🛒 PDV — Frente de Caixa":
+    # CSS para compactar e estilar os botões e campos
+    st.markdown("""
+    <style>
+    .block-container { padding-top: 1rem !important; padding-bottom: 0rem !important; }
+    div[data-testid="stVerticalBlock"] > div { padding: 4px 8px !important; margin-bottom: 0px !important; }
+    .stMarkdown { margin-bottom: -10px !important; }
+    div[data-baseweb="input"] { min-height: 35px !important; }
+    h3, h4 { margin-top: 0px !important; margin-bottom: 5px !important; font-size: 16px !important; }
+    </style>
+    """, unsafe_allow_html=True)
             
             # Inicializa estados necessários
             if 'carrinho_pdv' not in st.session_state:
