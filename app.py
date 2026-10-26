@@ -44,12 +44,10 @@ def get_connection():
 
 conn = get_connection()
 
-# 1. PRIMEIRO: Cria todas as tabelas e colunas obrigatórias
 def adequar_banco_e_migrar():
     try:
         cursor = conn.cursor()
         
-        # Tabela de Empresas por Dispositivo (Criação prioritária)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS empresas_dispositivos (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -72,7 +70,17 @@ def adequar_banco_e_migrar():
             try: cursor.execute(f"ALTER TABLE clientes ADD COLUMN {col} TEXT")
             except Exception: pass
 
-        cursor.execute("CREATE TABLE IF NOT EXISTS vendas (id INTEGER PRIMARY KEY AUTOINCREMENT, cliente TEXT, produto TEXT, data TEXT)")
+        cursor.execute("SELECT id FROM vendas LIMIT 1")
+    except Exception:
+        pass
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS vendas (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                cliente TEXT, produto TEXT, data TEXT
+            )
+        """)
         for col in ["fornecedor", "grupo", "quantidade", "valor_venda", "valor_total", "forma_pagamento", "valor_recebido", "troco", "restante", "status", "tipo", "codigo", "codigo_venda", "vendedor"]:
             try: cursor.execute(f"ALTER TABLE vendas ADD COLUMN {col} TEXT")
             except Exception: pass
@@ -118,124 +126,6 @@ def adequar_banco_e_migrar():
                 perm_relatorios_ver INTEGER DEFAULT 0
             )
         """)
-        conn.commit()
-    except Exception as e:
-        pass
-
-# Executa a criação das tabelas imediatamente
-adequar_banco_e_migrar()
-
-# --- DISPOSITIVO E IDENTIFICADOR ÚNICO ---
-if "device_id" not in st.query_params:
-    st.query_params["device_id"] = str(uuid.uuid4())
-device_id = st.query_params["device_id"]
-
-# 2. DEPOIS: Faz a consulta e inserção com segurança sabendo que a tabela existe
-df_emp_dev = carregar_dados(f"SELECT * FROM empresas_dispositivos WHERE device_id = '{device_id}'")
-if df_emp_dev.empty:
-    cursor = conn.cursor()
-    cursor.execute("""
-        INSERT OR IGNORE INTO empresas_dispositivos (device_id, nome_empresa, cnpj, ie, fone, endereco)
-        VALUES (?, 'REY DA CEBOLA', '19417439000142', '', '(99) 98501-6050', 'RUA CAIPIRA, Nº 174')
-    """, (device_id,))
-    conn.commit()
-    df_emp_dev = carregar_dados(f"SELECT * FROM empresas_dispositivos WHERE device_id = '{device_id}'")
-
-reg_emp = df_emp_dev.iloc[0] if not df_emp_dev.empty else {}
-    try:
-        cursor = conn.cursor()
-        
-        # Tabela de Produtos
-        cursor.execute("CREATE TABLE IF NOT EXISTS produtos (id INTEGER PRIMARY KEY AUTOINCREMENT, produto TEXT)")
-        for col in ["fornecedor", "grupo", "preco_compra", "preco_venda", "venda", "quantidade", "estoque", "codigo"]:
-            try: cursor.execute(f"ALTER TABLE produtos ADD COLUMN {col} TEXT")
-            except Exception: pass
-
-        # Tabela de Clientes
-        cursor.execute("CREATE TABLE IF NOT EXISTS clientes (id INTEGER PRIMARY KEY AUTOINCREMENT, cliente TEXT)")
-        for col in ["cliente", "nome", "cpf", "doc", "endereco", "email", "fone", "telefone", "cidade", "senha"]:
-            try: cursor.execute(f"ALTER TABLE clientes ADD COLUMN {col} TEXT")
-            except Exception: pass
-
-        # Tabela de Vendas
-        cursor.execute("CREATE TABLE IF NOT EXISTS vendas (id INTEGER PRIMARY KEY AUTOINCREMENT, cliente TEXT, produto TEXT, data TEXT)")
-        for col in ["fornecedor", "grupo", "quantidade", "valor_venda", "valor_total", "forma_pagamento", "valor_recebido", "troco", "restante", "status", "tipo", "codigo", "codigo_venda", "vendedor"]:
-            try: cursor.execute(f"ALTER TABLE vendas ADD COLUMN {col} TEXT")
-            except Exception: pass
-
-        # Tabela de Pedidos
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS pedidos (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                cliente TEXT, produto TEXT, fornecedor TEXT, grupo TEXT,
-                quantidade REAL, valor_unitario REAL, valor_total REAL, status TEXT, data TEXT
-            )
-        """)
-
-        # Tabela de Funcionários (Garante todas as colunas)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS funcionarios (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                nome TEXT,
-                cargo TEXT,
-                salario REAL,
-                cbo TEXT,
-                telefone TEXT,
-                admissao TEXT,
-                usuario TEXT
-            )
-        """)
-        for col_f in ["cbo", "telefone", "admissao", "usuario", "cargo", "salario"]:
-            try: cursor.execute(f"ALTER TABLE funcionarios ADD COLUMN {col_f} TEXT")
-            except Exception: pass
-
-        # Tabela de Pagamentos de Funcionários
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS pagamentos_funcionarios (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                colaborador TEXT,
-                tipo TEXT,
-                valor REAL,
-                data_pagamento TEXT,
-                inss REAL,
-                faltas REAL,
-                desconto_faltas REAL,
-                competencia TEXT
-            )
-        """)
-
-        # Tabela de Usuários / Logins (Garante todas as colunas de permissão)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS usuarios (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                usuario TEXT,
-                login TEXT UNIQUE,
-                senha TEXT,
-                cargo TEXT,
-                perm_produtos_ver INTEGER DEFAULT 1,
-                perm_produtos_editar INTEGER DEFAULT 0,
-                perm_produtos_excluir INTEGER DEFAULT 0,
-                perm_vendas_ver INTEGER DEFAULT 1,
-                perm_vendas_editar INTEGER DEFAULT 0,
-                perm_vendas_excluir INTEGER DEFAULT 0,
-                perm_clientes_ver INTEGER DEFAULT 1,
-                perm_clientes_editar INTEGER DEFAULT 0,
-                perm_clientes_excluir INTEGER DEFAULT 0,
-                perm_relatorios_ver INTEGER DEFAULT 0
-            )
-        """)
-        
-        colunas_usuarios = [
-            "usuario TEXT", "login TEXT", "senha TEXT", "cargo TEXT",
-            "perm_produtos_ver INTEGER DEFAULT 1", "perm_produtos_editar INTEGER DEFAULT 0", "perm_produtos_excluir INTEGER DEFAULT 0",
-            "perm_vendas_ver INTEGER DEFAULT 1", "perm_vendas_editar INTEGER DEFAULT 0", "perm_vendas_excluir INTEGER DEFAULT 0",
-            "perm_clientes_ver INTEGER DEFAULT 1", "perm_clientes_editar INTEGER DEFAULT 0", "perm_clientes_excluir INTEGER DEFAULT 0",
-            "perm_relatorios_ver INTEGER DEFAULT 0"
-        ]
-        for col_u in colunas_usuarios:
-            try: cursor.execute(f"ALTER TABLE usuarios ADD COLUMN {col_u}")
-            except Exception: pass
-
         conn.commit()
     except Exception as e:
         pass
