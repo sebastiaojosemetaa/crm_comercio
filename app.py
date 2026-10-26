@@ -302,9 +302,10 @@ if not st.session_state['autenticado']:
                     cursor.close()
                     if user_row:
                         st.session_state['autenticado'] = True
-                        st.session_state['usuario_logado'] = user_row[2] if user_row[2] else user_row[1]
+                        # user_row[1] é o Nome Completo gravado no cadastro!
+                        st.session_state['usuario_logado'] = user_row[1] if user_row[1] else user_row[2]
                         st.session_state['cargo_logado'] = user_row[4] if len(user_row) > 4 else "Funcionário"
-                        # Carrega permissões do BD (índices 5 a 15)
+                        # Carrega permissões corretas do utilizador logado (índices 5 a 15)
                         st.session_state['permissoes_usuario'] = {
                             "pdv": user_row[5], "financeiro": user_row[6], "registrar_venda": user_row[7],
                             "compras": user_row[8], "cadastros": user_row[9], "rh": user_row[10],
@@ -329,9 +330,9 @@ else:
         st.session_state['permissoes_usuario'] = {}
         st.rerun()
 
-    # MONTAGEM DA NAVEGAÇÃO BASEADA NAS PERMISSÕES DO UTILIZADOR
+    # MONTAGEM DA NAVEGAÇÃO BASEADA EXCLUSIVAMENTE NAS PERMISSÕES DO UTILIZADOR LOGADO
     perms = st.session_state.get('permissoes_usuario', {})
-    is_admin_master = (usr_exibicao.lower() == "administrador")
+    is_admin_master = (usr_exibicao.lower() == "administrador" or st.session_state.get('cargo_logado') == "Administrador")
 
     opcoes_menu_disponiveis = []
     
@@ -698,7 +699,7 @@ else:
                     st.rerun()
 
     # -------------------------------------------------------------
-    # 7. GESTÃO DE UTILIZADORES E LOGINS (NOVO DESIGN COM ABAS: CADASTRAR / EDITAR E EXCLUIR)
+    # 7. GESTÃO DE UTILIZADORES E LOGINS
     # -------------------------------------------------------------
     elif menu_admin == "🔐 Gestão de Utilizadores e Logins":
         st.subheader("🔐 Gestão de Logins e Permissões de Acesso aos Menus")
