@@ -1929,7 +1929,7 @@ if st.button("Entrar no Sistema", type="primary", key="btn_login"):
             st.title("📦 Estoque de Produtos e Preços")
         
             # --- IMPORTAÇÃO DIRETA PELA TELA DA APLICAÇÃO ---
-            with st.expander("📥 Importar / Colar Lista de Produtos em Massa"):
+            with st.expander("📦 Importar / Colar Lista de Produtos em Massa"):
                 st.info("Cole abaixo a sua lista copiada diretamente do Excel ou Bloco de Notas.")
                 
                 texto_lista_colada = st.text_area(
@@ -3541,8 +3541,8 @@ if st.button("Entrar no Sistema", type="primary", key="btn_login"):
                         st.info("ℹ️ Não foram encontradas competências para exibir.")
                 else:
                     st.info("ℹ️ Registe colaboradores na primeira aba.")
-        elif menu_admin == "📥 Entrada de Estoque (Compras)":
-            st.title("📥 Entrada de Estoque (Compras)")
+        elif menu_admin == "📦 Entrada de Estoque (Compras)":
+            st.title("📦 Entrada de Estoque (Compras)")
             st.subheader("Registrar Entrada de Estoque")
         
             if "carrinho_compras" not in st.session_state:
