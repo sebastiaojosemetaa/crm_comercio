@@ -297,7 +297,7 @@ if not st.session_state['autenticado']:
                     st.error(f"Erro ao autenticar: {e}")
 
 else:
-
+    # --- INTERFACE PRINCIPAL APÓS O LOGIN ---
     usr_exibicao = st.session_state.get('usuario_logado') or "administrador"
     st.sidebar.write(f"👤 **Utilizador:** `{usr_exibicao}`")
     
@@ -322,20 +322,32 @@ else:
 
     menu_admin = st.sidebar.radio("Navegação", opcoes_menu, key="radio_menu_admin_opcoes")
 
+    # -------------------------------------------------------------
+    # 1. MÓDULO PDV — FRENTE DE CAIXA (LAYOUT ALINHADO EXATAMENTE AO PEDIDO)
+    # -------------------------------------------------------------
     if menu_admin == "🛒 PDV — Frente de Caixa":
-        st.subheader(f"🛒 PDV — Frente de Caixa — {nome_empresa_header} | 👤 Utilizador: {usr_exibicao}")
         
-        # --- BOTÃO / SELETOR DE MODO DO PDV (SIMPLES / COMPLETO) ---
-        modo_pdv_selecionado = st.radio(
-            "⚡ Alternar Modo do Sistema:",
-            ["Modo Simples", "Modo Completo"],
-            horizontal=True,
-            key="radio_modo_pdv_topo"
-        )
+        # --- LINHA DO TÍTULO DO PDV (RETÂNGULO VERDE NO LOCAL SOLICITADO) ---
+        col_tit_pdv, col_modo_pdv = st.columns([2, 1], gap="small")
+        with col_tit_pdv:
+            st.markdown(f"### 🛒 PDV — Frente de Caixa — {nome_empresa_header} | 👤 Utilizador: {usr_exibicao}")
+        with col_modo_pdv:
+            modo_pdv_selecionado = st.radio(
+                "⚡ Alternar Modo do Sistema:",
+                ["Modo Simples", "Modo Completo"],
+                horizontal=True,
+                key="radio_modo_pdv_topo"
+            )
         is_simples = (modo_pdv_selecionado == "Modo Simples")
 
         df_caixa_aberto = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
         
+        # --- AVISO DE CAIXA (RETÂNGULO VERMELHO NO LOCAL SOLICITADO) ---
+        if not df_caixa_aberto.empty:
+            st.success("🟢 Caixa Aberto e Operacional")
+        else:
+            st.warning("⚠️ Atenção: Não há nenhum caixa aberto no momento.")
+
         try:
             df_prod_pdv = pd.read_sql_query("SELECT * FROM produtos", conn)
             lista_produtos_pdv = df_prod_pdv['produto'].tolist() if not df_prod_pdv.empty else []
@@ -358,10 +370,9 @@ else:
                     return str(match.iloc[0]['produto'])
             return ""
 
-        if not df_caixa_aberto.empty:
-            st.success("🟢 Caixa Aberto e Operacional")
-        else:
-            st.warning("⚠️ Atenção: Não há nenhum caixa aberto no momento.")
+        # =========================================================================
+        # TABELA DE ITENS (CARRINHO) NO TOPO — ESTILO SISTEMA COMERCIAL
+        # =========================================================================
         total_geral_carrinho = sum(item['valor_total'] for item in st.session_state.carrinho_pdv) if st.session_state.carrinho_pdv else 0.0
         st.markdown(f"### 🛒 Itens Lançados no Carrinho | Subtotal / Total Geral: **R$ {total_geral_carrinho:,.2f}**")
 
@@ -402,8 +413,9 @@ else:
         else:
             st.info("Nenhum item lançado no carrinho ainda.")
 
-        st.markdown("---")
-               
+        # =========================================================================
+        # LOCALIZAÇÃO RÁPIDA E INCLUSÃO DE PRODUTOS NA PARTE INFERIOR
+        # =========================================================================
         col_bus1, col_bus2 = st.columns([1, 1], gap="medium")
         with col_bus1:
             codigo_barras_input = st.text_input("Código de Barras (Leitor / Digitação)", key="input_cod_barras_pdv")
@@ -719,41 +731,19 @@ else:
     # 8. BACKUP
     # -------------------------------------------------------------
     elif menu_admin == "💾 Backup e Restauração":
-            st.title("💾 Central de Backup e Restauração")
-            st.info("Gerencie cópias de segurança do seu banco de dados com total segurança.")
-
-            tab_bk1, tab_bk2 = st.tabs(["📤 Fazer Backup", "📥 Restaurar Backup"])
-
-            with tab_bk1:
-                st.subheader("Gerar Cópia de Segurança")
-                st.write("Clique no botão abaixo para baixar o arquivo contendo todos os seus produtos, clientes e vendas atualizados.")
-                try:
-                    with open("crm_comercio.db", "rb") as f:
-                        bytes_db = f.read()
-                    data_hoje = datetime.now().strftime("%Y-%m-%d_%H-%M")
-                    st.download_button(
-                        label="📥 Baixar Arquivo de Backup (.db)",
-                        data=bytes_db,
-                        file_name=f"backup_crm_comercio_{data_hoje}.db",
-                        mime="application/octet-stream",
-                        type="primary"
-                    )
-                except Exception:
-                    st.warning("O arquivo do banco de dados ainda não foi criado ou não foi encontrado.")
-
-            with tab_bk2:
-                st.subheader("Restaurar Sistema por Arquivo de Backup")
-                st.warning("⚠️ **Atenção:** Enviar um arquivo de backup antigo irá substituir os dados atuais.")
-                arquivo_upload = st.file_uploader("Selecione o arquivo de backup (.db)", type=["db"])
-                if arquivo_upload is not None:
-                    if st.button("🔄 Confirmar e Restaurar Banco de Dados", type="primary"):
-                        try:
-                            with open("crm_comercio.db", "wb") as f:
-                                f.write(arquivo_upload.getbuffer())
-                            st.success("✅ Backup restaurado com sucesso! Recarregando o sistema...")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Erro ao restaurar o backup: {e}")
+        st.subheader("💾 Central de Backup e Restauração")
+        try:
+            with open("crm_comercio.db", "rb") as f:
+                bytes_db = f.read()
+            st.download_button(
+                label="📥 Baixar Arquivo de Backup (.db)",
+                data=bytes_db,
+                file_name=f"backup_crm_{datetime.now().strftime('%Y-%m-%d')}.db",
+                mime="application/octet-stream",
+                type="primary"
+            )
+        except Exception:
+            st.warning("Banco de dados ainda não localizado.")
 
     # -------------------------------------------------------------
     # 9. CONTAS A RECEBER
