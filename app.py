@@ -124,21 +124,26 @@ def salvar_cliente_completo(nome, tel, doc, endereco, cidade):
 def adequar_banco_e_migrar():
     try:
         cursor = conn.cursor()
+        
+        # Tabela de Produtos
         cursor.execute("CREATE TABLE IF NOT EXISTS produtos (id INTEGER PRIMARY KEY AUTOINCREMENT, produto TEXT)")
         for col in ["fornecedor", "grupo", "preco_compra", "preco_venda", "venda", "quantidade", "estoque", "codigo"]:
             try: cursor.execute(f"ALTER TABLE produtos ADD COLUMN {col} TEXT")
             except Exception: pass
 
+        # Tabela de Clientes
         cursor.execute("CREATE TABLE IF NOT EXISTS clientes (id INTEGER PRIMARY KEY AUTOINCREMENT, cliente TEXT)")
         for col in ["cliente", "nome", "cpf", "doc", "endereco", "email", "fone", "telefone", "cidade", "senha"]:
             try: cursor.execute(f"ALTER TABLE clientes ADD COLUMN {col} TEXT")
             except Exception: pass
 
+        # Tabela de Vendas
         cursor.execute("CREATE TABLE IF NOT EXISTS vendas (id INTEGER PRIMARY KEY AUTOINCREMENT, cliente TEXT, produto TEXT, data TEXT)")
         for col in ["fornecedor", "grupo", "quantidade", "valor_venda", "valor_total", "forma_pagamento", "valor_recebido", "troco", "restante", "status", "tipo", "codigo", "codigo_venda", "vendedor"]:
             try: cursor.execute(f"ALTER TABLE vendas ADD COLUMN {col} TEXT")
             except Exception: pass
 
+        # Tabela de Pedidos
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS pedidos (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -147,27 +152,39 @@ def adequar_banco_e_migrar():
             )
         """)
 
+        # Tabela de Funcionários (Garante todas as colunas)
         cursor.execute("""
-            CREATE TABLE IF NOT EXISTS caixa_sessoes (
-                id INTEGER PRIMARY KEY AUTOINCREMENT, data_abertura TEXT, data_fechamento TEXT,
-                saldo_inicial REAL, saldo_final REAL, status TEXT
+            CREATE TABLE IF NOT EXISTS funcionarios (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome TEXT,
+                cargo TEXT,
+                salario REAL,
+                cbo TEXT,
+                telefone TEXT,
+                admissao TEXT,
+                usuario TEXT
+            )
+        """)
+        for col_f in ["cbo", "telefone", "admissao", "usuario", "cargo", "salario"]:
+            try: cursor.execute(f"ALTER TABLE funcionarios ADD COLUMN {col_f} TEXT")
+            except Exception: pass
+
+        # Tabela de Pagamentos de Funcionários
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS pagamentos_funcionarios (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                colaborador TEXT,
+                tipo TEXT,
+                valor REAL,
+                data_pagamento TEXT,
+                inss REAL,
+                faltas REAL,
+                desconto_faltas REAL,
+                competencia TEXT
             )
         """)
 
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS caixa_movimentacoes (
-                id INTEGER PRIMARY KEY AUTOINCREMENT, sessao_id INTEGER, tipo TEXT,
-                valor REAL, descricao TEXT, data TEXT
-            )
-        """)
-
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS empresas_dispositivos (
-                id INTEGER PRIMARY KEY AUTOINCREMENT, device_id TEXT UNIQUE,
-                nome_empresa TEXT, cnpj TEXT, ie TEXT, fone TEXT, endereco TEXT
-            )
-        """)
-
+        # Tabela de Usuários / Logins (Garante todas as colunas de permissão)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS usuarios (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -175,18 +192,30 @@ def adequar_banco_e_migrar():
                 login TEXT UNIQUE,
                 senha TEXT,
                 cargo TEXT,
-                perm_produtos_ver INTEGER,
-                perm_produtos_editar INTEGER,
-                perm_produtos_excluir INTEGER,
-                perm_vendas_ver INTEGER,
-                perm_vendas_editar INTEGER,
-                perm_vendas_excluir INTEGER,
-                perm_clientes_ver INTEGER,
-                perm_clientes_editar INTEGER,
-                perm_clientes_excluir INTEGER,
-                perm_relatorios_ver INTEGER
+                perm_produtos_ver INTEGER DEFAULT 1,
+                perm_produtos_editar INTEGER DEFAULT 0,
+                perm_produtos_excluir INTEGER DEFAULT 0,
+                perm_vendas_ver INTEGER DEFAULT 1,
+                perm_vendas_editar INTEGER DEFAULT 0,
+                perm_vendas_excluir INTEGER DEFAULT 0,
+                perm_clientes_ver INTEGER DEFAULT 1,
+                perm_clientes_editar INTEGER DEFAULT 0,
+                perm_clientes_excluir INTEGER DEFAULT 0,
+                perm_relatorios_ver INTEGER DEFAULT 0
             )
         """)
+        
+        colunas_usuarios = [
+            "usuario TEXT", "login TEXT", "senha TEXT", "cargo TEXT",
+            "perm_produtos_ver INTEGER DEFAULT 1", "perm_produtos_editar INTEGER DEFAULT 0", "perm_produtos_excluir INTEGER DEFAULT 0",
+            "perm_vendas_ver INTEGER DEFAULT 1", "perm_vendas_editar INTEGER DEFAULT 0", "perm_vendas_excluir INTEGER DEFAULT 0",
+            "perm_clientes_ver INTEGER DEFAULT 1", "perm_clientes_editar INTEGER DEFAULT 0", "perm_clientes_excluir INTEGER DEFAULT 0",
+            "perm_relatorios_ver INTEGER DEFAULT 0"
+        ]
+        for col_u in colunas_usuarios:
+            try: cursor.execute(f"ALTER TABLE usuarios ADD COLUMN {col_u}")
+            except Exception: pass
+
         conn.commit()
     except Exception as e:
         pass
