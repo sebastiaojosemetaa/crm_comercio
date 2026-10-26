@@ -789,7 +789,57 @@ if menu_admin == "🛒 PDV — Frente de Caixa":
             return float(p_row.get('valor_venda', 0.0)), str(p_row.get('fornecedor', '')), str(p_row.get('grupo', ''))
         return 0.0, "", ""
 
-    total_geral_carrinho = sum(item['valor_total'] for item in st.session_state.carrinho_pdv)
+    total_geral_carrinho = sum(item['valor_total'] for item in st.session_state.carrinho_pdv) if st.session_state.carrinho_pdv else 0.0
+
+    # --- SELEÇÃO DE PRODUTO E QUANTIDADE ---
+    st.markdown("### 🛒 Registo de Venda / PDV")
+    
+    col_prod1, col_prod2, col_prod3 = st.columns([3, 1, 1])
+    with col_prod1:
+        prod_selecionado = st.selectbox("Pesquisar ou Selecionar Produto", [""] + lista_produtos_pdv, key="sel_prod_pdv")
+    
+    val_venda_sug, forn_sug, grupo_sug = obter_dados_produto(prod_selecionado) if prod_selecionado else (0.0, "", "")
+
+    with col_prod2:
+        qtd_venda = st.number_input("Quantidade", min_value=0.01, value=1.0, step=1.0, key="qtd_prod_pdv")
+    with col_prod3:
+        preco_unit_venda = st.number_input("Preço Unitário (R$)", min_value=0.0, value=val_venda_sug, format="%.2f", key="preco_unit_pdv")
+
+    if st.button("➕ [ Enter ] Incluir Produto", type="primary", use_container_width=True):
+        if not prod_selecionado:
+            st.error("Selecione um produto antes de incluir.")
+        else:
+            subtotal = qtd_venda * preco_unit_venda
+            st.session_state.carrinho_pdv.append({
+                "produto": prod_selecionado,
+                "quantidade": qtd_venda,
+                "valor_unitario": preco_unit_venda,
+                "valor_total": subtotal,
+                "fornecedor": forn_sug,
+                "grupo": grupo_sug
+            })
+            st.success(f"✅ '{prod_selecionado}' adicionado ao carrinho!")
+            st.rerun()
+
+    # --- EXIBIÇÃO DO CARRINHO ---
+    st.markdown("---")
+    st.subheader(f"🛒 Carrinho Atual — Total: R$ {total_geral_carrinho:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+
+    if st.session_state.carrinho_pdv:
+        df_cart = pd.DataFrame(st.session_state.carrinho_pdv)
+        st.data_editor(df_cart, use_container_width=True, key="editor_carrinho_pdv")
+
+        col_botoes_pdv1, col_botoes_pdv2 = st.columns(2)
+        with col_botoes_pdv1:
+            if st.button("❌ Cancelar Venda", use_container_width=True):
+                st.session_state.carrinho_pdv = []
+                st.rerun()
+        with col_botoes_pdv2:
+            if st.button("🟢 Finalizar Venda", type="primary", use_container_width=True):
+                st.session_state.etapa_pagamento = True
+                st.rerun()
+    else:
+        st.info("ℹ️ O carrinho de compras está vazio.")
 
     # ==========================================
     # 💳 TELA 2: SELEÇÃO DE PAGAMENTO E TROCO
