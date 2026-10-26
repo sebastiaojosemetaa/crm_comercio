@@ -301,35 +301,24 @@ else:
     usr_exibicao = st.session_state.get('usuario_logado') or "administrador"
     st.sidebar.write(f"👤 **Utilizador:** `{usr_exibicao}`")
     
-    modo_menu_sel = st.sidebar.radio("⚡ Alternar Menus do Sistema:", ["Módulo Completo", "Módulo Simples"], key="radio_modo_sistema_alt")
-    modo_menu_atual = "Simples" if "Simples" in modo_menu_sel else "Completo"
-
     if st.sidebar.button("🚪 Sair do Sistema"):
         st.session_state['autenticado'] = False
         st.session_state['usuario_logado'] = "administrador"
         st.rerun()
 
-    if modo_menu_atual == "Simples":
-        opcoes_menu = [
-            "🛒 PDV — Frente de Caixa",
-            "📊 Fechamento & Financeiro",
-            "🛒 Registrar Venda",
-            "🏢 Configurações da Empresa"
-        ]
-    else:
-        opcoes_menu = [
-            "🛒 PDV — Frente de Caixa",
-            "📊 Fechamento & Financeiro",
-            "🛒 Registrar Venda",
-            "📦 Entrada de Estoque (Compras)",
-            "👥 Cadastros (Clientes / Fornecedores / Grupos)",
-            "👥 Gestão de Recursos Humanos (RH)",
-            "🔐 Gestão de Utilizadores e Logins",
-            "💾 Backup e Restauração",
-            "💸 Contas a Receber",
-            "📦 Estoque de Produtos",
-            "🏢 Configurações da Empresa"
-        ]
+    opcoes_menu = [
+        "🛒 PDV — Frente de Caixa",
+        "📊 Fechamento & Financeiro",
+        "🛒 Registrar Venda",
+        "📦 Entrada de Estoque (Compras)",
+        "👥 Cadastros (Clientes / Fornecedores / Grupos)",
+        "👥 Gestão de Recursos Humanos (RH)",
+        "🔐 Gestão de Utilizadores e Logins",
+        "💾 Backup e Restauração",
+        "💸 Contas a Receber",
+        "📦 Estoque de Produtos",
+        "🏢 Configurações da Empresa"
+    ]
 
     menu_admin = st.sidebar.radio("Navegação", opcoes_menu, key="radio_menu_admin_opcoes")
 
@@ -339,6 +328,15 @@ else:
     if menu_admin == "🛒 PDV — Frente de Caixa":
         st.subheader(f"🛒 PDV — Frente de Caixa — {nome_empresa_header} | 👤 Utilizador: {usr_exibicao}")
         
+        # --- BOTÃO / SELETOR DE MODO DO PDV (SIMPLES / COMPLETO) ---
+        modo_pdv_selecionado = st.radio(
+            "⚡ Alternar Modo do Sistema:",
+            ["Modo Simples", "Modo Completo"],
+            horizontal=True,
+            key="radio_modo_pdv_topo"
+        )
+        is_simples = (modo_pdv_selecionado == "Modo Simples")
+
         df_caixa_aberto = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
         
         try:
@@ -369,7 +367,7 @@ else:
             st.warning("⚠️ Atenção: Não há nenhum caixa aberto no momento.")
 
         # --- CABEÇALHO DE ENTRADA RÁPIDA (CÓDIGO DE BARRAS & PESQUISA) ---
-        st.markdown("### 🔍 Localização Rápida de Produtos")
+        st.markdown("### 🔍 Localização de Produtos")
         col_bus1, col_bus2 = st.columns([1, 1], gap="medium")
         with col_bus1:
             codigo_barras_input = st.text_input("Código de Barras (Leitor / Digitação)", key="input_cod_barras_pdv")
@@ -390,15 +388,14 @@ else:
 
         val_venda_sug, forn_sug, grupo_sug, cod_sug = obter_dados_produto(prod_selecionado) if prod_selecionado else (0.0, "", "", "")
 
-        # --- QUANTIDADE, PREÇO E BOTÃO DE INCLUSÃO ---
-        col_q1, col_q2, col_q3 = st.columns([1, 1, 2], gap="medium")
-        with col_q1:
-            qtd_venda = st.number_input("Qtd", min_value=0.01, value=1.0, step=1.0, key="qtd_prod_pdv_alin")
-        with col_q2:
-            preco_unit_venda = st.number_input("Preço Unit. (R$)", min_value=0.0, value=val_venda_sug, format="%.2f", key="preco_unit_pdv_alin")
-        with col_q3:
-            st.markdown(f"**Subtotal:** R$ {qtd_venda * preco_unit_venda:,.2f}")
-            if st.button("➕ [ Enter ] Incluir Item", type="primary", use_container_width=True, key="btn_inc_prod_alin"):
+        # --- QUANTIDADE E PREÇO (CONDICIONAL AO MODO) ---
+        if is_simples:
+            # MODO SIMPLES: Apenas Qtd=1 e preço automático, direto para inclusão
+            qtd_venda = 1.0
+            preco_unit_venda = val_venda_sug
+            subtotal_item = preco_unit_venda
+            
+            if st.button("➕ [ Enter ] Incluir Produto", type="primary", use_container_width=True, key="btn_inc_prod_simples"):
                 if not prod_selecionado:
                     st.error("Selecione um produto.")
                 else:
@@ -407,12 +404,37 @@ else:
                         "produto": prod_selecionado,
                         "quantidade": qtd_venda,
                         "valor_unitario": preco_unit_venda,
-                        "valor_total": qtd_venda * preco_unit_venda,
+                        "valor_total": subtotal_item,
                         "fornecedor": forn_sug,
                         "grupo": grupo_sug
                     })
                     st.success(f"✅ '{prod_selecionado}' adicionado!")
                     st.rerun()
+        else:
+            # MODO COMPLETO: Permite alterar quantidade e preço unitário
+            col_q1, col_q2, col_q3 = st.columns([1, 1, 2], gap="medium")
+            with col_q1:
+                qtd_venda = st.number_input("Qtd", min_value=0.01, value=1.0, step=1.0, key="qtd_prod_pdv_alin")
+            with col_q2:
+                preco_unit_venda = st.number_input("Preço Unit. (R$)", min_value=0.0, value=val_venda_sug, format="%.2f", key="preco_unit_pdv_alin")
+            with col_q3:
+                subtotal_item = qtd_venda * preco_unit_venda
+                st.markdown(f"**Subtotal:** R$ {subtotal_item:,.2f}")
+                if st.button("➕ [ Enter ] Incluir Produto", type="primary", use_container_width=True, key="btn_inc_prod_completo"):
+                    if not prod_selecionado:
+                        st.error("Selecione um produto.")
+                    else:
+                        st.session_state.carrinho_pdv.append({
+                            "codigo": cod_sug,
+                            "produto": prod_selecionado,
+                            "quantidade": qtd_venda,
+                            "valor_unitario": preco_unit_venda,
+                            "valor_total": subtotal_item,
+                            "fornecedor": forn_sug,
+                            "grupo": grupo_sug
+                        })
+                        st.success(f"✅ '{prod_selecionado}' adicionado!")
+                        st.rerun()
 
         st.markdown("---")
 
@@ -770,7 +792,7 @@ else:
                 sucesso = False
                 dias_validade = 0
 
-                for sufixo, dias in [("TESTE", 7), ("MENSAL", 30), ("Anual", 365)]:
+                for sufixo, dias in [("TESTE", 7), ("MENSAL", 30), ("ANUAL", 365)]:
                     hash_hex = hashlib.md5((apenas_digitos + "REY_CEBOLA_2026" + sufixo).encode()).hexdigest().upper()
                     chave_esperada = f"CRM-{sufixo}-{hash_hex[:4]}-{hash_hex[4:8]}-{hash_hex[8:12]}"
 
