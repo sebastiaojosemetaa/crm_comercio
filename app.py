@@ -304,8 +304,8 @@ else:
     usr_exibicao = st.session_state.get('usuario_logado') or "administrador"
     st.sidebar.write(f"👤 **Utilizador:** `{usr_exibicao}`")
     
-    # SELETOR DE MODO DO SISTEMA (SIMPLES / COMPLETO)
-    modo_sel = st.sidebar.selectbox("⚡ Modo do Sistema:", ["Módulo Completo", "Módulo Simples"], key="select_modo_sistema")
+    # BOTÃO / SELETOR PARA ALTERNAR ENTRE MÓDULO SIMPLES E COMPLETO
+    modo_sel = st.sidebar.radio("⚡ Alternar Modo do Sistema:", ["Módulo Completo", "Módulo Simples"], key="radio_modo_sistema_alt")
     st.session_state['modo_sistema'] = "Simples" if "Simples" in modo_sel else "Completo"
 
     if st.sidebar.button("🚪 Sair do Sistema"):
@@ -359,6 +359,13 @@ else:
                 return val_v, str(p_row.get('fornecedor', '')), str(p_row.get('grupo', ''))
             return 0.0, "", ""
 
+        def obter_produto_por_codigo(cod):
+            if not df_prod_pdv.empty and 'codigo' in df_prod_pdv.columns:
+                match = df_prod_pdv[df_prod_pdv['codigo'].astype(str).str.strip() == str(cod).strip()]
+                if not match.empty:
+                    return str(match.iloc[0]['produto'])
+            return ""
+
         if not df_caixa_aberto.empty:
             st.success("🟢 Caixa Aberto e Operacional")
         else:
@@ -368,7 +375,24 @@ else:
 
         with col_esq:
             st.markdown("### 📦 Dados do Item")
-            prod_selecionado = st.selectbox("Selecione o Produto", [""] + lista_produtos_pdv, key="sel_prod_pdv_alin")
+            
+            # --- CAMPO DE CÓDIGO DE BARRAS (LEITOR ÓPTICO) ---
+            codigo_barras_input = st.text_input("🔍 Código de Barras (Leitor / Digitação)", key="input_cod_barras_pdv")
+            prod_por_codigo = ""
+            if codigo_barras_input.strip():
+                prod_por_codigo = obter_produto_por_codigo(codigo_barras_input.strip())
+                if prod_por_codigo:
+                    st.success(f"🎯 Produto Encontrado: **{prod_por_codigo}**")
+                else:
+                    st.warning("⚠️ Nenhum produto encontrado com este código de barras.")
+
+            # Seleciona o produto automaticamente pelo código de barras ou pela caixa de seleção tradicional
+            produto_inicial_sel = prod_por_codigo if prod_por_codigo else ""
+            idx_padrao = 0
+            if produto_inicial_sel in lista_produtos_pdv:
+                idx_padrao = lista_produtos_pdv.index(produto_inicial_sel) + 1
+
+            prod_selecionado = st.selectbox("Selecione o Produto", [""] + lista_produtos_pdv, index=idx_padrao, key="sel_prod_pdv_alin")
             val_venda_sug, forn_sug, grupo_sug = obter_dados_produto(prod_selecionado) if prod_selecionado else (0.0, "", "")
 
             col_sub1, col_sub2 = st.columns(2)
