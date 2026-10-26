@@ -323,7 +323,7 @@ else:
     menu_admin = st.sidebar.radio("Navegação", opcoes_menu, key="radio_menu_admin_opcoes")
 
     # -------------------------------------------------------------
-    # 1. MÓDULO PDV — FRENTE DE CAIXA (LAYOUT PROFISSIONAL ORGANIZADO)
+    # 1. MÓDULO PDV — FRENTE DE CAIXA (LAYOUT PROFISSIONAL SUPERIOR)
     # -------------------------------------------------------------
     if menu_admin == "🛒 PDV — Frente de Caixa":
         st.subheader(f"🛒 PDV — Frente de Caixa — {nome_empresa_header} | 👤 Utilizador: {usr_exibicao}")
@@ -366,88 +366,18 @@ else:
         else:
             st.warning("⚠️ Atenção: Não há nenhum caixa aberto no momento.")
 
-        # --- CABEÇALHO DE ENTRADA RÁPIDA (CÓDIGO DE BARRAS & PESQUISA) ---
-        st.markdown("### 🔍 Localização de Produtos")
-        col_bus1, col_bus2 = st.columns([1, 1], gap="medium")
-        with col_bus1:
-            codigo_barras_input = st.text_input("Código de Barras (Leitor / Digitação)", key="input_cod_barras_pdv")
-        with col_bus2:
-            prod_por_codigo = ""
-            if codigo_barras_input.strip():
-                prod_por_codigo = obter_produto_por_codigo(codigo_barras_input.strip())
-                if prod_por_codigo:
-                    st.success(f"🎯 Produto: **{prod_por_codigo}**")
-                else:
-                    st.warning("⚠️ Código não encontrado.")
-
-            idx_padrao = 0
-            if prod_por_codigo in lista_produtos_pdv:
-                idx_padrao = lista_produtos_pdv.index(prod_por_codigo) + 1
-
-            prod_selecionado = st.selectbox("Pesquisar / Selecionar Produto", [""] + lista_produtos_pdv, index=idx_padrao, key="sel_prod_pdv_alin")
-
-        val_venda_sug, forn_sug, grupo_sug, cod_sug = obter_dados_produto(prod_selecionado) if prod_selecionado else (0.0, "", "", "")
-
-        # --- QUANTIDADE E PREÇO (CONDICIONAL AO MODO) ---
-        if is_simples:
-            # MODO SIMPLES: Apenas Qtd=1 e preço automático, direto para inclusão
-            qtd_venda = 1.0
-            preco_unit_venda = val_venda_sug
-            subtotal_item = preco_unit_venda
-            
-            if st.button("➕ [ Enter ] Incluir Produto", type="primary", use_container_width=True, key="btn_inc_prod_simples"):
-                if not prod_selecionado:
-                    st.error("Selecione um produto.")
-                else:
-                    st.session_state.carrinho_pdv.append({
-                        "codigo": cod_sug,
-                        "produto": prod_selecionado,
-                        "quantidade": qtd_venda,
-                        "valor_unitario": preco_unit_venda,
-                        "valor_total": subtotal_item,
-                        "fornecedor": forn_sug,
-                        "grupo": grupo_sug
-                    })
-                    st.success(f"✅ '{prod_selecionado}' adicionado!")
-                    st.rerun()
-        else:
-            # MODO COMPLETO: Permite alterar quantidade e preço unitário
-            col_q1, col_q2, col_q3 = st.columns([1, 1, 2], gap="medium")
-            with col_q1:
-                qtd_venda = st.number_input("Qtd", min_value=0.01, value=1.0, step=1.0, key="qtd_prod_pdv_alin")
-            with col_q2:
-                preco_unit_venda = st.number_input("Preço Unit. (R$)", min_value=0.0, value=val_venda_sug, format="%.2f", key="preco_unit_pdv_alin")
-            with col_q3:
-                subtotal_item = qtd_venda * preco_unit_venda
-                st.markdown(f"**Subtotal:** R$ {subtotal_item:,.2f}")
-                if st.button("➕ [ Enter ] Incluir Produto", type="primary", use_container_width=True, key="btn_inc_prod_completo"):
-                    if not prod_selecionado:
-                        st.error("Selecione um produto.")
-                    else:
-                        st.session_state.carrinho_pdv.append({
-                            "codigo": cod_sug,
-                            "produto": prod_selecionado,
-                            "quantidade": qtd_venda,
-                            "valor_unitario": preco_unit_venda,
-                            "valor_total": subtotal_item,
-                            "fornecedor": forn_sug,
-                            "grupo": grupo_sug
-                        })
-                        st.success(f"✅ '{prod_selecionado}' adicionado!")
-                        st.rerun()
-
-        st.markdown("---")
-
-        # --- TABELA DE ITENS PRINCIPAL (CARRINHO ESTILO SISTEMA COMERCIAL) ---
+        # =========================================================================
+        # PARTE 1: TABELA DE ITENS (CARRINHO) NO TOPO — ESTILO SISTEMA COMERCIAL
+        # =========================================================================
         total_geral_carrinho = sum(item['valor_total'] for item in st.session_state.carrinho_pdv) if st.session_state.carrinho_pdv else 0.0
-        st.markdown(f"### 🛒 Itens Lançados no Carrinho | Total Geral: **R$ {total_geral_carrinho:,.2f}**")
+        st.markdown(f"### 🛒 Itens Lançados no Carrinho | Subtotal / Total Geral: **R$ {total_geral_carrinho:,.2f}**")
 
         if st.session_state.carrinho_pdv:
             df_carrinho = pd.DataFrame(st.session_state.carrinho_pdv)
             df_exibicao = df_carrinho[['codigo', 'produto', 'quantidade', 'valor_unitario', 'valor_total']].copy()
             df_exibicao.columns = ['Cód. Prod', 'Produto', 'Qtd', 'Preço Unit.', 'Total Itens']
             
-            st.dataframe(df_exibicao, use_container_width=True, height=250)
+            st.dataframe(df_exibicao, use_container_width=True, height=240)
 
             col_b1, col_b2 = st.columns(2)
             with col_b1:
@@ -478,6 +408,78 @@ else:
                         st.error("Abra o caixa antes de finalizar.")
         else:
             st.info("Nenhum item lançado no carrinho ainda.")
+
+        st.markdown("---")
+
+        # =========================================================================
+        # PARTE 2: LOCALIZAÇÃO RÁPIDA E INCLUSÃO DE PRODUTOS NA PARTE INFERIOR
+        # =========================================================================
+        st.markdown("### 🔍 Localização Rápida de Produtos (Leitor / Pesquisa)")
+        col_bus1, col_bus2 = st.columns([1, 1], gap="medium")
+        with col_bus1:
+            codigo_barras_input = st.text_input("Código de Barras (Leitor / Digitação)", key="input_cod_barras_pdv")
+        with col_bus2:
+            prod_por_codigo = ""
+            if codigo_barras_input.strip():
+                prod_por_codigo = obter_produto_por_codigo(codigo_barras_input.strip())
+                if prod_por_codigo:
+                    st.success(f"🎯 Produto: **{prod_por_codigo}**")
+                else:
+                    st.warning("⚠️ Código não encontrado.")
+
+            idx_padrao = 0
+            if prod_por_codigo in lista_produtos_pdv:
+                idx_padrao = lista_produtos_pdv.index(prod_por_codigo) + 1
+
+            prod_selecionado = st.selectbox("Pesquisar / Selecionar Produto", [""] + lista_produtos_pdv, index=idx_padrao, key="sel_prod_pdv_alin")
+
+        val_venda_sug, forn_sug, grupo_sug, cod_sug = obter_dados_produto(prod_selecionado) if prod_selecionado else (0.0, "", "", "")
+
+        # --- QUANTIDADE E PREÇO (CONDICIONAL AO MODO) ---
+        if is_simples:
+            qtd_venda = 1.0
+            preco_unit_venda = val_venda_sug
+            subtotal_item = preco_unit_venda
+            
+            if st.button("➕ [ Enter ] Incluir Produto", type="primary", use_container_width=True, key="btn_inc_prod_simples"):
+                if not prod_selecionado:
+                    st.error("Selecione um produto.")
+                else:
+                    st.session_state.carrinho_pdv.append({
+                        "codigo": cod_sug,
+                        "produto": prod_selecionado,
+                        "quantidade": qtd_venda,
+                        "valor_unitario": preco_unit_venda,
+                        "valor_total": subtotal_item,
+                        "fornecedor": forn_sug,
+                        "grupo": grupo_sug
+                    })
+                    st.success(f"✅ '{prod_selecionado}' adicionado!")
+                    st.rerun()
+        else:
+            col_q1, col_q2, col_q3 = st.columns([1, 1, 2], gap="medium")
+            with col_q1:
+                qtd_venda = st.number_input("Qtd", min_value=0.01, value=1.0, step=1.0, key="qtd_prod_pdv_alin")
+            with col_q2:
+                preco_unit_venda = st.number_input("Preço Unit. (R$)", min_value=0.0, value=val_venda_sug, format="%.2f", key="preco_unit_pdv_alin")
+            with col_q3:
+                subtotal_item = qtd_venda * preco_unit_venda
+                st.markdown(f"**Subtotal:** R$ {subtotal_item:,.2f}")
+                if st.button("➕ [ Enter ] Incluir Produto", type="primary", use_container_width=True, key="btn_inc_prod_completo"):
+                    if not prod_selecionado:
+                        st.error("Selecione um produto.")
+                    else:
+                        st.session_state.carrinho_pdv.append({
+                            "codigo": cod_sug,
+                            "produto": prod_selecionado,
+                            "quantidade": qtd_venda,
+                            "valor_unitario": preco_unit_venda,
+                            "valor_total": subtotal_item,
+                            "fornecedor": forn_sug,
+                            "grupo": grupo_sug
+                        })
+                        st.success(f"✅ '{prod_selecionado}' adicionado!")
+                        st.rerun()
 
     # -------------------------------------------------------------
     # 2. MÓDULO FECHAMENTO & FINANCEIRO
