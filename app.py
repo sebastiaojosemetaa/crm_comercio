@@ -362,7 +362,7 @@ else:
             return ""
 
         if not df_caixa_aberto.empty:
-            st.success("🟢 Caixa Aberto e Operacional") | st.warning("⚠️ Atenção: Não há nenhum caixa aberto no momento.")
+            st.success("🟢 Caixa Aberto e Operacional")
         else:
             
 
