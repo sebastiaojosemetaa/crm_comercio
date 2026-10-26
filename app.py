@@ -361,8 +361,8 @@ else:
                     return str(match.iloc[0]['produto'])
             return ""
 
-        if not df_caixa_aberto.empty:(LAYOUT PROFISSIONAL SUPERIOR)
-            st.success("🟢 Caixa Aberto e Operacional") st.warning("⚠️ Atenção: Não há nenhum caixa aberto no momento.")
+        if not df_caixa_aberto.empty:
+            st.success("🟢 Caixa Aberto e Operacional") | st.warning("⚠️ Atenção: Não há nenhum caixa aberto no momento.")
         else:
             
 
