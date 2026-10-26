@@ -23,11 +23,17 @@ if "dias_licenca" not in st.session_state:
 if 'autenticado' not in st.session_state:
     st.session_state['autenticado'] = False
 
+if 'usuario_logado' not in st.session_state or not st.session_state['usuario_logado']:
+    st.session_state['usuario_logado'] = "administrador"
+
+if 'cargo_logado' not in st.session_state:
+    st.session_state['cargo_logado'] = "Administrador"
+
 if 'admin_logged' not in st.session_state:
     st.session_state.admin_logged = False
 
-if 'cliente_autenticado' not in st.session_state:
-    st.session_state.cliente_autenticado = None
+if 'modo_sistema' not in st.session_state:
+    st.session_state['modo_sistema'] = "Completo"
 
 if 'carrinho_pdv' not in st.session_state:
     st.session_state.carrinho_pdv = []
@@ -38,7 +44,7 @@ if "carrinho_cliente" not in st.session_state:
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="CRM Comércio - REY DA CEBOLA", layout="wide", page_icon="🛍️")
 
-# --- CONEXÃO E FUNÇÕES DE SUPORTE ESSENCIAIS ---
+# --- CONEXÃO E FUNÇÕES DE SUPORTE ---
 def get_connection():
     return sqlite3.connect("crm_comercio.db", check_same_thread=False)
 
@@ -220,6 +226,7 @@ if df_emp_dev.empty:
     df_emp_dev = carregar_dados(f"SELECT * FROM empresas_dispositivos WHERE device_id = '{device_id}'")
 
 reg_emp = df_emp_dev.iloc[0] if not df_emp_dev.empty else {}
+nome_empresa_header = str(reg_emp.get('nome_empresa', 'REY DA CEBOLA'))
 
 # --- ESTILO VISUAL METÁLICO ---
 st.markdown("""
@@ -283,7 +290,7 @@ if not st.session_state['autenticado']:
                     cursor.close()
                     if user_row:
                         st.session_state['autenticado'] = True
-                        st.session_state['usuario_logado'] = user_row[2]
+                        st.session_state['usuario_logado'] = user_row[2] if user_row[2] else user_row[1]
                         st.session_state['cargo_logado'] = user_row[4] if len(user_row) > 4 else "Funcionário"
                         st.success("Login efetuado com sucesso!")
                         st.rerun()
@@ -294,14 +301,28 @@ if not st.session_state['autenticado']:
 
 else:
     # --- INTERFACE PRINCIPAL APÓS O LOGIN ---
-    st.sidebar.write(f"👤 **Utilizador:** `{st.session_state.get('usuario_logado')}`")
+    usr_exibicao = st.session_state.get('usuario_logado') or "administrador"
+    st.sidebar.write(f"👤 **Utilizador:** `{usr_exibicao}`")
+    
+    # SELETOR DE MODO DO SISTEMA (SIMPLES / COMPLETO)
+    modo_sel = st.sidebar.selectbox("⚡ Modo do Sistema:", ["Módulo Completo", "Módulo Simples"], key="select_modo_sistema")
+    st.session_state['modo_sistema'] = "Simples" if "Simples" in modo_sel else "Completo"
+
     if st.sidebar.button("🚪 Sair do Sistema"):
         st.session_state['autenticado'] = False
+        st.session_state['usuario_logado'] = "administrador"
         st.rerun()
 
-    menu_admin = st.sidebar.radio(
-        "Navegação",
-        [
+    # DEFINIÇÃO DOS MENUS DE ACORDO COM O MODO SELECIONADO
+    if st.session_state['modo_sistema'] == "Simples":
+        opcoes_menu = [
+            "🛒 PDV — Frente de Caixa",
+            "📊 Fechamento & Financeiro",
+            "🛒 Registrar Venda",
+            "🏢 Configurações da Empresa"
+        ]
+    else:
+        opcoes_menu = [
             "🛒 PDV — Frente de Caixa",
             "📊 Fechamento & Financeiro",
             "🛒 Registrar Venda",
@@ -313,15 +334,15 @@ else:
             "💸 Contas a Receber",
             "📦 Estoque de Produtos",
             "🏢 Configurações da Empresa"
-        ],
-        key="radio_menu_admin_opcoes"
-    )
+        ]
+
+    menu_admin = st.sidebar.radio("Navegação", opcoes_menu, key="radio_menu_admin_opcoes")
 
     # -------------------------------------------------------------
     # 1. MÓDULO PDV — FRENTE DE CAIXA
     # -------------------------------------------------------------
     if menu_admin == "🛒 PDV — Frente de Caixa":
-        st.subheader("🛒 PDV — Frente de Caixa — REY DA CEBOLA")
+        st.subheader(f"🛒 PDV — Frente de Caixa — {nome_empresa_header} | 👤 Utilizador: {usr_exibicao}")
         df_caixa_aberto = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
         
         try:
@@ -392,7 +413,7 @@ else:
                             cursor = conn.cursor()
                             sessao_id = int(df_caixa_aberto.iloc[0]['id'])
                             data_venda = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                            vendedor_atual = st.session_state.get('usuario_logado', 'administrador')
+                            vendedor_atual = usr_exibicao
 
                             for item in st.session_state.carrinho_pdv:
                                 cursor.execute("""
@@ -415,7 +436,7 @@ else:
     # 2. MÓDULO FECHAMENTO & FINANCEIRO
     # -------------------------------------------------------------
     elif menu_admin == "📊 Fechamento & Financeiro":
-        st.subheader("📊 Fechamento & Financeiro")
+        st.subheader(f"📊 Fechamento & Financeiro — {nome_empresa_header} | 👤 Utilizador: {usr_exibicao}")
         df_caixa_atual = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
 
         if df_caixa_atual.empty:
@@ -451,7 +472,7 @@ else:
     # 3. MÓDULO REGISTRAR VENDA
     # -------------------------------------------------------------
     elif menu_admin == "🛒 Registrar Venda":
-        st.subheader("🛒 Registrar Venda / Pedido")
+        st.subheader(f"🛒 Registrar Venda / Pedido — {nome_empresa_header} | 👤 Utilizador: {usr_exibicao}")
         clientes_opt = carregar_coluna("clientes", "nome") or ["Cliente Balcão"]
         df_p_admin = carregar_dados("SELECT * FROM produtos")
         produtos_base = df_p_admin['produto'].tolist() if not df_p_admin.empty else ["ABACATE", "AMEIXA IMPORTADA"]
