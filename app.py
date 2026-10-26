@@ -2816,7 +2816,7 @@ if st.button("Entrar no Sistema", type="primary", key="btn_login"):
                     else:
                         ref_mes = ref_raw
                     pdf.cell(56, 3, f"Ref: {ref_mes}", 0, 1, 'C')
-
+        
                     # 2. Data do Pagamento Efetuado
                     pdf.set_xy(142, 22.5)
                     data_pag_raw = str(dados_pag.get('data_pagamento', ''))
@@ -2829,7 +2829,7 @@ if st.button("Entrar no Sistema", type="primary", key="btn_login"):
                     else:
                         data_pag_fmt = data_pag_raw[:10] if data_pag_raw else '-'
                     pdf.cell(56, 3, f"Data Pgto: {data_pag_fmt}", 0, 1, 'C')
-        
+                    
                     pdf.rect(10, 32, 190, 12)
                     pdf.set_xy(12, 33)
                     pdf.set_font("Arial", "B", 7)
@@ -2845,7 +2845,7 @@ if st.button("Entrar no Sistema", type="primary", key="btn_login"):
                     pdf.cell(85, 5, str(dados_func.get('nome', '')), 0, 0)
                     pdf.cell(35, 5, str(dados_func.get('cbo', '-')), 0, 0)
                     pdf.cell(50, 5, str(dados_func.get('cargo', '-')), 0, 0)
-        
+                    
                     pdf.rect(10, 44, 190, 7)
                     pdf.set_xy(12, 45)
                     pdf.set_font("Arial", "B", 7)
@@ -2854,7 +2854,7 @@ if st.button("Entrar no Sistema", type="primary", key="btn_login"):
                     pdf.cell(25, 5, "Referência", 0, 0, 'C')
                     pdf.cell(37, 5, "Proventos", 0, 0, 'R')
                     pdf.cell(38, 5, "Descontos", 0, 1, 'R')
-        
+                    
                     pdf.rect(10, 51, 190, 58)
                     pdf.set_xy(12, 53)
                     pdf.set_font("Arial", "", 8)
@@ -2864,13 +2864,13 @@ if st.button("Entrar no Sistema", type="primary", key="btn_login"):
                     inss_val = float(dados_pag.get('inss', 0.0))
                     faltas_qtd = float(dados_pag.get('faltas', 0.0))
                     desc_faltas = float(dados_pag.get('desconto_faltas', 0.0))
-        
+                    
                     pdf.cell(15, 5, "001", 0, 0)
                     pdf.cell(75, 5, f"{tipo_pag}", 0, 0)
                     pdf.cell(25, 5, "220.00", 0, 0, 'C')
                     pdf.cell(37, 5, f"R$ {valor_salario:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 0, 'R')
                     pdf.cell(38, 5, "R$ 0,00", 0, 1, 'R')
-        
+                    
                     curr_y = 58
                     if faltas_qtd > 0 or desc_faltas > 0:
                         pdf.set_xy(12, curr_y)
@@ -2880,7 +2880,7 @@ if st.button("Entrar no Sistema", type="primary", key="btn_login"):
                         pdf.cell(37, 5, "R$ 0,00", 0, 0, 'R')
                         pdf.cell(38, 5, f"R$ {desc_faltas:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 1, 'R')
                         curr_y += 5
-        
+                    
                     if inss_val > 0:
                         pdf.set_xy(12, curr_y)
                         pdf.cell(15, 5, "903", 0, 0)
@@ -2888,11 +2888,11 @@ if st.button("Entrar no Sistema", type="primary", key="btn_login"):
                         pdf.cell(25, 5, "", 0, 0, 'C')
                         pdf.cell(37, 5, "R$ 0,00", 0, 0, 'R')
                         pdf.cell(38, 5, f"R$ {inss_val:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 1, 'R')
-        
+                    
                     total_venc = valor_salario
                     total_desc = inss_val + desc_faltas
                     liquido = total_venc - total_desc
-        
+                    
                     pdf.rect(10, 109, 130, 17)
                     pdf.rect(140, 109, 60, 17)
                     
@@ -2902,7 +2902,7 @@ if st.button("Entrar no Sistema", type="primary", key="btn_login"):
                     pdf.set_font("Arial", "", 7)
                     pdf.set_x(12)
                     pdf.cell(126, 3, "Documento gerado automaticamente pelo Sistema CRM Comércio.", 0, 1)
-        
+                    
                     pdf.set_xy(142, 110)
                     pdf.set_font("Arial", "B", 7)
                     pdf.cell(28, 4, "Total Vencimentos:", 0, 0)
@@ -2916,7 +2916,7 @@ if st.button("Entrar no Sistema", type="primary", key="btn_login"):
                     pdf.set_font("Arial", "B", 8)
                     pdf.cell(28, 5, "Líquido a Receber:", 0, 0)
                     pdf.cell(28, 5, f"R$ {liquido:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 1, 'R')
-        
+                    
                     pdf.rect(10, 126, 190, 18)
                     pdf.set_xy(12, 127)
                     pdf.set_font("Arial", "B", 6)
@@ -2926,7 +2926,7 @@ if st.button("Entrar no Sistema", type="primary", key="btn_login"):
                     pdf.cell(31, 3, "FGTS do Mês", 0, 0)
                     pdf.cell(32, 3, "Base Cálc. IRRF", 0, 0)
                     pdf.cell(32, 3, "Faixa IRRF", 0, 1)
-        
+                    
                     pdf.set_xy(12, 132)
                     pdf.set_font("Arial", "", 7)
                     pdf.cell(31, 4, f"R$ {valor_salario:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 0)
@@ -2937,7 +2937,7 @@ if st.button("Entrar no Sistema", type="primary", key="btn_login"):
                     pdf.cell(31, 4, f"R$ {fgts_val:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), 0, 0)
                     pdf.cell(32, 4, "R$ 0,00", 0, 0)
                     pdf.cell(32, 4, "0", 0, 1)
-        
+                    
                     res = pdf.output(dest='S')
                     if isinstance(res, str):
                         return res.encode('latin1', errors='replace')
@@ -2945,135 +2945,87 @@ if st.button("Entrar no Sistema", type="primary", key="btn_login"):
                 except Exception as e:
                     return f"Erro PDF: {str(e)}".encode('utf-8')
         
-            # Garantir tabelas com coluna competencia
-            try:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS funcionarios (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        nome TEXT,
-                        cargo TEXT,
-                        telefone TEXT,
-                        salario REAL,
-                        admissao TEXT,
-                        cbo TEXT
-                    )
-                """)
-                cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS pagamentos_funcionarios (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        colaborador TEXT,
-                        tipo TEXT,
-                        valor REAL,
-                        data_pagamento TEXT,
-                        inss REAL DEFAULT 0.0,
-                        faltas REAL DEFAULT 0.0,
-                        desconto_faltas REAL DEFAULT 0.0,
-                        competencia TEXT DEFAULT ''
-                    )
-                """)
-                for col_def in [("inss", "REAL DEFAULT 0.0"), ("faltas", "REAL DEFAULT 0.0"), ("desconto_faltas", "REAL DEFAULT 0.0"), ("competencia", "TEXT DEFAULT ''")]:
-                    try:
-                        cursor.execute(f"ALTER TABLE pagamentos_funcionarios ADD COLUMN {col_def[0]} {col_def[1]}")
-                    except Exception:
-                        pass
-                conn.commit()
-            except Exception:
-                pass
-        
+            # Criação das Abas do RH
             aba_colab, aba_pagamentos, aba_pendentes = st.tabs([
                 "👥 Colaboradores", 
                 "💸 Registar Pagamentos / Vales", 
                 "📅 Salários Pendentes e a Vencer"
             ])
         
-            with st.expander("➕ Adicionar Novo Colaborador"):
-                with st.form("form_cadastro_colaborador", clear_on_submit=True):
-                    col_rh1, col_rh2 = st.columns(2)
-                    with col_rh1:
-                        nome_colab = st.text_input("Nome Completo do Colaborador")
-                        cargo_colab = st.text_input("Cargo / Função")
-                        cbo_colab = st.text_input("CBO (Ex: 5211-10)")
-                        usuario_login = st.text_input("Usuário para Login no Sistema")
+            with aba_colab:
+                with st.expander("➕ Adicionar Novo Colaborador"):
+                    with st.form("form_cadastro_colaborador", clear_on_submit=True):
+                        col_rh1, col_rh2 = st.columns(2)
+                        with col_rh1:
+                            nome_colab = st.text_input("Nome Completo do Colaborador")
+                            cargo_colab = st.text_input("Cargo / Função")
+                            cbo_colab = st.text_input("CBO (Ex: 5211-10)")
+                            usuario_login = st.text_input("Usuário para Login no Sistema")
+                            
+                        with col_rh2:
+                            tel_colab = st.text_input("Telefone / Telemóvel")
+                            salario_colab = st.number_input("Salário Base (R$)", value=1412.00)
+                            data_adm = st.date_input("Data de Admissão")
+                            senha_login = st.text_input("Senha de Acesso", type="password")
                         
-                    with col_rh2:
-                        tel_colab = st.text_input("Telefone / Telemóvel")
-                        salario_colab = st.number_input("Salário Base (R$)", value=1412.00)
-                        data_adm = st.date_input("Data de Admissão")
-                        senha_login = st.text_input("Senha de Acesso", type="password")
-            
-                    submitted = st.form_submit_button("💾 Salvar Colaborador e Criar Acesso", type="primary")
-                    
-                    if submitted:
-                        if nome_colab:
-                            try:
-                                cursor = conn.cursor()
-                                
-                                # 1. Garante que a tabela funcionarios existe com todas as colunas necessárias
-                                cursor.execute("""
-                                    CREATE TABLE IF NOT EXISTS funcionarios (
-                                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                        nome TEXT,
-                                        cargo TEXT,
-                                        cbo TEXT,
-                                        telefone TEXT,
-                                        salario REAL,
-                                        admissao TEXT,
-                                        usuario TEXT
-                                    )
-                                """)
-                                conn.commit()
-                                
-                                # Garante colunas caso a tabela já exista sem elas
-                                for col_nome, col_tipo in [("usuario", "TEXT"), ("cbo", "TEXT"), ("telefone", "TEXT"), ("admissao", "TEXT")]:
-                                    try:
-                                        cursor.execute(f"ALTER TABLE funcionarios ADD COLUMN {col_nome} {col_tipo}")
-                                        conn.commit()
-                                    except Exception:
-                                        pass
-                                
-                                # 2. Garante que a tabela usuarios existe para o login no sistema
-                                cursor.execute("""
-                                    CREATE TABLE IF NOT EXISTS usuarios (
-                                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                        usuario TEXT,
-                                        senha TEXT,
-                                        cargo TEXT
-                                    )
-                                """)
-                                conn.commit()
-                                
-                                for col_nome, col_tipo in [("usuario", "TEXT"), ("senha", "TEXT"), ("cargo", "TEXT")]:
-                                    try:
-                                        cursor.execute(f"ALTER TABLE usuarios ADD COLUMN {col_nome} {col_tipo}")
-                                        conn.commit()
-                                    except Exception:
-                                        pass
-                                
-                                # 3. Insere o colaborador na tabela correta (funcionarios)
-                                cursor.execute("""
-                                    INSERT INTO funcionarios (nome, cargo, cbo, telefone, salario, admissao, usuario)
-                                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                                """, (nome_colab, cargo_colab, cbo_colab, tel_colab, float(salario_colab), str(data_adm), usuario_login))
-                                
-                                # 4. Insere as credenciais de login se preenchidas
-                                if usuario_login and senha_login:
+                        submitted = st.form_submit_button("💾 Salvar Colaborador e Criar Acesso", type="primary")
+                        
+                        if submitted:
+                            if nome_colab:
+                                try:
+                                    cursor = conn.cursor()
                                     cursor.execute("""
-                                        INSERT INTO usuarios (usuario, senha, cargo)
-                                        VALUES (?, ?, ?)
-                                    """, (usuario_login, senha_login, cargo_colab))
-                                
-                                conn.commit()
-                                cursor.close()
-                                st.success("Colaborador cadastrado e acesso ao sistema criado com sucesso!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro detalhado ao salvar: {e}")
-                        else:
-                            st.error("Preencha pelo menos o nome do colaborador.")
+                                        CREATE TABLE IF NOT EXISTS funcionarios (
+                                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                            nome TEXT,
+                                            cargo TEXT,
+                                            cbo TEXT,
+                                            telefone TEXT,
+                                            salario REAL,
+                                            admissao TEXT,
+                                            usuario TEXT
+                                        )
+                                    """)
+                                    conn.commit()
+                                    
+                                    for col_nome, col_tipo in [("usuario", "TEXT"), ("cbo", "TEXT"), ("telefone", "TEXT"), ("admissao", "TEXT")]:
+                                        try:
+                                            cursor.execute(f"ALTER TABLE funcionarios ADD COLUMN {col_nome} {col_tipo}")
+                                            conn.commit()
+                                        except Exception:
+                                            pass
+                                    
+                                    cursor.execute("""
+                                        CREATE TABLE IF NOT EXISTS usuarios (
+                                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                            usuario TEXT,
+                                            senha TEXT,
+                                            cargo TEXT
+                                        )
+                                    """)
+                                    conn.commit()
+                                    
+                                    cursor.execute("""
+                                        INSERT INTO funcionarios (nome, cargo, cbo, telefone, salario, admissao, usuario)
+                                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                                    """, (nome_colab, cargo_colab, cbo_colab, tel_colab, float(salario_colab), str(data_adm), usuario_login))
+                                    
+                                    if usuario_login and senha_login:
+                                        cursor.execute("""
+                                            INSERT INTO usuarios (usuario, senha, cargo)
+                                            VALUES (?, ?, ?)
+                                        """, (usuario_login, senha_login, cargo_colab))
+                                    
+                                    conn.commit()
+                                    cursor.close()
+                                    st.success("Colaborador cadastrado e acesso ao sistema criado com sucesso!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Erro detalhado ao salvar: {e}")
+                            else:
+                                st.error("Preencha pelo menos o nome do colaborador.")
         
                 st.markdown("---")
-        
                 try:
                     df_func = pd.read_sql_query("SELECT * FROM funcionarios", conn)
                 except Exception:
@@ -3124,83 +3076,34 @@ if st.button("Entrar no Sistema", type="primary", key="btn_login"):
                             st.error(f"Erro: {e}")
                 else:
                     st.info("ℹ️ Ainda não existem colaboradores registados.")
-        st.markdown("### ⚙️ Restrições e Permissões de Acessos")
-        st.info("Selecione o funcionário e configure quais módulos ele pode aceder.")
         
-        try:
-            df_users_perm = pd.read_sql_query("SELECT * FROM usuarios", conn)
-        except Exception:
-            df_users_perm = pd.DataFrame()
-        
-        if not df_users_perm.empty:
-            utilizador_selecionado = st.selectbox("Selecione o Utilizador", df_users_perm['usuario'].tolist(), key="sel_user_perm")
-            
-            col_p1, col_p2, col_p3 = st.columns(3)
-            with col_p1:
-                p_pdv = st.checkbox("Aceder ao PDV (Frente de Caixa)", value=True, key=f"p_pdv_{utilizador_selecionado}")
-                p_estoque = st.checkbox("Aceder ao Estoque / Compras", value=False, key=f"p_est_{utilizador_selecionado}")
-            with col_p2:
-                p_financeiro = st.checkbox("Aceder ao Fechamento Financeiro", value=False, key=f"p_fin_{utilizador_selecionado}")
-                p_cadastros = st.checkbox("Gerir Clientes e Fornecedores", value=False, key=f"p_cad_{utilizador_selecionado}")
-            with col_p3:
-                p_rh = st.checkbox("Gerir RH e Funcionários", value=False, key=f"p_rh_{utilizador_selecionado}")
-                p_config = st.checkbox("Configurações da Empresa", value=False, key=f"p_cfg_{utilizador_selecionado}")
-                
-            if st.button("💾 Salvar Permissões do Utilizador", key="btn_salvar_permissoes"):
-                try:
-                    cursor = conn.cursor()
-                    cursor.execute("""
-                        CREATE TABLE IF NOT EXISTS permissoes_usuario (
-                            usuario TEXT PRIMARY KEY,
-                            pdv INTEGER,
-                            estoque INTEGER,
-                            financeiro INTEGER,
-                            cadastros INTEGER,
-                            rh INTEGER,
-                            config INTEGER
-                        )
-                    """)
-                    cursor.execute("""
-                        INSERT OR REPLACE INTO permissoes_usuario (usuario, pdv, estoque, financeiro, cadastros, rh, config)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """, (utilizador_selecionado, int(p_pdv), int(p_estoque), int(p_financeiro), int(p_cadastros), int(p_rh), int(p_config)))
-                    conn.commit()
-                    cursor.close()
-                    st.success(f"✅ Permissões atualizadas para o utilizador '{utilizador_selecionado}' com sucesso!")
-                except Exception as e:
-                    st.error(f"Erro ao salvar permissões: {e}")
-        else:
-            st.warning("⚠️ Nenhum utilizador criado no sistema. Cadastre um colaborador com login na aba de RH.")
-        
-        # --- EXPANSOR PARA ELIMINAR COLABORADOR (Alinhado corretamente fora do if/else) ---
-        with st.expander("🗑️ Eliminar Colaborador"):
-            try:
-                df_colab_del = pd.read_sql_query("SELECT nome FROM funcionarios", conn)
-            except Exception:
-                df_colab_del = pd.DataFrame()
-        
-            if not df_colab_del.empty:
-                colaboradores_lista = df_colab_del['nome'].tolist()
-                colab_para_excluir = st.selectbox("Selecione o colaborador que deseja eliminar:", colaboradores_lista, key="select_colab_excluir_rh")
-                
-                if st.button("❌ Confirmar Eliminação", type="primary", key="btn_confirma_excluir_colab"):
+                with st.expander("🗑️ Eliminar Colaborador"):
                     try:
-                        cursor = conn.cursor()
-                        with conn:
-                            cursor.execute("DELETE FROM funcionarios WHERE nome = ?", (colab_para_excluir,))
-                            cursor.execute("DELETE FROM pagamentos_funcionarios WHERE colaborador = ?", (colab_para_excluir,))
+                        df_colab_del = pd.read_sql_query("SELECT nome FROM funcionarios", conn)
+                    except Exception:
+                        df_colab_del = pd.DataFrame()
+        
+                    if not df_colab_del.empty:
+                        colaboradores_lista = df_colab_del['nome'].tolist()
+                        colab_para_excluir = st.selectbox("Selecione o colaborador que deseja eliminar:", colaboradores_lista, key="select_colab_excluir_rh")
                         
-                        st.cache_data.clear()
-                        st.success(f"✅ Colaborador '{colab_para_excluir}' e respetivos registos eliminados com sucesso!")
-                        st.rerun()
-                    except Exception as e_del:
-                        st.error(f"Erro ao eliminar colaborador: {e_del}")
-            else:
-                st.info("ℹ️ Não existem colaboradores registados para eliminar.")
-
+                        if st.button("❌ Confirmar Eliminação", type="primary", key="btn_confirma_excluir_colab"):
+                            try:
+                                cursor = conn.cursor()
+                                with conn:
+                                    cursor.execute("DELETE FROM funcionarios WHERE nome = ?", (colab_para_excluir,))
+                                    cursor.execute("DELETE FROM pagamentos_funcionarios WHERE colaborador = ?", (colab_para_excluir,))
+                                
+                                st.cache_data.clear()
+                                st.success(f"✅ Colaborador '{colab_para_excluir}' e respetivos registos eliminados com sucesso!")
+                                st.rerun()
+                            except Exception as e_del:
+                                st.error(f"Erro ao eliminar colaborador: {e_del}")
+                    else:
+                        st.info("ℹ️ Não existem colaboradores registados para eliminar.")
+        
             with aba_pagamentos:
                 st.subheader("💸 Registar Pagamento, Salário, Vale ou Haver")
-                
                 try:
                     df_func_list = pd.read_sql_query("SELECT id, nome, cargo, cbo, salario, admissao FROM funcionarios", conn)
                     lista_nomes = df_func_list['nome'].tolist() if not df_func_list.empty else []
@@ -3212,24 +3115,23 @@ if st.button("Entrar no Sistema", type="primary", key="btn_login"):
                     col_sel1, col_sel2 = st.columns(2)
                     with col_sel1:
                         colaborador_selecionado = st.selectbox("Selecione o Colaborador", lista_nomes, key="sel_colab_pag_v2")
-                    
-                    # Gerar lista de competências baseada na admissão
+        
                     func_row = df_func_list[df_func_list['nome'] == colaborador_selecionado]
                     salario_base_func = float(func_row.iloc[0]['salario']) if not func_row.empty else 0.0
                     admissao_func = str(func_row.iloc[0]['admissao']) if not func_row.empty else '2021-01-01'
-                    
+        
                     try:
                         dt_adm = datetime.strptime(admissao_func[:10], '%Y-%m-%d').date()
                     except Exception:
                         dt_adm = datetime(2021, 1, 1).date()
-                    
+        
                     hoje = datetime.now().date()
                     cur_y, cur_m = dt_adm.year, dt_adm.month
                     cur_m += 1
                     if cur_m > 12:
                         cur_m = 1
                         cur_y += 1
-                    
+        
                     lista_competencias = []
                     lim_y = hoje.year + 1
                     lim_m = 12
@@ -3239,19 +3141,18 @@ if st.button("Entrar no Sistema", type="primary", key="btn_login"):
                         if cur_m > 12:
                             cur_m = 1
                             cur_y += 1
-                    
+        
                     with col_sel2:
                         competencia_selecionada = st.selectbox("Selecione a Competência / Mês", lista_competencias, key="sel_comp_pag_v2")
-                    
-                    # Calcular saldo restante para a competência selecionada
+        
                     try:
                         df_todos_pag = pd.read_sql_query("SELECT * FROM pagamentos_funcionarios WHERE colaborador = ?", conn, params=(colaborador_selecionado,))
                     except Exception:
                         df_todos_pag = pd.DataFrame()
-                    
+        
                     parts_c = competencia_selecionada.split('/')
                     mes_sel, ano_sel = parts_c[1], parts_c[2]
-                    
+        
                     vales_ja_dados = 0.0
                     if not df_todos_pag.empty:
                         for _, p_row in df_todos_pag.iterrows():
@@ -3259,11 +3160,10 @@ if st.button("Entrar no Sistema", type="primary", key="btn_login"):
                             data_db = str(p_row.get('data_pagamento', ''))
                             if competencia_selecionada in comp_db or f"{ano_sel}-{mes_sel}" in data_db:
                                 vales_ja_dados += float(p_row.get('valor', 0.0))
-                    
+        
                     restante_calcular = max(0.0, salario_base_func - vales_ja_dados)
-                    
                     st.info(f"📊 **Resumo da Competência {competencia_selecionada}:** Salário Base: **R$ {salario_base_func:,.2f}** | Já Lançado/Descontado: **R$ {vales_ja_dados:,.2f}** | **Restante a Pagar: R$ {restante_calcular:,.2f}**")
-
+        
                     with st.form("form_registo_pagamento", clear_on_submit=True):
                         col_p1, col_p2 = st.columns(2)
                         with col_p1:
