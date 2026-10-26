@@ -361,7 +361,7 @@ else:
         if not df_caixa_aberto.empty:
             st.success("🟢 Caixa Aberto e Operacional")
         else:
-        
+            st.warning("⚠️ Atenção: Não há nenhum caixa aberto no momento.")
         total_geral_carrinho = sum(item['valor_total'] for item in st.session_state.carrinho_pdv) if st.session_state.carrinho_pdv else 0.0
         st.markdown(f"### 🛒 Itens Lançados no Carrinho | Subtotal / Total Geral: **R$ {total_geral_carrinho:,.2f}**")
 
