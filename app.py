@@ -3541,7 +3541,7 @@ if st.button("Entrar no Sistema", type="primary", key="btn_login"):
                         st.info("ℹ️ Não foram encontradas competências para exibir.")
                 else:
                     st.info("ℹ️ Registe colaboradores na primeira aba.")
-        elif menu_admin == "📦 Entrada de Estoque (Compras)":
+        elif menu_admin == "Entrada de Estoque (Compras)":
             st.title("📦 Entrada de Estoque (Compras)")
             st.subheader("Registrar Entrada de Estoque")
         
