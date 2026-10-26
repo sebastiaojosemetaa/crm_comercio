@@ -32,9 +32,6 @@ if 'cargo_logado' not in st.session_state:
 if 'admin_logged' not in st.session_state:
     st.session_state.admin_logged = False
 
-if 'modo_sistema' not in st.session_state:
-    st.session_state['modo_sistema'] = "Completo"
-
 if 'carrinho_pdv' not in st.session_state:
     st.session_state.carrinho_pdv = []
 
@@ -304,17 +301,15 @@ else:
     usr_exibicao = st.session_state.get('usuario_logado') or "administrador"
     st.sidebar.write(f"👤 **Utilizador:** `{usr_exibicao}`")
     
-    # BOTÃO / SELETOR PARA ALTERNAR ENTRE MÓDULO SIMPLES E COMPLETO
-    modo_sel = st.sidebar.radio("⚡ Alternar Modo do Sistema:", ["Módulo Completo", "Módulo Simples"], key="radio_modo_sistema_alt")
-    st.session_state['modo_sistema'] = "Simples" if "Simples" in modo_sel else "Completo"
+    modo_menu_sel = st.sidebar.radio("⚡ Alternar Menus do Sistema:", ["Módulo Completo", "Módulo Simples"], key="radio_modo_sistema_alt")
+    modo_menu_atual = "Simples" if "Simples" in modo_menu_sel else "Completo"
 
     if st.sidebar.button("🚪 Sair do Sistema"):
         st.session_state['autenticado'] = False
         st.session_state['usuario_logado'] = "administrador"
         st.rerun()
 
-    # DEFINIÇÃO DOS MENUS DE ACORDO COM O MODO SELECIONADO
-    if st.session_state['modo_sistema'] == "Simples":
+    if modo_menu_atual == "Simples":
         opcoes_menu = [
             "🛒 PDV — Frente de Caixa",
             "📊 Fechamento & Financeiro",
@@ -343,6 +338,11 @@ else:
     # -------------------------------------------------------------
     if menu_admin == "🛒 PDV — Frente de Caixa":
         st.subheader(f"🛒 PDV — Frente de Caixa — {nome_empresa_header} | 👤 Utilizador: {usr_exibicao}")
+        
+        # --- ALTERNADOR DE MODO DO PDV (SIMPLES / COMPLETO) ---
+        tipo_pdv_view = st.radio("Modo de Operação do PDV:", ["⚡ Modo Simples (Código de Barras / Pesquisa)", "🛠️ Modo Completo (Detalhado)"], horizontal=True, key="radio_modo_pdv_view")
+        is_modo_pdv_simples = "Modo Simples" in tipo_pdv_view
+
         df_caixa_aberto = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
         
         try:
@@ -376,7 +376,7 @@ else:
         with col_esq:
             st.markdown("### 📦 Dados do Item")
             
-            # --- CAMPO DE CÓDIGO DE BARRAS (LEITOR ÓPTICO) ---
+            # --- CAMPO DE CÓDIGO DE BARRAS ---
             codigo_barras_input = st.text_input("🔍 Código de Barras (Leitor / Digitação)", key="input_cod_barras_pdv")
             prod_por_codigo = ""
             if codigo_barras_input.strip():
@@ -386,7 +386,6 @@ else:
                 else:
                     st.warning("⚠️ Nenhum produto encontrado com este código de barras.")
 
-            # Seleciona o produto automaticamente pelo código de barras ou pela caixa de seleção tradicional
             produto_inicial_sel = prod_por_codigo if prod_por_codigo else ""
             idx_padrao = 0
             if produto_inicial_sel in lista_produtos_pdv:
@@ -395,14 +394,22 @@ else:
             prod_selecionado = st.selectbox("Selecione o Produto", [""] + lista_produtos_pdv, index=idx_padrao, key="sel_prod_pdv_alin")
             val_venda_sug, forn_sug, grupo_sug = obter_dados_produto(prod_selecionado) if prod_selecionado else (0.0, "", "")
 
-            col_sub1, col_sub2 = st.columns(2)
-            with col_sub1:
-                qtd_venda = st.number_input("Qtd", min_value=0.01, value=1.0, step=1.0, key="qtd_prod_pdv_alin")
-            with col_sub2:
-                preco_unit_venda = st.number_input("Preço Unit. (R$)", min_value=0.0, value=val_venda_sug, format="%.2f", key="preco_unit_pdv_alin")
+            # --- SE ESTIVER NO MODO SIMPLES: OCULTA CAMPOS DETALHADOS E MOSTRA APRESENTAÇÃO DIRETA ---
+            if is_modo_pdv_simples:
+                qtd_venda = 1.0
+                preco_unit_venda = val_venda_sug
+                subtotal_item = preco_unit_venda
+                st.markdown(f"#### PREÇO UNITÁRIO / SUBTOTAL: **R$ {subtotal_item:,.2f}**")
+            else:
+                # --- MODO COMPLETO: MOSTRA TODOS OS DETALHES ---
+                col_sub1, col_sub2 = st.columns(2)
+                with col_sub1:
+                    qtd_venda = st.number_input("Qtd", min_value=0.01, value=1.0, step=1.0, key="qtd_prod_pdv_alin")
+                with col_sub2:
+                    preco_unit_venda = st.number_input("Preço Unit. (R$)", min_value=0.0, value=val_venda_sug, format="%.2f", key="preco_unit_pdv_alin")
 
-            subtotal_item = qtd_venda * preco_unit_venda
-            st.markdown(f"#### SUBTOTAL: **R$ {subtotal_item:,.2f}**")
+                subtotal_item = qtd_venda * preco_unit_venda
+                st.markdown(f"#### SUBTOTAL: **R$ {subtotal_item:,.2f}**")
 
             if st.button("➕ [ Enter ] Incluir Produto", type="primary", use_container_width=True, key="btn_inc_prod_alin"):
                 if not prod_selecionado:
