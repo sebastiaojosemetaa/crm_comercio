@@ -708,7 +708,7 @@ if st.button("Entrar no Sistema", type="primary", key="btn_login"):
                 "🔓 Abertura e Fechamento de Caixa",
                 "📊 Fechamento & Financeiro",
                 "🛒 Registrar Venda",
-                "📥 Entrada de Estoque (Compras)",
+                "📦 Entrada de Estoque (Compras)",
                 "👥 Cadastros (Clientes / Fornecedores / Grupos)",
                 "👥 Gestão de Recursos Humanos (RH)",
                 "💾 Backup e Restauração",
