@@ -287,7 +287,7 @@ def gerar_pdf_tabela_pedidos(df_pedidos, cliente_nome="Geral"):
 # -----------------------------------------------------------------------------
 # CONFIGURAÇÃO DA PÁGINA
 # -----------------------------------------------------------------------------
-st.set_page_config(page_title="CRM Comércio - SEBASTIÃO JOSE DE ALENCAR NETO", layout="wide", page_icon="🛍️")
+st.set_page_config(page_title="CRM Comércio - REY DA CEBOLA", layout="wide", page_icon="🛍️")
 
 # =========================================================
 # IDENTIFICADOR ÚNICO POR NAVEGADOR / APARELHO
@@ -757,7 +757,7 @@ if st.button("Entrar no Sistema", type="primary", key="btn_login"):
             if 'etapa_pagamento' not in st.session_state:
                 st.session_state.etapa_pagamento = False
             
-            st.subheader("🛒 PDV — Frente de Caixa — SEBASTIÃO JOSE DE ALENCAR NETO")
+            st.subheader("🛒 PDV — Frente de Caixa — REY DA CEBOLA")
             
             # --- CARREGAR DADOS DO CAIXA E PRODUTOS ---
             df_caixa_aberto = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
@@ -2320,7 +2320,7 @@ if st.button("Entrar no Sistema", type="primary", key="btn_login"):
                                     def header(self):
                                         self.set_font('Arial', 'B', 14)
                                         self.set_text_color(20, 70, 140)
-                                        self.cell(0, 6, "SEBASTIÃO JOSE DE ALENCAR NETO", 0, 1, 'C')
+                                        self.cell(0, 6, "REY DA CEBOLA", 0, 1, 'C')
                                         
                                         self.set_font('Arial', '', 9)
                                         self.set_text_color(50, 50, 50)
