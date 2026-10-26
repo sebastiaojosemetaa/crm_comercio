@@ -364,7 +364,7 @@ else:
         if not df_caixa_aberto.empty:
             st.success("🟢 Caixa Aberto e Operacional")
         else:
-            
+            st.warning("⚠️ Atenção: Não há nenhum caixa aberto no momento.")
 
         # =========================================================================
         # PARTE 1: TABELA DE ITENS (CARRINHO) NO TOPO — ESTILO SISTEMA COMERCIAL
@@ -414,6 +414,7 @@ else:
         # =========================================================================
         # PARTE 2: LOCALIZAÇÃO RÁPIDA E INCLUSÃO DE PRODUTOS NA PARTE INFERIOR
         # =========================================================================
+        st.markdown("### 🔍 Localização Rápida de Produtos (Leitor / Pesquisa)")
         col_bus1, col_bus2 = st.columns([1, 1], gap="medium")
         with col_bus1:
             codigo_barras_input = st.text_input("Código de Barras (Leitor / Digitação)", key="input_cod_barras_pdv")
