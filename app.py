@@ -38,90 +38,110 @@ if "carrinho_cliente" not in st.session_state:
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="CRM Comércio - REY DA CEBOLA", layout="wide", page_icon="🛍️")
 
-# --- CONEXÃO E TABELAS MULTI-EMPRESA ---
+# --- CONEXÃO E TABELAS ---
 def get_connection():
     return sqlite3.connect("crm_comercio.db", check_same_thread=False)
 
 conn = get_connection()
 
-# --- VERIFICAÇÃO DE PERMISSÕES ---
-def checar_permissao(usuario, modulo, acao):
-    if not usuario:
-        return False
-    if usuario.lower() == "administrador" or st.session_state.get('cargo_logado') == "Administrador":
-        return True
-    
-    try:
-        cursor_p = conn.cursor()
-        coluna_map = {
-            ("produtos", "ver"): "perm_produtos_ver",
-            ("produtos", "editar"): "perm_produtos_editar",
-            ("produtos", "excluir"): "perm_produtos_excluir",
-            ("vendas", "ver"): "perm_vendas_ver",
-            ("vendas", "editar"): "perm_vendas_editar",
-            ("vendas", "excluir"): "perm_vendas_excluir",
-            ("clientes", "ver"): "perm_clientes_ver",
-            ("clientes", "editar"): "perm_clientes_editar",
-            ("clientes", "excluir"): "perm_clientes_excluir",
-            ("relatorios", "ver"): "perm_relatorios_ver",
-        }
-        coluna_db = coluna_map.get((modulo, acao))
-        if not coluna_db:
-            cursor_p.close()
-            return False
-            
-        cursor_p.execute(f"SELECT {coluna_db} FROM usuarios WHERE login = ?", (usuario,))
-        res = cursor_p.fetchone()
-        cursor_p.close()
-        return bool(res and res[0] == 1)
-    except Exception:
-        return False
-
-# --- FUNÇÕES DE SUPORTE E BANCO ---
-def carregar_dados(query):
-    try:
-        return pd.read_sql_query(query, conn)
-    except Exception:
-        return pd.DataFrame()
-
-def carregar_coluna(tabela, coluna):
-    cursor = conn.cursor()
-    try:
-        cursor.execute(f"PRAGMA table_info({tabela})")
-        cols = [col[1] for col in cursor.fetchall()]
-        col_alvo = coluna if coluna in cols else (cols[1] if len(cols) > 1 else coluna)
-        df = carregar_dados(f"SELECT DISTINCT TRIM({col_alvo}) as {col_alvo} FROM {tabela} WHERE {col_alvo} IS NOT NULL AND {col_alvo} != ''")
-        if not df.empty:
-            return df[col_alvo].tolist()
-    except Exception:
-        pass
-    return []
-
-def salvar_simples(tabela, coluna, valor):
-    cursor = conn.cursor()
-    cursor.execute(f"CREATE TABLE IF NOT EXISTS {tabela} (id INTEGER PRIMARY KEY AUTOINCREMENT, {coluna} TEXT)")
-    cursor.execute(f"INSERT INTO {tabela} ({coluna}) VALUES (?)", (valor,))
-    conn.commit()
-
-def salvar_cliente_completo(nome, tel, doc, endereco, cidade):
+# 1. PRIMEIRO: Cria todas as tabelas e colunas obrigatórias
+def adequar_banco_e_migrar():
     try:
         cursor = conn.cursor()
+        
+        # Tabela de Empresas por Dispositivo (Criação prioritária)
         cursor.execute("""
-            CREATE TABLE IF NOT EXISTS clientes (
+            CREATE TABLE IF NOT EXISTS empresas_dispositivos (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                cliente TEXT, nome TEXT, cpf TEXT, endereco TEXT, email TEXT, fone TEXT, cidade TEXT
+                device_id TEXT UNIQUE,
+                nome_empresa TEXT,
+                cnpj TEXT,
+                ie TEXT,
+                fone TEXT,
+                endereco TEXT
             )
         """)
-        cursor.execute("""
-            INSERT INTO clientes (cliente, nome, cpf, endereco, fone, cidade)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (nome, nome, doc, endereco, tel, cidade))
-        conn.commit()
-        return True, f"Cliente '{nome}' cadastrado com sucesso!"
-    except Exception as e:
-        return False, f"Erro ao cadastrar cliente: {e}"
+        
+        cursor.execute("CREATE TABLE IF NOT EXISTS produtos (id INTEGER PRIMARY KEY AUTOINCREMENT, produto TEXT)")
+        for col in ["fornecedor", "grupo", "preco_compra", "preco_venda", "venda", "quantidade", "estoque", "codigo"]:
+            try: cursor.execute(f"ALTER TABLE produtos ADD COLUMN {col} TEXT")
+            except Exception: pass
 
-def adequar_banco_e_migrar():
+        cursor.execute("CREATE TABLE IF NOT EXISTS clientes (id INTEGER PRIMARY KEY AUTOINCREMENT, cliente TEXT)")
+        for col in ["cliente", "nome", "cpf", "doc", "endereco", "email", "fone", "telefone", "cidade", "senha"]:
+            try: cursor.execute(f"ALTER TABLE clientes ADD COLUMN {col} TEXT")
+            except Exception: pass
+
+        cursor.execute("CREATE TABLE IF NOT EXISTS vendas (id INTEGER PRIMARY KEY AUTOINCREMENT, cliente TEXT, produto TEXT, data TEXT)")
+        for col in ["fornecedor", "grupo", "quantidade", "valor_venda", "valor_total", "forma_pagamento", "valor_recebido", "troco", "restante", "status", "tipo", "codigo", "codigo_venda", "vendedor"]:
+            try: cursor.execute(f"ALTER TABLE vendas ADD COLUMN {col} TEXT")
+            except Exception: pass
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS pedidos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                cliente TEXT, produto TEXT, fornecedor TEXT, grupo TEXT,
+                quantidade REAL, valor_unitario REAL, valor_total REAL, status TEXT, data TEXT
+            )
+        """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS caixa_sessoes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, data_abertura TEXT, data_fechamento TEXT,
+                saldo_inicial REAL, saldo_final REAL, status TEXT
+            )
+        """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS caixa_movimentacoes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, sessao_id INTEGER, tipo TEXT,
+                valor REAL, descricao TEXT, data TEXT
+            )
+        """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS usuarios (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                usuario TEXT,
+                login TEXT UNIQUE,
+                senha TEXT,
+                cargo TEXT,
+                perm_produtos_ver INTEGER DEFAULT 1,
+                perm_produtos_editar INTEGER DEFAULT 0,
+                perm_produtos_excluir INTEGER DEFAULT 0,
+                perm_vendas_ver INTEGER DEFAULT 1,
+                perm_vendas_editar INTEGER DEFAULT 0,
+                perm_vendas_excluir INTEGER DEFAULT 0,
+                perm_clientes_ver INTEGER DEFAULT 1,
+                perm_clientes_editar INTEGER DEFAULT 0,
+                perm_clientes_excluir INTEGER DEFAULT 0,
+                perm_relatorios_ver INTEGER DEFAULT 0
+            )
+        """)
+        conn.commit()
+    except Exception as e:
+        pass
+
+# Executa a criação das tabelas imediatamente
+adequar_banco_e_migrar()
+
+# --- DISPOSITIVO E IDENTIFICADOR ÚNICO ---
+if "device_id" not in st.query_params:
+    st.query_params["device_id"] = str(uuid.uuid4())
+device_id = st.query_params["device_id"]
+
+# 2. DEPOIS: Faz a consulta e inserção com segurança sabendo que a tabela existe
+df_emp_dev = carregar_dados(f"SELECT * FROM empresas_dispositivos WHERE device_id = '{device_id}'")
+if df_emp_dev.empty:
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT OR IGNORE INTO empresas_dispositivos (device_id, nome_empresa, cnpj, ie, fone, endereco)
+        VALUES (?, 'REY DA CEBOLA', '19417439000142', '', '(99) 98501-6050', 'RUA CAIPIRA, Nº 174')
+    """, (device_id,))
+    conn.commit()
+    df_emp_dev = carregar_dados(f"SELECT * FROM empresas_dispositivos WHERE device_id = '{device_id}'")
+
+reg_emp = df_emp_dev.iloc[0] if not df_emp_dev.empty else {}
     try:
         cursor = conn.cursor()
         
