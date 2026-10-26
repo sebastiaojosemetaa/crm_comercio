@@ -606,10 +606,11 @@ st.sidebar.markdown("---")
 # ==========================================
 # AMBIENTE 2: ADMINISTRADOR / VENDEDOR
 # ==========================================
-# --- BLOCO DE AUTENTICAÇÃO COM LOGIN DE EMERGÊNCIA ---
-st.markdown("## 🔐 Autenticação do Sistema")
+# --- BLOCO DE AUTENTICAÇÃO COMPLETO COM ESTADO DE SESSÃO ---
+if 'autenticado' not in st.session_state:
+    st.session_state['autenticado'] = False
 
-# Garante que a tabela e as colunas existem
+# Garante que a tabela de utilizadores e colunas existem
 try:
     cursor = conn.cursor()
     cursor.execute("""
@@ -631,34 +632,47 @@ try:
 except Exception:
     pass
 
-usuario_input = st.text_input("Usuário / Login", key="login_usuario").strip().lower()
-senha_input = st.text_input("Senha", type="password", key="login_senha")
-
-if st.button("Entrar no Sistema", type="primary", key="btn_login"):
-    # Login mestre de emergência universal
-    if (usuario_input == "administrador" and senha_input == "admin") or (usuario_input == "admin" and senha_input == "123456"):
-        st.session_state['autenticado'] = True
-        st.session_state['usuario_logado'] = "administrador"
-        st.session_state['cargo_logado'] = "Administrador"
-        st.success("Login efetuado com sucesso!")
-        st.rerun()
-    else:
-        try:
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM usuarios WHERE LOWER(TRIM(usuario)) = ? AND senha = ?", (usuario_input, senha_input))
-            user_row = cursor.fetchone()
-            cursor.close()
-            
-            if user_row:
+# Se NÃO estiver autenticado, mostra a tela de login
+if not st.session_state['autenticado']:
+    st.markdown("## 🔐 Autenticação do Sistema")
+    
+    with st.form("form_login_sistema"):
+        usuario_input = st.text_input("Usuário / Login", key="login_usuario").strip().lower()
+        senha_input = st.text_input("Senha", type="password", key="login_senha")
+        btn_entrar = st.form_submit_button("🟢 Entrar no Sistema", type="primary", use_container_width=True)
+        
+        if btn_entrar:
+            # Login mestre de emergência universal
+            if (usuario_input == "administrador" and senha_input == "admin") or (usuario_input == "admin" and senha_input == "123456"):
                 st.session_state['autenticado'] = True
-                st.session_state['usuario_logado'] = user_row[1]
-                st.session_state['cargo_logado'] = user_row[3] if len(user_row) > 3 else "Funcionário"
+                st.session_state['usuario_logado'] = "administrador"
+                st.session_state['cargo_logado'] = "Administrador"
                 st.success("Login efetuado com sucesso!")
                 st.rerun()
             else:
-                st.error("❌ Usuário ou senha incorretos. Verifique os dados.")
-        except Exception as e:
-            st.error(f"Erro ao autenticar: {e}")
+                try:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT * FROM usuarios WHERE LOWER(TRIM(usuario)) = ? AND senha = ?", (usuario_input, senha_input))
+                    user_row = cursor.fetchone()
+                    cursor.close()
+                    
+                    if user_row:
+                        st.session_state['autenticado'] = True
+                        st.session_state['usuario_logado'] = user_row[1]
+                        st.session_state['cargo_logado'] = user_row[3] if len(user_row) > 3 else "Funcionário"
+                        st.success("Login efetuado com sucesso!")
+                        st.rerun()
+                    else:
+                        st.error("❌ Usuário ou senha incorretos. Verifique os dados.")
+                except Exception as e:
+                    st.error(f"Erro ao autenticar: {e}")
+
+else:
+    # --- ÁREA RESTRITA (Só carrega após o login correto) ---
+    st.sidebar.write(f"👤 **Utilizador:** {st.session_state.get('usuario_logado')}")
+    if st.sidebar.button("🚪 Sair do Sistema"):
+        st.session_state['autenticado'] = False
+        st.rerun()
         # =============================================================
         # 1. CRIAÇÃO E ATUALIZAÇÃO DA TABELA DE USUÁRIOS E PERMISSÕES
         # =============================================================
