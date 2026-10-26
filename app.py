@@ -606,14 +606,36 @@ st.sidebar.markdown("---")
 # ==========================================
 # AMBIENTE 2: ADMINISTRADOR / VENDEDOR
 # ==========================================
-# --- BLOCO DE AUTENTICAÇÃO SEGURO ---
+# --- BLOCO DE AUTENTICAÇÃO COM CORREÇÃO AUTOMÁTICA DA TABELA ---
 st.markdown("## 🔐 Autenticação do Sistema")
+
+# Garante que a tabela e as colunas existem antes de validar
+try:
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS usuarios (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            usuario TEXT,
+            senha TEXT,
+            cargo TEXT
+        )
+    """)
+    conn.commit()
+    for col_nome, col_tipo in [("usuario", "TEXT"), ("senha", "TEXT"), ("cargo", "TEXT")]:
+        try:
+            cursor.execute(f"ALTER TABLE usuarios ADD COLUMN {col_nome} {col_tipo}")
+            conn.commit()
+        except Exception:
+            pass
+    cursor.close()
+except Exception:
+    pass
+
 usuario_input = st.text_input("Usuário / Login", key="login_usuario").strip().lower()
 senha_input = st.text_input("Senha", type="password", key="login_senha")
 
 if st.button("Entrar no Sistema", type="primary", key="btn_login"):
-    # Permissão padrão de administrador mestre
-    if usuario_input == "administrador" and senha_input == "admin": # ou sua senha mestre
+    if usuario_input == "administrador" and senha_input == "admin":
         st.session_state['autenticado'] = True
         st.session_state['usuario_logado'] = "administrador"
         st.session_state['cargo_logado'] = "Administrador"
@@ -628,21 +650,14 @@ if st.button("Entrar no Sistema", type="primary", key="btn_login"):
             
             if user_row:
                 st.session_state['autenticado'] = True
-                st.session_state['usuario_logado'] = user_row[1] # Nome do usuário
+                st.session_state['usuario_logado'] = user_row[1]
                 st.session_state['cargo_logado'] = user_row[3] if len(user_row) > 3 else "Funcionário"
                 st.success("Login efetuado com sucesso!")
                 st.rerun()
             else:
                 st.error("❌ Usuário ou senha incorretos. Verifique os dados.")
         except Exception as e:
-            # Caso a tabela usuarios ainda não exista
-            if usuario_input == "admin" and senha_input == "123456":
-                st.session_state['autenticado'] = True
-                st.session_state['usuario_logado'] = "admin"
-                st.session_state['cargo_logado'] = "Administrador"
-                st.rerun()
-            else:
-                st.error(f"Erro ao autenticar: {e}")
+            st.error(f"Erro ao autenticar: {e}")
         # =============================================================
         # 1. CRIAÇÃO E ATUALIZAÇÃO DA TABELA DE USUÁRIOS E PERMISSÕES
         # =============================================================
