@@ -322,9 +322,6 @@ else:
 
     menu_admin = st.sidebar.radio("Navegação", opcoes_menu, key="radio_menu_admin_opcoes")
 
-    # -------------------------------------------------------------
-    # 1. MÓDULO PDV — FRENTE DE CAIXA (LAYOUT PROFISSIONAL SUPERIOR)
-    # -------------------------------------------------------------
     if menu_admin == "🛒 PDV — Frente de Caixa":
         st.subheader(f"🛒 PDV — Frente de Caixa — {nome_empresa_header} | 👤 Utilizador: {usr_exibicao}")
         
@@ -364,11 +361,7 @@ else:
         if not df_caixa_aberto.empty:
             st.success("🟢 Caixa Aberto e Operacional")
         else:
-            st.warning("⚠️ Atenção: Não há nenhum caixa aberto no momento.")
-
-        # =========================================================================
-        # PARTE 1: TABELA DE ITENS (CARRINHO) NO TOPO — ESTILO SISTEMA COMERCIAL
-        # =========================================================================
+        
         total_geral_carrinho = sum(item['valor_total'] for item in st.session_state.carrinho_pdv) if st.session_state.carrinho_pdv else 0.0
         st.markdown(f"### 🛒 Itens Lançados no Carrinho | Subtotal / Total Geral: **R$ {total_geral_carrinho:,.2f}**")
 
@@ -410,11 +403,7 @@ else:
             st.info("Nenhum item lançado no carrinho ainda.")
 
         st.markdown("---")
-
-        # =========================================================================
-        # PARTE 2: LOCALIZAÇÃO RÁPIDA E INCLUSÃO DE PRODUTOS NA PARTE INFERIOR
-        # =========================================================================
-        st.markdown("### 🔍 Localização Rápida de Produtos (Leitor / Pesquisa)")
+               
         col_bus1, col_bus2 = st.columns([1, 1], gap="medium")
         with col_bus1:
             codigo_barras_input = st.text_input("Código de Barras (Leitor / Digitação)", key="input_cod_barras_pdv")
