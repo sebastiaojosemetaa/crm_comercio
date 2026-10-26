@@ -297,7 +297,7 @@ if not st.session_state['autenticado']:
                     st.error(f"Erro ao autenticar: {e}")
 
 else:
-    # --- INTERFACE PRINCIPAL APÓS O LOGIN ---
+
     usr_exibicao = st.session_state.get('usuario_logado') or "administrador"
     st.sidebar.write(f"👤 **Utilizador:** `{usr_exibicao}`")
     
