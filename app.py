@@ -1191,8 +1191,9 @@ if st.button("Entrar no Sistema", type="primary", key="btn_login"):
                         else:
                             st.error("Preencha o Nome e o CNPJ/CPF.")
         
-        elif menu_admin == "🔓 Abertura e Fechamento de Caixa":
-            st.title("🔓 Abertura e Fechamento de Caixa")
+        elif menu_admin == "📊 Fechamento & Financeiro":
+            st.subheader("📊 Fechamento & Financeiro")
+            # Certifique-se de que esta secção termina corretamente
             df_caixa_atual = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
 
             if df_caixa_atual.empty:
@@ -1358,8 +1359,8 @@ if st.button("Entrar no Sistema", type="primary", key="btn_login"):
             else:
                 st.info("Nenhum registro encontrado para os filtros selecionados.")
 
-        elif menu_admin in ["🛒 Registrar Venda"]:
-            st.title(f"🛒 {menu_admin}")
+        elif menu_admin == "🛒 Registrar Venda":
+            st.subheader("🛒 Registrar Venda")
         
             aba_cad, aba_list = st.tabs(["+ Novo Registro / Pedido", "🔧 Tabela Editável"])
         
@@ -2158,8 +2159,8 @@ if st.button("Entrar no Sistema", type="primary", key="btn_login"):
                     )
                 except Exception as e_pdf_est:
                     st.error(f"Erro ao gerar PDF: {e_pdf_est}")
-        elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
-            st.title("👥 Cadastros Gerais")
+        elif menu_admin == "Cadastros (Clientes / Fornecedores / Grupos)":
+            st.subheader("👥 Cadastros (Clientes / Fornecedores / Grupos)")
             tab_cli, tab_prod, tab_forn, tab_grup = st.tabs(["👤 Clientes", "📦 Produtos", "🏢 Fornecedores", "🏷️ Grupos"])
     
             with tab_cli:
@@ -3542,7 +3543,7 @@ if st.button("Entrar no Sistema", type="primary", key="btn_login"):
                 else:
                     st.info("ℹ️ Registe colaboradores na primeira aba.")
         elif menu_admin == "Entrada de Estoque (Compras)":
-            st.title("📦 Entrada de Estoque (Compras)")
+            st.subheader("📦 Entrada de Estoque (Compras)")
             st.subheader("Registrar Entrada de Estoque")
         
             if "carrinho_compras" not in st.session_state:
