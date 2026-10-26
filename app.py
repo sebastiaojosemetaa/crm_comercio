@@ -38,7 +38,7 @@ if "carrinho_cliente" not in st.session_state:
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="CRM Comércio - REY DA CEBOLA", layout="wide", page_icon="🛍️")
 
-# --- CONEXÃO E FUNÇÕES DE SUPORTE PRIMÁRIAS ---
+# --- CONEXÃO E FUNÇÕES DE SUPORTE ESSENCIAIS ---
 def get_connection():
     return sqlite3.connect("crm_comercio.db", check_same_thread=False)
 
@@ -50,9 +50,47 @@ def carregar_dados(query):
     except Exception:
         return pd.DataFrame()
 
+def carregar_coluna(tabela, coluna):
+    cursor = conn.cursor()
+    try:
+        cursor.execute(f"PRAGMA table_info({tabela})")
+        cols = [col[1] for col in cursor.fetchall()]
+        col_alvo = coluna if coluna in cols else (cols[1] if len(cols) > 1 else coluna)
+        df = carregar_dados(f"SELECT DISTINCT TRIM({col_alvo}) as {col_alvo} FROM {tabela} WHERE {col_alvo} IS NOT NULL AND {col_alvo} != ''")
+        if not df.empty:
+            return df[col_alvo].tolist()
+    except Exception:
+        pass
+    return []
+
+def salvar_simples(tabela, coluna, valor):
+    cursor = conn.cursor()
+    cursor.execute(f"CREATE TABLE IF NOT EXISTS {tabela} (id INTEGER PRIMARY KEY AUTOINCREMENT, {coluna} TEXT)")
+    cursor.execute(f"INSERT INTO {tabela} ({coluna}) VALUES (?)", (valor,))
+    conn.commit()
+
+def salvar_cliente_completo(nome, tel, doc, endereco, cidade):
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS clientes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                cliente TEXT, nome TEXT, cpf TEXT, endereco TEXT, email TEXT, fone TEXT, cidade TEXT
+            )
+        """)
+        cursor.execute("""
+            INSERT INTO clientes (cliente, nome, cpf, endereco, fone, cidade)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (nome, nome, doc, endereco, tel, cidade))
+        conn.commit()
+        return True, f"Cliente '{nome}' cadastrado com sucesso!"
+    except Exception as e:
+        return False, f"Erro ao cadastrar cliente: {e}"
+
 def adequar_banco_e_migrar():
     try:
         cursor = conn.cursor()
+        
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS empresas_dispositivos (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -108,6 +146,24 @@ def adequar_banco_e_migrar():
         """)
 
         cursor.execute("""
+            CREATE TABLE IF NOT EXISTS funcionarios (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome TEXT,
+                cargo TEXT,
+                salario REAL
+            )
+        """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS pagamentos_funcionarios (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                colaborador TEXT,
+                valor REAL,
+                data_pagamento TEXT
+            )
+        """)
+
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS usuarios (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 usuario TEXT,
@@ -126,6 +182,22 @@ def adequar_banco_e_migrar():
                 perm_relatorios_ver INTEGER DEFAULT 0
             )
         """)
+        
+        cursor.execute("PRAGMA table_info(usuarios)")
+        cols_atuais = [col[1] for col in cursor.fetchall()]
+        colunas_necessarias = {
+            "usuario": "TEXT", "login": "TEXT", "senha": "TEXT", "cargo": "TEXT",
+            "perm_produtos_ver": "INTEGER DEFAULT 1", "perm_produtos_editar": "INTEGER DEFAULT 0",
+            "perm_produtos_excluir": "INTEGER DEFAULT 0", "perm_vendas_ver": "INTEGER DEFAULT 1",
+            "perm_vendas_editar": "INTEGER DEFAULT 0", "perm_vendas_excluir": "INTEGER DEFAULT 0",
+            "perm_clientes_ver": "INTEGER DEFAULT 1", "perm_clientes_editar": "INTEGER DEFAULT 0",
+            "perm_clientes_excluir": "INTEGER DEFAULT 0", "perm_relatorios_ver": "INTEGER DEFAULT 0"
+        }
+        for coluna, tipo in colunas_necessarias.items():
+            if coluna not in cols_atuais:
+                try: cursor.execute(f"ALTER TABLE usuarios ADD COLUMN {coluna} {tipo}")
+                except Exception: pass
+
         conn.commit()
     except Exception as e:
         pass
@@ -149,7 +221,7 @@ if df_emp_dev.empty:
 
 reg_emp = df_emp_dev.iloc[0] if not df_emp_dev.empty else {}
 
-# --- ESTILO VISUAL METÁLICO (FÊNIX STYLE) ---
+# --- ESTILO VISUAL METÁLICO ---
 st.markdown("""
 <style>
     .stApp { background: linear-gradient(135deg, #e0e0e0 0%, #b0b0b0 100%) !important; color: #000000 !important; }
@@ -211,7 +283,7 @@ if not st.session_state['autenticado']:
                     cursor.close()
                     if user_row:
                         st.session_state['autenticado'] = True
-                        st.session_state['usuario_logado'] = user_row[2] # login column index
+                        st.session_state['usuario_logado'] = user_row[2]
                         st.session_state['cargo_logado'] = user_row[4] if len(user_row) > 4 else "Funcionário"
                         st.success("Login efetuado com sucesso!")
                         st.rerun()
@@ -246,7 +318,7 @@ else:
     )
 
     # -------------------------------------------------------------
-    # 1. MÓDULO PDV — FRENTE DE CAIXA (ALINHADO LADO A LADO)
+    # 1. MÓDULO PDV — FRENTE DE CAIXA
     # -------------------------------------------------------------
     if menu_admin == "🛒 PDV — Frente de Caixa":
         st.subheader("🛒 PDV — Frente de Caixa — REY DA CEBOLA")
@@ -273,7 +345,6 @@ else:
 
         col_esq, col_dir = st.columns([1, 1], gap="medium")
 
-        # --- LADO ESQUERDO: DADOS DO ITEM ---
         with col_esq:
             st.markdown("### 📦 Dados do Item")
             prod_selecionado = st.selectbox("Selecione o Produto", [""] + lista_produtos_pdv, key="sel_prod_pdv_alin")
@@ -293,17 +364,12 @@ else:
                     st.error("Selecione um produto antes de incluir.")
                 else:
                     st.session_state.carrinho_pdv.append({
-                        "produto": prod_selecionado,
-                        "quantidade": qtd_venda,
-                        "valor_unitario": preco_unit_venda,
-                        "valor_total": subtotal_item,
-                        "fornecedor": forn_sug,
-                        "grupo": grupo_sug
+                        "produto": prod_selecionado, "quantidade": qtd_venda, "valor_unitario": preco_unit_venda,
+                        "valor_total": subtotal_item, "fornecedor": forn_sug, "grupo": grupo_sug
                     })
                     st.success(f"✅ '{prod_selecionado}' adicionado!")
                     st.rerun()
 
-        # --- LADO DIREITO: CARRINHO E FINALIZAÇÃO ---
         with col_dir:
             total_geral_carrinho = sum(item['valor_total'] for item in st.session_state.carrinho_pdv) if st.session_state.carrinho_pdv else 0.0
             st.markdown(f"### 🛒 Carrinho — Total: R$ {total_geral_carrinho:,.2f}")
@@ -504,9 +570,9 @@ else:
             st.dataframe(carregar_dados("SELECT * FROM grupos"), use_container_width=True)
 
     # -------------------------------------------------------------
-    # 6. MÓDULO RH
+    # 6. MÓDULO RH (RECURSOS HUMANOS)
     # -------------------------------------------------------------
-    elif "RH" in menu_admin or "Recursos Humanos" in menu_admin:
+    elif menu_admin == "👥 Gestão de Recursos Humanos (RH)":
         st.subheader("👥 Gestão de Recursos Humanos (RH)")
         aba_colab, aba_pag = st.tabs(["👥 Colaboradores", "💸 Registar Pagamentos / Vales"])
 
@@ -538,7 +604,7 @@ else:
                     st.rerun()
 
     # -------------------------------------------------------------
-    # 7. GESTÃO DE UTILIZADORES E LOGINS (NOVO)
+    # 7. GESTÃO DE UTILIZADORES E LOGINS
     # -------------------------------------------------------------
     elif menu_admin == "🔐 Gestão de Utilizadores e Logins":
         st.subheader("🔐 Gestão de Logins e Permissões de Funcionários")
