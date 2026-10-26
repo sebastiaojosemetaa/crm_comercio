@@ -609,11 +609,53 @@ else:
             st.info("Nenhum produto cadastrado no estoque.")
 
     # -------------------------------------------------------------
-    # 10. MÓDULO CONFIGURAÇÕES DA EMPRESA
+    # 10. MÓDULO CONFIGURAÇÕES DA EMPRESA & ATIVAÇÃO DE CHAVE
     # -------------------------------------------------------------
     elif menu_admin == "🏢 Configurações da Empresa":
         st.subheader("🏢 Configurações e Dados da Empresa")
+
+        # === CAMPO DE ATIVAÇÃO DE LICENÇA ===
+        st.markdown("### 🔑 Ativação de Licença do Dispositivo")
+        if st.session_state.get('dispositivo_ativado', False):
+            dias_val = st.session_state.get('dias_licenca', 30)
+            st.success(f"✅ Dispositivo Ativado! Licença válida por {dias_val} dias.")
+            if st.button("🔄 Inserir Nova Chave / Renovar"):
+                st.session_state['dispositivo_ativado'] = False
+                st.rerun()
+        else:
+            st.warning("⚠️ Insira a chave de ativação correspondente ao seu CNPJ/CPF para liberar o sistema.")
+            doc_atual = str(reg_emp.get('cnpj', '19417439000142'))
+            st.info(f"Empresa Atual (CNPJ/CPF): `{doc_atual}`")
+
+            chave_digitada = st.text_input("Chave de Ativação:", key="input_chave_ativacao_config")
+
+            if st.button("🔓 Ativar Este Dispositivo", type="primary", key="btn_ativar_dispositivo_config"):
+                apenas_digitos = ''.join(filter(str.isdigit, str(doc_atual)))
+                chave_limpa = str(chave_digitada).strip().upper()
+
+                sucesso = False
+                dias_validade = 0
+
+                for sufixo, dias in [("TESTE", 7), ("MENSAL", 30), ("ANUAL", 365)]:
+                    hash_hex = hashlib.md5((apenas_digitos + "REY_CEBOLA_2026" + sufixo).encode()).hexdigest().upper()
+                    chave_esperada = f"CRM-{sufixo}-{hash_hex[:4]}-{hash_hex[4:8]}-{hash_hex[8:12]}"
+
+                    if chave_limpa == chave_esperada:
+                        sucesso = True
+                        dias_validade = dias
+                        break
+
+                if sucesso:
+                    st.session_state['dispositivo_ativado'] = True
+                    st.session_state['dias_licenca'] = dias_validade
+                    st.success(f"🎉 Dispositivo ativado com sucesso! Validade: {dias_validade} dias.")
+                    st.rerun()
+                else:
+                    st.error("❌ Chave inválida para este CNPJ/CPF. Verifique os dados inseridos.")
+
+        st.markdown("---")
         with st.form("form_cfg_emp"):
+            st.markdown("### 📝 Dados Gerais da Empresa")
             nome_emp = st.text_input("Razão Social / Nome Fantasia", value=str(reg_emp.get('nome_empresa', 'REY DA CEBOLA')))
             cnpj_emp = st.text_input("CNPJ ou CPF", value=str(reg_emp.get('cnpj', '19417439000142')))
             tel_emp = st.text_input("Telefone de Contato", value=str(reg_emp.get('fone', '(99) 98501-6050')))
