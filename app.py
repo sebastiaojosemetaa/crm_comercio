@@ -221,8 +221,8 @@ def adequar_banco_e_migrar():
 adequar_banco_e_migrar()
 
 # --- DISPOSITIVO E IDENTIFICADOR ÚNICO ---
-if "device_id" not in st.query_params:
-    st.query_params["device_id"] = str(uuid.uuid4())
+if "device_id" not in st.query_params or not st.query_params["device_id"]:
+    st.query_params["device_id"] = "padrao_rey_da_cebola"
 device_id = st.query_params["device_id"]
 
 df_emp_dev = carregar_dados(f"SELECT * FROM empresas_dispositivos WHERE device_id = '{device_id}'")
