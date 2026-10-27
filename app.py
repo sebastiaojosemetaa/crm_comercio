@@ -12,6 +12,7 @@ import io
 import datetime as dt
 import hashlib
 import uuid
+import string
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="CRM Comércio - REY DA CEBOLA", layout="wide", page_icon="🛍️")
@@ -257,7 +258,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- PAINEL LATERAL (DEV) — GERADOR DE CHAVES COM LIMITE INCLUÍDO NA HASH ---
+# --- PAINEL LATERAL (DEV) — GERADOR DE CHAVES ---
 with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
     senha_dev = st.text_input("Senha Mestre Dev", type="password", key="pwd_dev_topo")
     if senha_dev == "13142715":
@@ -270,7 +271,6 @@ with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
                 sufixo_tipo = "TESTE" if "Teste" in tipo_plano else ("MENSAL" if "Mensal" in tipo_plano else "ANUAL")
                 doc_limpo = ''.join(filter(str.isdigit, str(doc_cliente)))
                 
-                # Atualiza o limite de dispositivos na tabela da empresa
                 cursor = conn.cursor()
                 cursor.execute("""
                     UPDATE empresas_dispositivos 
@@ -279,11 +279,9 @@ with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
                 """, (limite_dev_topo, doc_limpo))
                 conn.commit()
 
-                # Chave agora diferencia-se também pelo limite de dispositivos!
-                string_base = doc_limpo + "REY_CEBOLA_2026" + sufixo_tipo + str(limite_dev_topo)
-                hash_hex = hashlib.md5(string_base.encode()).hexdigest().upper()
-                st.code(f"CRM-{sufixo_tipo}-{limite_dev_topo}D-{hash_hex[:4]}-{hash_hex[4:8]}", language="text")
-                st.success(f"Chave gerada para {limite_dev_topo} dispositivo(s)!")
+                hash_hex = hashlib.md5((doc_limpo + "REY_CEBOLA_2026" + sufixo_tipo).encode()).hexdigest().upper()
+                st.code(f"CRM-{sufixo_tipo}-{hash_hex[:4]}-{hash_hex[4:8]}-{hash_hex[8:12]}", language="text")
+                st.success(f"Chave gerada! Limite definido: {limite_dev_topo} dispositivo(s).")
 
 st.sidebar.title("🔑 Acesso ao Sistema")
 st.sidebar.radio("Selecione o Perfil:", ["🔒 Administração / Vendedor"], key="perfil_principal_radio")
@@ -995,11 +993,10 @@ else:
                 st.session_state['dispositivo_ativado'] = False
                 st.rerun()
         else:
-            # Validação ajustada para permitir ativar até atingir o limite exato de dispositivos diferentes
-            df_este_dev_ativado = carregar_dados(f"SELECT * FROM empresas_dispositivos WHERE ativado = 1 AND device_id = '{device_id}'")
+            df_ja_ativado = carregar_dados(f"SELECT * FROM empresas_dispositivos WHERE ativado = 1 AND device_id != '{device_id}'")
             
-            if total_ativados >= limite_permitido and df_este_dev_ativado.empty:
-                st.error(f"❌ Limite atingido! O limite máximo é de {limite_permitido} dispositivo(s).")
+            if total_ativados >= limite_permitido or not df_ja_ativado.empty:
+                st.error(f"❌ Limite atingido! O limite máximo é de {limite_permitido} dispositivo(s). Outro aparelho já está a utilizar esta licença.")
             else:
                 st.warning("⚠️ Insira a chave de ativação para liberar este dispositivo.")
                 doc_atual = str(reg_emp.get('cnpj', '19417439000142'))
@@ -1015,5 +1012,46 @@ else:
                     dias_validade = 0
 
                     for sufixo, dias in [("TESTE", 7), ("MENSAL", 30), ("ANUAL", 365)]:
-                        for lim_teste in range(1, 51):
-                            string
+                        hash_hex = hashlib.md5((apenas_digitos + "REY_CEBOLA_2026" + sufixo).encode()).hexdigest().upper()
+                        chave_esperada = f"CRM-{sufixo}-{hash_hex[:4]}-{hash_hex[4:8]}-{hash_hex[8:12]}"
+
+                        if chave_limpa == chave_esperada:
+                            sucesso = True
+                            dias_validade = dias
+                            break
+
+                    if sucesso:
+                        cursor = conn.cursor()
+                        cursor.execute("""
+                            UPDATE empresas_dispositivos 
+                            SET ativado = 1, dias_licenca = ? 
+                            WHERE device_id = ?
+                        """, (dias_validade, device_id))
+                        conn.commit()
+
+                        st.session_state['dispositivo_ativado'] = True
+                        st.session_state['dias_licenca'] = dias_validade
+                        st.success(f"🎉 Dispositivo ativado com sucesso! Validade: {dias_validade} dias.")
+                        st.rerun()
+                    else:
+                        st.error("❌ Chave inválida para este CNPJ/CPF. Verifique os dados inseridos.")
+
+        st.markdown("---")
+        with st.form("form_cfg_emp"):
+            st.markdown("### 📝 Dados Gerais e Limites da Empresa")
+            nome_emp = st.text_input("Razão Social / Nome Fantasia", value=str(reg_emp.get('nome_empresa', 'REY DA CEBOLA')))
+            cnpj_emp = st.text_input("CNPJ ou CPF", value=str(reg_emp.get('cnpj', '19417439000142')))
+            tel_emp = st.text_input("Telefone de Contato", value=str(reg_emp.get('fone', '(99) 98501-6050')))
+            end_emp = st.text_input("Endereço Completo", value=str(reg_emp.get('endereco', 'RUA CAIPIRA, Nº 174')))
+            lim_disp = st.number_input("💻 Limite Máximo de Dispositivos Permitidos", min_value=1, max_value=50, value=int(reg_emp.get('limite_dispositivos', 1)))
+            
+            if st.form_submit_button("💾 Salvar Configurações", type="primary"):
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT OR REPLACE INTO empresas_dispositivos (device_id, nome_empresa, cnpj, fone, endereco, ativado, dias_licenca, limite_dispositivos)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (device_id, nome_emp, cnpj_emp, tel_emp, end_emp, 1 if st.session_state.get('dispositivo_ativado') else 0, st.session_state.get('dias_licenca', 30), lim_disp))
+                conn.commit()
+                st.session_state['limite_dispositivos'] = lim_disp
+                st.success("✅ Configurações e limites salvos com sucesso!")
+                st.rerun()
