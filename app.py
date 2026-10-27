@@ -23,11 +23,14 @@ if "dias_licenca" not in st.session_state:
 if 'autenticado' not in st.session_state:
     st.session_state['autenticado'] = False
 
-if 'usuario_logado' not in st.session_state or not st.session_state['usuario_logado']:
-    st.session_state['usuario_logado'] = "administrador"
+if 'usuario_logado' not in st.session_state:
+    st.session_state['usuario_logado'] = ""
+
+if 'login_efetuado' not in st.session_state:
+    st.session_state['login_efetuado'] = ""
 
 if 'cargo_logado' not in st.session_state:
-    st.session_state['cargo_logado'] = "Administrador"
+    st.session_state['cargo_logado'] = ""
 
 if 'permissoes_usuario' not in st.session_state:
     st.session_state['permissoes_usuario'] = {}
@@ -286,6 +289,7 @@ if not st.session_state['autenticado']:
             if (usuario_input == "administrador" and senha_input == "admin") or (usuario_input == "admin" and senha_input == "123456"):
                 st.session_state['autenticado'] = True
                 st.session_state['usuario_logado'] = "administrador"
+                st.session_state['login_efetuado'] = "administrador"
                 st.session_state['cargo_logado'] = "Administrador"
                 st.session_state['permissoes_usuario'] = {
                     "pdv": 1, "financeiro": 1, "registrar_venda": 1, "compras": 1,
@@ -302,15 +306,23 @@ if not st.session_state['autenticado']:
                     cursor.close()
                     if user_row:
                         st.session_state['autenticado'] = True
-                        # user_row[1] é o Nome Completo gravado no cadastro!
-                        st.session_state['usuario_logado'] = user_row[1] if user_row[1] else user_row[2]
+                        st.session_state['login_efetuado'] = user_row[2] # login
+                        st.session_state['usuario_logado'] = user_row[1] # Nome Completo
                         st.session_state['cargo_logado'] = user_row[4] if len(user_row) > 4 else "Funcionário"
-                        # Carrega permissões corretas do utilizador logado (índices 5 a 15)
+                        
+                        # Carrega rigorosamente as permissões salvas no BD (índices 5 a 15)
                         st.session_state['permissoes_usuario'] = {
-                            "pdv": user_row[5], "financeiro": user_row[6], "registrar_venda": user_row[7],
-                            "compras": user_row[8], "cadastros": user_row[9], "rh": user_row[10],
-                            "usuarios": user_row[11], "backup": user_row[12], "contas_receber": user_row[13],
-                            "estoque": user_row[14], "configuracoes": user_row[15]
+                            "pdv": int(user_row[5]),
+                            "financeiro": int(user_row[6]),
+                            "registrar_venda": int(user_row[7]),
+                            "compras": int(user_row[8]),
+                            "cadastros": int(user_row[9]),
+                            "rh": int(user_row[10]),
+                            "usuarios": int(user_row[11]),
+                            "backup": int(user_row[12]),
+                            "contas_receber": int(user_row[13]),
+                            "estoque": int(user_row[14]),
+                            "configuracoes": int(user_row[15])
                         }
                         st.success("Login efetuado com sucesso!")
                         st.rerun()
@@ -321,18 +333,22 @@ if not st.session_state['autenticado']:
 
 else:
     # --- INTERFACE PRINCIPAL APÓS O LOGIN ---
-    usr_exibicao = st.session_state.get('usuario_logado') or "administrador"
+    usr_exibicao = st.session_state.get('usuario_logado') or "Utilizador"
+    login_atual = st.session_state.get('login_efetuado', '').lower()
+    
     st.sidebar.write(f"👤 **Utilizador:** `{usr_exibicao}`")
     
     if st.sidebar.button("🚪 Sair do Sistema"):
         st.session_state['autenticado'] = False
-        st.session_state['usuario_logado'] = "administrador"
+        st.session_state['usuario_logado'] = ""
+        st.session_state['login_efetuado'] = ""
+        st.session_state['cargo_logado'] = ""
         st.session_state['permissoes_usuario'] = {}
         st.rerun()
 
-    # MONTAGEM DA NAVEGAÇÃO BASEADA EXCLUSIVAMENTE NAS PERMISSÕES DO UTILIZADOR LOGADO
+    # VERIFICAÇÃO DE MESTRE OU PERMISSÕES PERSONALIZADAS
+    is_admin_master = (login_atual == "administrador" or st.session_state.get('cargo_logado') == "Administrador")
     perms = st.session_state.get('permissoes_usuario', {})
-    is_admin_master = (usr_exibicao.lower() == "administrador" or st.session_state.get('cargo_logado') == "Administrador")
 
     opcoes_menu_disponiveis = []
     
@@ -610,7 +626,7 @@ else:
 
         if st.session_state.carrinho_compras:
             st.dataframe(pd.DataFrame(st.session_state.carrinho_compras), use_container_width=True)
-            if st.button("💾 Finalizar Todas as Entradas"):
+            if st.button("💾 Finalizar Todas das Entradas"):
                 cursor = conn.cursor()
                 for item in st.session_state.carrinho_compras:
                     cursor.execute("SELECT id FROM produtos WHERE produto = ?", (item['produto'],))
