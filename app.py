@@ -400,6 +400,15 @@ else:
 
     menu_admin = st.sidebar.radio("Navegação", opcoes_menu_disponiveis, key="radio_menu_admin_opcoes")
 
+    # --- TRAVA DE SEGURANÇA DE LICENÇA POR DISPOSITIVO ---
+    # Se o dispositivo não estiver ativado e a pessoa tentar aceder a menus que não sejam Configurações, bloqueia.
+    df_check_ativado = carregar_dados(f"SELECT ativado FROM empresas_dispositivos WHERE device_id = '{device_id}'")
+    status_disp_real = int(df_check_ativado.iloc[0]['ativado']) if not df_check_ativado.empty else 0
+
+    if status_disp_real == 0 and menu_admin != "🏢 Configurações da Empresa":
+        st.error("🚫 **ACESSO BLOQUEADO:** Este dispositivo não está ativado na licença. Vá em **Configurações da Empresa** para inserir a chave de ativação.")
+        st.stop()
+
     # -------------------------------------------------------------
     # 1. MÓDULO PDV — FRENTE DE CAIXA
     # -------------------------------------------------------------
@@ -984,7 +993,6 @@ else:
                 st.session_state['dispositivo_ativado'] = False
                 st.rerun()
         else:
-            # Verifica se já existe algum outro dispositivo ativado no sistema
             df_ja_ativado = carregar_dados(f"SELECT * FROM empresas_dispositivos WHERE ativado = 1 AND device_id != '{device_id}'")
             
             if total_ativados >= limite_permitido or not df_ja_ativado.empty:
