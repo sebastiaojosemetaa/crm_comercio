@@ -301,28 +301,33 @@ if not st.session_state['autenticado']:
             else:
                 try:
                     cursor = conn.cursor()
-                    cursor.execute("SELECT * FROM usuarios WHERE LOWER(TRIM(login)) = ? AND senha = ?", (usuario_input, senha_input))
+                    cursor.execute("SELECT id, usuario, login, senha, cargo, perm_pdv, perm_financeiro, perm_registrar_venda, perm_compras, perm_cadastros, perm_rh, perm_usuarios, perm_backup, perm_contas_receber, perm_estoque, perm_configuracoes FROM usuarios WHERE LOWER(TRIM(login)) = ? AND senha = ?", (usuario_input, senha_input))
                     user_row = cursor.fetchone()
                     cursor.close()
                     if user_row:
                         st.session_state['autenticado'] = True
-                        st.session_state['login_efetuado'] = str(user_row[2] if len(user_row) > 2 and user_row[2] else usuario_input)
-                        st.session_state['usuario_logado'] = str(user_row[1] if len(user_row) > 1 and user_row[1] else usuario_input)
-                        st.session_state['cargo_logado'] = str(user_row[4] if len(user_row) > 4 and user_row[4] else "Funcionário")
+                        st.session_state['login_efetuado'] = str(user_row[2] if user_row[2] else usuario_input)
+                        st.session_state['usuario_logado'] = str(user_row[1] if user_row[1] else usuario_input)
+                        st.session_state['cargo_logado'] = str(user_row[4] if user_row[4] else "Funcionário")
                         
-                        # Carrega rigorosamente as permissões salvas no BD (índices 5 a 15)
+                        def safe_int(val):
+                            try:
+                                return int(val) if val is not None else 0
+                            except:
+                                return 0
+
                         st.session_state['permissoes_usuario'] = {
-                            "pdv": int(user_row[5]) if len(user_row) > 5 and user_row[5] is not None else 1,
-                            "financeiro": int(user_row[6]) if len(user_row) > 6 and user_row[6] is not None else 0,
-                            "registrar_venda": int(user_row[7]) if len(user_row) > 7 and user_row[7] is not None else 1,
-                            "compras": int(user_row[8]) if len(user_row) > 8 and user_row[8] is not None else 0,
-                            "cadastros": int(user_row[9]) if len(user_row) > 9 and user_row[9] is not None else 1,
-                            "rh": int(user_row[10]) if len(user_row) > 10 and user_row[10] is not None else 0,
-                            "usuarios": int(user_row[11]) if len(user_row) > 11 and user_row[11] is not None else 0,
-                            "backup": int(user_row[12]) if len(user_row) > 12 and user_row[12] is not None else 0,
-                            "contas_receber": int(user_row[13]) if len(user_row) > 13 and user_row[13] is not None else 1,
-                            "estoque": int(user_row[14]) if len(user_row) > 14 and user_row[14] is not None else 1,
-                            "configuracoes": int(user_row[15]) if len(user_row) > 15 and user_row[15] is not None else 0
+                            "pdv": safe_int(user_row[5]),
+                            "financeiro": safe_int(user_row[6]),
+                            "registrar_venda": safe_int(user_row[7]),
+                            "compras": safe_int(user_row[8]),
+                            "cadastros": safe_int(user_row[9]),
+                            "rh": safe_int(user_row[10]),
+                            "usuarios": safe_int(user_row[11]),
+                            "backup": safe_int(user_row[12]),
+                            "contas_receber": safe_int(user_row[13]),
+                            "estoque": safe_int(user_row[14]),
+                            "configuracoes": safe_int(user_row[15])
                         }
                         st.success("Login efetuado com sucesso!")
                         st.rerun()
