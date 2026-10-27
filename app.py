@@ -170,6 +170,22 @@ def adequar_banco_e_migrar():
                 perm_configuracoes INTEGER DEFAULT 0
             )
         """)
+        
+        cursor.execute("PRAGMA table_info(usuarios)")
+        cols_usr = [col[1] for col in cursor.fetchall()]
+        colunas_necessarias_usr = {
+            "usuario": "TEXT", "login": "TEXT", "senha": "TEXT", "cargo": "TEXT",
+            "perm_pdv": "INTEGER DEFAULT 1", "perm_financeiro": "INTEGER DEFAULT 1",
+            "perm_registrar_venda": "INTEGER DEFAULT 1", "perm_compras": "INTEGER DEFAULT 0",
+            "perm_cadastros": "INTEGER DEFAULT 1", "perm_rh": "INTEGER DEFAULT 0",
+            "perm_usuarios": "INTEGER DEFAULT 0", "perm_backup": "INTEGER DEFAULT 0",
+            "perm_contas_receber": "INTEGER DEFAULT 1", "perm_estoque": "INTEGER DEFAULT 1",
+            "perm_configuracoes": "INTEGER DEFAULT 0"
+        }
+        for coluna, tipo in colunas_necessarias_usr.items():
+            if coluna not in cols_usr:
+                try: cursor.execute(f"ALTER TABLE usuarios ADD COLUMN {coluna} {tipo}")
+                except Exception: pass
 
         conn.commit()
     except Exception as e:
@@ -669,7 +685,7 @@ else:
             st.dataframe(carregar_dados("SELECT * FROM grupos"), use_container_width=True)
 
     # -------------------------------------------------------------
-    # 6. MÓDULO RH (RECURSOS HUMANOS) — COM EDITAR E EXCLUIR
+    # 6. MÓDULO RH (RECURSOS HUMANOS)
     # -------------------------------------------------------------
     elif menu_admin == "👥 Gestão de Recursos Humanos (RH)":
         st.subheader("👥 Gestão de Recursos Humanos (RH)")
