@@ -279,8 +279,10 @@ with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
                 """, (limite_dev_topo, doc_limpo))
                 conn.commit()
 
-                hash_hex = hashlib.md5((doc_limpo + "REY_CEBOLA_2026" + sufixo_tipo).encode()).hexdigest().upper()
-                st.code(f"CRM-{sufixo_tipo}-{hash_hex[:4]}-{hash_hex[4:8]}-{hash_hex[8:12]}", language="text")
+                # Inclui o limite de dispositivos no hash para gerar chaves diferentes se o limite mudar
+                base_hash_str = doc_limpo + "REY_CEBOLA_2026" + sufixo_tipo + str(limite_dev_topo)
+                hash_hex = hashlib.md5(base_hash_str.encode()).hexdigest().upper()
+                st.code(f"CRM-{sufixo_tipo}-{limite_dev_topo}D-{hash_hex[:4]}-{hash_hex[4:8]}", language="text")
                 st.success(f"Chave gerada! Limite definido: {limite_dev_topo} dispositivo(s).")
 
 st.sidebar.title("🔑 Acesso ao Sistema")
@@ -993,10 +995,8 @@ else:
                 st.session_state['dispositivo_ativado'] = False
                 st.rerun()
         else:
-            df_ja_ativado = carregar_dados(f"SELECT * FROM empresas_dispositivos WHERE ativado = 1 AND device_id != '{device_id}'")
-            
-            if total_ativados >= limite_permitido or not df_ja_ativado.empty:
-                st.error(f"❌ Limite atingido! O limite máximo é de {limite_permitido} dispositivo(s). Outro aparelho já está a utilizar esta licença.")
+            if total_ativados >= limite_permitido:
+                st.error(f"❌ Limite atingido! O limite máximo de {limite_permitido} dispositivo(s) já foi alcançado. Para ligar mais aparelhos, gere uma chave com um limite maior.")
             else:
                 st.warning("⚠️ Insira a chave de ativação para liberar este dispositivo.")
                 doc_atual = str(reg_emp.get('cnpj', '19417439000142'))
@@ -1010,31 +1010,38 @@ else:
 
                     sucesso = False
                     dias_validade = 0
+                    limite_extraido = 1
 
                     for sufixo, dias in [("TESTE", 7), ("MENSAL", 30), ("ANUAL", 365)]:
-                        hash_hex = hashlib.md5((apenas_digitos + "REY_CEBOLA_2026" + sufixo).encode()).hexdigest().upper()
-                        chave_esperada = f"CRM-{sufixo}-{hash_hex[:4]}-{hash_hex[4:8]}-{hash_hex[8:12]}"
+                        for lim_test in range(1, 20):
+                            base_hash_str = apenas_digitos + "REY_CEBOLA_2026" + sufixo + str(lim_test)
+                            hash_hex = hashlib.md5(base_hash_str.encode()).hexdigest().upper()
+                            chave_esperada = f"CRM-{sufixo}-{lim_test}D-{hash_hex[:4]}-{hash_hex[4:8]}"
 
-                        if chave_limpa == chave_esperada:
-                            sucesso = True
-                            dias_validade = dias
+                            if chave_limpa == chave_esperada:
+                                sucesso = True
+                                dias_validade = dias
+                                limite_extraido = lim_test
+                                break
+                        if sucesso:
                             break
 
                     if sucesso:
                         cursor = conn.cursor()
                         cursor.execute("""
                             UPDATE empresas_dispositivos 
-                            SET ativado = 1, dias_licenca = ? 
+                            SET ativado = 1, dias_licenca = ?, limite_dispositivos = ? 
                             WHERE device_id = ?
-                        """, (dias_validade, device_id))
+                        """, (dias_validade, limite_extraido, device_id))
                         conn.commit()
 
                         st.session_state['dispositivo_ativado'] = True
                         st.session_state['dias_licenca'] = dias_validade
-                        st.success(f"🎉 Dispositivo ativado com sucesso! Validade: {dias_validade} dias.")
+                        st.session_state['limite_dispositivos'] = limite_extraido
+                        st.success(f"🎉 Dispositivo ativado com sucesso! Validade: {dias_validade} dias (Limite: {limite_extraido} disp.).")
                         st.rerun()
                     else:
-                        st.error("❌ Chave inválida para este CNPJ/CPF. Verifique os dados inseridos.")
+                        st.error("❌ Chave inválida para este CNPJ/CPF ou limite de dispositivos incorreto.")
 
         st.markdown("---")
         with st.form("form_cfg_emp"):
