@@ -257,19 +257,31 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- PAINEL LATERAL (DEV) ---
+# --- PAINEL LATERAL (DEV) — COM LIMITE DE DISPOSITIVOS INTEGRADO ---
 with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
     senha_dev = st.text_input("Senha Mestre Dev", type="password", key="pwd_dev_topo")
     if senha_dev == "13142715":
         tipo_plano = st.selectbox("Tipo de Chave:", ["Teste (7 Dias)", "Mensal (30 Dias)", "Anual (365 Dias)"], key="select_tipo_plano_dev")
         doc_cliente = st.text_input("CNPJ ou CPF do Cliente:", key="doc_dev_topo_doc")
+        limite_dev_topo = st.number_input("Limite de Dispositivos:", min_value=1, max_value=50, value=3, key="limite_dev_topo_num")
+        
         if st.button("Gerar Chave", key="btn_dev_topo_acao"):
             if doc_cliente.strip():
                 sufixo_tipo = "TESTE" if "Teste" in tipo_plano else ("MENSAL" if "Mensal" in tipo_plano else "ANUAL")
                 doc_limpo = ''.join(filter(str.isdigit, str(doc_cliente)))
+                
+                # Atualiza o limite de dispositivos diretamente no banco para este CNPJ
+                cursor = conn.cursor()
+                cursor.execute("""
+                    UPDATE empresas_dispositivos 
+                    SET limite_dispositivos = ? 
+                    WHERE REPLACE(REPLACE(REPLACE(cnpj, '.', ''), '/', ''), '-', '') = ?
+                """, (limite_dev_topo, doc_limpo))
+                conn.commit()
+
                 hash_hex = hashlib.md5((doc_limpo + "REY_CEBOLA_2026" + sufixo_tipo).encode()).hexdigest().upper()
                 st.code(f"CRM-{sufixo_tipo}-{hash_hex[:4]}-{hash_hex[4:8]}-{hash_hex[8:12]}", language="text")
-                st.success("Chave gerada com sucesso!")
+                st.success(f"Chave gerada! Limite definido: {limite_dev_topo} dispositivos.")
 
 st.sidebar.title("🔑 Acesso ao Sistema")
 st.sidebar.radio("Selecione o Perfil:", ["🔒 Administração / Vendedor"], key="perfil_principal_radio")
@@ -957,7 +969,6 @@ else:
 
         st.markdown("### 🔑 Ativação e Limite de Dispositivos")
         
-        # Consulta total de dispositivos ativados
         df_devs_count = carregar_dados("SELECT COUNT(*) as total FROM empresas_dispositivos WHERE ativado = 1")
         total_ativados = int(df_devs_count.iloc[0]['total']) if not df_devs_count.empty else 0
         
