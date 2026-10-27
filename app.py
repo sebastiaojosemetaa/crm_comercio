@@ -80,7 +80,7 @@ def adequar_banco_e_migrar():
                 endereco TEXT,
                 ativado INTEGER DEFAULT 0,
                 dias_licenca INTEGER DEFAULT 30,
-                limite_dispositivos INTEGER DEFAULT 3
+                limite_dispositivos INTEGER DEFAULT 1
             )
         """)
         
@@ -91,7 +91,7 @@ def adequar_banco_e_migrar():
         if "dias_licenca" not in cols_emp:
             cursor.execute("ALTER TABLE empresas_dispositivos ADD COLUMN dias_licenca INTEGER DEFAULT 30")
         if "limite_dispositivos" not in cols_emp:
-            cursor.execute("ALTER TABLE empresas_dispositivos ADD COLUMN limite_dispositivos INTEGER DEFAULT 3")
+            cursor.execute("ALTER TABLE empresas_dispositivos ADD COLUMN limite_dispositivos INTEGER DEFAULT 1")
 
         cursor.execute("CREATE TABLE IF NOT EXISTS produtos (id INTEGER PRIMARY KEY AUTOINCREMENT, produto TEXT)")
         for col in ["fornecedor", "grupo", "preco_compra", "preco_venda", "venda", "quantidade", "estoque", "codigo"]:
@@ -971,13 +971,12 @@ else:
         df_devs_count = carregar_dados("SELECT COUNT(*) as total FROM empresas_dispositivos WHERE ativado = 1")
         total_ativados = int(df_devs_count.iloc[0]['total']) if not df_devs_count.empty else 0
         
-        limite_permitido = st.session_state.get('limite_dispositivos', 1)
+        limite_permitido = int(reg_emp.get('limite_dispositivos', 1))
         st.info(f"📊 **Status de Licença de Dispositivos:** {total_ativados} de {limite_permitido} dispositivo(s) autorizados.")
 
-        # Verifica se este exato device_id já está ativado
         if dispositivo_esta_ativado:
             dias_val = st.session_state.get('dias_licenca', 30)
-            st.success(f"✅ Este computador/dispositivo está **ATIVADO**! Licença válida por {dias_val} dias.")
+            st.success(f"✅ Este dispositivo está **ATIVADO**! Licença válida por {dias_val} dias.")
             if st.button("🔄 Inserir Nova Chave / Renovar"):
                 cursor = conn.cursor()
                 cursor.execute("UPDATE empresas_dispositivos SET ativado = 0 WHERE device_id = ?", (device_id,))
@@ -985,11 +984,13 @@ else:
                 st.session_state['dispositivo_ativado'] = False
                 st.rerun()
         else:
-            # Se atingiu o limite e este aparelho não está ativado, bloqueia a ativação
-            if total_ativados >= limite_permitido:
-                st.error(f"❌ Limite atingido! O limite máximo de {limite_permitido} dispositivo(s) já foi alcançado. Outro aparelho já está a utilizar a licença.")
+            # Verifica se já existe algum outro dispositivo ativado no sistema
+            df_ja_ativado = carregar_dados(f"SELECT * FROM empresas_dispositivos WHERE ativado = 1 AND device_id != '{device_id}'")
+            
+            if total_ativados >= limite_permitido or not df_ja_ativado.empty:
+                st.error(f"❌ Limite atingido! O limite máximo é de {limite_permitido} dispositivo(s). Outro aparelho já está a utilizar esta licença.")
             else:
-                st.warning("⚠️ Insira a chave de ativação correspondente ao seu CNPJ/CPF para liberar este dispositivo.")
+                st.warning("⚠️ Insira a chave de ativação para liberar este dispositivo.")
                 doc_atual = str(reg_emp.get('cnpj', '19417439000142'))
                 st.info(f"Empresa Atual (CNPJ/CPF): `{doc_atual}`")
 
