@@ -196,9 +196,9 @@ def adequar_banco_e_migrar():
 
 adequar_banco_e_migrar()
 
-# --- DISPOSITIVO E IDENTIFICADOR ÚNICO FIXO ---
+# --- DISPOSITIVO E IDENTIFICADOR ÚNICO REAL POR APARELHO ---
 if "device_id" not in st.query_params or not st.query_params["device_id"]:
-    st.query_params["device_id"] = "padrao_rey_da_cebola"
+    st.query_params["device_id"] = str(uuid.uuid4())
 device_id = st.query_params["device_id"]
 
 df_emp_dev = carregar_dados(f"SELECT * FROM empresas_dispositivos WHERE device_id = '{device_id}'")
@@ -206,7 +206,7 @@ if df_emp_dev.empty:
     cursor = conn.cursor()
     cursor.execute("""
         INSERT OR IGNORE INTO empresas_dispositivos (device_id, nome_empresa, cnpj, ie, fone, endereco, ativado, dias_licenca, limite_dispositivos)
-        VALUES (?, 'REY DA CEBOLA', '19417439000142', '', '(99) 98501-6050', 'RUA CAIPIRA, Nº 174', 0, 30, 3)
+        VALUES (?, 'REY DA CEBOLA', '19417439000142', '', '(99) 98501-6050', 'RUA CAIPIRA, Nº 174', 0, 30, 1)
     """, (device_id,))
     conn.commit()
     df_emp_dev = carregar_dados(f"SELECT * FROM empresas_dispositivos WHERE device_id = '{device_id}'")
@@ -216,7 +216,7 @@ nome_empresa_header = str(reg_emp.get('nome_empresa', 'REY DA CEBOLA'))
 
 dispositivo_esta_ativado = bool(reg_emp.get('ativado', 0) == 1)
 dias_licenca_atual = int(reg_emp.get('dias_licenca', 30))
-limite_dispositivos_atual = int(reg_emp.get('limite_dispositivos', 3))
+limite_dispositivos_atual = int(reg_emp.get('limite_dispositivos', 1))
 
 st.session_state["dispositivo_ativado"] = dispositivo_esta_ativado
 st.session_state["dias_licenca"] = dias_licenca_atual
@@ -257,20 +257,19 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- PAINEL LATERAL (DEV) — COM LIMITE DE DISPOSITIVOS INTEGRADO ---
+# --- PAINEL LATERAL (DEV) — GERADOR DE CHAVES ---
 with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
     senha_dev = st.text_input("Senha Mestre Dev", type="password", key="pwd_dev_topo")
     if senha_dev == "13142715":
         tipo_plano = st.selectbox("Tipo de Chave:", ["Teste (7 Dias)", "Mensal (30 Dias)", "Anual (365 Dias)"], key="select_tipo_plano_dev")
         doc_cliente = st.text_input("CNPJ ou CPF do Cliente:", key="doc_dev_topo_doc")
-        limite_dev_topo = st.number_input("Limite de Dispositivos:", min_value=1, max_value=50, value=3, key="limite_dev_topo_num")
+        limite_dev_topo = st.number_input("Limite de Dispositivos:", min_value=1, max_value=50, value=1, key="limite_dev_topo_num")
         
         if st.button("Gerar Chave", key="btn_dev_topo_acao"):
             if doc_cliente.strip():
                 sufixo_tipo = "TESTE" if "Teste" in tipo_plano else ("MENSAL" if "Mensal" in tipo_plano else "ANUAL")
                 doc_limpo = ''.join(filter(str.isdigit, str(doc_cliente)))
                 
-                # Atualiza o limite de dispositivos diretamente no banco para este CNPJ
                 cursor = conn.cursor()
                 cursor.execute("""
                     UPDATE empresas_dispositivos 
@@ -281,7 +280,7 @@ with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
 
                 hash_hex = hashlib.md5((doc_limpo + "REY_CEBOLA_2026" + sufixo_tipo).encode()).hexdigest().upper()
                 st.code(f"CRM-{sufixo_tipo}-{hash_hex[:4]}-{hash_hex[4:8]}-{hash_hex[8:12]}", language="text")
-                st.success(f"Chave gerada! Limite definido: {limite_dev_topo} dispositivos.")
+                st.success(f"Chave gerada! Limite definido: {limite_dev_topo} dispositivo(s).")
 
 st.sidebar.title("🔑 Acesso ao Sistema")
 st.sidebar.radio("Selecione o Perfil:", ["🔒 Administração / Vendedor"], key="perfil_principal_radio")
@@ -972,10 +971,11 @@ else:
         df_devs_count = carregar_dados("SELECT COUNT(*) as total FROM empresas_dispositivos WHERE ativado = 1")
         total_ativados = int(df_devs_count.iloc[0]['total']) if not df_devs_count.empty else 0
         
-        limite_permitido = st.session_state.get('limite_dispositivos', 3)
+        limite_permitido = st.session_state.get('limite_dispositivos', 1)
         st.info(f"📊 **Status de Licença de Dispositivos:** {total_ativados} de {limite_permitido} dispositivo(s) autorizados.")
 
-        if st.session_state.get('dispositivo_ativado', False):
+        # Verifica se este exato device_id já está ativado
+        if dispositivo_esta_ativado:
             dias_val = st.session_state.get('dias_licenca', 30)
             st.success(f"✅ Este computador/dispositivo está **ATIVADO**! Licença válida por {dias_val} dias.")
             if st.button("🔄 Inserir Nova Chave / Renovar"):
@@ -985,8 +985,9 @@ else:
                 st.session_state['dispositivo_ativado'] = False
                 st.rerun()
         else:
+            # Se atingiu o limite e este aparelho não está ativado, bloqueia a ativação
             if total_ativados >= limite_permitido:
-                st.error(f"❌ Limite atingido! O limite máximo de {limite_permitido} computador(es) já foi alcançado.")
+                st.error(f"❌ Limite atingido! O limite máximo de {limite_permitido} dispositivo(s) já foi alcançado. Outro aparelho já está a utilizar a licença.")
             else:
                 st.warning("⚠️ Insira a chave de ativação correspondente ao seu CNPJ/CPF para liberar este dispositivo.")
                 doc_atual = str(reg_emp.get('cnpj', '19417439000142'))
@@ -1033,7 +1034,7 @@ else:
             cnpj_emp = st.text_input("CNPJ ou CPF", value=str(reg_emp.get('cnpj', '19417439000142')))
             tel_emp = st.text_input("Telefone de Contato", value=str(reg_emp.get('fone', '(99) 98501-6050')))
             end_emp = st.text_input("Endereço Completo", value=str(reg_emp.get('endereco', 'RUA CAIPIRA, Nº 174')))
-            lim_disp = st.number_input("💻 Limite Máximo de Dispositivos Permitidos", min_value=1, max_value=50, value=int(reg_emp.get('limite_dispositivos', 3)))
+            lim_disp = st.number_input("💻 Limite Máximo de Dispositivos Permitidos", min_value=1, max_value=50, value=int(reg_emp.get('limite_dispositivos', 1)))
             
             if st.form_submit_button("💾 Salvar Configurações", type="primary"):
                 cursor = conn.cursor()
