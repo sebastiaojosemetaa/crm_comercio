@@ -669,25 +669,78 @@ else:
             st.dataframe(carregar_dados("SELECT * FROM grupos"), use_container_width=True)
 
     # -------------------------------------------------------------
-    # 6. MÓDULO RH (RECURSOS HUMANOS)
+    # 6. MÓDULO RH (RECURSOS HUMANOS) — COM EDITAR E EXCLUIR
     # -------------------------------------------------------------
     elif menu_admin == "👥 Gestão de Recursos Humanos (RH)":
         st.subheader("👥 Gestão de Recursos Humanos (RH)")
         aba_colab, aba_pag = st.tabs(["👥 Colaboradores", "💸 Registar Pagamentos / Vales"])
 
         with aba_colab:
-            with st.form("form_cad_func"):
-                n_func = st.text_input("Nome Completo")
-                c_func = st.text_input("Cargo")
-                s_func = st.number_input("Salário Base (R$)", value=1412.00)
-                if st.form_submit_button("Salvar Colaborador"):
-                    cursor = conn.cursor()
-                    cursor.execute("INSERT INTO funcionarios (nome, cargo, salario) VALUES (?, ?, ?)", (n_func, c_func, s_func))
-                    conn.commit()
-                    st.success("Colaborador cadastrado!")
-                    st.rerun()
+            sub_tab_cad, sub_tab_ger = st.tabs(["➕ Cadastrar Novo Colaborador", "🛠️ Editar / Excluir Colaboradores"])
 
-            st.dataframe(carregar_dados("SELECT * FROM funcionarios"), use_container_width=True)
+            with sub_tab_cad:
+                with st.form("form_cad_func"):
+                    n_func = st.text_input("Nome Completo")
+                    c_func = st.text_input("Cargo")
+                    s_func = st.number_input("Salário Base (R$)", value=1412.00)
+                    if st.form_submit_button("Salvar Colaborador", type="primary"):
+                        if n_func.strip():
+                            cursor = conn.cursor()
+                            cursor.execute("INSERT INTO funcionarios (nome, cargo, salario) VALUES (?, ?, ?)", (n_func, c_func, s_func))
+                            conn.commit()
+                            st.success("Colaborador cadastrado com sucesso!")
+                            st.rerun()
+                        else:
+                            st.error("Preencha o nome do colaborador.")
+
+                st.markdown("### 📋 Colaboradores Cadastrados")
+                st.dataframe(carregar_dados("SELECT * FROM funcionarios"), use_container_width=True)
+
+            with sub_tab_ger:
+                st.markdown("### 📋 Selecione um Colaborador para Editar ou Excluir")
+                df_funcs_all = carregar_dados("SELECT * FROM funcionarios")
+                if not df_funcs_all.empty:
+                    df_funcs_all['label'] = df_funcs_all['id'].astype(str) + " - " + df_funcs_all['nome'] + " (" + df_funcs_all['cargo'] + ")"
+                    lista_labels = df_funcs_all['label'].tolist()
+                    
+                    colab_selecionado_edit = st.selectbox("Selecione o Colaborador", lista_labels, key="sel_colab_edit_key")
+                    
+                    f_row = df_funcs_all[df_funcs_all['label'] == colab_selecionado_edit].iloc[0]
+                    
+                    with st.form("form_edit_colaborador"):
+                        ed_nome_f = st.text_input("Nome Completo", value=str(f_row.get('nome', '')))
+                        ed_cargo_f = st.text_input("Cargo", value=str(f_row.get('cargo', '')))
+                        ed_salario_f = st.number_input("Salário Base (R$)", value=float(f_row.get('salario', 1412.00)), format="%.2f")
+
+                        col_btn_f1, col_btn_f2 = st.columns(2)
+                        with col_btn_f1:
+                            btn_salvar_alt_f = st.form_submit_button("✏️ Salvar / Alterar Colaborador", type="primary")
+                        with col_btn_f2:
+                            btn_excluir_f = st.form_submit_button("🗑️ Excluir Colaborador")
+
+                        if btn_salvar_alt_f:
+                            try:
+                                cursor = conn.cursor()
+                                cursor.execute("""
+                                    UPDATE funcionarios SET nome = ?, cargo = ?, salario = ? WHERE id = ?
+                                """, (ed_nome_f, ed_cargo_f, ed_salario_f, int(f_row['id'])))
+                                conn.commit()
+                                st.success("✅ Colaborador atualizado com sucesso!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao atualizar colaborador: {e}")
+
+                        if btn_excluir_f:
+                            try:
+                                cursor = conn.cursor()
+                                cursor.execute("DELETE FROM funcionarios WHERE id = ?", (int(f_row['id']),))
+                                conn.commit()
+                                st.success("🗑️ Colaborador excluído com sucesso!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao excluir colaborador: {e}")
+                else:
+                    st.info("Nenhum colaborador cadastrado.")
 
         with aba_pag:
             funcs = carregar_coluna("funcionarios", "nome")
