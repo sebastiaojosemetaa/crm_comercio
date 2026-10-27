@@ -306,23 +306,23 @@ if not st.session_state['autenticado']:
                     cursor.close()
                     if user_row:
                         st.session_state['autenticado'] = True
-                        st.session_state['login_efetuado'] = user_row[2] # login
-                        st.session_state['usuario_logado'] = user_row[1] # Nome Completo
-                        st.session_state['cargo_logado'] = user_row[4] if len(user_row) > 4 else "Funcionário"
+                        st.session_state['login_efetuado'] = str(user_row[2] if len(user_row) > 2 and user_row[2] else usuario_input)
+                        st.session_state['usuario_logado'] = str(user_row[1] if len(user_row) > 1 and user_row[1] else usuario_input)
+                        st.session_state['cargo_logado'] = str(user_row[4] if len(user_row) > 4 and user_row[4] else "Funcionário")
                         
                         # Carrega rigorosamente as permissões salvas no BD (índices 5 a 15)
                         st.session_state['permissoes_usuario'] = {
-                            "pdv": int(user_row[5]),
-                            "financeiro": int(user_row[6]),
-                            "registrar_venda": int(user_row[7]),
-                            "compras": int(user_row[8]),
-                            "cadastros": int(user_row[9]),
-                            "rh": int(user_row[10]),
-                            "usuarios": int(user_row[11]),
-                            "backup": int(user_row[12]),
-                            "contas_receber": int(user_row[13]),
-                            "estoque": int(user_row[14]),
-                            "configuracoes": int(user_row[15])
+                            "pdv": int(user_row[5]) if len(user_row) > 5 and user_row[5] is not None else 1,
+                            "financeiro": int(user_row[6]) if len(user_row) > 6 and user_row[6] is not None else 0,
+                            "registrar_venda": int(user_row[7]) if len(user_row) > 7 and user_row[7] is not None else 1,
+                            "compras": int(user_row[8]) if len(user_row) > 8 and user_row[8] is not None else 0,
+                            "cadastros": int(user_row[9]) if len(user_row) > 9 and user_row[9] is not None else 1,
+                            "rh": int(user_row[10]) if len(user_row) > 10 and user_row[10] is not None else 0,
+                            "usuarios": int(user_row[11]) if len(user_row) > 11 and user_row[11] is not None else 0,
+                            "backup": int(user_row[12]) if len(user_row) > 12 and user_row[12] is not None else 0,
+                            "contas_receber": int(user_row[13]) if len(user_row) > 13 and user_row[13] is not None else 1,
+                            "estoque": int(user_row[14]) if len(user_row) > 14 and user_row[14] is not None else 1,
+                            "configuracoes": int(user_row[15]) if len(user_row) > 15 and user_row[15] is not None else 0
                         }
                         st.success("Login efetuado com sucesso!")
                         st.rerun()
@@ -333,8 +333,8 @@ if not st.session_state['autenticado']:
 
 else:
     # --- INTERFACE PRINCIPAL APÓS O LOGIN ---
-    usr_exibicao = st.session_state.get('usuario_logado') or "Utilizador"
-    login_atual = st.session_state.get('login_efetuado', '').lower()
+    usr_exibicao = str(st.session_state.get('usuario_logado') or "Utilizador")
+    login_atual = str(st.session_state.get('login_efetuado') or '').lower()
     
     st.sidebar.write(f"👤 **Utilizador:** `{usr_exibicao}`")
     
@@ -626,7 +626,7 @@ else:
 
         if st.session_state.carrinho_compras:
             st.dataframe(pd.DataFrame(st.session_state.carrinho_compras), use_container_width=True)
-            if st.button("💾 Finalizar Todas das Entradas"):
+            if st.button("💾 Finalizar Todas as Entradas"):
                 cursor = conn.cursor()
                 for item in st.session_state.carrinho_compras:
                     cursor.execute("SELECT id FROM produtos WHERE produto = ?", (item['produto'],))
