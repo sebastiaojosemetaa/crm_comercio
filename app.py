@@ -553,13 +553,15 @@ else:
                         if tipo_chave_pix in ["CNPJ", "CPF"]:
                             chave_limpa_payload = ''.join(filter(str.isdigit, pix_key))
                         elif tipo_chave_pix == "Celular":
-                            cel_limpo = ''.join(c for c in pix_key if c.isdigit() or c == '+')
-                            if not cel_limpo.startswith('+'):
-                                if len(cel_limpo) == 11:
-                                    cel_limpo = "+55" + cel_limpo
-                                elif len(cel_limpo) == 13:
-                                    cel_limpo = "+" + cel_limpo
-                            chave_limpa_payload = cel_limpo
+                            # Pega apenas os números do celular cadastrado
+                            apenas_digitos = ''.join(filter(str.isdigit, pix_key))
+                            # Se tiver 11 dígitos (DDD + número), adiciona o +55 obrigatoriamente
+                            if len(apenas_digitos) == 11:
+                                chave_limpa_payload = "+55" + apenas_digitos
+                            elif len(apenas_digitos) == 13 and apenas_digitos.startswith("55"):
+                                chave_limpa_payload = "+" + apenas_digitos
+                            else:
+                                chave_limpa_payload = "+55" + apenas_digitos
                         else:
                             chave_limpa_payload = pix_key.strip()
 
