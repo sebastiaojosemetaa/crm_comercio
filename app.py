@@ -130,6 +130,17 @@ def adequar_banco_e_migrar():
         """)
 
         cursor.execute("""
+            CREATE TABLE IF NOT EXISTS chaves_pix (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tipo TEXT,
+                chave TEXT,
+                favorecido TEXT,
+                cidade TEXT,
+                padrao INTEGER DEFAULT 0
+            )
+        """)
+        
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS caixa_movimentacoes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT, sessao_id INTEGER, tipo TEXT,
                 valor REAL, descricao TEXT, data TEXT
@@ -501,37 +512,64 @@ else:
 
                 elif forma_pagto == "Pix":
                     st.markdown("#### 📱 Pague com Pix (QR Code Oficial)")
-                    st.info("Aponte a câmara do telemóvel para o QR Code abaixo ou copie a chave Pix para pagar.")
                     
-                    # Função para gerar o payload CRC16 correto exigido pelo Banco Central para Pix Copia e Cola
-                    def gerar_payload_pix(pix_key, nome_recebedor, cidade, valor_str):
+                    # Buscar chaves cadastradas no banco
+                    df_chaves_db = carregar_dados("SELECT * FROM chaves_pix")
+                    
+                    if df_chaves_db.empty:
+                        st.warning("⚠️ Nenhuma chave Pix cadastrada! Usando o CNPJ padrão da empresa provisoriamente.")
+                        lista_opcoes_pix = ["CNPJ Padrão: 19417439000142"]
+                        dict_chaves = {0: {"tipo": "CNPJ", "chave": "19417439000142", "favorecido": nome_empresa_header, "cidade": "SAO LUIS"}}
+                    else:
+                        dict_chaves = {}
+                        lista_opcoes_pix = []
+                        for idx, row in df_chaves_db.iterrows():
+                            rotulo = f"[{row['tipo']}] {row['chave']} - {row['favorecido']}"
+                            lista_opcoes_pix.append(rotulo)
+                            dict_chaves[rotulo] = row
+
+                    # Seletor para escolher qual chave usar nesta venda
+                    chave_escolhida_label = st.selectbox("Escolha a Chave Pix para esta venda:", lista_opcoes_pix, key="select_chave_pix_venda")
+                    
+                    if df_chaves_db.empty:
+                        dados_chave_atual = dict_chaves[0]
+                    else:
+                        dados_chave_atual = dict_chaves[chave_escolhida_label]
+
+                    pix_key_val = str(dados_chave_atual['chave'])
+                    fav_val = str(dados_chave_atual['favorecido'])
+                    cidade_val = str(dados_chave_atual['cidade'])
+                    tipo_val = str(dados_chave_atual['tipo'])
+
+                    st.info(f"Aponte a câmara para o QR Code abaixo ou utilize a chave selecionada.")
+
+                    # Função para gerar o payload CRC16 do Pix
+                    def gerar_payload_pix(pix_key, nome_recebedor, cidade, valor_str, tipo_chave_pix):
                         def emv_format(id_str, val_str):
                             length = f"{len(val_str):02d}"
                             return f"{id_str}{length}{val_str}"
                         
-                        # Payload format
                         payload = emv_format("00", "01")
                         
-                        # Merchant Account Information (Chave Pix CNPJ)
-                        mai_content = emv_format("00", "br.gov.bcb.pix") + emv_format("01", pix_key)
+                        # Se for CPF ou CNPJ, o padrão exige apenas números
+                        chave_limpa_payload = pix_key
+                        if tipo_chave_pix in ["CNPJ", "CPF"]:
+                            chave_limpa_payload = ''.join(filter(str.isdigit, pix_key))
+
+                        mai_content = emv_format("00", "br.gov.bcb.pix") + emv_format("01", chave_limpa_payload)
                         payload += emv_format("26", mai_content)
                         
-                        # Category, Currency (986 = BRL), Amount
                         payload += emv_format("52", "0000")
                         payload += emv_format("53", "986")
                         payload += emv_format("54", valor_str)
                         payload += emv_format("58", "BR")
-                        payload += emv_format("60", nome_recebedor[:25]) # Máximo 25 caracteres
-                        payload += emv_format("61", cidade[:15])       # Máximo 15 caracteres
+                        payload += emv_format("60", nome_recebedor[:25])
+                        payload += emv_format("61", cidade[:15])
                         
-                        # Additional Data Field Template (TxID padrão ***)
                         add_data = emv_format("05", "***")
                         payload += emv_format("62", add_data)
-                        
-                        # CRC16 calculation placeholder
                         payload += "6304"
                         
-                        # Algoritmo de cálculo CRC16-CCITT (False)
                         crc = 0xFFFF
                         for char in payload:
                             crc ^= (ord(char) << 8)
@@ -543,15 +581,14 @@ else:
                                 crc &= 0xFFFF
                         return payload + f"{crc:04X}"
 
-                    # Formata o valor com 2 casas decimais sem pontos/vírgulas (ex: 117.00 -> 117.00)
                     valor_formatado = f"{total_geral_carrinho:.2f}"
                     
-                    # Gera o Pix Copia e Cola válido usando o CNPJ da empresa
                     pix_payload = gerar_payload_pix(
-                        pix_key="19417439000142",
-                        nome_recebedor="REY DA CEBOLA",
-                        cidade="SAO LUIS",
-                        valor_str=valor_formatado
+                        pix_key=pix_key_val,
+                        nome_recebedor=fav_val,
+                        cidade=cidade_val,
+                        valor_str=valor_formatado,
+                        tipo_chave_pix=tipo_val
                     )
                     
                     qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={pix_payload}"
@@ -561,8 +598,8 @@ else:
                         st.image(qr_url, width=190, caption="Escaneie o QR Code")
                     with col_qr_info:
                         st.markdown(f"**Valor a Pagar:** R$ {total_geral_carrinho:,.2f}")
-                        st.markdown(f"**Favorecido:** `REY DA CEBOLA`")
-                        st.markdown(f"**Chave Pix (CNPJ):** `19.417.439/0001-42`")
+                        st.markdown(f"**Favorecido:** `{fav_val}`")
+                        st.markdown(f"**Chave ({tipo_val}):** `{pix_key_val}`")
                         st.text_input("Chave Pix Copia e Cola:", value=pix_payload, key="input_pix_copia_cola_detalhe")
                         st.success("🟢 Aguardando confirmação do pagamento Pix...")
 
@@ -1190,3 +1227,42 @@ else:
                 st.session_state['limite_dispositivos'] = lim_disp
                 st.success("✅ Configurações e limites salvos com sucesso!")
                 st.rerun()
+        st.markdown("---")
+            st.markdown("### 💳 Gestão de Chaves Pix")
+            
+            with st.form("form_cad_chave_pix"):
+                col_cp1, col_cp2 = st.columns(2)
+                with col_cp1:
+                    tipo_chave = st.selectbox("Tipo de Chave", ["CNPJ", "CPF", "Celular", "E-mail", "Chave Aleatória"])
+                    valor_chave = st.text_input("Valor da Chave (ex: seu e-mail, celular ou CNPJ)")
+                with col_cp2:
+                    favorecido_chave = st.text_input("Nome do Favorecido", value=nome_empresa_header)
+                    cidade_chave = st.text_input("Cidade", value="SAO LUIS")
+                
+                if st.form_submit_button("➕ Cadastrar Nova Chave Pix", type="primary"):
+                    if valor_chave.strip():
+                        cursor = conn.cursor()
+                        cursor.execute("""
+                            INSERT INTO chaves_pix (tipo, chave, favorecido, cidade)
+                            VALUES (?, ?, ?, ?)
+                        """, (tipo_chave, valor_chave.strip(), favorecido_chave.strip(), cidade_chave.strip()))
+                        conn.commit()
+                        st.success("✅ Chave Pix cadastrada com sucesso!")
+                        st.rerun()
+                    else:
+                        st.error("Preencha o valor da chave Pix.")
+        
+            # Exibir chaves cadastradas com opção de exclusão
+            df_chaves_cadastradas = carregar_dados("SELECT * FROM chaves_pix")
+            if not df_chaves_cadastradas.empty:
+                st.markdown("#### 📋 Chaves Pix Já Cadastradas")
+                st.dataframe(df_chaves_cadastradas, use_container_width=True)
+                
+                id_para_excluir = st.number_input("ID da Chave para Excluir (opcional):", min_value=0, step=1)
+                if st.button("🗑️ Excluir Chave Selecionada"):
+                    if id_para_excluir > 0:
+                        cursor = conn.cursor()
+                        cursor.execute("DELETE FROM chaves_pix WHERE id = ?", (int(id_para_excluir),))
+                        conn.commit()
+                        st.success(f"Chave ID {id_para_excluir} excluída com sucesso!")
+                        st.rerun()
