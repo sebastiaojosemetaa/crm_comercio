@@ -604,7 +604,6 @@ else:
         else:
             col_q1, col_q2, col_q3 = st.columns([1, 1, 2], gap="medium")
             with col_q1:
-                qtd_venda = st.number_input("Qtd", min_value=0.01, value=1
 
     # -------------------------------------------------------------
     # 2. MÓDULO FECHAMENTO & FINANCEIRO
