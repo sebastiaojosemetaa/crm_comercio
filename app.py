@@ -79,20 +79,20 @@ def adequar_banco_e_migrar():
                 ie TEXT,
                 fone TEXT,
                 endereco TEXT,
-                ativado INTEGER DEFAULT 0,
+                ativado INTEGER DEFAULT 1,
                 dias_licenca INTEGER DEFAULT 30,
-                limite_dispositivos INTEGER DEFAULT 1
+                limite_dispositivos INTEGER DEFAULT 2
             )
         """)
         
         cursor.execute("PRAGMA table_info(empresas_dispositivos)")
         cols_emp = [col[1] for col in cursor.fetchall()]
         if "ativado" not in cols_emp:
-            cursor.execute("ALTER TABLE empresas_dispositivos ADD COLUMN ativado INTEGER DEFAULT 0")
+            cursor.execute("ALTER TABLE empresas_dispositivos ADD COLUMN ativado INTEGER DEFAULT 1")
         if "dias_licenca" not in cols_emp:
             cursor.execute("ALTER TABLE empresas_dispositivos ADD COLUMN dias_licenca INTEGER DEFAULT 30")
         if "limite_dispositivos" not in cols_emp:
-            cursor.execute("ALTER TABLE empresas_dispositivos ADD COLUMN limite_dispositivos INTEGER DEFAULT 1")
+            cursor.execute("ALTER TABLE empresas_dispositivos ADD COLUMN limite_dispositivos INTEGER DEFAULT 2")
 
         cursor.execute("CREATE TABLE IF NOT EXISTS produtos (id INTEGER PRIMARY KEY AUTOINCREMENT, produto TEXT)")
         for col in ["fornecedor", "grupo", "preco_compra", "preco_venda", "venda", "quantidade", "estoque", "codigo"]:
@@ -207,8 +207,13 @@ if df_emp_dev.empty:
     cursor = conn.cursor()
     cursor.execute("""
         INSERT OR IGNORE INTO empresas_dispositivos (device_id, nome_empresa, cnpj, ie, fone, endereco, ativado, dias_licenca, limite_dispositivos)
-        VALUES (?, 'REY DA CEBOLA', '19417439000142', '', '(99) 98501-6050', 'RUA CAIPIRA, Nº 174', 0, 30, 1)
+        VALUES (?, 'REY DA CEBOLA', '19417439000142', '', '(99) 98501-6050', 'RUA CAIPIRA, Nº 174', 1, 30, 2)
     """, (device_id,))
+    conn.commit()
+    df_emp_dev = carregar_dados(f"SELECT * FROM empresas_dispositivos WHERE device_id = '{device_id}'")
+else:
+    cursor = conn.cursor()
+    cursor.execute("UPDATE empresas_dispositivos SET ativado = 1 WHERE device_id = ?", (device_id,))
     conn.commit()
     df_emp_dev = carregar_dados(f"SELECT * FROM empresas_dispositivos WHERE device_id = '{device_id}'")
 
@@ -216,11 +221,11 @@ reg_emp = df_emp_dev.iloc[0] if not df_emp_dev.empty else {}
 nome_empresa_header = str(reg_emp.get('nome_empresa', 'REY DA CEBOLA'))
 cnpj_empresa_header = str(reg_emp.get('cnpj', '19417439000142'))
 
-dispositivo_esta_ativado = bool(reg_emp.get('ativado', 0) == 1)
+dispositivo_esta_ativado = True
 dias_licenca_atual = int(reg_emp.get('dias_licenca', 30))
-limite_dispositivos_atual = int(reg_emp.get('limite_dispositivos', 1))
+limite_dispositivos_atual = int(reg_emp.get('limite_dispositivos', 2))
 
-st.session_state["dispositivo_ativado"] = dispositivo_esta_ativado
+st.session_state["dispositivo_ativado"] = True
 st.session_state["dias_licenca"] = dias_licenca_atual
 st.session_state["limite_dispositivos"] = limite_dispositivos_atual
 
@@ -262,40 +267,11 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- PAINEL LATERAL (DEV) — GERADOR DE CHAVES ---
-with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
-    senha_dev = st.text_input("Senha Mestre Dev", type="password", key="pwd_dev_topo")
-    if senha_dev == "13142715":
-        tipo_plano = st.selectbox("Tipo de Chave:", ["Teste (7 Dias)", "Mensal (30 Dias)", "Anual (365 Dias)"], key="select_tipo_plano_dev")
-        doc_cliente = st.text_input("CNPJ ou CPF do Cliente:", value="19417439000142", key="doc_dev_topo_doc")
-        limite_dev_topo = st.number_input("Limite de Dispositivos:", min_value=1, max_value=50, value=1, key="limite_dev_topo_num")
-        
-        if st.button("Gerar Chave", key="btn_dev_topo_acao"):
-            if doc_cliente.strip():
-                sufixo_tipo = "TESTE" if "Teste" in tipo_plano else ("MENSAL" if "Mensal" in tipo_plano else "ANUAL")
-                doc_limpo = ''.join(filter(str.isdigit, str(doc_cliente)))
-                
-                cursor = conn.cursor()
-                cursor.execute("""
-                    UPDATE empresas_dispositivos 
-                    SET limite_dispositivos = ? 
-                    WHERE REPLACE(REPLACE(REPLACE(cnpj, '.', ''), '/', ''), '-', '') = ?
-                """, (limite_dev_topo, doc_limpo))
-                conn.commit()
-
-                base_hash_str = doc_limpo + "REY_CEBOLA_2026" + sufixo_tipo + str(limite_dev_topo)
-                hash_hex = hashlib.md5(base_hash_str.encode()).hexdigest().upper()
-                st.code(f"CRM-{sufixo_tipo}-{limite_dev_topo}D-{hash_hex[:4]}-{hash_hex[4:8]}", language="text")
-                st.success(f"Chave gerada! Limite definido: {limite_dev_topo} disp.")
-
+# --- PAINEL LATERAL ---
 st.sidebar.title("🔑 Acesso ao Sistema")
 st.sidebar.radio("Selecione o Perfil:", ["🔒 Administração / Vendedor"], key="perfil_principal_radio")
 st.sidebar.markdown("---")
-
-if st.session_state.get('dispositivo_ativado', False):
-    st.sidebar.success("🟢 Dispositivo Ativado")
-else:
-    st.sidebar.error("🔴 Dispositivo Não Ativado")
+st.sidebar.success("🟢 Dispositivo Ativado Permanentemente")
 st.sidebar.markdown("---")
 
 # ==========================================
@@ -389,14 +365,6 @@ else:
     ]
 
     menu_admin = st.sidebar.radio("Navegação", opcoes_menu_disponiveis, key="radio_menu_admin_opcoes")
-
-    # --- TRAVA DE SEGURANÇA DE LICENÇA POR DISPOSITIVO ---
-    df_check_ativado = carregar_dados(f"SELECT ativado FROM empresas_dispositivos WHERE device_id = '{device_id}'")
-    status_disp_real = int(df_check_ativado.iloc[0]['ativado']) if not df_check_ativado.empty else 0
-
-    if status_disp_real == 0 and menu_admin != "🏢 Configurações da Empresa":
-        st.error("🚫 **ACESSO BLOQUEADO:** Este dispositivo não está ativado na licença. Vá em **Configurações da Empresa** para inserir a chave de ativação.")
-        st.stop()
 
     # -------------------------------------------------------------
     # 1. MÓDULO PDV — FRENTE DE CAIXA
@@ -970,7 +938,7 @@ else:
                             st.success("✅ Utilizador atualizado com sucesso!")
                             st.rerun()
                         except Exception as e:
-                            st.error(f"Erro ao atualizar utilizizador: {e}")
+                            st.error(f"Erro ao atualizar utilizador: {e}")
 
                     if btn_excluir_usr:
                         if ed_login.strip().lower() == "administrador":
@@ -1058,72 +1026,7 @@ else:
     # -------------------------------------------------------------
     elif menu_admin == "🏢 Configurações da Empresa":
         st.subheader("🏢 Configurações e Dados da Empresa")
-
-        st.markdown("### 🔑 Ativação e Limite de Dispositivos")
-        
-        df_devs_count = carregar_dados("SELECT COUNT(*) as total FROM empresas_dispositivos WHERE ativado = 1")
-        total_ativados = int(df_devs_count.iloc[0]['total']) if not df_devs_count.empty else 0
-        
-        limite_permitido = int(reg_emp.get('limite_dispositivos', 1))
-        st.info(f"📊 **Status de Licença de Dispositivos:** {total_ativados} de {limite_permitido} dispositivo(s) autorizados.")
-
-        if dispositivo_esta_ativado:
-            dias_val = st.session_state.get('dias_licenca', 30)
-            st.success(f"✅ Este dispositivo está **ATIVADO**! Licença válida por {dias_val} dias.")
-            if st.button("🔄 Inserir Nova Chave / Renovar"):
-                cursor = conn.cursor()
-                cursor.execute("UPDATE empresas_dispositivos SET ativado = 0 WHERE device_id = ?", (device_id,))
-                conn.commit()
-                st.session_state['dispositivo_ativado'] = False
-                st.rerun()
-        else:
-            if total_ativados >= limite_permitido:
-                st.error(f"❌ Limite atingido! O limite máximo de {limite_permitido} dispositivo(s) já foi alcançado. Para ligar mais aparelhos, gere uma chave com um limite maior.")
-            else:
-                st.warning("⚠️ Insira a chave de ativação para liberar este dispositivo.")
-                doc_atual = str(reg_emp.get('cnpj', '19417439000142'))
-                st.info(f"Empresa Atual (CNPJ/CPF): `{doc_atual}`")
-
-                chave_digitada = st.text_input("Chave de Ativação:", key="input_chave_ativacao_config")
-
-                if st.button("🔓 Ativar Este Dispositivo", type="primary", key="btn_ativar_dispositivo_config"):
-                    apenas_digitos = ''.join(filter(str.isdigit, str(doc_atual)))
-                    chave_limpa = str(chave_digitada).strip().upper()
-
-                    sucesso = False
-                    dias_validade = 30
-                    limite_extraido = 1
-
-                    for sufixo, dias in [("TESTE", 7), ("MENSAL", 30), ("ANUAL", 365)]:
-                        for lim_test in range(1, 30):
-                            base_hash_str = apenas_digitos + "REY_CEBOLA_2026" + sufixo + str(lim_test)
-                            hash_hex = hashlib.md5(base_hash_str.encode()).hexdigest().upper()
-                            chave_esperada = f"CRM-{sufixo}-{lim_test}D-{hash_hex[:4]}-{hash_hex[4:8]}"
-
-                            if chave_limpa == chave_esperada:
-                                sucesso = True
-                                dias_validade = dias
-                                limite_extraido = lim_test
-                                break
-                        if sucesso:
-                            break
-
-                    if sucesso:
-                        cursor = conn.cursor()
-                        cursor.execute("""
-                            UPDATE empresas_dispositivos 
-                            SET ativado = 1, dias_licenca = ?, limite_dispositivos = ? 
-                            WHERE device_id = ?
-                        """, (dias_validade, limite_extraido, device_id))
-                        conn.commit()
-
-                        st.session_state['dispositivo_ativado'] = True
-                        st.session_state['dias_licenca'] = dias_validade
-                        st.session_state['limite_dispositivos'] = limite_extraido
-                        st.success(f"🎉 Dispositivo ativado com sucesso! Validade: {dias_validade} dias (Limite: {limite_extraido} disp.).")
-                        st.rerun()
-                    else:
-                        st.error("❌ Chave inválida para este CNPJ/CPF ou formato incorreto. Verifique o documento cadastrado abaixo.")
+        st.success("✅ Dispositivo permanentemente ativado e licenciado!")
 
         st.markdown("---")
         with st.form("form_cfg_emp"):
@@ -1132,9 +1035,15 @@ else:
             cnpj_emp = st.text_input("CNPJ ou CPF", value=str(reg_emp.get('cnpj', '19417439000142')))
             tel_emp = st.text_input("Telefone de Contato", value=str(reg_emp.get('fone', '(99) 98501-6050')))
             end_emp = st.text_input("Endereço Completo", value=str(reg_emp.get('endereco', 'RUA CAIPIRA, Nº 174')))
-            lim_disp = st.number_input("💻 Limite Máximo de Dispositivos Permitidos", min_value=1, max_value=50, value=int(reg_emp.get('limite_dispositivos', 1)))
+            lim_disp = st.number_input("💻 Limite Máximo de Dispositivos Permitidos", min_value=1, max_value=50, value=int(reg_emp.get('limite_dispositivos', 2)))
             
             if st.form_submit_button("💾 Salvar Configurações", type="primary"):
                 cursor = conn.cursor()
                 cursor.execute("""
-                    INSERT OR REPLACE INTO empresas_disposit
+                    INSERT OR REPLACE INTO empresas_dispositivos (device_id, nome_empresa, cnpj, fone, endereco, ativado, dias_licenca, limite_dispositivos)
+                    VALUES (?, ?, ?, ?, ?, 1, 30, ?)
+                """, (device_id, nome_emp, cnpj_emp, tel_emp, end_emp, lim_disp))
+                conn.commit()
+                st.session_state['limite_dispositivos'] = lim_disp
+                st.success("✅ Configurações e limites salvos com sucesso!")
+                st.rerun()
