@@ -410,137 +410,187 @@ else:
         st.error("🚫 **ACESSO BLOQUEADO:** Este dispositivo não está ativado na licença. Vá em **Configurações da Empresa** para inserir a chave de ativação.")
         st.stop()
 
-    # -------------------------------------------------------------
-    # 1. MÓDULO PDV — FRENTE DE CAIXA
-    # -------------------------------------------------------------
-    if menu_admin == "🛒 PDV — Frente de Caixa":
-        col_tit_pdv, col_modo_pdv = st.columns([2, 1], gap="small")
-        with col_tit_pdv:
-            st.markdown(f"### 🛒 PDV — Frente de Caixa — {nome_empresa_header} | 👤 Utilizador: {usr_exibicao}")
-        with col_modo_pdv:
-            modo_pdv_selecionado = st.radio(
-                "⚡ Alternar Modo do Sistema:",
-                ["Modo Simples", "Modo Completo"],
-                horizontal=True,
-                key="radio_modo_pdv_topo"
-            )
-        is_simples = (modo_pdv_selecionado == "Modo Simples")
-
-        df_caixa_aberto = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
-        
-        if not df_caixa_aberto.empty:
-            st.success("🟢 Caixa Aberto e Operacional")
-        else:
-            st.warning("⚠️ Atenção: Não há nenhum caixa aberto no momento.")
-
-        try:
-            df_prod_pdv = pd.read_sql_query("SELECT * FROM produtos", conn)
-            lista_produtos_pdv = df_prod_pdv['produto'].tolist() if not df_prod_pdv.empty else []
-        except Exception:
-            lista_produtos_pdv = []
-            df_prod_pdv = pd.DataFrame()
-
-        def obter_dados_produto(nome_prod):
-            if not df_prod_pdv.empty and nome_prod in lista_produtos_pdv:
-                p_row = df_prod_pdv[df_prod_pdv['produto'] == nome_prod].iloc[0]
-                val_v = float(p_row.get('valor_venda', 0.0) or p_row.get('venda', 0.0) or 0.0)
-                cod_prod = str(p_row.get('codigo', ''))
-                return val_v, str(p_row.get('fornecedor', '')), str(p_row.get('grupo', '')), cod_prod
-            return 0.0, "", "", ""
-
-        def obter_produto_por_codigo(cod):
-            if not df_prod_pdv.empty and 'codigo' in df_prod_pdv.columns:
-                match = df_prod_pdv[df_prod_pdv['codigo'].astype(str).str.strip() == str(cod).strip()]
-                if not match.empty:
-                    return str(match.iloc[0]['produto'])
-            return ""
-
-        total_geral_carrinho = sum(item['valor_total'] for item in st.session_state.carrinho_pdv) if st.session_state.carrinho_pdv else 0.0
-        st.markdown(f"### 🛒 Itens Lançados no Carrinho | Subtotal / Total Geral: **R$ {total_geral_carrinho:,.2f}**")
-
-        if st.session_state.carrinho_pdv:
-            df_carrinho = pd.DataFrame(st.session_state.carrinho_pdv)
-            df_exibicao = df_carrinho[['codigo', 'produto', 'quantidade', 'valor_unitario', 'valor_total']].copy()
-            df_exibicao.columns = ['Cód. Prod', 'Produto', 'Qtd', 'Preço Unit.', 'Total Itens']
+        # -------------------------------------------------------------
+        # 1. MÓDULO PDV — FRENTE DE CAIXA
+        # -------------------------------------------------------------
+        if menu_admin == "🛒 PDV — Frente de Caixa":
+            col_tit_pdv, col_modo_pdv = st.columns([2, 1], gap="small")
+            with col_tit_pdv:
+                st.markdown(f"### 🛒 PDV — Frente de Caixa — {nome_empresa_header} | 👤 Utilizador: {usr_exibicao}")
+            with col_modo_pdv:
+                modo_pdv_selecionado = st.radio(
+                    "⚡ Alternar Modo do Sistema:",
+                    ["Modo Simples", "Modo Completo"],
+                    horizontal=True,
+                    key="radio_modo_pdv_topo"
+                )
+            is_simples = (modo_pdv_selecionado == "Modo Simples")
+    
+            df_caixa_aberto = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
             
-            st.dataframe(df_exibicao, use_container_width=True, height=240)
-
-            col_b1, col_b2 = st.columns(2)
-            with col_b1:
-                if st.button("❌ Limpar Carrinho", use_container_width=True, key="btn_limpar_cart_alin"):
-                    st.session_state.carrinho_pdv = []
-                    st.rerun()
-            with col_b2:
-                if st.button("🟢 Finalizar Venda", type="primary", use_container_width=True, key="btn_fin_venda_alin"):
-                    if not df_caixa_aberto.empty:
-                        cursor = conn.cursor()
-                        sessao_id = int(df_caixa_aberto.iloc[0]['id'])
-                        data_venda = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                        vendedor_atual = usr_exibicao
-
-                        for item in st.session_state.carrinho_pdv:
-                            cursor.execute("""
-                                INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, status, tipo, data, vendedor)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, 'Dinheiro', ?, 'Concluído', 'VENDA', ?, ?)
-                            """, ("Cliente Balcão", item['produto'], item['fornecedor'], item['grupo'], item['quantidade'], item['valor_unitario'], item['valor_total'], item['valor_total'], data_venda, vendedor_atual))
-
-                        cursor.execute("INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, 'VENDA', ?, ?, ?)",
-                                       (sessao_id, float(total_geral_carrinho), f"Venda PDV por {vendedor_atual}", data_venda))
-                        conn.commit()
+            if not df_caixa_aberto.empty:
+                st.success("🟢 Caixa Aberto e Operacional")
+            else:
+                st.warning("⚠️ Atenção: Não há nenhum caixa aberto no momento.")
+    
+            try:
+                df_prod_pdv = pd.read_sql_query("SELECT * FROM produtos", conn)
+                lista_produtos_pdv = df_prod_pdv['produto'].tolist() if not df_prod_pdv.empty else []
+            except Exception:
+                lista_produtos_pdv = []
+                df_prod_pdv = pd.DataFrame()
+    
+            def obter_dados_produto(nome_prod):
+                if not df_prod_pdv.empty and nome_prod in lista_produtos_pdv:
+                    p_row = df_prod_pdv[df_prod_pdv['produto'] == nome_prod].iloc[0]
+                    val_v = float(p_row.get('valor_venda', 0.0) or p_row.get('venda', 0.0) or 0.0)
+                    cod_prod = str(p_row.get('codigo', ''))
+                    return val_v, str(p_row.get('fornecedor', '')), str(p_row.get('grupo', '')), cod_prod
+                return 0.0, "", "", ""
+    
+            def obter_produto_por_codigo(cod):
+                if not df_prod_pdv.empty and 'codigo' in df_prod_pdv.columns:
+                    match = df_prod_pdv[df_prod_pdv['codigo'].astype(str).str.strip() == str(cod).strip()]
+                    if not match.empty:
+                        return str(match.iloc[0]['produto'])
+                return ""
+    
+            total_geral_carrinho = sum(item['valor_total'] for item in st.session_state.carrinho_pdv) if st.session_state.carrinho_pdv else 0.0
+            st.markdown(f"### 🛒 Itens Lançados no Carrinho | Subtotal / Total Geral: **R$ {total_geral_carrinho:,.2f}**")
+    
+            if st.session_state.carrinho_pdv:
+                df_carrinho = pd.DataFrame(st.session_state.carrinho_pdv)
+                df_exibicao = df_carrinho[['codigo', 'produto', 'quantidade', 'valor_unitario', 'valor_total']].copy()
+                df_exibicao.columns = ['Cód. Prod', 'Produto', 'Qtd', 'Preço Unit.', 'Total Itens']
+                
+                st.dataframe(df_exibicao, use_container_width=True, height=200)
+    
+                col_b1, col_b2 = st.columns(2)
+                with col_b1:
+                    if st.button("❌ Limpar Carrinho", use_container_width=True, key="btn_limpar_cart_alin"):
                         st.session_state.carrinho_pdv = []
-                        st.success(f"✅ Venda de R$ {total_geral_carrinho:.2f} concluída com sucesso!")
+                        st.session_state.tela_checkout_ativa = False
                         st.rerun()
+                with col_b2:
+                    if st.button("🟢 Finalizar Venda (Pagamento)", type="primary", use_container_width=True, key="btn_fin_venda_alin"):
+                        if not df_caixa_aberto.empty:
+                            st.session_state.tela_checkout_ativa = True
+                            st.rerun()
+                        else:
+                            st.error("Abra o caixa antes de finalizar.")
+    
+                if st.session_state.get('tela_checkout_ativa', False):
+                    st.markdown("---")
+                    st.markdown("### 💳 Ecrã de Pagamento / Checkout")
+                    forma_pagto = st.radio("Selecione a Forma de Pagamento:", ["Dinheiro", "Cartão", "Pix"], horizontal=True, key="radio_forma_pagto_checkout")
+    
+                    if forma_pagto == "Dinheiro":
+                        valor_recebido = st.number_input("Valor Recebido em Dinheiro (R$)", min_value=0.0, value=total_geral_carrinho, format="%.2f", key="input_val_recebido_dinheiro")
+                        troco = valor_recebido - total_geral_carrinho
+                        if troco >= 0:
+                            st.success(f"💵 **Troco a Devolver:** R$ {troco:,.2f}")
+                        else:
+                            st.warning(f"⚠️ Falta R$ {abs(troco):,.2f} para completar o pagamento.")
+    
+                    elif forma_pagto == "Pix":
+                        st.markdown(f"#### 📱 Pague com Pix — Favorecido: `{nome_empresa_header}`")
+                        st.info("Aponte a câmara do telemóvel para o QR Code abaixo ou copie a chave Pix para efetuar o pagamento.")
+                        
+                        def gerar_payload_pix(chave_pix, nome_favorecido, cidade_favorecido, valor):
+                            def campo(id_campo, valor_campo):
+                                tamanho = f"{len(valor_campo):02d}"
+                                return f"{id_campo}{tamanho}{valor_campo}"
+                            
+                            val_str = f"{valor:.2f}"
+                            nome_limpo = (nome_favorecido[:25]).upper()
+                            cidade_limpa = (cidade_favorecido[:15]).upper()
+                            
+                            payload_com_crc = (
+                                "000201"
+                                + campo("26", campo("00", "br.gov.bcb.pix") + campo("01", chave_pix))
+                                + "52040000"
+                                + "5303986"
+                                + campo("54", val_str)
+                                + "5802BR"
+                                + campo("59", nome_limpo)
+                                + campo("60", cidade_limpa)
+                                + "62070503***"
+                                + "6304"
+                            )
+                            return payload_com_crc + "ABCD"
+    
+                        pix_payload = gerar_payload_pix(cnpj_empresa_header, nome_empresa_header, "SAO LUIS", total_geral_carrinho)
+                        qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={pix_payload}"
+                        
+                        col_qr1, col_qr2 = st.columns([1, 2])
+                        with col_qr1:
+                            st.image(qr_url, width=180)
+                        with col_qr2:
+                            st.markdown(f"**Favorecido:** {nome_empresa_header}")
+                            st.markdown(f"**CNPJ / Chave:** {cnpj_empresa_header}")
+                            st.markdown(f"**Valor a Pagar:** R$ {total_geral_carrinho:,.2f}")
+                            st.text_input("Chave Pix Copia e Cola:", value=pix_payload, disabled=True)
+                            st.success("🟢 Aguardando confirmação do pagamento Pix...")
+    
+                    col_chk1, col_chk2 = st.columns(2)
+                    with col_chk1:
+                        if st.button("⬅️ Voltar ao PDV", use_container_width=True, key="btn_voltar_pdv_check"):
+                            st.session_state.tela_checkout_ativa = False
+                            st.rerun()
+                    with col_chk2:
+                        if st.button("✅ Confirmar e Concluir Venda", type="primary", use_container_width=True, key="btn_confirmar_pagto_final"):
+                            cursor = conn.cursor()
+                            sessao_id = int(df_caixa_aberto.iloc[0]['id'])
+                            data_venda = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                            vendedor_atual = usr_exibicao
+                            
+                            v_rec = valor_recebido if forma_pagto == "Dinheiro" else total_geral_carrinho
+                            t_val = troco if (forma_pagto == "Dinheiro" and troco >= 0) else 0.0
+    
+                            for item in st.session_state.carrinho_pdv:
+                                cursor.execute("""
+                                    INSERT INTO vendas (cliente, produto, fornecedor, grupo, quantidade, valor_venda, valor_total, forma_pagamento, valor_recebido, troco, status, tipo, data, vendedor)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Concluído', 'VENDA', ?, ?)
+                                """, ("Cliente Balcão", item['produto'], item['fornecedor'], item['grupo'], item['quantidade'], item['valor_unitario'], item['valor_total'], forma_pagamento, v_rec, t_val, data_venda, vendedor_atual))
+    
+                            cursor.execute("INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, 'VENDA', ?, ?, ?)",
+                                           (sessao_id, float(total_geral_carrinho), f"Venda PDV ({forma_pagamento}) por {vendedor_atual}", data_venda))
+                            conn.commit()
+                            
+                            st.session_state.carrinho_pdv = []
+                            st.session_state.tela_checkout_ativa = False
+                            st.success(f"🎉 Venda de R$ {total_geral_carrinho:,.2f} via **{forma_pagamento}** concluída com sucesso!")
+                            st.rerun()
+    
+            else:
+                st.info("Nenhum item lançado no carrinho ainda.")
+    
+            col_bus1, col_bus2 = st.columns([1, 1], gap="medium")
+            with col_bus1:
+                codigo_barras_input = st.text_input("Código de Barras (Leitor / Digitação)", key="input_cod_barras_pdv")
+            with col_bus2:
+                prod_por_codigo = ""
+                if codigo_barras_input.strip():
+                    prod_por_codigo = obter_produto_por_codigo(codigo_barras_input.strip())
+                    if prod_por_codigo:
+                        st.success(f"🎯 Produto: **{prod_por_codigo}**")
                     else:
-                        st.error("Abra o caixa antes de finalizar.")
-        else:
-            st.info("Nenhum item lançado no carrinho ainda.")
-
-        col_bus1, col_bus2 = st.columns([1, 1], gap="medium")
-        with col_bus1:
-            codigo_barras_input = st.text_input("Código de Barras (Leitor / Digitação)", key="input_cod_barras_pdv")
-        with col_bus2:
-            prod_por_codigo = ""
-            if codigo_barras_input.strip():
-                prod_por_codigo = obter_produto_por_codigo(codigo_barras_input.strip())
-                if prod_por_codigo:
-                    st.success(f"🎯 Produto: **{prod_por_codigo}**")
-                else:
-                    st.warning("⚠️ Código não encontrado.")
-
-            idx_padrao = 0
-            if prod_por_codigo in lista_produtos_pdv:
-                idx_padrao = lista_produtos_pdv.index(prod_por_codigo) + 1
-
-            prod_selecionado = st.selectbox("Pesquisar / Selecionar Produto", [""] + lista_produtos_pdv, index=idx_padrao, key="sel_prod_pdv_alin")
-
-        val_venda_sug, forn_sug, grupo_sug, cod_sug = obter_dados_produto(prod_selecionado) if prod_selecionado else (0.0, "", "", "")
-
-        if is_simples:
-            qtd_venda = 1.0
-            preco_unit_venda = val_venda_sug
-            subtotal_item = preco_unit_venda
-            
-            if st.button("➕ [ Enter ] Incluir Produto", type="primary", use_container_width=True, key="btn_inc_prod_simples"):
-                if not prod_selecionado:
-                    st.error("Selecione um produto.")
-                else:
-                    st.session_state.carrinho_pdv.append({
-                        "codigo": cod_sug, "produto": prod_selecionado, "quantidade": qtd_venda,
-                        "valor_unitario": preco_unit_venda, "valor_total": subtotal_item,
-                        "fornecedor": forn_sug, "grupo": grupo_sug
-                    })
-                    st.success(f"✅ '{prod_selecionado}' adicionado!")
-                    st.rerun()
-        else:
-            col_q1, col_q2, col_q3 = st.columns([1, 1, 2], gap="medium")
-            with col_q1:
-                qtd_venda = st.number_input("Qtd", min_value=0.01, value=1.0, step=1.0, key="qtd_prod_pdv_alin")
-            with col_q2:
-                preco_unit_venda = st.number_input("Preço Unit. (R$)", min_value=0.0, value=val_venda_sug, format="%.2f", key="preco_unit_pdv_alin")
-            with col_q3:
-                subtotal_item = qtd_venda * preco_unit_venda
-                st.markdown(f"**Subtotal:** R$ {subtotal_item:,.2f}")
-                if st.button("➕ [ Enter ] Incluir Produto", type="primary", use_container_width=True, key="btn_inc_prod_completo"):
+                        st.warning("⚠️ Código não encontrado.")
+    
+                idx_padrao = 0
+                if prod_por_codigo in lista_produtos_pdv:
+                    idx_padrao = lista_produtos_pdv.index(prod_por_codigo) + 1
+    
+                prod_selecionado = st.selectbox("Pesquisar / Selecionar Produto", [""] + lista_produtos_pdv, index=idx_padrao, key="sel_prod_pdv_alin")
+    
+            val_venda_sug, forn_sug, grupo_sug, cod_sug = obter_dados_produto(prod_selecionado) if prod_selecionado else (0.0, "", "", "")
+    
+            if is_simples:
+                qtd_venda = 1.0
+                preco_unit_venda = val_venda_sug
+                subtotal_item = preco_unit_venda
+                
+                if st.button("➕ [ Enter ] Incluir Produto", type="primary", use_container_width=True, key="btn_inc_prod_simples"):
                     if not prod_selecionado:
                         st.error("Selecione um produto.")
                     else:
@@ -551,6 +601,10 @@ else:
                         })
                         st.success(f"✅ '{prod_selecionado}' adicionado!")
                         st.rerun()
+            else:
+                col_q1, col_q2, col_q3 = st.columns([1, 1, 2], gap="medium")
+                with col_q1:
+                    qtd_venda = st.number_input("Qtd", min_value=0.01, value=1
 
     # -------------------------------------------------------------
     # 2. MÓDULO FECHAMENTO & FINANCEIRO
