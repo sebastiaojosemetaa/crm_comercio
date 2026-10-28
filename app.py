@@ -552,6 +552,16 @@ else:
                         chave_limpa_payload = pix_key
                         if tipo_chave_pix in ["CNPJ", "CPF"]:
                             chave_limpa_payload = ''.join(filter(str.isdigit, pix_key))
+                        elif tipo_chave_pix == "Celular":
+                            cel_limpo = ''.join(c for c in pix_key if c.isdigit() or c == '+')
+                            if not cel_limpo.startswith('+'):
+                                if len(cel_limpo) == 11:
+                                    cel_limpo = "+55" + cel_limpo
+                                elif len(cel_limpo) == 13:
+                                    cel_limpo = "+" + cel_limpo
+                            chave_limpa_payload = cel_limpo
+                        else:
+                            chave_limpa_payload = pix_key.strip()
 
                         mai_content = emv_format("00", "br.gov.bcb.pix") + emv_format("01", chave_limpa_payload)
                         payload += emv_format("26", mai_content)
