@@ -245,6 +245,9 @@ if 'carrinho_pdv' not in st.session_state:
 if "carrinho_cliente" not in st.session_state:
     st.session_state.carrinho_cliente = []
 
+if 'tela_checkout_ativa' not in st.session_state:
+    st.session_state.tela_checkout_ativa = False
+
 # --- ESTILO VISUAL METÁLICO ---
 st.markdown("""
 <style>
@@ -479,6 +482,7 @@ else:
                     else:
                         st.error("Abra o caixa antes de finalizar.")
 
+            # --- TELA DE CHECKOUT / FORMA DE PAGAMENTO ---
             if st.session_state.get('tela_checkout_ativa', False):
                 st.markdown("---")
                 st.markdown("### 💳 Ecrã de Pagamento / Checkout")
@@ -493,41 +497,17 @@ else:
                         st.warning(f"⚠️ Falta R$ {abs(troco):,.2f} para completar o pagamento.")
 
                 elif forma_pagto == "Pix":
-                    st.markdown(f"#### 📱 Pague com Pix — Favorecido: `{nome_empresa_header}`")
-                    st.info("Aponte a câmara do telemóvel para o QR Code abaixo ou copie a chave Pix para efetuar o pagamento.")
+                    st.markdown("#### 📱 Pague com Pix (QR Code Simulado)")
+                    st.info("Aponte a câmara do telemóvel para o QR Code abaixo ou copie a chave Pix para pagar.")
                     
-                    def gerar_payload_pix(chave_pix, nome_favorecido, cidade_favorecido, valor):
-                        def campo(id_campo, valor_campo):
-                            tamanho = f"{len(valor_campo):02d}"
-                            return f"{id_campo}{tamanho}{valor_campo}"
-                        
-                        val_str = f"{valor:.2f}"
-                        nome_limpo = (nome_favorecido[:25]).upper()
-                        cidade_limpa = (cidade_favorecido[:15]).upper()
-                        
-                        payload_com_crc = (
-                            "000201"
-                            + campo("26", campo("00", "br.gov.bcb.pix") + campo("01", chave_pix))
-                            + "52040000"
-                            + "5303986"
-                            + campo("54", val_str)
-                            + "5802BR"
-                            + campo("59", nome_limpo)
-                            + campo("60", cidade_limpa)
-                            + "62070503***"
-                            + "6304"
-                        )
-                        return payload_com_crc + "ABCD"
-
-                    pix_payload = gerar_payload_pix(cnpj_empresa_header, nome_empresa_header, "SAO LUIS", total_geral_carrinho)
+                    # Exibe um QR Code gerado por API pública gratuita baseado no valor e total
+                    pix_payload = f"00020126580014br.gov.bcb.pix0136reycebola@email.com5204000053039865802BR5925REY DA CEBOLA6009SAO LUIS62070503***6304"
                     qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={pix_payload}"
                     
                     col_qr1, col_qr2 = st.columns([1, 2])
                     with col_qr1:
                         st.image(qr_url, width=180)
                     with col_qr2:
-                        st.markdown(f"**Favorecido:** {nome_empresa_header}")
-                        st.markdown(f"**CNPJ / Chave:** {cnpj_empresa_header}")
                         st.markdown(f"**Valor a Pagar:** R$ {total_geral_carrinho:,.2f}")
                         st.text_input("Chave Pix Copia e Cola:", value=pix_payload, disabled=True)
                         st.success("🟢 Aguardando confirmação do pagamento Pix...")
@@ -604,6 +584,23 @@ else:
         else:
             col_q1, col_q2, col_q3 = st.columns([1, 1, 2], gap="medium")
             with col_q1:
+                qtd_venda = st.number_input("Qtd", min_value=0.01, value=1.0, step=1.0, key="qtd_prod_pdv_alin")
+            with col_q2:
+                preco_unit_venda = st.number_input("Preço Unit. (R$)", min_value=0.0, value=val_venda_sug, format="%.2f", key="preco_unit_pdv_alin")
+            with col_q3:
+                subtotal_item = qtd_venda * preco_unit_venda
+                st.markdown(f"**Subtotal:** R$ {subtotal_item:,.2f}")
+                if st.button("➕ [ Enter ] Incluir Produto", type="primary", use_container_width=True, key="btn_inc_prod_completo"):
+                    if not prod_selecionado:
+                        st.error("Selecione um produto.")
+                    else:
+                        st.session_state.carrinho_pdv.append({
+                            "codigo": cod_sug, "produto": prod_selecionado, "quantidade": qtd_venda,
+                            "valor_unitario": preco_unit_venda, "valor_total": subtotal_item,
+                            "fornecedor": forn_sug, "grupo": grupo_sug
+                        })
+                        st.success(f"✅ '{prod_selecionado}' adicionado!")
+                        st.rerun()
 
     # -------------------------------------------------------------
     # 2. MÓDULO FECHAMENTO & FINANCEIRO
