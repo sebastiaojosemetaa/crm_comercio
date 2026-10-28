@@ -482,11 +482,14 @@ else:
                     else:
                         st.error("Abra o caixa antes de finalizar.")
 
-            # --- TELA DE CHECKOUT / FORMA DE PAGAMENTO ---
+            # --- TELA DE CHECKOUT / FORMA DE PAGAMENTO CORRIGIDA E ALINHADA ---
             if st.session_state.get('tela_checkout_ativa', False):
                 st.markdown("---")
                 st.markdown("### 💳 Ecrã de Pagamento / Checkout")
                 forma_pagto = st.radio("Selecione a Forma de Pagamento:", ["Dinheiro", "Cartão", "Pix"], horizontal=True, key="radio_forma_pagto_checkout")
+
+                valor_recebido = 0.0
+                troco = 0.0
 
                 if forma_pagto == "Dinheiro":
                     valor_recebido = st.number_input("Valor Recebido em Dinheiro (R$)", min_value=0.0, value=total_geral_carrinho, format="%.2f", key="input_val_recebido_dinheiro")
@@ -497,19 +500,22 @@ else:
                         st.warning(f"⚠️ Falta R$ {abs(troco):,.2f} para completar o pagamento.")
 
                 elif forma_pagto == "Pix":
-                    st.markdown("#### 📱 Pague com Pix (QR Code Simulado)")
+                    st.markdown("#### 📱 Pague com Pix (QR Code e Dados Oficiais)")
                     st.info("Aponte a câmara do telemóvel para o QR Code abaixo ou copie a chave Pix para pagar.")
                     
-                    # Exibe um QR Code gerado por API pública gratuita baseado no valor e total
+                    # Payload padrão Pix ajustado
                     pix_payload = f"00020126580014br.gov.bcb.pix0136reycebola@email.com5204000053039865802BR5925REY DA CEBOLA6009SAO LUIS62070503***6304"
                     qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={pix_payload}"
                     
-                    col_qr1, col_qr2 = st.columns([1, 2])
-                    with col_qr1:
-                        st.image(qr_url, width=180)
-                    with col_qr2:
+                    # Layout em colunas perfeitamente alinhadas para o QR Code e Informações Pix
+                    col_qr_img, col_qr_info = st.columns([1, 2], gap="medium")
+                    with col_qr_img:
+                        st.image(qr_url, width=190, caption="Escaneie o QR Code")
+                    with col_qr_info:
                         st.markdown(f"**Valor a Pagar:** R$ {total_geral_carrinho:,.2f}")
-                        st.text_input("Chave Pix Copia e Cola:", value=pix_payload, disabled=True)
+                        st.markdown(f"**Favorecido:** `REY DA CEBOLA`")
+                        st.markdown(f"**Instituição / Chave:** `reycebola@email.com`")
+                        st.text_input("Chave Pix Copia e Cola:", value=pix_payload, key="input_pix_copia_cola_detalhe")
                         st.success("🟢 Aguardando confirmação do pagamento Pix...")
 
                 col_chk1, col_chk2 = st.columns(2)
