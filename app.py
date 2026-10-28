@@ -500,21 +500,69 @@ else:
                         st.warning(f"⚠️ Falta R$ {abs(troco):,.2f} para completar o pagamento.")
 
                 elif forma_pagto == "Pix":
-                    st.markdown("#### 📱 Pague com Pix (QR Code e Dados Oficiais)")
+                    st.markdown("#### 📱 Pague com Pix (QR Code Oficial)")
                     st.info("Aponte a câmara do telemóvel para o QR Code abaixo ou copie a chave Pix para pagar.")
                     
-                    # Payload padrão Pix ajustado
-                    pix_payload = f"00020126580014br.gov.bcb.pix0136194174390001425204000053039865802BR5925REY DA CEBOLA6009SAO LUIS62070503***6304"
+                    # Função para gerar o payload CRC16 correto exigido pelo Banco Central para Pix Copia e Cola
+                    def gerar_payload_pix(pix_key, nome_recebedor, cidade, valor_str):
+                        def emv_format(id_str, val_str):
+                            length = f"{len(val_str):02d}"
+                            return f"{id_str}{length}{val_str}"
+                        
+                        # Payload format
+                        payload = emv_format("00", "01")
+                        
+                        # Merchant Account Information (Chave Pix CNPJ)
+                        mai_content = emv_format("00", "br.gov.bcb.pix") + emv_format("01", pix_key)
+                        payload += emv_format("26", mai_content)
+                        
+                        # Category, Currency (986 = BRL), Amount
+                        payload += emv_format("52", "0000")
+                        payload += emv_format("53", "986")
+                        payload += emv_format("54", valor_str)
+                        payload += emv_format("58", "BR")
+                        payload += emv_format("60", nome_recebedor[:25]) # Máximo 25 caracteres
+                        payload += emv_format("61", cidade[:15])       # Máximo 15 caracteres
+                        
+                        # Additional Data Field Template (TxID padrão ***)
+                        add_data = emv_format("05", "***")
+                        payload += emv_format("62", add_data)
+                        
+                        # CRC16 calculation placeholder
+                        payload += "6304"
+                        
+                        # Algoritmo de cálculo CRC16-CCITT (False)
+                        crc = 0xFFFF
+                        for char in payload:
+                            crc ^= (ord(char) << 8)
+                            for _ in range(8):
+                                if crc & 0x8000:
+                                    crc = (crc << 1) ^ 0x1021
+                                else:
+                                    crc = crc << 1
+                                crc &= 0xFFFF
+                        return payload + f"{crc:04X}"
+
+                    # Formata o valor com 2 casas decimais sem pontos/vírgulas (ex: 117.00 -> 117.00)
+                    valor_formatado = f"{total_geral_carrinho:.2f}"
+                    
+                    # Gera o Pix Copia e Cola válido usando o CNPJ da empresa
+                    pix_payload = gerar_payload_pix(
+                        pix_key="19417439000142",
+                        nome_recebedor="REY DA CEBOLA",
+                        cidade="SAO LUIS",
+                        valor_str=valor_formatado
+                    )
+                    
                     qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={pix_payload}"
                     
-                    # Layout em colunas perfeitamente alinhadas para o QR Code e Informações Pix
                     col_qr_img, col_qr_info = st.columns([1, 2], gap="medium")
                     with col_qr_img:
                         st.image(qr_url, width=190, caption="Escaneie o QR Code")
                     with col_qr_info:
                         st.markdown(f"**Valor a Pagar:** R$ {total_geral_carrinho:,.2f}")
                         st.markdown(f"**Favorecido:** `REY DA CEBOLA`")
-                        st.markdown(f"**Instituição / Chave:** `19417439000142`")
+                        st.markdown(f"**Chave Pix (CNPJ):** `19.417.439/0001-42`")
                         st.text_input("Chave Pix Copia e Cola:", value=pix_payload, key="input_pix_copia_cola_detalhe")
                         st.success("🟢 Aguardando confirmação do pagamento Pix...")
 
