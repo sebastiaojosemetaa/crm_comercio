@@ -85,6 +85,18 @@ def adequar_banco_e_migrar():
             )
         """)
         
+        # TABELA DE CHAVES PIX MULTIPLAS
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS chaves_pix (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tipo TEXT,
+                chave TEXT,
+                favorecido TEXT,
+                cidade TEXT,
+                padrao INTEGER DEFAULT 0
+            )
+        """)
+
         cursor.execute("PRAGMA table_info(empresas_dispositivos)")
         cols_emp = [col[1] for col in cursor.fetchall()]
         if "ativado" not in cols_emp:
@@ -129,17 +141,6 @@ def adequar_banco_e_migrar():
             )
         """)
 
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS chaves_pix (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                tipo TEXT,
-                chave TEXT,
-                favorecido TEXT,
-                cidade TEXT,
-                padrao INTEGER DEFAULT 0
-            )
-        """)
-        
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS caixa_movimentacoes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT, sessao_id INTEGER, tipo TEXT,
@@ -493,7 +494,7 @@ else:
                     else:
                         st.error("Abra o caixa antes de finalizar.")
 
-            # --- TELA DE CHECKOUT / FORMA DE PAGAMENTO CORRIGIDA E ALINHADA ---
+            # --- TELA DE CHECKOUT / FORMA DE PAGAMENTO DINÂMICA ---
             if st.session_state.get('tela_checkout_ativa', False):
                 st.markdown("---")
                 st.markdown("### 💳 Ecrã de Pagamento / Checkout")
@@ -517,9 +518,9 @@ else:
                     df_chaves_db = carregar_dados("SELECT * FROM chaves_pix")
                     
                     if df_chaves_db.empty:
-                        st.warning("⚠️ Nenhuma chave Pix cadastrada! Usando o CNPJ padrão da empresa provisoriamente.")
+                        st.info("ℹ️ Nenhuma chave cadastrada em Configurações. Usando o CNPJ padrão da empresa.")
                         lista_opcoes_pix = ["CNPJ Padrão: 19417439000142"]
-                        dict_chaves = {0: {"tipo": "CNPJ", "chave": "19417439000142", "favorecido": nome_empresa_header, "cidade": "SAO LUIS"}}
+                        dict_chaves = {"CNPJ Padrão: 19417439000142": {"tipo": "CNPJ", "chave": "19417439000142", "favorecido": nome_empresa_header, "cidade": "SAO LUIS"}}
                     else:
                         dict_chaves = {}
                         lista_opcoes_pix = []
@@ -530,20 +531,16 @@ else:
 
                     # Seletor para escolher qual chave usar nesta venda
                     chave_escolhida_label = st.selectbox("Escolha a Chave Pix para esta venda:", lista_opcoes_pix, key="select_chave_pix_venda")
-                    
-                    if df_chaves_db.empty:
-                        dados_chave_atual = dict_chaves[0]
-                    else:
-                        dados_chave_atual = dict_chaves[chave_escolhida_label]
+                    dados_chave_atual = dict_chaves[chave_escolhida_label]
 
                     pix_key_val = str(dados_chave_atual['chave'])
                     fav_val = str(dados_chave_atual['favorecido'])
                     cidade_val = str(dados_chave_atual['cidade'])
                     tipo_val = str(dados_chave_atual['tipo'])
 
-                    st.info(f"Aponte a câmara para o QR Code abaixo ou utilize a chave selecionada.")
+                    st.info("Aponte a câmara do telemóvel para o QR Code abaixo ou utilize a chave selecionada.")
 
-                    # Função para gerar o payload CRC16 do Pix
+                    # Função para gerar o payload CRC16 oficial do Pix
                     def gerar_payload_pix(pix_key, nome_recebedor, cidade, valor_str, tipo_chave_pix):
                         def emv_format(id_str, val_str):
                             length = f"{len(val_str):02d}"
@@ -551,7 +548,7 @@ else:
                         
                         payload = emv_format("00", "01")
                         
-                        # Se for CPF ou CNPJ, o padrão exige apenas números
+                        # Trata chaves numéricas caso seja CPF/CNPJ
                         chave_limpa_payload = pix_key
                         if tipo_chave_pix in ["CNPJ", "CPF"]:
                             chave_limpa_payload = ''.join(filter(str.isdigit, pix_key))
@@ -1227,42 +1224,6 @@ else:
                 st.session_state['limite_dispositivos'] = lim_disp
                 st.success("✅ Configurações e limites salvos com sucesso!")
                 st.rerun()
-        st.markdown("---")
-        st.markdown("### 💳 Gestão de Chaves Pix")
-        
-        with st.form("form_cad_chave_pix"):
-            col_cp1, col_cp2 = st.columns(2)
-            with col_cp1:
-                tipo_chave = st.selectbox("Tipo de Chave", ["CNPJ", "CPF", "Celular", "E-mail", "Chave Aleatória"])
-                valor_chave = st.text_input("Valor da Chave (ex: seu e-mail, celular ou CNPJ)")
-            with col_cp2:
-                favorecido_chave = st.text_input("Nome do Favorecido", value=nome_empresa_header)
-                cidade_chave = st.text_input("Cidade", value="SAO LUIS")
-            
-            if st.form_submit_button("➕ Cadastrar Nova Chave Pix", type="primary"):
-                if valor_chave.strip():
-                    cursor = conn.cursor()
-                    cursor.execute("""
-                        INSERT INTO chaves_pix (tipo, chave, favorecido, cidade)
-                        VALUES (?, ?, ?, ?)
-                    """, (tipo_chave, valor_chave.strip(), favorecido_chave.strip(), cidade_chave.strip()))
-                    conn.commit()
-                    st.success("✅ Chave Pix cadastrada com sucesso!")
-                    st.rerun()
-                else:
-                    st.error("Preencha o valor da chave Pix.")
-    
-        # Exibir chaves cadastradas com opção de exclusão
-        df_chaves_cadastradas = carregar_dados("SELECT * FROM chaves_pix")
-        if not df_chaves_cadastradas.empty:
-            st.markdown("#### 📋 Chaves Pix Já Cadastradas")
-            st.dataframe(df_chaves_cadastradas, use_container_width=True)
-            
-            id_para_excluir = st.number_input("ID da Chave para Excluir (opcional):", min_value=0, step=1)
-            if st.button("🗑️ Excluir Chave Selecionada"):
-                if id_para_excluir > 0:
-                    cursor = conn.cursor()
-                    cursor.execute("DELETE FROM chaves_pix WHERE id = ?", (int(id_para_excluir),))
-                    conn.commit()
-                    st.success(f"Chave ID {id_para_excluir} excluída com sucesso!")
-                    st.rerun()
+
+        # --- GESTÃO DE CHAVES PIX MÚLTIPLAS NAS CONFIGURAÇÕES ---
+        st.
