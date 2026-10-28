@@ -279,7 +279,6 @@ with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
                 """, (limite_dev_topo, doc_limpo))
                 conn.commit()
 
-                # Inclui o limite de dispositivos no hash para gerar chaves diferentes se o limite mudar
                 base_hash_str = doc_limpo + "REY_CEBOLA_2026" + sufixo_tipo + str(limite_dev_topo)
                 hash_hex = hashlib.md5(base_hash_str.encode()).hexdigest().upper()
                 st.code(f"CRM-{sufixo_tipo}-{limite_dev_topo}D-{hash_hex[:4]}-{hash_hex[4:8]}", language="text")
@@ -883,7 +882,7 @@ else:
                     ep_rh = st.checkbox("👥 Recursos Humanos (RH)", value=bool(u_row.get('perm_rh', 0)))
                     ep_usr = st.checkbox("🔐 Gestão de Utilizadores", value=bool(u_row.get('perm_usuarios', 0)))
                     ep_bkp = st.checkbox("💾 Backup e Restauração", value=bool(u_row.get('perm_backup', 0)))
-                    ep_cr = st.checkbox("💸 Contas a Receber", value=bool(u_row.get('perm_contas_receber', 1)))
+                    ep_cr = st.checkbox("💸 Contas a Receber", value=value=bool(u_row.get('perm_contas_receber', 1)))
                     ep_est = st.checkbox("📦 Estoque de Produtos", value=bool(u_row.get('perm_estoque', 1)))
                     ep_cfg = st.checkbox("🏢 Configurações Empresa", value=bool(u_row.get('perm_configuracoes', 0)))
 
@@ -931,22 +930,48 @@ else:
                 st.info("Nenhum utilizador cadastrado além do administrador padrão.")
 
     # -------------------------------------------------------------
-    # 8. BACKUP
+    # 8. BACKUP E RESTAURAÇÃO
     # -------------------------------------------------------------
     elif menu_admin == "💾 Backup e Restauração":
         st.subheader("💾 Central de Backup e Restauração")
-        try:
-            with open("crm_comercio.db", "rb") as f:
-                bytes_db = f.read()
-            st.download_button(
-                label="📥 Baixar Arquivo de Backup (.db)",
-                data=bytes_db,
-                file_name=f"backup_crm_{datetime.now().strftime('%Y-%m-%d')}.db",
-                mime="application/octet-stream",
-                type="primary"
-            )
-        except Exception:
-            st.warning("Banco de dados ainda não localizado.")
+        
+        tab_bkp_down, tab_bkp_up = st.tabs(["📥 Baixar Backup", "📤 Restaurar Backup"])
+
+        with tab_bkp_down:
+            st.markdown("### 📥 Fazer Backup dos Dados Atualizados")
+            st.info("Descarregue o ficheiro de cópia de segurança para guardar uma cópia do seu banco de dados.")
+            try:
+                with open("crm_comercio.db", "rb") as f:
+                    bytes_db = f.read()
+                st.download_button(
+                    label="📥 Baixar Arquivo de Backup (.db)",
+                    data=bytes_db,
+                    file_name=f"backup_crm_{datetime.now().strftime('%Y-%m-%d')}.db",
+                    mime="application/octet-stream",
+                    type="primary"
+                )
+            except Exception as e:
+                st.warning(f"Erro ao localizar o banco de dados: {e}")
+
+        with tab_bkp_up:
+            st.markdown("### 📤 Restaurar Ficheiro de Backup (.db)")
+            st.warning("⚠️ **ATENÇÃO:** A restauração irá substituir todos os dados atuais pelo conteúdo do ficheiro de backup selecionado.")
+            
+            uploaded_db = st.file_uploader("Selecione o ficheiro de backup (.db)", type=["db"])
+            
+            if uploaded_db is not None:
+                if st.button("🔴 Confirmar e Restaurar Backup Agora", type="primary"):
+                    try:
+                        conn.close() # Fecha a conexão com o banco para poder sobrescrever
+                        with open("crm_comercio.db", "wb") as f:
+                            f.write(uploaded_db.getbuffer())
+                        
+                        # Reconecta ao banco
+                        conn = get_connection()
+                        st.success("🎉 Backup restaurado com sucesso! Recarregando o sistema...")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Erro ao restaurar o banco de dados: {e}")
 
     # -------------------------------------------------------------
     # 9. CONTAS A RECEBER
