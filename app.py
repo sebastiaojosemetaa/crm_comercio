@@ -267,11 +267,31 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- PAINEL LATERAL (DEV) ---
+# --- PAINEL LATERAL (DEV) — GERADOR DE CHAVES CORRIGIDO ---
 with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
     senha_dev = st.text_input("Senha Mestre Dev", type="password", key="pwd_dev_topo")
     if senha_dev == "13142715":
-        st.success("Painel Dev Liberado!")
+        tipo_plano = st.selectbox("Tipo de Chave:", ["Teste (7 Dias)", "Mensal (30 Dias)", "Anual (365 Dias)"], key="select_tipo_plano_dev")
+        doc_cliente = st.text_input("CNPJ ou CPF do Cliente:", value="19417439000142", key="doc_dev_topo_doc")
+        limite_dev_topo = st.number_input("Limite de Dispositivos:", min_value=1, max_value=50, value=2, key="limite_dev_topo_num")
+        
+        if st.button("Gerar Chave", key="btn_dev_topo_acao"):
+            if doc_cliente.strip():
+                sufixo_tipo = "TESTE" if "Teste" in tipo_plano else ("MENSAL" if "Mensal" in tipo_plano else "ANUAL")
+                doc_limpo = ''.join(filter(str.isdigit, str(doc_cliente)))
+                
+                cursor = conn.cursor()
+                cursor.execute("""
+                    UPDATE empresas_dispositivos 
+                    SET limite_dispositivos = ? 
+                    WHERE REPLACE(REPLACE(REPLACE(cnpj, '.', ''), '/', ''), '-', '') = ?
+                """, (limite_dev_topo, doc_limpo))
+                conn.commit()
+
+                base_hash_str = doc_limpo + "REY_CEBOLA_2026" + sufixo_tipo + str(limite_dev_topo)
+                hash_hex = hashlib.md5(base_hash_str.encode()).hexdigest().upper()
+                st.code(f"CRM-{sufixo_tipo}-{limite_dev_topo}D-{hash_hex[:4]}-{hash_hex[4:8]}", language="text")
+                st.success(f"Chave gerada com sucesso!")
 
 st.sidebar.title("🔑 Acesso ao Sistema")
 st.sidebar.radio("Selecione o Perfil:", ["🔒 Administração / Vendedor"], key="perfil_principal_radio")
