@@ -504,7 +504,7 @@ else:
                     st.info("Aponte a câmara do telemóvel para o QR Code abaixo ou copie a chave Pix para pagar.")
                     
                     # Payload padrão Pix ajustado
-                    pix_payload = f"00020126580014br.gov.bcb.pix0136reycebola@email.com5204000053039865802BR5925REY DA CEBOLA6009SAO LUIS62070503***6304"
+                    pix_payload = f"00020126580014br.gov.bcb.pix0136194174390001425204000053039865802BR5925REY DA CEBOLA6009SAO LUIS62070503***6304"
                     qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={pix_payload}"
                     
                     # Layout em colunas perfeitamente alinhadas para o QR Code e Informações Pix
@@ -514,7 +514,7 @@ else:
                     with col_qr_info:
                         st.markdown(f"**Valor a Pagar:** R$ {total_geral_carrinho:,.2f}")
                         st.markdown(f"**Favorecido:** `REY DA CEBOLA`")
-                        st.markdown(f"**Instituição / Chave:** `reycebola@email.com`")
+                        st.markdown(f"**Instituição / Chave:** `19417439000142`")
                         st.text_input("Chave Pix Copia e Cola:", value=pix_payload, key="input_pix_copia_cola_detalhe")
                         st.success("🟢 Aguardando confirmação do pagamento Pix...")
 
