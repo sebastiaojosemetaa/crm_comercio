@@ -1081,4 +1081,8 @@ else:
                 cursor.execute("""
                     INSERT OR REPLACE INTO empresas_dispositivos (device_id, nome_empresa, cnpj, fone, endereco, ativado, dias_licenca, limite_dispositivos)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, (device_id, nome_emp, cnpj_emp
+                """, (device_id, nome_emp, cnpj_emp, tel_emp, end_emp, 1 if st.session_state.get('dispositivo_ativado') else 0, st.session_state.get('dias_licenca', 30), lim_disp))
+                conn.commit()
+                st.session_state['limite_dispositivos'] = lim_disp
+                st.success("✅ Configurações e limites salvos com sucesso!")
+                st.rerun()
