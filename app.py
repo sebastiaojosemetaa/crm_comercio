@@ -212,7 +212,6 @@ if df_emp_dev.empty:
     conn.commit()
     df_emp_dev = carregar_dados(f"SELECT * FROM empresas_dispositivos WHERE device_id = '{device_id}'")
 else:
-    # Força a ativação automática para evitar bloqueios indesejados
     cursor = conn.cursor()
     cursor.execute("UPDATE empresas_dispositivos SET ativado = 1 WHERE device_id = ?", (device_id,))
     conn.commit()
@@ -340,7 +339,6 @@ if not st.session_state['autenticado']:
                     st.error(f"Erro ao autenticar: {e}")
 
 else:
-    # --- INTERFACE PRINCIPAL APÓS O LOGIN ---
     usr_exibicao = str(st.session_state.get('usuario_logado') or "Utilizador")
     login_atual = str(st.session_state.get('login_efetuado') or '').lower()
     
@@ -615,7 +613,6 @@ else:
                 saldo_final = st.number_input("Conferência de Saldo Final (Dinheiro)", min_value=0.0, value=saldo_inicial + total_movimentado)
                 if st.form_submit_button("🔒 Fechar Caixa"):
                     cursor = conn.cursor()
-                    cursor.execute("UPDATE caixa_sessoes WHERE id = ?", (sessao_id,)) # mantido estrutura
                     cursor.execute("UPDATE caixa_sessoes SET data_fechamento = ?, saldo_final = ?, status = 'FECHADO' WHERE id = ?",
                                    (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), saldo_final, sessao_id))
                     conn.commit()
@@ -908,4 +905,150 @@ else:
                     ed_cargo = st.selectbox("Cargo", ["Vendedor", "Caixa", "Gerente", "Administrador"], index=["Vendedor", "Caixa", "Gerente", "Administrador"].index(str(u_row.get('cargo', 'Vendedor'))) if str(u_row.get('cargo', 'Vendedor')) in ["Vendedor", "Caixa", "Gerente", "Administrador"] else 0)
 
                     st.markdown("#### 🎯 Atualizar Permissões de Acesso")
-                    ep_pdv = st.checkbox("🛒 PDV — Frente de Caixa",
+                    ep_pdv = st.checkbox("🛒 PDV — Frente de Caixa", value=bool(u_row.get('perm_pdv', 1)))
+                    ep_fin = st.checkbox("📊 Fechamento & Financeiro", value=bool(u_row.get('perm_financeiro', 0)))
+                    ep_reg_v = st.checkbox("🛒 Registrar Venda", value=bool(u_row.get('perm_registrar_venda', 1)))
+                    ep_comp = st.checkbox("📦 Entrada de Estoque", value=bool(u_row.get('perm_compras', 0)))
+                    ep_cad = st.checkbox("👥 Cadastros (Clientes/Forn)", value=bool(u_row.get('perm_cadastros', 1)))
+                    ep_rh = st.checkbox("👥 Recursos Humanos (RH)", value=bool(u_row.get('perm_rh', 0)))
+                    ep_usr = st.checkbox("🔐 Gestão de Utilizadores", value=bool(u_row.get('perm_usuarios', 0)))
+                    ep_bkp = st.checkbox("💾 Backup e Restauração", value=bool(u_row.get('perm_backup', 0)))
+                    ep_cr = st.checkbox("💸 Contas a Receber", value=bool(u_row.get('perm_contas_receber', 1)))
+                    ep_est = st.checkbox("📦 Estoque de Produtos", value=bool(u_row.get('perm_estoque', 1)))
+                    ep_cfg = st.checkbox("🏢 Configurações Empresa", value=bool(u_row.get('perm_configuracoes', 0)))
+
+                    col_btn_ed1, col_btn_ed2 = st.columns(2)
+                    with col_btn_ed1:
+                        btn_salvar_alt = st.form_submit_button("✏️ Salvar / Alterar Utilizador", type="primary")
+                    with col_btn_ed2:
+                        btn_excluir_usr = st.form_submit_button("🗑️ Excluir Utilizador")
+
+                    if btn_salvar_alt:
+                        try:
+                            cursor = conn.cursor()
+                            cursor.execute("""
+                                UPDATE usuarios SET 
+                                    usuario = ?, login = ?, senha = ?, cargo = ?,
+                                    perm_pdv = ?, perm_financeiro = ?, perm_registrar_venda = ?, perm_compras = ?,
+                                    perm_cadastros = ?, perm_rh = ?, perm_usuarios = ?, perm_backup = ?,
+                                    perm_contas_receber = ?, perm_estoque = ?, perm_configuracoes = ?
+                                WHERE id = ?
+                            """, (
+                                ed_nome, ed_login.strip().lower(), ed_senha, ed_cargo,
+                                1 if ep_pdv else 0, 1 if ep_fin else 0, 1 if ep_reg_v else 0, 1 if ep_comp else 0,
+                                1 if ep_cad else 0, 1 if ep_rh else 0, 1 if ep_usr else 0, 1 if ep_bkp else 0,
+                                1 if ep_cr else 0, 1 if ep_est else 0, 1 if ep_cfg else 0, int(u_row['id'])
+                            ))
+                            conn.commit()
+                            st.success("✅ Utilizador atualizado com sucesso!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro ao atualizar utilizador: {e}")
+
+                    if btn_excluir_usr:
+                        if ed_login.strip().lower() == "administrador":
+                            st.error("❌ Não é permitido excluir o administrador principal do sistema.")
+                        else:
+                            try:
+                                cursor = conn.cursor()
+                                cursor.execute("DELETE FROM usuarios WHERE id = ?", (int(u_row['id']),))
+                                conn.commit()
+                                st.success("🗑️ Utilizador excluído com sucesso!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao excluir utilizador: {e}")
+            else:
+                st.info("Nenhum utilizador cadastrado além do administrador padrão.")
+
+    # -------------------------------------------------------------
+    # 8. BACKUP E RESTAURAÇÃO
+    # -------------------------------------------------------------
+    elif menu_admin == "💾 Backup e Restauração":
+        st.subheader("💾 Central de Backup e Restauração")
+        
+        tab_bkp_down, tab_bkp_up = st.tabs(["📥 Baixar Backup", "📤 Restaurar Backup"])
+
+        with tab_bkp_down:
+            st.markdown("### 📥 Fazer Backup dos Dados Atualizados")
+            st.info("Descarregue o ficheiro de cópia de segurança para guardar uma cópia do seu banco de dados.")
+            try:
+                with open("crm_comercio.db", "rb") as f:
+                    bytes_db = f.read()
+                st.download_button(
+                    label="📥 Baixar Arquivo de Backup (.db)",
+                    data=bytes_db,
+                    file_name=f"backup_crm_{datetime.now().strftime('%Y-%m-%d')}.db",
+                    mime="application/octet-stream",
+                    type="primary"
+                )
+            except Exception as e:
+                st.warning(f"Erro ao localizar o banco de dados: {e}")
+
+        with tab_bkp_up:
+            st.markdown("### 📤 Restaurar Ficheiro de Backup (.db)")
+            st.warning("⚠️ **ATENÇÃO:** A restauração irá substituir todos os dados atuais pelo conteúdo do ficheiro de backup selecionado.")
+            
+            uploaded_db = st.file_uploader("Selecione o ficheiro de backup (.db)", type=["db"])
+            
+            if uploaded_db is not None:
+                if st.button("🔴 Confirmar e Restaurar Backup Agora", type="primary"):
+                    try:
+                        conn.close()
+                        with open("crm_comercio.db", "wb") as f:
+                            f.write(uploaded_db.getbuffer())
+                        
+                        conn = get_connection()
+                        st.success("🎉 Backup restaurado com sucesso! Recarregando o sistema...")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Erro ao restaurar o banco de dados: {e}")
+
+    # -------------------------------------------------------------
+    # 9. CONTAS A RECEBER
+    # -------------------------------------------------------------
+    elif menu_admin == "💸 Contas a Receber":
+        st.subheader("💸 Contas a Receber")
+        df_pedidos_pendentes = carregar_dados("SELECT * FROM pedidos WHERE status = 'Pendente'")
+        if not df_pedidos_pendentes.empty:
+            st.dataframe(df_pedidos_pendentes, use_container_width=True)
+            st.metric("Total Pendente a Receber", f"R$ {df_pedidos_pendentes['valor_total'].sum():,.2f}")
+        else:
+            st.info("Nenhuma conta pendente a receber no momento.")
+
+    # -------------------------------------------------------------
+    # 10. ESTOQUE
+    # -------------------------------------------------------------
+    elif menu_admin == "📦 Estoque de Produtos":
+        st.subheader("📦 Estoque de Produtos e Preços")
+        df_prods = carregar_dados("SELECT * FROM produtos")
+        if not df_prods.empty:
+            st.data_editor(df_prods, use_container_width=True, key="editor_est_prods")
+        else:
+            st.info("Nenhum produto cadastrado no estoque.")
+
+    # -------------------------------------------------------------
+    # 11. CONFIGURAÇÕES
+    # -------------------------------------------------------------
+    elif menu_admin == "🏢 Configurações da Empresa":
+        st.subheader("🏢 Configurações e Dados da Empresa")
+        st.success("✅ Dispositivo permanentemente ativado e licenciado!")
+
+        st.markdown("---")
+        with st.form("form_cfg_emp"):
+            st.markdown("### 📝 Dados Gerais e Limites da Empresa")
+            nome_emp = st.text_input("Razão Social / Nome Fantasia", value=str(reg_emp.get('nome_empresa', 'REY DA CEBOLA')))
+            cnpj_emp = st.text_input("CNPJ ou CPF", value=str(reg_emp.get('cnpj', '19417439000142')))
+            tel_emp = st.text_input("Telefone de Contato", value=str(reg_emp.get('fone', '(99) 98501-6050')))
+            end_emp = st.text_input("Endereço Completo", value=str(reg_emp.get('endereco', 'RUA CAIPIRA, Nº 174')))
+            lim_disp = st.number_input("💻 Limite Máximo de Dispositivos Permitidos", min_value=1, max_value=50, value=int(reg_emp.get('limite_dispositivos', 2)))
+            
+            if st.form_submit_button("💾 Salvar Configurações", type="primary"):
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT OR REPLACE INTO empresas_dispositivos (device_id, nome_empresa, cnpj, fone, endereco, ativado, dias_licenca, limite_dispositivos)
+                    VALUES (?, ?, ?, ?, ?, 1, 30, ?)
+                """, (device_id, nome_emp, cnpj_emp, tel_emp, end_emp, lim_disp))
+                conn.commit()
+                st.session_state['limite_dispositivos'] = lim_disp
+                st.success("✅ Configurações e limites salvos com sucesso!")
+                st.rerun()
