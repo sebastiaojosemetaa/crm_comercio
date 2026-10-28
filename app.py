@@ -882,7 +882,7 @@ else:
                     ep_rh = st.checkbox("👥 Recursos Humanos (RH)", value=bool(u_row.get('perm_rh', 0)))
                     ep_usr = st.checkbox("🔐 Gestão de Utilizadores", value=bool(u_row.get('perm_usuarios', 0)))
                     ep_bkp = st.checkbox("💾 Backup e Restauração", value=bool(u_row.get('perm_backup', 0)))
-                    ep_cr = st.checkbox("💸 Contas a Receber", value=value=bool(u_row.get('perm_contas_receber', 1)))
+                    ep_cr = st.checkbox("💸 Contas a Receber", value=bool(u_row.get('perm_contas_receber', 1)))
                     ep_est = st.checkbox("📦 Estoque de Produtos", value=bool(u_row.get('perm_estoque', 1)))
                     ep_cfg = st.checkbox("🏢 Configurações Empresa", value=bool(u_row.get('perm_configuracoes', 0)))
 
@@ -962,11 +962,10 @@ else:
             if uploaded_db is not None:
                 if st.button("🔴 Confirmar e Restaurar Backup Agora", type="primary"):
                     try:
-                        conn.close() # Fecha a conexão com o banco para poder sobrescrever
+                        conn.close()
                         with open("crm_comercio.db", "wb") as f:
                             f.write(uploaded_db.getbuffer())
                         
-                        # Reconecta ao banco
                         conn = get_connection()
                         st.success("🎉 Backup restaurado com sucesso! Recarregando o sistema...")
                         st.rerun()
@@ -1082,8 +1081,4 @@ else:
                 cursor.execute("""
                     INSERT OR REPLACE INTO empresas_dispositivos (device_id, nome_empresa, cnpj, fone, endereco, ativado, dias_licenca, limite_dispositivos)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, (device_id, nome_emp, cnpj_emp, tel_emp, end_emp, 1 if st.session_state.get('dispositivo_ativado') else 0, st.session_state.get('dias_licenca', 30), lim_disp))
-                conn.commit()
-                st.session_state['limite_dispositivos'] = lim_disp
-                st.success("✅ Configurações e limites salvos com sucesso!")
-                st.rerun()
+                """, (device_id, nome_emp, cnpj_emp
