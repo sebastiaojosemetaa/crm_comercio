@@ -261,7 +261,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- PAINEL LATERAL (DEV) — GERADOR DE CHAVES ---
+# --- PAINEL LATERAL (DEV) — GERADOR DE CHAVES CORRIGIDO ---
 with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
     senha_dev = st.text_input("Senha Mestre Dev", type="password", key="pwd_dev_topo")
     if senha_dev == "13142715":
@@ -500,7 +500,6 @@ else:
                     st.markdown("#### 📱 Pague com Pix (QR Code Simulado)")
                     st.info("Aponte a câmara do telemóvel para o QR Code abaixo ou copie a chave Pix para pagar.")
                     
-                    # Exibe um QR Code gerado por API pública gratuita baseado no valor e total
                     pix_payload = f"00020126580014br.gov.bcb.pix0136reycebola@email.com5204000053039865802BR5925REY DA CEBOLA6009SAO LUIS62070503***6304"
                     qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={pix_payload}"
                     
@@ -1046,7 +1045,7 @@ else:
             st.info("Nenhum produto cadastrado no estoque.")
 
     # -------------------------------------------------------------
-    # 11. CONFIGURAÇÕES
+    # 11. CONFIGURAÇÕES (COM VALIDADOR FLEXÍVEL DE CHAVES)
     # -------------------------------------------------------------
     elif menu_admin == "🏢 Configurações da Empresa":
         st.subheader("🏢 Configurações e Dados da Empresa")
@@ -1083,11 +1082,12 @@ else:
                     chave_limpa = str(chave_digitada).strip().upper()
 
                     sucesso = False
-                    dias_validade = 0
+                    dias_validade = 30
                     limite_extraido = 1
 
+                    # Validação inteligente testando variações de sufixo e dígitos
                     for sufixo, dias in [("TESTE", 7), ("MENSAL", 30), ("ANUAL", 365)]:
-                        for lim_test in range(1, 20):
+                        for lim_test in range(1, 30):
                             base_hash_str = apenas_digitos + "REY_CEBOLA_2026" + sufixo + str(lim_test)
                             hash_hex = hashlib.md5(base_hash_str.encode()).hexdigest().upper()
                             chave_esperada = f"CRM-{sufixo}-{lim_test}D-{hash_hex[:4]}-{hash_hex[4:8]}"
@@ -1115,7 +1115,7 @@ else:
                         st.success(f"🎉 Dispositivo ativado com sucesso! Validade: {dias_validade} dias (Limite: {limite_extraido} disp.).")
                         st.rerun()
                     else:
-                        st.error("❌ Chave inválida para este CNPJ/CPF ou limite de dispositivos incorreto.")
+                        st.error("❌ Chave inválida para este CNPJ/CPF ou formato incorreto. Verifique o documento cadastrado abaixo.")
 
         st.markdown("---")
         with st.form("form_cfg_emp"):
