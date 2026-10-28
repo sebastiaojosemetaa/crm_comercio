@@ -3,4 +3,3 @@ pandas
 reportlab
 fpdf
 fpdf2
-pix-payload>=0.1.2
