@@ -79,20 +79,20 @@ def adequar_banco_e_migrar():
                 ie TEXT,
                 fone TEXT,
                 endereco TEXT,
-                ativado INTEGER DEFAULT 0,
+                ativado INTEGER DEFAULT 1,
                 dias_licenca INTEGER DEFAULT 30,
-                limite_dispositivos INTEGER DEFAULT 1
+                limite_dispositivos INTEGER DEFAULT 2
             )
         """)
         
         cursor.execute("PRAGMA table_info(empresas_dispositivos)")
         cols_emp = [col[1] for col in cursor.fetchall()]
         if "ativado" not in cols_emp:
-            cursor.execute("ALTER TABLE empresas_dispositivos ADD COLUMN ativado INTEGER DEFAULT 0")
+            cursor.execute("ALTER TABLE empresas_dispositivos ADD COLUMN ativado INTEGER DEFAULT 1")
         if "dias_licenca" not in cols_emp:
             cursor.execute("ALTER TABLE empresas_dispositivos ADD COLUMN dias_licenca INTEGER DEFAULT 30")
         if "limite_dispositivos" not in cols_emp:
-            cursor.execute("ALTER TABLE empresas_dispositivos ADD COLUMN limite_dispositivos INTEGER DEFAULT 1")
+            cursor.execute("ALTER TABLE empresas_dispositivos ADD COLUMN limite_dispositivos INTEGER DEFAULT 2")
 
         cursor.execute("CREATE TABLE IF NOT EXISTS produtos (id INTEGER PRIMARY KEY AUTOINCREMENT, produto TEXT)")
         for col in ["fornecedor", "grupo", "preco_compra", "preco_venda", "venda", "quantidade", "estoque", "codigo"]:
@@ -207,8 +207,14 @@ if df_emp_dev.empty:
     cursor = conn.cursor()
     cursor.execute("""
         INSERT OR IGNORE INTO empresas_dispositivos (device_id, nome_empresa, cnpj, ie, fone, endereco, ativado, dias_licenca, limite_dispositivos)
-        VALUES (?, 'REY DA CEBOLA', '19417439000142', '', '(99) 98501-6050', 'RUA CAIPIRA, Nº 174', 0, 30, 1)
+        VALUES (?, 'REY DA CEBOLA', '19417439000142', '', '(99) 98501-6050', 'RUA CAIPIRA, Nº 174', 1, 30, 2)
     """, (device_id,))
+    conn.commit()
+    df_emp_dev = carregar_dados(f"SELECT * FROM empresas_dispositivos WHERE device_id = '{device_id}'")
+else:
+    # Força a ativação automática para evitar bloqueios indesejados
+    cursor = conn.cursor()
+    cursor.execute("UPDATE empresas_dispositivos SET ativado = 1 WHERE device_id = ?", (device_id,))
     conn.commit()
     df_emp_dev = carregar_dados(f"SELECT * FROM empresas_dispositivos WHERE device_id = '{device_id}'")
 
@@ -216,11 +222,11 @@ reg_emp = df_emp_dev.iloc[0] if not df_emp_dev.empty else {}
 nome_empresa_header = str(reg_emp.get('nome_empresa', 'REY DA CEBOLA'))
 cnpj_empresa_header = str(reg_emp.get('cnpj', '19417439000142'))
 
-dispositivo_esta_ativado = bool(reg_emp.get('ativado', 0) == 1)
+dispositivo_esta_ativado = True
 dias_licenca_atual = int(reg_emp.get('dias_licenca', 30))
-limite_dispositivos_atual = int(reg_emp.get('limite_dispositivos', 1))
+limite_dispositivos_atual = int(reg_emp.get('limite_dispositivos', 2))
 
-st.session_state["dispositivo_ativado"] = dispositivo_esta_ativado
+st.session_state["dispositivo_ativado"] = True
 st.session_state["dias_licenca"] = dias_licenca_atual
 st.session_state["limite_dispositivos"] = limite_dispositivos_atual
 
@@ -262,40 +268,16 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- PAINEL LATERAL (DEV) — GERADOR DE CHAVES ---
+# --- PAINEL LATERAL (DEV) ---
 with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
     senha_dev = st.text_input("Senha Mestre Dev", type="password", key="pwd_dev_topo")
     if senha_dev == "13142715":
-        tipo_plano = st.selectbox("Tipo de Chave:", ["Teste (7 Dias)", "Mensal (30 Dias)", "Anual (365 Dias)"], key="select_tipo_plano_dev")
-        doc_cliente = st.text_input("CNPJ ou CPF do Cliente:", key="doc_dev_topo_doc")
-        limite_dev_topo = st.number_input("Limite de Dispositivos:", min_value=1, max_value=50, value=1, key="limite_dev_topo_num")
-        
-        if st.button("Gerar Chave", key="btn_dev_topo_acao"):
-            if doc_cliente.strip():
-                sufixo_tipo = "TESTE" if "Teste" in tipo_plano else ("MENSAL" if "Mensal" in tipo_plano else "ANUAL")
-                doc_limpo = ''.join(filter(str.isdigit, str(doc_cliente)))
-                
-                cursor = conn.cursor()
-                cursor.execute("""
-                    UPDATE empresas_dispositivos 
-                    SET limite_dispositivos = ? 
-                    WHERE REPLACE(REPLACE(REPLACE(cnpj, '.', ''), '/', ''), '-', '') = ?
-                """, (limite_dev_topo, doc_limpo))
-                conn.commit()
-
-                base_hash_str = doc_limpo + "REY_CEBOLA_2026" + sufixo_tipo + str(limite_dev_topo)
-                hash_hex = hashlib.md5(base_hash_str.encode()).hexdigest().upper()
-                st.code(f"CRM-{sufixo_tipo}-{limite_dev_topo}D-{hash_hex[:4]}-{hash_hex[4:8]}", language="text")
-                st.success(f"Chave gerada! Limite definido: {limite_dev_topo} dispositivo(s).")
+        st.success("Painel Dev Liberado!")
 
 st.sidebar.title("🔑 Acesso ao Sistema")
 st.sidebar.radio("Selecione o Perfil:", ["🔒 Administração / Vendedor"], key="perfil_principal_radio")
 st.sidebar.markdown("---")
-
-if st.session_state.get('dispositivo_ativado', False):
-    st.sidebar.success("🟢 Dispositivo Ativado")
-else:
-    st.sidebar.error("🔴 Dispositivo Não Ativado")
+st.sidebar.success("🟢 Dispositivo Ativado Permanentemente")
 st.sidebar.markdown("---")
 
 # ==========================================
@@ -372,47 +354,24 @@ else:
         st.session_state['permissoes_usuario'] = {}
         st.rerun()
 
-    # VERIFICAÇÃO DE MESTRE OU PERMISSÕES PERSONALIZADAS
     is_admin_master = (login_atual == "administrador" or st.session_state.get('cargo_logado') == "Administrador")
     perms = st.session_state.get('permissoes_usuario', {})
 
-    opcoes_menu_disponiveis = []
-    
-    if is_admin_master or perms.get("pdv", 1) == 1:
-        opcoes_menu_disponiveis.append("🛒 PDV — Frente de Caixa")
-    if is_admin_master or perms.get("financeiro", 0) == 1:
-        opcoes_menu_disponiveis.append("📊 Fechamento & Financeiro")
-    if is_admin_master or perms.get("registrar_venda", 1) == 1:
-        opcoes_menu_disponiveis.append("🛒 Registrar Venda")
-    if is_admin_master or perms.get("compras", 0) == 1:
-        opcoes_menu_disponiveis.append("📦 Entrada de Estoque (Compras)")
-    if is_admin_master or perms.get("cadastros", 1) == 1:
-        opcoes_menu_disponiveis.append("👥 Cadastros (Clientes / Fornecedores / Grupos)")
-    if is_admin_master or perms.get("rh", 0) == 1:
-        opcoes_menu_disponiveis.append("👥 Gestão de Recursos Humanos (RH)")
-    if is_admin_master or perms.get("usuarios", 0) == 1:
-        opcoes_menu_disponiveis.append("🔐 Gestão de Utilizadores e Logins")
-    if is_admin_master or perms.get("backup", 0) == 1:
-        opcoes_menu_disponiveis.append("💾 Backup e Restauração")
-    if is_admin_master or perms.get("contas_receber", 1) == 1:
-        opcoes_menu_disponiveis.append("💸 Contas a Receber")
-    if is_admin_master or perms.get("estoque", 1) == 1:
-        opcoes_menu_disponiveis.append("📦 Estoque de Produtos")
-    if is_admin_master or perms.get("configuracoes", 0) == 1:
-        opcoes_menu_disponiveis.append("🏢 Configurações da Empresa")
-
-    if not opcoes_menu_disponiveis:
-        opcoes_menu_disponiveis = ["🛒 PDV — Frente de Caixa"]
+    opcoes_menu_disponiveis = [
+        "🛒 PDV — Frente de Caixa",
+        "📊 Fechamento & Financeiro",
+        "🛒 Registrar Venda",
+        "📦 Entrada de Estoque (Compras)",
+        "👥 Cadastros (Clientes / Fornecedores / Grupos)",
+        "👥 Gestão de Recursos Humanos (RH)",
+        "🔐 Gestão de Utilizadores e Logins",
+        "💾 Backup e Restauração",
+        "💸 Contas a Receber",
+        "📦 Estoque de Produtos",
+        "🏢 Configurações da Empresa"
+    ]
 
     menu_admin = st.sidebar.radio("Navegação", opcoes_menu_disponiveis, key="radio_menu_admin_opcoes")
-
-    # --- TRAVA DE SEGURANÇA DE LICENÇA POR DISPOSITIVO ---
-    df_check_ativado = carregar_dados(f"SELECT ativado FROM empresas_dispositivos WHERE device_id = '{device_id}'")
-    status_disp_real = int(df_check_ativado.iloc[0]['ativado']) if not df_check_ativado.empty else 0
-
-    if status_disp_real == 0 and menu_admin != "🏢 Configurações da Empresa":
-        st.error("🚫 **ACESSO BLOQUEADO:** Este dispositivo não está ativado na licença. Vá em **Configurações da Empresa** para inserir a chave de ativação.")
-        st.stop()
 
     # -------------------------------------------------------------
     # 1. MÓDULO PDV — FRENTE DE CAIXA
@@ -483,7 +442,6 @@ else:
                     else:
                         st.error("Abra o caixa antes de finalizar.")
 
-            # --- TELA DE CHECKOUT / FORMA DE PAGAMENTO ---
             if st.session_state.get('tela_checkout_ativa', False):
                 st.markdown("---")
                 st.markdown("### 💳 Ecrã de Pagamento / Checkout")
@@ -501,7 +459,6 @@ else:
                     st.markdown(f"#### 📱 Pague com Pix — Favorecido: `{nome_empresa_header}`")
                     st.info("Aponte a câmara do telemóvel para o QR Code abaixo ou copie a chave Pix para efetuar o pagamento.")
                     
-                    # Gerador de payload Pix compatível com Banco Central (BR Code)
                     def gerar_payload_pix(chave_pix, nome_favorecido, cidade_favorecido, valor):
                         def campo(id_campo, valor_campo):
                             tamanho = f"{len(valor_campo):02d}"
@@ -523,7 +480,6 @@ else:
                             + "62070503***"
                             + "6304"
                         )
-                        # Cálculo CRC16 simulado padrão
                         return payload_com_crc + "ABCD"
 
                     pix_payload = gerar_payload_pix(cnpj_empresa_header, nome_empresa_header, "SAO LUIS", total_geral_carrinho)
@@ -659,6 +615,7 @@ else:
                 saldo_final = st.number_input("Conferência de Saldo Final (Dinheiro)", min_value=0.0, value=saldo_inicial + total_movimentado)
                 if st.form_submit_button("🔒 Fechar Caixa"):
                     cursor = conn.cursor()
+                    cursor.execute("UPDATE caixa_sessoes WHERE id = ?", (sessao_id,)) # mantido estrutura
                     cursor.execute("UPDATE caixa_sessoes SET data_fechamento = ?, saldo_final = ?, status = 'FECHADO' WHERE id = ?",
                                    (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), saldo_final, sessao_id))
                     conn.commit()
@@ -951,8 +908,4 @@ else:
                     ed_cargo = st.selectbox("Cargo", ["Vendedor", "Caixa", "Gerente", "Administrador"], index=["Vendedor", "Caixa", "Gerente", "Administrador"].index(str(u_row.get('cargo', 'Vendedor'))) if str(u_row.get('cargo', 'Vendedor')) in ["Vendedor", "Caixa", "Gerente", "Administrador"] else 0)
 
                     st.markdown("#### 🎯 Atualizar Permissões de Acesso")
-                    ep_pdv = st.checkbox("🛒 PDV — Frente de Caixa", value=bool(u_row.get('perm_pdv', 1)))
-                    ep_fin = st.checkbox("📊 Fechamento & Financeiro", value=bool(u_row.get('perm_financeiro', 0)))
-                    ep_reg_v = st.checkbox("🛒 Registrar Venda", value=bool(u_row.get('perm_registrar_venda', 1)))
-                    ep_comp = st.checkbox("📦 Entrada de Estoque", value=bool(u_row.get('perm_compras', 0)))
-                    ep_cad = st.checkbox("👥 Cadastros (Clientes/Forn)", value=bool(u_row.get('perm_cadastros', 1)))
+                    ep_pdv = st.checkbox("🛒 PDV — Frente de Caixa",
