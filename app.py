@@ -542,42 +542,40 @@ else:
 
                     # Função para gerar o payload CRC16 oficial do Pix (Compatível com qualquer tipo de chave)
                     def gerar_payload_pix(pix_key, nome_recebedor, cidade, valor_str, tipo_chave_pix):
-                        def emv_format(id_str, val_str):
-                            length = f"{len(val_str):02d}"
-                            return f"{id_str}{length}{val_str}"
+                        # Função auxiliar que calcula rigorosamente o tamanho com 2 dígitos (ex: 09, 14, 25)
+                        Id = lambda i, v: f"{i}{len(v):02d}{v}"
                         
-                        payload = emv_format("00", "01")
-                        
-                        # Tratamento estrito por tipo de chave
+                        # Trata a chave conforme a exigência do Bacen
                         if tipo_chave_pix in ["CNPJ", "CPF"]:
-                            chave_limpa_payload = ''.join(filter(str.isdigit, pix_key))
+                            chave_tratada = ''.join(filter(str.isdigit, pix_key))
                         elif tipo_chave_pix == "Celular":
-                            # Remove tudo o que não for número
                             digitos = ''.join(filter(str.isdigit, pix_key))
-                            # Garante o formato 55 + DDD + Numero (sem o sinal de +)
-                            if digitos.startswith("55") and len(digitos) == 13:
-                                chave_limpa_payload = digitos
-                            elif len(digitos) == 11:
-                                chave_limpa_payload = "55" + digitos
+                            if digitos.startswith("55") and len(digitos) >= 12:
+                                chave_tratada = "+" + digitos
                             else:
-                                chave_limpa_payload = digitos
+                                chave_tratada = "+55" + digitos
                         else:
-                            chave_limpa_payload = pix_key.strip()
+                            chave_tratada = pix_key.strip()
 
-                        mai_content = emv_format("00", "br.gov.bcb.pix") + emv_format("01", chave_limpa_payload)
-                        payload += emv_format("26", mai_content)
+                        # Montagem do Payload EMV com comprimentos dinâmicos precisos
+                        gui = Id("00", "br.gov.bcb.pix")
+                        chave_field = Id("01", chave_tratada)
+                        merchant_account = Id("26", gui + chave_field)
                         
-                        payload += emv_format("52", "0000")
-                        payload += emv_format("53", "986")
-                        payload += emv_format("54", valor_str)
-                        payload += emv_format("58", "BR")
-                        payload += emv_format("60", nome_recebedor[:25])
-                        payload += emv_format("61", cidade[:15])
+                        payload = (
+                            Id("00", "01") +
+                            merchant_account +
+                            Id("52", "0000") +
+                            Id("53", "986") +
+                            Id("54", valor_str) +
+                            Id("58", "BR") +
+                            Id("60", nome_recebedor[:25]) +
+                            Id("61", cidade[:15]) +
+                            Id("62", Id("05", "***")) +
+                            "6304" # Início do CRC16
+                        )
                         
-                        add_data = emv_format("05", "***")
-                        payload += emv_format("62", add_data)
-                        payload += "6304"
-                        
+                        # Cálculo CRC16-CCITT padrão oficial do Banco Central
                         crc = 0xFFFF
                         for char in payload:
                             crc ^= (ord(char) << 8)
@@ -587,6 +585,7 @@ else:
                                 else:
                                     crc = crc << 1
                                 crc &= 0xFFFF
+                                
                         return payload + f"{crc:04X}"
 
                     valor_formatado = f"{total_geral_carrinho:.2f}"
