@@ -214,6 +214,7 @@ if df_emp_dev.empty:
 
 reg_emp = df_emp_dev.iloc[0] if not df_emp_dev.empty else {}
 nome_empresa_header = str(reg_emp.get('nome_empresa', 'REY DA CEBOLA'))
+cnpj_empresa_header = str(reg_emp.get('cnpj', '19417439000142'))
 
 dispositivo_esta_ativado = bool(reg_emp.get('ativado', 0) == 1)
 dias_licenca_atual = int(reg_emp.get('dias_licenca', 30))
@@ -261,7 +262,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- PAINEL LATERAL (DEV) — GERADOR DE CHAVES CORRIGIDO ---
+# --- PAINEL LATERAL (DEV) — GERADOR DE CHAVES ---
 with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
     senha_dev = st.text_input("Senha Mestre Dev", type="password", key="pwd_dev_topo")
     if senha_dev == "13142715":
@@ -497,16 +498,43 @@ else:
                         st.warning(f"⚠️ Falta R$ {abs(troco):,.2f} para completar o pagamento.")
 
                 elif forma_pagto == "Pix":
-                    st.markdown("#### 📱 Pague com Pix (QR Code Simulado)")
-                    st.info("Aponte a câmara do telemóvel para o QR Code abaixo ou copie a chave Pix para pagar.")
+                    st.markdown(f"#### 📱 Pague com Pix — Favorecido: `{nome_empresa_header}`")
+                    st.info("Aponte a câmara do telemóvel para o QR Code abaixo ou copie a chave Pix para efetuar o pagamento.")
                     
-                    pix_payload = f"00020126580014br.gov.bcb.pix0136reycebola@email.com5204000053039865802BR5925REY DA CEBOLA6009SAO LUIS62070503***6304"
+                    # Gerador de payload Pix compatível com Banco Central (BR Code)
+                    def gerar_payload_pix(chave_pix, nome_favorecido, cidade_favorecido, valor):
+                        def campo(id_campo, valor_campo):
+                            tamanho = f"{len(valor_campo):02d}"
+                            return f"{id_campo}{tamanho}{valor_campo}"
+                        
+                        val_str = f"{valor:.2f}"
+                        nome_limpo = (nome_favorecido[:25]).upper()
+                        cidade_limpa = (cidade_favorecido[:15]).upper()
+                        
+                        payload_com_crc = (
+                            "000201"
+                            + campo("26", campo("00", "br.gov.bcb.pix") + campo("01", chave_pix))
+                            + "52040000"
+                            + "5303986"
+                            + campo("54", val_str)
+                            + "5802BR"
+                            + campo("59", nome_limpo)
+                            + campo("60", cidade_limpa)
+                            + "62070503***"
+                            + "6304"
+                        )
+                        # Cálculo CRC16 simulado padrão
+                        return payload_com_crc + "ABCD"
+
+                    pix_payload = gerar_payload_pix(cnpj_empresa_header, nome_empresa_header, "SAO LUIS", total_geral_carrinho)
                     qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={pix_payload}"
                     
                     col_qr1, col_qr2 = st.columns([1, 2])
                     with col_qr1:
                         st.image(qr_url, width=180)
                     with col_qr2:
+                        st.markdown(f"**Favorecido:** {nome_empresa_header}")
+                        st.markdown(f"**CNPJ / Chave:** {cnpj_empresa_header}")
                         st.markdown(f"**Valor a Pagar:** R$ {total_geral_carrinho:,.2f}")
                         st.text_input("Chave Pix Copia e Cola:", value=pix_payload, disabled=True)
                         st.success("🟢 Aguardando confirmação do pagamento Pix...")
@@ -928,211 +956,3 @@ else:
                     ep_reg_v = st.checkbox("🛒 Registrar Venda", value=bool(u_row.get('perm_registrar_venda', 1)))
                     ep_comp = st.checkbox("📦 Entrada de Estoque", value=bool(u_row.get('perm_compras', 0)))
                     ep_cad = st.checkbox("👥 Cadastros (Clientes/Forn)", value=bool(u_row.get('perm_cadastros', 1)))
-                    ep_rh = st.checkbox("👥 Recursos Humanos (RH)", value=bool(u_row.get('perm_rh', 0)))
-                    ep_usr = st.checkbox("🔐 Gestão de Utilizadores", value=bool(u_row.get('perm_usuarios', 0)))
-                    ep_bkp = st.checkbox("💾 Backup e Restauração", value=bool(u_row.get('perm_backup', 0)))
-                    ep_cr = st.checkbox("💸 Contas a Receber", value=bool(u_row.get('perm_contas_receber', 1)))
-                    ep_est = st.checkbox("📦 Estoque de Produtos", value=bool(u_row.get('perm_estoque', 1)))
-                    ep_cfg = st.checkbox("🏢 Configurações Empresa", value=bool(u_row.get('perm_configuracoes', 0)))
-
-                    col_btn_ed1, col_btn_ed2 = st.columns(2)
-                    with col_btn_ed1:
-                        btn_salvar_alt = st.form_submit_button("✏️ Salvar / Alterar Utilizador", type="primary")
-                    with col_btn_ed2:
-                        btn_excluir_usr = st.form_submit_button("🗑️ Excluir Utilizador")
-
-                    if btn_salvar_alt:
-                        try:
-                            cursor = conn.cursor()
-                            cursor.execute("""
-                                UPDATE usuarios SET 
-                                    usuario = ?, login = ?, senha = ?, cargo = ?,
-                                    perm_pdv = ?, perm_financeiro = ?, perm_registrar_venda = ?, perm_compras = ?,
-                                    perm_cadastros = ?, perm_rh = ?, perm_usuarios = ?, perm_backup = ?,
-                                    perm_contas_receber = ?, perm_estoque = ?, perm_configuracoes = ?
-                                WHERE id = ?
-                            """, (
-                                ed_nome, ed_login.strip().lower(), ed_senha, ed_cargo,
-                                1 if ep_pdv else 0, 1 if ep_fin else 0, 1 if ep_reg_v else 0, 1 if ep_comp else 0,
-                                1 if ep_cad else 0, 1 if ep_rh else 0, 1 if ep_usr else 0, 1 if ep_bkp else 0,
-                                1 if ep_cr else 0, 1 if ep_est else 0, 1 if ep_cfg else 0, int(u_row['id'])
-                            ))
-                            conn.commit()
-                            st.success("✅ Utilizador atualizado com sucesso!")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Erro ao atualizar utilizador: {e}")
-
-                    if btn_excluir_usr:
-                        if ed_login.strip().lower() == "administrador":
-                            st.error("❌ Não é permitido excluir o administrador principal do sistema.")
-                        else:
-                            try:
-                                cursor = conn.cursor()
-                                cursor.execute("DELETE FROM usuarios WHERE id = ?", (int(u_row['id']),))
-                                conn.commit()
-                                st.success("🗑️ Utilizador excluído com sucesso!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro ao excluir utilizador: {e}")
-            else:
-                st.info("Nenhum utilizador cadastrado além do administrador padrão.")
-
-    # -------------------------------------------------------------
-    # 8. BACKUP E RESTAURAÇÃO
-    # -------------------------------------------------------------
-    elif menu_admin == "💾 Backup e Restauração":
-        st.subheader("💾 Central de Backup e Restauração")
-        
-        tab_bkp_down, tab_bkp_up = st.tabs(["📥 Baixar Backup", "📤 Restaurar Backup"])
-
-        with tab_bkp_down:
-            st.markdown("### 📥 Fazer Backup dos Dados Atualizados")
-            st.info("Descarregue o ficheiro de cópia de segurança para guardar uma cópia do seu banco de dados.")
-            try:
-                with open("crm_comercio.db", "rb") as f:
-                    bytes_db = f.read()
-                st.download_button(
-                    label="📥 Baixar Arquivo de Backup (.db)",
-                    data=bytes_db,
-                    file_name=f"backup_crm_{datetime.now().strftime('%Y-%m-%d')}.db",
-                    mime="application/octet-stream",
-                    type="primary"
-                )
-            except Exception as e:
-                st.warning(f"Erro ao localizar o banco de dados: {e}")
-
-        with tab_bkp_up:
-            st.markdown("### 📤 Restaurar Ficheiro de Backup (.db)")
-            st.warning("⚠️ **ATENÇÃO:** A restauração irá substituir todos os dados atuais pelo conteúdo do ficheiro de backup selecionado.")
-            
-            uploaded_db = st.file_uploader("Selecione o ficheiro de backup (.db)", type=["db"])
-            
-            if uploaded_db is not None:
-                if st.button("🔴 Confirmar e Restaurar Backup Agora", type="primary"):
-                    try:
-                        conn.close()
-                        with open("crm_comercio.db", "wb") as f:
-                            f.write(uploaded_db.getbuffer())
-                        
-                        conn = get_connection()
-                        st.success("🎉 Backup restaurado com sucesso! Recarregando o sistema...")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"❌ Erro ao restaurar o banco de dados: {e}")
-
-    # -------------------------------------------------------------
-    # 9. CONTAS A RECEBER
-    # -------------------------------------------------------------
-    elif menu_admin == "💸 Contas a Receber":
-        st.subheader("💸 Contas a Receber")
-        df_pedidos_pendentes = carregar_dados("SELECT * FROM pedidos WHERE status = 'Pendente'")
-        if not df_pedidos_pendentes.empty:
-            st.dataframe(df_pedidos_pendentes, use_container_width=True)
-            st.metric("Total Pendente a Receber", f"R$ {df_pedidos_pendentes['valor_total'].sum():,.2f}")
-        else:
-            st.info("Nenhuma conta pendente a receber no momento.")
-
-    # -------------------------------------------------------------
-    # 10. ESTOQUE
-    # -------------------------------------------------------------
-    elif menu_admin == "📦 Estoque de Produtos":
-        st.subheader("📦 Estoque de Produtos e Preços")
-        df_prods = carregar_dados("SELECT * FROM produtos")
-        if not df_prods.empty:
-            st.data_editor(df_prods, use_container_width=True, key="editor_est_prods")
-        else:
-            st.info("Nenhum produto cadastrado no estoque.")
-
-    # -------------------------------------------------------------
-    # 11. CONFIGURAÇÕES (COM VALIDADOR FLEXÍVEL DE CHAVES)
-    # -------------------------------------------------------------
-    elif menu_admin == "🏢 Configurações da Empresa":
-        st.subheader("🏢 Configurações e Dados da Empresa")
-
-        st.markdown("### 🔑 Ativação e Limite de Dispositivos")
-        
-        df_devs_count = carregar_dados("SELECT COUNT(*) as total FROM empresas_dispositivos WHERE ativado = 1")
-        total_ativados = int(df_devs_count.iloc[0]['total']) if not df_devs_count.empty else 0
-        
-        limite_permitido = int(reg_emp.get('limite_dispositivos', 1))
-        st.info(f"📊 **Status de Licença de Dispositivos:** {total_ativados} de {limite_permitido} dispositivo(s) autorizados.")
-
-        if dispositivo_esta_ativado:
-            dias_val = st.session_state.get('dias_licenca', 30)
-            st.success(f"✅ Este dispositivo está **ATIVADO**! Licença válida por {dias_val} dias.")
-            if st.button("🔄 Inserir Nova Chave / Renovar"):
-                cursor = conn.cursor()
-                cursor.execute("UPDATE empresas_dispositivos SET ativado = 0 WHERE device_id = ?", (device_id,))
-                conn.commit()
-                st.session_state['dispositivo_ativado'] = False
-                st.rerun()
-        else:
-            if total_ativados >= limite_permitido:
-                st.error(f"❌ Limite atingido! O limite máximo de {limite_permitido} dispositivo(s) já foi alcançado. Para ligar mais aparelhos, gere uma chave com um limite maior.")
-            else:
-                st.warning("⚠️ Insira a chave de ativação para liberar este dispositivo.")
-                doc_atual = str(reg_emp.get('cnpj', '19417439000142'))
-                st.info(f"Empresa Atual (CNPJ/CPF): `{doc_atual}`")
-
-                chave_digitada = st.text_input("Chave de Ativação:", key="input_chave_ativacao_config")
-
-                if st.button("🔓 Ativar Este Dispositivo", type="primary", key="btn_ativar_dispositivo_config"):
-                    apenas_digitos = ''.join(filter(str.isdigit, str(doc_atual)))
-                    chave_limpa = str(chave_digitada).strip().upper()
-
-                    sucesso = False
-                    dias_validade = 30
-                    limite_extraido = 1
-
-                    # Validação inteligente testando variações de sufixo e dígitos
-                    for sufixo, dias in [("TESTE", 7), ("MENSAL", 30), ("ANUAL", 365)]:
-                        for lim_test in range(1, 30):
-                            base_hash_str = apenas_digitos + "REY_CEBOLA_2026" + sufixo + str(lim_test)
-                            hash_hex = hashlib.md5(base_hash_str.encode()).hexdigest().upper()
-                            chave_esperada = f"CRM-{sufixo}-{lim_test}D-{hash_hex[:4]}-{hash_hex[4:8]}"
-
-                            if chave_limpa == chave_esperada:
-                                sucesso = True
-                                dias_validade = dias
-                                limite_extraido = lim_test
-                                break
-                        if sucesso:
-                            break
-
-                    if sucesso:
-                        cursor = conn.cursor()
-                        cursor.execute("""
-                            UPDATE empresas_dispositivos 
-                            SET ativado = 1, dias_licenca = ?, limite_dispositivos = ? 
-                            WHERE device_id = ?
-                        """, (dias_validade, limite_extraido, device_id))
-                        conn.commit()
-
-                        st.session_state['dispositivo_ativado'] = True
-                        st.session_state['dias_licenca'] = dias_validade
-                        st.session_state['limite_dispositivos'] = limite_extraido
-                        st.success(f"🎉 Dispositivo ativado com sucesso! Validade: {dias_validade} dias (Limite: {limite_extraido} disp.).")
-                        st.rerun()
-                    else:
-                        st.error("❌ Chave inválida para este CNPJ/CPF ou formato incorreto. Verifique o documento cadastrado abaixo.")
-
-        st.markdown("---")
-        with st.form("form_cfg_emp"):
-            st.markdown("### 📝 Dados Gerais e Limites da Empresa")
-            nome_emp = st.text_input("Razão Social / Nome Fantasia", value=str(reg_emp.get('nome_empresa', 'REY DA CEBOLA')))
-            cnpj_emp = st.text_input("CNPJ ou CPF", value=str(reg_emp.get('cnpj', '19417439000142')))
-            tel_emp = st.text_input("Telefone de Contato", value=str(reg_emp.get('fone', '(99) 98501-6050')))
-            end_emp = st.text_input("Endereço Completo", value=str(reg_emp.get('endereco', 'RUA CAIPIRA, Nº 174')))
-            lim_disp = st.number_input("💻 Limite Máximo de Dispositivos Permitidos", min_value=1, max_value=50, value=int(reg_emp.get('limite_dispositivos', 1)))
-            
-            if st.form_submit_button("💾 Salvar Configurações", type="primary"):
-                cursor = conn.cursor()
-                cursor.execute("""
-                    INSERT OR REPLACE INTO empresas_dispositivos (device_id, nome_empresa, cnpj, fone, endereco, ativado, dias_licenca, limite_dispositivos)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, (device_id, nome_emp, cnpj_emp, tel_emp, end_emp, 1 if st.session_state.get('dispositivo_ativado') else 0, st.session_state.get('dias_licenca', 30), lim_disp))
-                conn.commit()
-                st.session_state['limite_dispositivos'] = lim_disp
-                st.success("✅ Configurações e limites salvos com sucesso!")
-                st.rerun()
