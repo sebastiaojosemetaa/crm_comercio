@@ -540,7 +540,7 @@ else:
 
                     st.info("Aponte a câmara do telemóvel para o QR Code abaixo ou utilize a chave selecionada.")
 
-                    # Função para gerar o payload CRC16 oficial do Pix
+                    # Função para gerar o payload CRC16 oficial do Pix (Compatível com qualquer tipo de chave)
                     def gerar_payload_pix(pix_key, nome_recebedor, cidade, valor_str, tipo_chave_pix):
                         def emv_format(id_str, val_str):
                             length = f"{len(val_str):02d}"
@@ -548,20 +548,19 @@ else:
                         
                         payload = emv_format("00", "01")
                         
-                        # Trata chaves numéricas caso seja CPF/CNPJ
-                        chave_limpa_payload = pix_key
+                        # Tratamento estrito por tipo de chave
                         if tipo_chave_pix in ["CNPJ", "CPF"]:
                             chave_limpa_payload = ''.join(filter(str.isdigit, pix_key))
                         elif tipo_chave_pix == "Celular":
-                            # Pega apenas os números do celular cadastrado
-                            apenas_digitos = ''.join(filter(str.isdigit, pix_key))
-                            # Se tiver 11 dígitos (DDD + número), adiciona o +55 obrigatoriamente
-                            if len(apenas_digitos) == 11:
-                                chave_limpa_payload = "+55" + apenas_digitos
-                            elif len(apenas_digitos) == 13 and apenas_digitos.startswith("55"):
-                                chave_limpa_payload = "+" + apenas_digitos
+                            # Remove tudo o que não for número
+                            digitos = ''.join(filter(str.isdigit, pix_key))
+                            # Garante o formato 55 + DDD + Numero (sem o sinal de +)
+                            if digitos.startswith("55") and len(digitos) == 13:
+                                chave_limpa_payload = digitos
+                            elif len(digitos) == 11:
+                                chave_limpa_payload = "55" + digitos
                             else:
-                                chave_limpa_payload = "+55" + apenas_digitos
+                                chave_limpa_payload = digitos
                         else:
                             chave_limpa_payload = pix_key.strip()
 
