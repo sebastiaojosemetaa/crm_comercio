@@ -498,10 +498,17 @@ else:
             if st.session_state.get('tela_checkout_ativa', False):
                 st.markdown("---")
                 st.markdown("### 💳 Ecrã de Pagamento / Checkout")
-                forma_pagto = st.radio("Selecione a Forma de Pagamento:", ["Dinheiro", "Cartão", "Pix"], horizontal=True, key="radio_forma_pagto_checkout")
+                
+                forma_pagto = st.radio(
+                    "Selecione a Forma de Pagamento:", 
+                    ["Dinheiro", "Cartão Débito", "Cartão Crédito", "Fiado", "Parcelado", "Pix"], 
+                    horizontal=True, 
+                    key="radio_forma_pagto_checkout"
+                )
 
                 valor_recebido = 0.0
                 troco = 0.0
+                detalhes_pagto = forma_pagto
 
                 if forma_pagto == "Dinheiro":
                     valor_recebido = st.number_input("Valor Recebido em Dinheiro (R$)", min_value=0.0, value=total_geral_carrinho, format="%.2f", key="input_val_recebido_dinheiro")
@@ -511,10 +518,28 @@ else:
                     else:
                         st.warning(f"⚠️ Falta R$ {abs(troco):,.2f} para completar o pagamento.")
 
+                elif forma_pagto == "Cartão Crédito":
+                    parcelas = st.selectbox("Número de Parcelas:", ["1x (À vista)", "2x", "3x", "4x", "5x", "6x", "10x", "12x"], key="select_parcelas_cartao")
+                    detalhes_pagto = f"Cartão Crédito ({parcelas})"
+                    st.info(f"💳 Pagamento selecionado: **Cartão Crédito em {parcelas}**")
+
+                elif forma_pagto == "Cartão Débito":
+                    st.info("💳 Pagamento via **Cartão de Débito** à vista.")
+
+                elif forma_pagto == "Fiado":
+                    cliente_fiado = st.selectbox("Selecione o Cliente para o Fiado:", carregar_coluna("clientes", "nome") or ["Cliente Balcão"], key="select_cliente_fiado_pdv")
+                    detalhes_pagto = f"Fiado ({cliente_fiado})"
+                    st.warning(f"⚠️ Esta venda será registada como **Fiado** para o cliente: **{cliente_fiado}**")
+
+                elif forma_pagto == "Parcelado":
+                    num_parc = st.number_input("Quantidade de Parcelas Próprias:", min_value=2, max_value=24, value=2, step=1, key="num_parc_proprias")
+                    valor_parc = total_geral_carrinho / num_parc
+                    detalhes_pagto = f"Parcelado ({num_parc}x de R$ {valor_parc:,.2f})"
+                    st.info(f"📅 Venda dividida em **{num_parc}x** de **R$ {valor_parc:,.2f}**.")
+
                 elif forma_pagto == "Pix":
                     st.markdown("#### 📱 Pague com Pix (QR Code Oficial)")
                     
-                    # Buscar chaves cadastradas no banco
                     df_chaves_db = carregar_dados("SELECT * FROM chaves_pix")
                     
                     if df_chaves_db.empty:
@@ -529,7 +554,6 @@ else:
                             lista_opcoes_pix.append(rotulo)
                             dict_chaves[rotulo] = row
 
-                    # Seletor para escolher qual chave usar nesta venda
                     chave_escolhida_label = st.selectbox("Escolha a Chave Pix para esta venda:", lista_opcoes_pix, key="select_chave_pix_venda")
                     dados_chave_atual = dict_chaves[chave_escolhida_label]
 
@@ -540,9 +564,7 @@ else:
 
                     st.info("Aponte a câmara do telemóvel para o QR Code abaixo ou utilize a chave selecionada.")
 
-                    # Função corrigida para higienizar e gerar o payload oficial do Pix (Compatível com Celular, CNPJ, CPF, etc.)
                     def gerar_payload_pix(pix_key, nome_recebedor, cidade, valor_str, tipo_chave_pix):
-                        # Tratamento da chave conforme o tipo exato exigido pelo manual do Pix (Bacen)
                         if tipo_chave_pix in ["CNPJ", "CPF"]:
                             chave_tratada = ''.join(filter(str.isdigit, pix_key))
                         elif tipo_chave_pix == "Celular":
@@ -552,7 +574,6 @@ else:
                             else:
                                 chave_tratada = "+55" + digitos
                         else:
-                            # Para E-mail e Chave Aleatória, a chave vai limpa e sem espaços
                             chave_tratada = pix_key.strip()
 
                         import unicodedata
@@ -566,14 +587,13 @@ else:
                         def montar_campo(id_campo, valor_campo):
                             return f"{id_campo}{len(valor_campo):02d}{valor_campo}"
 
-                        # Montagem correta do identificador do Pix (Merchant Account Information)
                         gui = montar_campo("00", "br.gov.bcb.pix")
                         chave_f = montar_campo("01", chave_tratada)
                         merchant_account = montar_campo("26", gui + chave_f)
 
                         payload = (
                             montar_campo("00", "01") +
-                            montar_campo("01", "12") + # Indicador de início de QR Code dinâmico/estático
+                            montar_campo("01", "12") +
                             merchant_account +
                             montar_campo("52", "0000") +
                             montar_campo("53", "986") +
@@ -585,7 +605,6 @@ else:
                             "6304"
                         )
 
-                        # Cálculo CRC16-CCITT oficial do Banco Central
                         crc = 0xFFFF
                         for char in payload:
                             crc ^= (ord(char) << 8)
@@ -610,7 +629,6 @@ else:
                     
                     qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={pix_payload}"
                     
-                    # Layout alinhado lado a lado: QR Code à esquerda e Informações detalhadas à direita
                     col_qr_img, col_qr_info = st.columns([1, 2], gap="medium")
                     with col_qr_img:
                         st.image(qr_url, width=190, caption="Escaneie o QR Code")
@@ -633,10 +651,8 @@ else:
                         data_venda = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                         vendedor_atual = usr_exibicao
                         
-                        # Define de forma segura a forma de pagamento atual
-                        metodo_pagamento = "Pix"
-                        v_rec = total_geral_carrinho
-                        t_val = 0.0
+                        v_rec = valor_recebido if forma_pagto == "Dinheiro" else total_geral_carrinho
+                        t_val = troco if (forma_pagto == "Dinheiro" and troco >= 0) else 0.0
 
                         for item in st.session_state.carrinho_pdv:
                             cursor.execute("""
@@ -653,7 +669,7 @@ else:
                                 item['quantidade'], 
                                 item['valor_unitario'], 
                                 item['valor_total'], 
-                                metodo_pagamento, 
+                                detalhes_pagto, 
                                 v_rec, 
                                 t_val, 
                                 data_venda, 
@@ -662,13 +678,13 @@ else:
 
                         cursor.execute(
                             "INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, 'VENDA', ?, ?, ?)",
-                            (sessao_id, float(total_geral_carrinho), f"Venda PDV ({metodo_pagamento}) por {vendedor_atual}", data_venda)
+                            (sessao_id, float(total_geral_carrinho), f"Venda PDV ({detalhes_pagto}) por {vendedor_atual}", data_venda)
                         )
                         conn.commit()
                         
                         st.session_state.carrinho_pdv = []
                         st.session_state.tela_checkout_ativa = False
-                        st.success(f"🎉 Venda de R$ {total_geral_carrinho:,.2f} via **{metodo_pagamento}** concluída com sucesso!")
+                        st.success(f"🎉 Venda de R$ {total_geral_carrinho:,.2f} via **{detalhes_pagto}** concluída com sucesso!")
                         st.rerun()
 
         else:
@@ -1250,95 +1266,3 @@ else:
 
                     sucesso = False
                     dias_validade = 0
-                    limite_extraido = 1
-
-                    for sufixo, dias in [("TESTE", 7), ("MENSAL", 30), ("ANUAL", 365)]:
-                        for lim_test in range(1, 20):
-                            base_hash_str = apenas_digitos + "REY_CEBOLA_2026" + sufixo + str(lim_test)
-                            hash_hex = hashlib.md5(base_hash_str.encode()).hexdigest().upper()
-                            chave_esperada = f"CRM-{sufixo}-{lim_test}D-{hash_hex[:4]}-{hash_hex[4:8]}"
-
-                            if chave_limpa == chave_esperada:
-                                sucesso = True
-                                dias_validade = dias
-                                limite_extraido = lim_test
-                                break
-                        if sucesso:
-                            break
-
-                    if sucesso:
-                        cursor = conn.cursor()
-                        cursor.execute("""
-                            UPDATE empresas_dispositivos 
-                            SET ativado = 1, dias_licenca = ?, limite_dispositivos = ? 
-                            WHERE device_id = ?
-                        """, (dias_validade, limite_extraido, device_id))
-                        conn.commit()
-
-                        st.session_state['dispositivo_ativado'] = True
-                        st.session_state['dias_licenca'] = dias_validade
-                        st.session_state['limite_dispositivos'] = limite_extraido
-                        st.success(f"🎉 Dispositivo ativado com sucesso! Validade: {dias_validade} dias (Limite: {limite_extraido} disp.).")
-                        st.rerun()
-                    else:
-                        st.error("❌ Chave inválida para este CNPJ/CPF ou limite de dispositivos incorreto.")
-
-        st.markdown("---")
-        with st.form("form_cfg_emp"):
-            st.markdown("### 📝 Dados Gerais e Limites da Empresa")
-            nome_emp = st.text_input("Razão Social / Nome Fantasia", value=str(reg_emp.get('nome_empresa', 'REY DA CEBOLA')))
-            cnpj_emp = st.text_input("CNPJ ou CPF", value=str(reg_emp.get('cnpj', '19417439000142')))
-            tel_emp = st.text_input("Telefone de Contato", value=str(reg_emp.get('fone', '(99) 98501-6050')))
-            end_emp = st.text_input("Endereço Completo", value=str(reg_emp.get('endereco', 'RUA CAIPIRA, Nº 174')))
-            lim_disp = st.number_input("💻 Limite Máximo de Dispositivos Permitidos", min_value=1, max_value=50, value=int(reg_emp.get('limite_dispositivos', 1)))
-            
-            if st.form_submit_button("💾 Salvar Configurações", type="primary"):
-                cursor = conn.cursor()
-                cursor.execute("""
-                    INSERT OR REPLACE INTO empresas_dispositivos (device_id, nome_empresa, cnpj, fone, endereco, ativado, dias_licenca, limite_dispositivos)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, (device_id, nome_emp, cnpj_emp, tel_emp, end_emp, 1 if st.session_state.get('dispositivo_ativado') else 0, st.session_state.get('dias_licenca', 30), lim_disp))
-                conn.commit()
-                st.session_state['limite_dispositivos'] = lim_disp
-                st.success("✅ Configurações e limites salvos com sucesso!")
-                st.rerun()
-
-        # --- GESTÃO DE CHAVES PIX MÚLTIPLAS NAS CONFIGURAÇÕES ---
-        st.markdown("---")
-        st.markdown("### 💳 Gestão de Chaves Pix")
-        
-        with st.form("form_cad_chave_pix"):
-            col_cp1, col_cp2 = st.columns(2)
-            with col_cp1:
-                tipo_chave = st.selectbox("Tipo de Chave", ["CNPJ", "CPF", "Celular", "E-mail", "Chave Aleatória"])
-                valor_chave = st.text_input("Valor da Chave (ex: seu e-mail, celular ou CNPJ)")
-            with col_cp2:
-                favorecido_chave = st.text_input("Nome do Favorecido", value=nome_empresa_header)
-                cidade_chave = st.text_input("Cidade", value="SAO LUIS")
-            
-            if st.form_submit_button("➕ Cadastrar Nova Chave Pix", type="primary"):
-                if valor_chave.strip():
-                    cursor = conn.cursor()
-                    cursor.execute("""
-                        INSERT INTO chaves_pix (tipo, chave, favorecido, cidade)
-                        VALUES (?, ?, ?, ?)
-                    """, (tipo_chave, valor_chave.strip(), favorecido_chave.strip(), cidade_chave.strip()))
-                    conn.commit()
-                    st.success("✅ Chave Pix cadastrada com sucesso!")
-                    st.rerun()
-                else:
-                    st.error("Preencha o valor da chave Pix.")
-
-        df_chaves_cadastradas = carregar_dados("SELECT * FROM chaves_pix")
-        if not df_chaves_cadastradas.empty:
-            st.markdown("#### 📋 Chaves Pix Já Cadastradas")
-            st.dataframe(df_chaves_cadastradas, use_container_width=True)
-            
-            id_para_excluir = st.number_input("ID da Chave para Excluir (opcional):", min_value=0, step=1)
-            if st.button("🗑️ Excluir Chave Selecionada"):
-                if id_para_excluir > 0:
-                    cursor = conn.cursor()
-                    cursor.execute("DELETE FROM chaves_pix WHERE id = ?", (int(id_para_excluir),))
-                    conn.commit()
-                    st.success(f"Chave ID {id_para_excluir} excluída com sucesso!")
-                    st.rerun()
