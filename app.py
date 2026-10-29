@@ -918,7 +918,7 @@ else:
     # MÓDULO REGISTRAR VENDA (VENDA BALCÃO / CARRINHO)
     # -------------------------------------------------------------
     elif menu_admin == "Registrar Venda":
-        st.subheader(f"🛒 Registrar Venda / Pedido — REY DA CEBOLA | 👤 Utilizador: {vendedor_atual}")
+        st.subheader(f"🛒 Registrar Venda / Balcão — REY DA CEBOLA | 👤 Utilizador: {vendedor_atual}")
         
         if "carrinho_reg_venda" not in st.session_state:
             st.session_state.carrinho_reg_venda = []
@@ -1016,13 +1016,11 @@ else:
                     cursor = conn.cursor()
                     data_venda_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     
-                    # Garante que existe tabela de caixa aberta ou cria registo
                     cursor.execute("SELECT id FROM caixa_sessoes WHERE status = 'ABERTO' ORDER BY id DESC LIMIT 1")
-                    sessao_ aberta = cursor.fetchone()
-                    sessao_id = sessao_abierta[0] if sessao_abierta else 1
+                    sessao_aberta = cursor.fetchone()
+                    sessao_id = sessao_aberta[0] if sessao_aberta else 1
 
                     for item in st.session_state.carrinho_reg_venda:
-                        # 1. Regista a venda
                         cursor.execute("""
                             INSERT INTO vendas (
                                 cliente, produto, fornecedor, grupo, quantidade, 
@@ -1044,14 +1042,12 @@ else:
                             vendedor_atual
                         ))
 
-                        # 2. Dá baixa automática no estoque geral
                         cursor.execute("""
                             UPDATE produtos 
                             SET quantidade = quantidade - ? 
                             WHERE UPPER(TRIM(produto)) = UPPER(TRIM(?))
                         """, (item['quantidade'], item['produto']))
 
-                    # Regista movimentação no caixa
                     cursor.execute(
                         "INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, 'VENDA', ?, ?, ?)",
                         (sessao_id, float(total_geral_reg), f"Venda Balcão ({forma_pagto_reg}) - Cliente: {cliente_venda}", data_venda_atual)
