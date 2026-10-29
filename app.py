@@ -553,7 +553,7 @@ else:
                                     chave_tratada = "+55" + digitos_limpos
                             else:
                                 chave_tratada = pix_key.strip()
-                        elif tipo_chave_pix in ["CNPJ", "CPF"]:
+                        elif tipo_chave_pix in ["CNPJ", "CPF", "CELULAR", "E-MAIL"]:
                             chave_tratada = digitos_limpos
                         else:
                             chave_tratada = pix_key.strip()
