@@ -1314,7 +1314,7 @@ else:
                     st.success("🎉 Todos os produtos promocionais foram carregados para o carrinho do PDV com sucesso!")
                     st.rerun()
             else:
-                st.info("ℹ️ Nenhum produto guardado no depósito promocional."))
+                st.info("ℹ️ Nenhum produto guardado no depósito promocional.")
 
     # -------------------------------------------------------------
     # 11. CONFIGURAÇÕES
