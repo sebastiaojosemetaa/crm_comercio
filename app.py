@@ -986,6 +986,12 @@ else:
 
         if st.session_state.carrinho_compras:
             st.markdown("### 📋 Itens no Carrinho de Compras")
+            
+            # Garante que itens antigos no carrinho tenham o campo 'unidade' para evitar erros
+            for item in st.session_state.carrinho_compras:
+                if 'unidade' not in item:
+                    item['unidade'] = 'UNIDADE'
+
             df_carrinho_compras = pd.DataFrame(st.session_state.carrinho_compras)
             df_exib_compras = df_carrinho_compras[['produto', 'grupo', 'fornecedor', 'unidade', 'quantidade', 'valor_compra', 'valor_venda']].copy()
             df_exib_compras.columns = ['Produto', 'Grupo', 'Fornecedor', 'Unidade', 'Qtd', 'Preço Compra', 'Preço Venda']
@@ -1011,7 +1017,6 @@ else:
                 if st.button("💾 Finalizar Todas as Entradas", type="primary", use_container_width=True):
                     cursor = conn.cursor()
                     
-                    # Garante que a coluna unidade existe na tabela produtos
                     cursor.execute("PRAGMA table_info(produtos)")
                     cols_prod = [c[1] for c in cursor.fetchall()]
                     if "unidade" not in cols_prod:
@@ -1025,7 +1030,7 @@ else:
                                 UPDATE produtos 
                                 SET quantidade = quantidade + ?, valor_compra = ?, valor_venda = ?, grupo = ?, fornecedor = ?, unidade = ?
                                 WHERE produto = ?
-                            """, (item['quantidade'], item['valor_compra'], item['valor_venda'], item['grupo'], item['fornecedor'], item['unidade'], item['produto']))
+                            """, (item['quantidade'], item['valor_comp_ra'] if 'valor_comp_ra' in item else item['valor_compra'], item['valor_venda'], item['grupo'], item['fornecedor'], item['unidade'], item['produto']))
                         else:
                             cursor.execute("""
                                 INSERT INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda, unidade) 
