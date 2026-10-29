@@ -752,73 +752,97 @@ else:
     # -------------------------------------------------------------
     elif menu_admin == "📊 Fechamento & Financeiro":
         st.subheader(f"📊 Fechamento & Financeiro — {nome_empresa_header} | 👤 Utilizador: {usr_exibicao}")
-        df_caixa_atual = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
+        
+        # Criamos abas para separar a operação atual do histórico
+        aba_caixa_atual, aba_historico_caixas = st.tabs(["🟢 Caixa Atual & Operação", "📚 Histórico de Caixas Fechados"])
 
-        if df_caixa_atual.empty:
-            st.info("O caixa encontra-se **FECHADO**. Insira o valor inicial para abri-lo.")
-            with st.form("form_abrir_caixa"):
-                saldo_inicial = st.number_input("Saldo Inicial em Dinheiro (Troco)", min_value=0.0, step=10.0)
-                if st.form_submit_button("Abrir Caixa"):
-                    cursor = conn.cursor()
-                    cursor.execute("INSERT INTO caixa_sessoes (data_abertura, saldo_inicial, status) VALUES (?, ?, 'ABERTO')",
-                                   (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), saldo_inicial))
-                    conn.commit()
-                    st.success("Caixa aberto com sucesso!")
-                    st.rerun()
-        else:
-            sessao_id = int(df_caixa_atual.iloc[0]['id'])
-            saldo_inicial = float(df_caixa_atual.iloc[0]['saldo_inicial'])
-            st.success(f"🟢 **Caixa ABERTO** | Saldo Inicial: R$ {saldo_inicial:,.2f}")
-            
-            df_movs = carregar_dados(f"SELECT * FROM caixa_movimentacoes WHERE sessao_id = {sessao_id}")
-            total_movimentado = df_movs['valor'].sum() if not df_movs.empty else 0.0
-            st.metric("Total Movimentado neste Caixa", f"R$ {total_movimentado:,.2f}")
+        with aba_caixa_atual:
+            df_caixa_atual = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
 
-            # --- RESUMO DE VENDAS POR UTILIZADOR E FORMA DE PAGAMENTO ---
-            st.markdown("### 👥 Desempenho de Vendas por Utilizador")
-            df_vendas_usuario = carregar_dados("""
-                SELECT 
-                    COALESCE(vendedor, 'Desconhecido') as Utilizador, 
-                    COUNT(id) as Total_Vendas, 
-                    SUM(valor_total) as Valor_Total 
-                FROM vendas 
-                WHERE tipo = 'VENDA' 
-                GROUP BY vendedor
-            """)
-            
-            if not df_vendas_usuario.empty:
-                df_vendas_usuario.columns = ['Utilizador', 'Qtd. Vendas', 'Total Vendido (R$)']
-                st.dataframe(df_vendas_usuario, use_container_width=True)
+            if df_caixa_atual.empty:
+                st.info("O caixa encontra-se **FECHADO**. Insira o valor inicial para abri-lo.")
+                with st.form("form_abrir_caixa"):
+                    saldo_inicial = st.number_input("Saldo Inicial em Dinheiro (Troco)", min_value=0.0, step=10.0)
+                    if st.form_submit_button("Abrir Caixa"):
+                        cursor = conn.cursor()
+                        cursor.execute("INSERT INTO caixa_sessoes (data_abertura, saldo_inicial, status) VALUES (?, ?, 'ABERTO')",
+                                       (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), saldo_inicial))
+                        conn.commit()
+                        st.success("Caixa aberto com sucesso!")
+                        st.rerun()
             else:
-                st.info("ℹ️ Nenhuma venda registada por utilizador até o momento.")
+                sessao_id = int(df_caixa_atual.iloc[0]['id'])
+                saldo_inicial = float(df_caixa_atual.iloc[0]['saldo_inicial'])
+                st.success(f"🟢 **Caixa ABERTO** | Saldo Inicial: R$ {saldo_inicial:,.2f}")
+                
+                df_movs = carregar_dados(f"SELECT * FROM caixa_movimentacoes WHERE sessao_id = {sessao_id}")
+                total_movimentado = df_movs['valor'].sum() if not df_movs.empty else 0.0
+                st.metric("Total Movimentado neste Caixa", f"R$ {total_movimentado:,.2f}")
 
-            st.markdown("### 💳 Vendas Separadas por Forma de Pagamento")
-            df_vendas_pagto = carregar_dados("""
-                SELECT 
-                    COALESCE(forma_pagamento, 'Não Informado') as Forma_Pagamento, 
-                    COUNT(id) as Total_Vendas, 
-                    SUM(valor_total) as Valor_Total 
-                FROM vendas 
-                WHERE tipo = 'VENDA' 
-                GROUP BY forma_pagamento
-            """)
+                # --- RESUMO DE VENDAS POR UTILIZADOR E FORMA DE PAGAMENTO ---
+                st.markdown("### 👥 Desempenho de Vendas por Utilizador")
+                df_vendas_usuario = carregar_dados("""
+                    SELECT 
+                        COALESCE(vendedor, 'Desconhecido') as Utilizador, 
+                        COUNT(id) as Total_Vendas, 
+                        SUM(valor_total) as Valor_Total 
+                    FROM vendas 
+                    WHERE tipo = 'VENDA' 
+                    GROUP BY vendedor
+                """)
+                
+                if not df_vendas_usuario.empty:
+                    df_vendas_usuario.columns = ['Utilizador', 'Qtd. Vendas', 'Total Vendido (R$)']
+                    st.dataframe(df_vendas_usuario, use_container_width=True)
+                else:
+                    st.info("ℹ️ Nenhuma venda registada por utilizador até o momento.")
+
+                st.markdown("### 💳 Vendas Separadas por Forma de Pagamento")
+                df_vendas_pagto = carregar_dados("""
+                    SELECT 
+                        COALESCE(forma_pagamento, 'Não Informado') as Forma_Pagamento, 
+                        COUNT(id) as Total_Vendas, 
+                        SUM(valor_total) as Valor_Total 
+                    FROM vendas 
+                    WHERE tipo = 'VENDA' 
+                    GROUP BY forma_pagamento
+                """)
+                
+                if not df_vendas_pagto.empty:
+                    df_vendas_pagto.columns = ['Forma de Pagamento', 'Qtd. Vendas', 'Total Arrecadado (R$)']
+                    st.dataframe(df_vendas_pagto, use_container_width=True)
+                else:
+                    st.info("ℹ️ Nenhuma venda registada por forma de pagamento até o momento.")
+
+                st.markdown("---")
+                with st.form("form_fechar_caixa"):
+                    saldo_final = st.number_input("Conferência de Saldo Final (Dinheiro)", min_value=0.0, value=saldo_inicial + total_movimentado)
+                    if st.form_submit_button("🔒 Fechar Caixa"):
+                        cursor = conn.cursor()
+                        cursor.execute("UPDATE caixa_sessoes SET data_fechamento = ?, saldo_final = ?, status = 'FECHADO' WHERE id = ?",
+                                       (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), saldo_final, sessao_id))
+                        conn.commit()
+                        st.success("Caixa fechado com sucesso!")
+                        st.rerun()
+
+        with aba_historico_caixas:
+            st.markdown("### 📚 Histórico de Caixas Fechados")
+            df_historico = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'FECHADO' ORDER BY id DESC")
             
-            if not df_vendas_pagto.empty:
-                df_vendas_pagto.columns = ['Forma de Pagamento', 'Qtd. Vendas', 'Total Arrecadado (R$)']
-                st.dataframe(df_vendas_pagto, use_container_width=True)
+            if not df_historico.empty:
+                st.dataframe(df_historico, use_container_width=True)
+                
+                st.markdown("#### 🔍 Detalhes das Movimentações por Sessão de Caixa")
+                id_sessao_consulta = st.selectbox("Selecione o ID do Caixa para ver detalhes:", df_historico['id'].tolist(), key="sel_id_sessao_hist")
+                
+                if id_sessao_consulta:
+                    df_movs_detalhe = carregar_dados(f"SELECT * FROM caixa_movimentacoes WHERE sessao_id = {id_sessao_consulta}")
+                    if not df_movs_detalhe.empty:
+                        st.dataframe(df_movs_detalhe, use_container_width=True)
+                    else:
+                        st.info("Nenhuma movimentação registada para este caixa.")
             else:
-                st.info("ℹ️ Nenhuma venda registada por forma de pagamento até o momento.")
-
-            st.markdown("---")
-            with st.form("form_fechar_caixa"):
-                saldo_final = st.number_input("Conferência de Saldo Final (Dinheiro)", min_value=0.0, value=saldo_inicial + total_movimentado)
-                if st.form_submit_button("🔒 Fechar Caixa"):
-                    cursor = conn.cursor()
-                    cursor.execute("UPDATE caixa_sessoes SET data_fechamento = ?, saldo_final = ?, status = 'FECHADO' WHERE id = ?",
-                                   (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), saldo_final, sessao_id))
-                    conn.commit()
-                    st.success("Caixa fechado com sucesso!")
-                    st.rerun()
+                st.info("ℹ️ Nenhum caixa fechado registado no histórico até o momento.")
 
     # -------------------------------------------------------------
     # 3. MÓDULO REGISTRAR VENDA
