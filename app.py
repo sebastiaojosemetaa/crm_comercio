@@ -70,16 +70,23 @@ def adequar_banco_e_migrar():
     try:
         cursor = conn.cursor()
         
+        # TABELA DE PRODUTOS EM PROMOÇÃO
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS produtos_promocao (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 produto TEXT,
                 quantidade REAL,
+                quantidade_minima REAL DEFAULT 1,
                 preco_promocional REAL,
                 grupo TEXT,
                 fornecedor TEXT
             )
         """)
+        cursor.execute("PRAGMA table_info(produtos_promocao)")
+        cols_promo = [col[1] for col in cursor.fetchall()]
+        if "quantidade_minima" not in cols_promo:
+            try: cursor.execute("ALTER TABLE produtos_promocao ADD COLUMN quantidade_minima REAL DEFAULT 1")
+            except Exception: pass
         
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS empresas_dispositivos (
@@ -1283,17 +1290,6 @@ else:
                 
                 if st.form_submit_button("💾 Guardar no Depósito de Promoção", type="primary"):
                     cursor = conn.cursor()
-                    cursor.execute("""
-                        CREATE TABLE IF NOT EXISTS produtos_promocao (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            produto TEXT,
-                            quantidade REAL,
-                            quantidade_minima REAL DEFAULT 1,
-                            preco_promocional REAL,
-                            grupo TEXT,
-                            fornecedor TEXT
-                        )
-                    """)
                     cursor.execute("""
                         INSERT INTO produtos_promocao (produto, quantidade, quantidade_minima, preco_promocional)
                         VALUES (?, ?, ?, ?)
