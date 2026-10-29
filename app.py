@@ -693,8 +693,15 @@ else:
                                 data_venda, 
                                 vendedor_atual
                             ))
-
-                            # Baixa no estoque promocional se pertencer à promoção
+                    
+                            # 1. DÁ A BAIXA NO ESTOQUE GERAL (Subtrai a quantidade vendida do produto)
+                            cursor.execute("""
+                                UPDATE produtos 
+                                SET quantidade = quantidade - ? 
+                                WHERE UPPER(TRIM(produto)) = UPPER(TRIM(?))
+                            """, (item['quantidade'], item['produto']))
+                    
+                            # 2. Baixa no estoque promocional se pertencer à promoção
                             if item.get('grupo') == "PROMOÇÃO":
                                 cursor.execute("""
                                     UPDATE produtos_promocao 
