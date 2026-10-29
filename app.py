@@ -1300,18 +1300,22 @@ else:
             if not df_promo_guardados.empty:
                 st.dataframe(df_promo_guardados, use_container_width=True)
                 
-                if st.button("🚀 Carregar Todos os Produtos da Promoção para o PDV", type="primary"):
+                if st.button("🚀 Carregar Promoção e Ir para o PDV", type="primary", key="btn_enviar_promo_pdv_direto"):
+                    # Limpa o carrinho atual e insere os itens promocionais
+                    st.session_state.carrinho_pdv = []
                     for idx, row in df_promo_guardados.iterrows():
+                        qtd_f = float(row['quantidade']) if row['quantidade'] else 1.0
+                        pr_f = float(row['preco_promocional']) if row['preco_promocional'] else 0.0
                         st.session_state.carrinho_pdv.append({
                             "codigo": "",
-                            "produto": row['produto'],
-                            "quantidade": row['quantidade'],
-                            "valor_unitario": row['preco_promocional'],
-                            "valor_total": row['quantidade'] * row['preco_promocional'],
+                            "produto": str(row['produto']),
+                            "quantidade": qtd_f,
+                            "valor_unitario": pr_f,
+                            "valor_total": qtd_f * pr_f,
                             "fornecedor": "",
-                            "grupo": "PROMOCAO"
+                            "grupo": "PROMOÇÃO"
                         })
-                    st.success("🎉 Todos os produtos promocionais foram carregados para o carrinho do PDV com sucesso!")
+                    st.success("🎉 Promoção carregada com sucesso! A redirecionar para o PDV...")
                     st.rerun()
             else:
                 st.info("ℹ️ Nenhum produto guardado no depósito promocional.")
