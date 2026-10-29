@@ -967,28 +967,22 @@ else:
             qtd_compra = st.number_input("Quantidade", min_value=0.01, value=6.0, key="qtd_compra_num")
             pr_compra = st.number_input("Preço Compra Unitário (R$)", min_value=0.0, value=90.0, format="%.2f", key="pr_compra_form")
 
-        # Define margem padrão inicial se não existir
-        if 'margem_digitada' not in st.session_state:
-            st.session_state.margem_digitada = 30.0
-
         col_m1, col_m2 = st.columns(2)
         with col_m1:
-            margem_perc = st.number_input("Margem de Lucro (%)", value=float(st.session_state.margem_digitada), format="%.2f", key="margem_form")
-            st.session_state.margem_digitada = margem_perc
+            margem_perc = st.number_input("Margem de Lucro (%)", value=30.0, format="%.2f", key="margem_form")
 
-        # Preço de venda calculado automaticamente com base na compra e na margem
-        preco_venda_sugerido = pr_compra * (1 + (margem_perc / 100))
+        # Cálculo direto do preço de venda com base na margem e no preço de compra
+        venda_sugerida = pr_compra * (1 + (margem_perc / 100))
 
         with col_m2:
-            pr_venda = st.number_input("Preço Venda Unitário (R$)", min_value=0.0, value=float(preco_venda_sugerido), format="%.2f", key="pr_venda_form")
+            pr_venda = st.number_input("Preço Venda Unitário (R$)", min_value=0.0, value=float(venda_sugerida), format="%.2f", key="pr_venda_form")
 
-        # Se o usuário digitou um preço de venda manual diferente do sugerido, calcula a margem real resultante
-        lucro_final = pr_venda
-        if pr_venda != preco_venda_sugerido and pr_compra > 0:
-            margem_real = ((pr_venda - pr_compra) / pr_compra) * 100
-            st.info(f"💡 Margem de Lucro calculada pelo preço de venda: **{margem_real:,.2f}%**")
+        # Informativo de lucro ou margem real caso o preço de venda seja ajustado manualmente
+        if pr_venda != venda_sugerida and pr_compra > 0:
+            lucro_calculado = ((pr_venda - pr_compra) / pr_compra) * 100
+            st.info(f"💡 Margem de Lucro ajustada manualmente: **{lucro_calculado:,.2f}%** (Valor de Venda: R$ {pr_venda:,.2f})")
         else:
-            st.success(f"🟢 Preço de Venda calculado via Margem ({margem_perc}%): **R$ {preco_venda_sugerido:,.2f}**")
+            st.success(f"🟢 Preço de Venda calculado automaticamente: **R$ {pr_venda:,.2f}** (Margem de {margem_perc}%)")
 
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("🛒 Adicionar ao Carrinho de Compras", type="primary", use_container_width=True):
