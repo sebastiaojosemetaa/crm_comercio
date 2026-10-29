@@ -915,40 +915,156 @@ else:
                 st.info("ℹ️ Nenhum caixa fechado registado no histórico até o momento.")
 
     # -------------------------------------------------------------
-    # 3. MÓDULO REGISTRAR VENDA
+    # MÓDULO REGISTRAR VENDA (VENDA BALCÃO / CARRINHO)
     # -------------------------------------------------------------
-    elif menu_admin == "🛒 Registrar Venda":
-        st.subheader(f"🛒 Registrar Venda / Pedido — {nome_empresa_header} | 👤 Utilizador: {usr_exibicao}")
-        clientes_opt = carregar_coluna("clientes", "nome") or ["Cliente Balcão"]
-        df_p_admin = carregar_dados("SELECT * FROM produtos")
-        produtos_base = df_p_admin['produto'].tolist() if not df_p_admin.empty else ["ABACATE", "AMEIXA IMPORTADA"]
+    elif menu_admin == "Registrar Venda":
+        st.subheader(f"🛒 Registrar Venda / Pedido — REY DA CEBOLA | 👤 Utilizador: {vendedor_atual}")
         
-        cliente_ped = st.selectbox("Cliente", clientes_opt)
-        prod_item = st.selectbox("Selecione o Produto", produtos_base)
-        qtd_ped = st.number_input("Quantidade", min_value=0.01, value=1.0)
-        v_venda_ped = st.number_input("Preço Unitário (R$)", min_value=0.0, value=10.0)
+        if "carrinho_reg_venda" not in st.session_state:
+            st.session_state.carrinho_reg_venda = []
+        if "checkout_reg_ativo" not in st.session_state:
+            st.session_state.checkout_reg_ativo = False
 
-        if st.button("➕ Incluir no Pedido", type="primary"):
-            st.session_state.carrinho_cliente.append({
-                "produto": prod_item, "quantidade": qtd_ped, "valor_unitario": v_venda_ped, "valor_total": qtd_ped * v_venda_ped
-            })
-            st.success(f"'{prod_item}' incluído no pedido!")
-            st.rerun()
+        clientes_opt = carregar_coluna("clientes", "cliente") or ["Cliente Balcão"]
+        lista_produtos_reg = carregar_coluna("produtos", "produto") or ["ABACATE", "CEBOLA CAIXA 1"]
 
-        if st.session_state.carrinho_cliente:
-            st.dataframe(pd.DataFrame(st.session_state.carrinho_cliente), use_container_width=True)
-            if st.button("🔴 Finalizar e Salvar Pedido", type="primary"):
-                cursor = conn.cursor()
-                data_agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                for item in st.session_state.carrinho_cliente:
-                    cursor.execute("""
-                        INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, status, data)
-                        VALUES (?, ?, ?, ?, ?, 'Pendente', ?)
-                    """, (cliente_ped, item['produto'], item['quantidade'], item['valor_unitario'], item['valor_total'], data_agora))
-                conn.commit()
-                st.session_state.carrinho_cliente = []
-                st.success("✅ Pedido gravado com sucesso!")
+        # Seleção de Cliente
+        cliente_venda = st.selectbox("Cliente", clientes_opt, key="cliente_reg_venda_sel")
+
+        st.markdown("---")
+
+        # Seleção de Produto e Quantidade
+        col_r1, col_r2, col_r3 = st.columns([2, 1, 1], gap="medium")
+        with col_r1:
+            prod_selecionado_reg = st.selectbox("Selecione o Produto", [""] + lista_produtos_reg, key="sel_prod_reg_venda")
+        with col_r2:
+            qtd_reg = st.number_input("Quantidade", min_value=0.01, value=1.0, step=1.0, key="qtd_reg_venda")
+        
+        # Puxa o preço sugerido do produto selecionado
+        val_venda_sug, forn_sug, grupo_sug, cod_sug = obter_dados_produto(prod_selecionado_reg) if prod_selecionado_reg else (0.0, "", "", "")
+
+        with col_r3:
+            preco_unit_reg = st.number_input("Preço Unitário (R$)", min_value=0.0, value=float(val_venda_sug), format="%.2f", key="preco_unit_reg_venda")
+
+        subtotal_reg = qtd_reg * preco_unit_reg
+        st.markdown(f"**Subtotal do Item:** R$ {subtotal_reg:,.2f}")
+
+        if st.button("➕ Incluir no Pedido / Carrinho", type="primary", use_container_width=True):
+            if not prod_selecionado_reg:
+                st.error("⚠️ Selecione um produto antes de incluir.")
+            else:
+                st.session_state.carrinho_reg_venda.append({
+                    "codigo": cod_sug,
+                    "produto": prod_selecionado_reg,
+                    "quantidade": qtd_reg,
+                    "valor_unitario": preco_unit_reg,
+                    "valor_total": subtotal_reg,
+                    "fornecedor": forn_sug,
+                    "grupo": grupo_sug
+                })
+                st.success(f"✅ '{prod_selecionado_reg}' adicionado ao pedido!")
                 st.rerun()
+
+        st.markdown("---")
+
+        # Exibição do Carrinho de Venda Balcão
+        if st.session_state.carrinho_reg_venda:
+            st.markdown("### 📋 Itens Lançados no Pedido")
+            
+            df_carrinho_reg = pd.DataFrame(st.session_state.carrinho_reg_venda)
+            df_exib_reg = pd.DataFrame()
+            df_exib_reg['Produto'] = df_carrinho_reg['produto']
+            df_exib_reg['Qtd'] = df_carrinho_reg['quantidade']
+            df_exib_reg['Preço Unit.'] = df_carrinho_reg['valor_unitario'].apply(lambda x: f"R$ {float(x):,.2f}")
+            df_exib_reg['Subtotal'] = df_carrinho_reg['valor_total'].apply(lambda x: f"R$ {float(x):,.2f}")
+            
+            st.dataframe(df_exib_reg, use_container_width=True)
+
+            total_geral_reg = df_carrinho_reg['valor_total'].sum()
+            st.markdown(f"### 💰 **Total Geral do Pedido: R$ {total_geral_reg:,.2f}**")
+
+            col_A, col_B = st.columns(2)
+            with col_A:
+                idx_del = st.number_input("Índice do item para remover:", min_value=0, max_value=max(0, len(st.session_state.carrinho_reg_venda)-1), step=1, key="idx_rem_reg")
+                if st.button("❌ Remover Item Selecionado", use_container_width=True):
+                    if st.session_state.carrinho_reg_venda:
+                        st.session_state.carrinho_reg_venda.pop(idx_del)
+                        st.success("🗑️ Item removido do pedido!")
+                        st.rerun()
+            with col_B:
+                st.markdown("<br>", unsafe_allow_html=True)
+                if st.button("🧹 Limpar Todo o Carrinho", use_container_width=True):
+                    st.session_state.carrinho_reg_venda = []
+                    st.success("🧹 Carrinho limpo com sucesso!")
+                    st.rerun()
+
+            st.markdown("---")
+            st.markdown("### 💳 Forma de Pagamento e Fechamento")
+
+            forma_pagto_reg = st.selectbox("Forma de Pagamento", ["Dinheiro", "PIX", "Cartão de Crédito", "Cartão de Débito", "Fiado / Prazo"], key="pagto_reg_sel")
+            
+            v_rec_reg = total_geral_reg
+            troco_reg = 0.0
+
+            if forma_pagto_reg == "Dinheiro":
+                v_rec_reg = st.number_input("Valor Recebido em Dinheiro (R$)", min_value=0.0, value=float(total_geral_reg), format="%.2f", key="v_rec_reg_din")
+                troco_reg = max(0.0, v_rec_reg - total_geral_reg)
+                st.markdown(f"**Troco:** R$ {troco_reg:,.2f}")
+
+            if st.button("💾 Finalizar Venda Balcão", type="primary", use_container_width=True):
+                try:
+                    cursor = conn.cursor()
+                    data_venda_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    
+                    # Garante que existe tabela de caixa aberta ou cria registo
+                    cursor.execute("SELECT id FROM caixa_sessoes WHERE status = 'ABERTO' ORDER BY id DESC LIMIT 1")
+                    sessao_ aberta = cursor.fetchone()
+                    sessao_id = sessao_abierta[0] if sessao_abierta else 1
+
+                    for item in st.session_state.carrinho_reg_venda:
+                        # 1. Regista a venda
+                        cursor.execute("""
+                            INSERT INTO vendas (
+                                cliente, produto, fornecedor, grupo, quantidade, 
+                                valor_venda, valor_total, forma_pagamento, 
+                                valor_recebido, troco, status, tipo, data, vendedor
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Concluído', 'VENDA', ?, ?)
+                        """, (
+                            cliente_venda, 
+                            item['produto'], 
+                            item['fornecedor'], 
+                            item['grupo'], 
+                            item['quantidade'], 
+                            item['valor_unitario'], 
+                            item['valor_total'], 
+                            forma_pagto_reg, 
+                            v_rec_reg, 
+                            troco_reg, 
+                            data_venda_atual, 
+                            vendedor_atual
+                        ))
+
+                        # 2. Dá baixa automática no estoque geral
+                        cursor.execute("""
+                            UPDATE produtos 
+                            SET quantidade = quantidade - ? 
+                            WHERE UPPER(TRIM(produto)) = UPPER(TRIM(?))
+                        """, (item['quantidade'], item['produto']))
+
+                    # Regista movimentação no caixa
+                    cursor.execute(
+                        "INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, 'VENDA', ?, ?, ?)",
+                        (sessao_id, float(total_geral_reg), f"Venda Balcão ({forma_pagto_reg}) - Cliente: {cliente_venda}", data_venda_atual)
+                    )
+                    conn.commit()
+
+                    st.session_state.carrinho_reg_venda = []
+                    st.success(f"🎉 Venda Balcão no valor de **R$ {total_geral_reg:,.2f}** concluída com sucesso e estoque atualizado!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ Erro ao finalizar venda: {e}")
+        else:
+            st.info("ℹ️ Nenhum item adicionado ao pedido/carrinho ainda.")
 
     # -------------------------------------------------------------
     # 4. MÓDULO ENTRADA DE ESTOQUE (COMPRAS)
