@@ -633,6 +633,8 @@ else:
                         data_venda = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                         vendedor_atual = usr_exibicao
                         
+                        # Define de forma segura a forma de pagamento atual
+                        metodo_pagamento = "Pix"
                         v_rec = total_geral_carrinho
                         t_val = 0.0
 
@@ -651,7 +653,7 @@ else:
                                 item['quantidade'], 
                                 item['valor_unitario'], 
                                 item['valor_total'], 
-                                forma_pagamento, 
+                                metodo_pagamento, 
                                 v_rec, 
                                 t_val, 
                                 data_venda, 
@@ -660,13 +662,13 @@ else:
 
                         cursor.execute(
                             "INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, 'VENDA', ?, ?, ?)",
-                            (sessao_id, float(total_geral_carrinho), f"Venda PDV ({forma_pagamento}) por {vendedor_atual}", data_venda)
+                            (sessao_id, float(total_geral_carrinho), f"Venda PDV ({metodo_pagamento}) por {vendedor_atual}", data_venda)
                         )
                         conn.commit()
                         
                         st.session_state.carrinho_pdv = []
                         st.session_state.tela_checkout_ativa = False
-                        st.success(f"🎉 Venda de R$ {total_geral_carrinho:,.2f} via **{forma_pagamento}** concluída com sucesso!")
+                        st.success(f"🎉 Venda de R$ {total_geral_carrinho:,.2f} via **{metodo_pagamento}** concluída com sucesso!")
                         st.rerun()
 
         else:
