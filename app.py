@@ -540,11 +540,11 @@ else:
 
                     st.info("Aponte a câmara do telemóvel para o QR Code abaixo ou utilize a chave selecionada.")
 
-                    # Função corrigida e otimizada para gerar o payload CRC16 oficial do Pix (Compatível com Celular, CNPJ, CPF, etc.)
+                    # Função corrigida para higienizar e gerar o payload oficial do Pix (Compatível com Celular, CNPJ, CPF, etc.)
                     def gerar_payload_pix(pix_key, nome_recebedor, cidade, valor_str, tipo_chave_pix):
                         Id = lambda i, v: f"{i}{len(v):02d}{v}"
                         
-                        # Tratamento rigoroso da chave conforme o tipo exigido pelo Bacen
+                        # Tratamento estrito: remove formatações (parênteses, traços e espaços) da chave para o padrão do Bacen
                         if tipo_chave_pix in ["CNPJ", "CPF"]:
                             chave_tratada = ''.join(filter(str.isdigit, pix_key))
                         elif tipo_chave_pix == "Celular":
@@ -555,6 +555,15 @@ else:
                                 chave_tratada = "+55" + digitos
                         else:
                             chave_tratada = pix_key.strip()
+
+                        # Limpeza de caracteres especiais do nome e cidade (evita rejeição por acentuação gráfica inválida no EMV)
+                        import unicodedata
+                        def limpar_texto(texto):
+                            nfkd = unicodedata.normalize('NFKD', texto)
+                            return "".join([c for c in nfkd if not unicodedata.combining(c)]).upper()
+
+                        nome_tratado = limpar_texto(nome_recebedor)[:25]
+                        cidade_tratada = limpar_texto(cidade)[:15]
 
                         # Montagem do Payload EMV com comprimentos dinâmicos precisos
                         gui = Id("00", "br.gov.bcb.pix")
@@ -568,8 +577,8 @@ else:
                             Id("53", "986") +
                             Id("54", valor_str) +
                             Id("58", "BR") +
-                            Id("60", nome_recebedor[:25]) +
-                            Id("61", cidade[:15]) +
+                            Id("60", nome_tratado) +
+                            Id("61", cidade_tratada) +
                             Id("62", Id("05", "***")) +
                             "6304" # Início do CRC16
                         )
