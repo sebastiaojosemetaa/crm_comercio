@@ -777,15 +777,19 @@ else:
             col_q1, col_q2, col_q3 = st.columns([1, 1, 2], gap="medium")
             with col_q1:
                 qtd_venda = st.number_input("Qtd", min_value=0.01, value=1.0, step=1.0, key="qtd_prod_pdv_alin")
+            
             with col_q2:
                 # Validação dinâmica da quantidade mínima para desconto no modo completo
+                preco_calculado_final = val_venda_sug
                 if not df_promo_ativo.empty:
                     row_p = df_promo_ativo.iloc[0]
                     if qtd_venda >= float(row_p['quantidade_minima']):
-                        preco_unit_venda = float(row_p['preco_promocional'])
+                        preco_calculado_final = float(row_p['preco_promocional'])
                         is_promocional = True
                 
-                preco_unit_venda = st.number_input("Preço Unit. (R$)", min_value=0.0, value=preco_unit_venda, format="%.2f", key="preco_unit_pdv_alin")            with col_q3:
+                preco_unit_venda = st.number_input("Preço Unit. (R$)", min_value=0.0, value=preco_calculado_final, format="%.2f", key="preco_unit_pdv_alin")
+            
+            with col_q3:
                 subtotal_item = qtd_venda * preco_unit_venda
                 if is_promocional:
                     st.success(f"🏷️ **Promoção Ativa!** (A partir de {qtd_minima_promo})")
