@@ -542,20 +542,17 @@ else:
 
                     # Função corrigida para higienizar e gerar o payload oficial do Pix (Compatível com Celular, CNPJ, CPF, etc.)
                     def gerar_payload_pix(pix_key, nome_recebedor, cidade, valor_str, tipo_chave_pix):
-                        # Remove formatações da chave
-                        digitos_limpos = ''.join(filter(str.isdigit, pix_key))
-                        
-                        if tipo_chave_pix == "Celular":
-                            if not pix_key.startswith("+"):
-                                if len(digitos_limpos) >= 11:
-                                    chave_tratada = "+55" + digitos_limpos[-11:]
-                                else:
-                                    chave_tratada = "+55" + digitos_limpos
+                        # Tratamento da chave conforme o tipo exato exigido pelo manual do Pix (Bacen)
+                        if tipo_chave_pix in ["CNPJ", "CPF"]:
+                            chave_tratada = ''.join(filter(str.isdigit, pix_key))
+                        elif tipo_chave_pix == "Celular":
+                            digitos = ''.join(filter(str.isdigit, pix_key))
+                            if digitos.startswith("55") and len(digitos) >= 12:
+                                chave_tratada = "+" + digitos
                             else:
-                                chave_tratada = pix_key.strip()
-                        elif tipo_chave_pix in ["CNPJ", "CPF", "CELULAR", "E-MAIL"]:
-                            chave_tratada = digitos_limpos
+                                chave_tratada = "+55" + digitos
                         else:
+                            # Para E-mail e Chave Aleatória, a chave vai limpa e sem espaços
                             chave_tratada = pix_key.strip()
 
                         import unicodedata
@@ -566,17 +563,17 @@ else:
                         nome_tratado = limpar_texto(nome_recebedor)[:25]
                         cidade_tratada = limpar_texto(cidade)[:15]
 
-                        # Montagem dos blocos EMV com tamanho calculado dinamicamente
                         def montar_campo(id_campo, valor_campo):
                             return f"{id_campo}{len(valor_campo):02d}{valor_campo}"
 
-                        # Conta Pix (Merchant Account Information)
+                        # Montagem correta do identificador do Pix (Merchant Account Information)
                         gui = montar_campo("00", "br.gov.bcb.pix")
                         chave_f = montar_campo("01", chave_tratada)
                         merchant_account = montar_campo("26", gui + chave_f)
 
                         payload = (
                             montar_campo("00", "01") +
+                            montar_campo("01", "12") + # Indicador de início de QR Code dinâmico/estático
                             merchant_account +
                             montar_campo("52", "0000") +
                             montar_campo("53", "986") +
@@ -588,7 +585,7 @@ else:
                             "6304"
                         )
 
-                        # Cálculo CRC16-CCITT
+                        # Cálculo CRC16-CCITT oficial do Banco Central
                         crc = 0xFFFF
                         for char in payload:
                             crc ^= (ord(char) << 8)
