@@ -540,12 +540,11 @@ else:
 
                     st.info("Aponte a câmara do telemóvel para o QR Code abaixo ou utilize a chave selecionada.")
 
-                    # Função para gerar o payload CRC16 oficial do Pix (Compatível com qualquer tipo de chave)
+                    # Função corrigida e otimizada para gerar o payload CRC16 oficial do Pix (Compatível com Celular, CNPJ, CPF, etc.)
                     def gerar_payload_pix(pix_key, nome_recebedor, cidade, valor_str, tipo_chave_pix):
-                        # Função auxiliar que calcula rigorosamente o tamanho com 2 dígitos (ex: 09, 14, 25)
                         Id = lambda i, v: f"{i}{len(v):02d}{v}"
                         
-                        # Trata a chave conforme a exigência do Bacen
+                        # Tratamento rigoroso da chave conforme o tipo exigido pelo Bacen
                         if tipo_chave_pix in ["CNPJ", "CPF"]:
                             chave_tratada = ''.join(filter(str.isdigit, pix_key))
                         elif tipo_chave_pix == "Celular":
@@ -600,6 +599,7 @@ else:
                     
                     qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={pix_payload}"
                     
+                    # Layout alinhado lado a lado: QR Code à esquerda e Informações detalhadas à direita
                     col_qr_img, col_qr_info = st.columns([1, 2], gap="medium")
                     with col_qr_img:
                         st.image(qr_url, width=190, caption="Escaneie o QR Code")
