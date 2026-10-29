@@ -1266,3 +1266,95 @@ else:
 
                     sucesso = False
                     dias_validade = 0
+                    limite_extraido = 1
+
+                    for sufixo, dias in [("TESTE", 7), ("MENSAL", 30), ("ANUAL", 365)]:
+                        for lim_test in range(1, 20):
+                            base_hash_str = apenas_digitos + "REY_CEBOLA_2026" + sufixo + str(lim_test)
+                            hash_hex = hashlib.md5(base_hash_str.encode()).hexdigest().upper()
+                            chave_esperada = f"CRM-{sufixo}-{lim_test}D-{hash_hex[:4]}-{hash_hex[4:8]}"
+
+                            if chave_limpa == chave_esperada:
+                                sucesso = True
+                                dias_validade = dias
+                                limite_extraido = lim_test
+                                break
+                        if sucesso:
+                            break
+
+                    if sucesso:
+                        cursor = conn.cursor()
+                        cursor.execute("""
+                            UPDATE empresas_dispositivos 
+                            SET ativado = 1, dias_licenca = ?, limite_dispositivos = ? 
+                            WHERE device_id = ?
+                        """, (dias_validade, limite_extraido, device_id))
+                        conn.commit()
+
+                        st.session_state['dispositivo_ativado'] = True
+                        st.session_state['dias_licenca'] = dias_validade
+                        st.session_state['limite_dispositivos'] = limite_extraido
+                        st.success(f"🎉 Dispositivo ativado com sucesso! Validade: {dias_validade} dias (Limite: {limite_extraido} disp.).")
+                        st.rerun()
+                    else:
+                        st.error("❌ Chave inválida para este CNPJ/CPF ou limite de dispositivos incorreto.")
+
+        st.markdown("---")
+        with st.form("form_cfg_emp"):
+            st.markdown("### 📝 Dados Gerais e Limites da Empresa")
+            nome_emp = st.text_input("Razão Social / Nome Fantasia", value=str(reg_emp.get('nome_empresa', 'REY DA CEBOLA')))
+            cnpj_emp = st.text_input("CNPJ ou CPF", value=str(reg_emp.get('cnpj', '19417439000142')))
+            tel_emp = st.text_input("Telefone de Contato", value=str(reg_emp.get('fone', '(99) 98501-6050')))
+            end_emp = st.text_input("Endereço Completo", value=str(reg_emp.get('endereco', 'RUA CAIPIRA, Nº 174')))
+            lim_disp = st.number_input("💻 Limite Máximo de Dispositivos Permitidos", min_value=1, max_value=50, value=int(reg_emp.get('limite_dispositivos', 1)))
+            
+            if st.form_submit_button("💾 Salvar Configurações", type="primary"):
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT OR REPLACE INTO empresas_dispositivos (device_id, nome_empresa, cnpj, fone, endereco, ativado, dias_licenca, limite_dispositivos)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (device_id, nome_emp, cnpj_emp, tel_emp, end_emp, 1 if st.session_state.get('dispositivo_ativado') else 0, st.session_state.get('dias_licenca', 30), lim_disp))
+                conn.commit()
+                st.session_state['limite_dispositivos'] = lim_disp
+                st.success("✅ Configurações e limites salvos com sucesso!")
+                st.rerun()
+
+        # --- GESTÃO DE CHAVES PIX MÚLTIPLAS NAS CONFIGURAÇÕES ---
+        st.markdown("---")
+        st.markdown("### 💳 Gestão de Chaves Pix")
+        
+        with st.form("form_cad_chave_pix"):
+            col_cp1, col_cp2 = st.columns(2)
+            with col_cp1:
+                tipo_chave = st.selectbox("Tipo de Chave", ["CNPJ", "CPF", "Celular", "E-mail", "Chave Aleatória"])
+                valor_chave = st.text_input("Valor da Chave (ex: seu e-mail, celular ou CNPJ)")
+            with col_cp2:
+                favorecido_chave = st.text_input("Nome do Favorecido", value=nome_empresa_header)
+                cidade_chave = st.text_input("Cidade", value="SAO LUIS")
+            
+            if st.form_submit_button("➕ Cadastrar Nova Chave Pix", type="primary"):
+                if valor_chave.strip():
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        INSERT INTO chaves_pix (tipo, chave, favorecido, cidade)
+                        VALUES (?, ?, ?, ?)
+                    """, (tipo_chave, valor_chave.strip(), favorecido_chave.strip(), cidade_chave.strip()))
+                    conn.commit()
+                    st.success("✅ Chave Pix cadastrada com sucesso!")
+                    st.rerun()
+                else:
+                    st.error("Preencha o valor da chave Pix.")
+
+        df_chaves_cadastradas = carregar_dados("SELECT * FROM chaves_pix")
+        if not df_chaves_cadastradas.empty:
+            st.markdown("#### 📋 Chaves Pix Já Cadastradas")
+            st.dataframe(df_chaves_cadastradas, use_container_width=True)
+            
+            id_para_excluir = st.number_input("ID da Chave para Excluir (opcional):", min_value=0, step=1)
+            if st.button("🗑️ Excluir Chave Selecionada"):
+                if id_para_excluir > 0:
+                    cursor = conn.cursor()
+                    cursor.execute("DELETE FROM chaves_pix WHERE id = ?", (int(id_para_excluir),))
+                    conn.commit()
+                    st.success(f"Chave ID {id_para_excluir} excluída com sucesso!")
+                    st.rerun()
