@@ -1312,61 +1312,71 @@ else:
         tab_estoque_geral, tab_deposito_promo = st.tabs(["📋 Estoque Geral", "🏷️ Depósito / Produtos para Promoção"])
         
         with tab_estoque_geral:
+            st.markdown("### 📋 Produtos no Estoque Geral")
             df_prods = carregar_dados("SELECT * FROM produtos")
+            
             if not df_prods.empty:
-                st.data_editor(df_prods, use_container_width=True, key="editor_est_prods")
-            else:
-                st.info("Nenhum produto cadastrado no estoque.")
+                # Exibição da tabela de produtos
+                df_exib_est = df_prods[['id', 'codigo', 'produto', 'quantidade', 'valor_compra', 'valor_venda', 'grupo', 'fornecedor']].copy()
+                df_exib_est.columns = ['ID', 'Código', 'Produto', 'Qtd. Estoque', 'Preço Compra (R$)', 'Preço Venda (R$)', 'Grupo', 'Fornecedor']
+                st.dataframe(df_exib_est, use_container_width=True)
+
+                st.markdown("---")
+                st.markdown("### 🛠️ Editar ou Excluir Produto do Estoque")
                 
-        with tab_deposito_promo:
-            st.markdown("### 🏷️ Guardar Produtos para Dias de Promoção")
-            
-            with st.form("form_cad_promocao"):
-                produtos_opt = carregar_coluna("produtos", "produto") or ["ABACATE"]
-                prod_p = st.selectbox("Selecione o Produto para a Promoção", produtos_opt)
+                # Formata lista de produtos para o Selectbox
+                df_prods['label_prod'] = df_prods['id'].astype(str) + " - " + df_prods['produto'].astype(str)
+                lista_prods_edit = df_prods['label_prod'].tolist()
                 
-                col_p1, col_p2, col_p3 = st.columns(3)
-                with col_p1:
-                    qtd_total_p = st.number_input("Qtd. Total Promocional (Estoque)", min_value=0.01, value=10.0, help="Quantidade total separada para esta promoção.")
-                with col_p2:
-                    qtd_min_p = st.number_input("Qtd. Mínima para Desconto", min_value=0.01, value=2.0, help="Quantidade mínima que o cliente deve levar para ativar o preço de promoção.")
-                with col_p3:
-                    preco_p = st.number_input("Preço Promocional (R$)", min_value=0.0, value=5.00, format="%.2f")
+                prod_selecionado_est = st.selectbox("Selecione o Produto para Gerenciar:", lista_prods_edit, key="select_prod_gerenciar_est")
                 
-                if st.form_submit_button("💾 Guardar no Depósito de Promoção", type="primary"):
-                    cursor = conn.cursor()
-                    cursor.execute("INSERT INTO produtos_promocao (produto, quantidade, quantidade_minima, preco_promocional) VALUES (?, ?, ?, ?)", (prod_p, qtd_total_p, qtd_min_p, preco_p))
-                    conn.commit()
-                    st.success(f"✅ Promoção para '{prod_p}' cadastrada com sucesso!")
-                    st.rerun()
-            
-            st.markdown("#### 📋 Produtos Atualmente em Promoção")
-            df_promo_guardados = carregar_dados("SELECT * FROM produtos_promocao")
-            if not df_promo_guardados.empty:
-                df_exib_promo = df_promo_guardados[['id', 'produto', 'quantidade', 'quantidade_minima', 'preco_promocional']].copy()
-                df_exib_promo.columns = ['ID', 'Produto', 'Qtd. Estoque Promo', 'Qtd. Mínima', 'Preço Promo (R$)']
-                st.dataframe(df_exib_promo, use_container_width=True)
-                
-                col_rem1, col_rem2 = st.columns(2)
-                with col_rem1:
-                    id_del_promo = st.number_input("Digite o ID para Remover:", min_value=0, step=1, key="input_del_promo_id")
-                    if st.button("🗑️ Remover ID Selecionado", type="primary"):
-                        if id_del_promo > 0:
+                # Puxa os dados do produto selecionado
+                p_row_est = df_prods[df_prods['label_prod'] == prod_selecionado_est].iloc[0]
+                id_prod_atual = int(p_row_est['id'])
+
+                with st.form("form_editar_produto_estoque"):
+                    col_e1, col_e2, col_e3 = st.columns(3)
+                    with col_e1:
+                        ed_codigo = st.text_input("Código / Código de Barras", value=str(p_row_est.get('codigo', '') or ''))
+                        ed_produto = st.text_input("Nome do Produto", value=str(p_row_est.get('produto', '') or ''))
+                    with col_e2:
+                        ed_qtd = st.number_input("Quantidade em Estoque", value=float(p_row_est.get('quantidade', 0) or 0), step=1.0)
+                        ed_pr_compra = st.number_input("Preço de Compra (R$)", value=float(p_row_est.get('valor_compra', 0.0) or 0.0), format="%.2f")
+                    with col_e3:
+                        ed_pr_venda = st.number_input("Preço de Venda (R$)", value=float(p_row_est.get('valor_venda', 0.0) or 0.0), format="%.2f")
+                        ed_grupo = st.selectbox("Grupo", carregar_coluna("grupos", "grupo") or ["GERAL"], index=0)
+
+                    col_btn_est1, col_btn_est2 = st.columns(2)
+                    with col_btn_est1:
+                        btn_salvar_prod = st.form_submit_button("✏️ Salvar Alterações", type="primary", use_container_width=True)
+                    with col_btn_est2:
+                        btn_excluir_prod = st.form_submit_button("🗑️ Excluir Produto", use_container_width=True)
+
+                    if btn_salvar_prod:
+                        try:
                             cursor = conn.cursor()
-                            cursor.execute("DELETE FROM produtos_promocao WHERE id = ?", (int(id_del_promo),))
+                            cursor.execute("""
+                                UPDATE produtos 
+                                SET codigo = ?, produto = ?, quantidade = ?, valor_compra = ?, valor_venda = ?, grupo = ?
+                                WHERE id = ?
+                            """, (ed_codigo.strip(), ed_produto.strip().upper(), ed_qtd, ed_pr_compra, ed_pr_venda, ed_grupo, id_prod_atual))
                             conn.commit()
-                            st.success(f"🗑️ Promoção ID {id_del_promo} removida com sucesso!")
+                            st.success(f"✅ Produto '{ed_produto}' atualizado com sucesso!")
                             st.rerun()
-                with col_rem2:
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    if st.button("🧹 Limpar Todas as Promoções", use_container_width=True):
-                        cursor = conn.cursor()
-                        cursor.execute("DELETE FROM produtos_promocao")
-                        conn.commit()
-                        st.success("🧹 Todas as promoções foram limpas!")
-                        st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ Erro ao atualizar produto: {e}")
+
+                    if btn_excluir_prod:
+                        try:
+                            cursor = conn.cursor()
+                            cursor.execute("DELETE FROM produtos WHERE id = ?", (id_prod_atual,))
+                            conn.commit()
+                            st.success(f"🗑️ Produto removido do estoque com sucesso!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ Erro ao excluir produto: {e}")
             else:
-                st.info("ℹ️ Nenhum produto em promoção ativa no momento.")
+                st.info("ℹ️ Nenhum produto cadastrado no estoque geral.")
 
     # -------------------------------------------------------------
     # 11. CONFIGURAÇÕES
