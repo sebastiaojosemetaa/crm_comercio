@@ -951,6 +951,14 @@ else:
         if "carrinho_compras" not in st.session_state:
             st.session_state.carrinho_compras = []
 
+        # Inicializa os valores no session_state se não existirem
+        if 'compra_preco' not in st.session_state:
+            st.session_state.compra_preco = 90.0
+        if 'margem_val' not in st.session_state:
+            st.session_state.margem_val = 30.0
+        if 'venda_val' not in st.session_state:
+            st.session_state.venda_val = 117.0
+
         produtos_opt = carregar_coluna("produtos", "produto") or ["ABACATE", "AMEIXA IMPORTADA"]
         fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
         grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
@@ -965,24 +973,30 @@ else:
             unidade_medida = st.selectbox("Unidade de Medida", unidades_opt, key="unidade_medida_sel")
         with col3:
             qtd_compra = st.number_input("Quantidade", min_value=0.01, value=6.0, key="qtd_compra_num")
-            pr_compra = st.number_input("Preço Compra Unitário (R$)", min_value=0.0, value=90.0, format="%.2f", key="pr_compra_form")
+            pr_compra = st.number_input("Preço Compra Unitário (R$)", min_value=0.0, value=float(st.session_state.compra_preco), format="%.2f", key="pr_compra_form")
+
+        # Atualiza se o preço de compra mudou
+        if pr_compra != st.session_state.compra_preco:
+            st.session_state.compra_preco = pr_compra
+            st.session_state.venda_val = pr_compra * (1 + (st.session_state.margem_val / 100))
 
         col_m1, col_m2 = st.columns(2)
         with col_m1:
-            margem_perc = st.number_input("Margem de Lucro (%)", value=30.0, format="%.2f", key="margem_form")
-
-        # Cálculo direto do preço de venda com base na margem e no preço de compra
-        venda_sugerida = pr_compra * (1 + (margem_perc / 100))
+            margem_input = st.number_input("Margem de Lucro (%)", value=float(st.session_state.margem_val), format="%.2f", key="margem_form")
+            # Se o usuário alterou a margem, recalcula o preço de venda
+            if margem_input != st.session_state.margem_val:
+                st.session_state.margem_val = margem_input
+                st.session_state.venda_val = pr_compra * (1 + (margem_input / 100))
 
         with col_m2:
-            pr_venda = st.number_input("Preço Venda Unitário (R$)", min_value=0.0, value=float(venda_sugerida), format="%.2f", key="pr_venda_form")
+            venda_input = st.number_input("Preço Venda Unitário (R$)", min_value=0.0, value=float(st.session_state.venda_val), format="%.2f", key="pr_venda_form")
+            # Se o usuário alterou o preço de venda diretamente, recalcula a margem
+            if venda_input != st.session_state.venda_val:
+                st.session_state.venda_val = venda_input
+                if pr_compra > 0:
+                    st.session_state.margem_val = ((venda_input - pr_compra) / pr_compra) * 100
 
-        # Informativo de lucro ou margem real caso o preço de venda seja ajustado manualmente
-        if pr_venda != venda_sugerida and pr_compra > 0:
-            lucro_calculado = ((pr_venda - pr_compra) / pr_compra) * 100
-            st.info(f"💡 Margem de Lucro ajustada manualmente: **{lucro_calculado:,.2f}%** (Valor de Venda: R$ {pr_venda:,.2f})")
-        else:
-            st.success(f"🟢 Preço de Venda calculado automaticamente: **R$ {pr_venda:,.2f}** (Margem de {margem_perc}%)")
+        st.success(f"🟢 Preço de Venda Ativo: **R$ {st.session_state.venda_val:,.2f}** | Margem Atual: **{st.session_state.margem_val:,.2f}%**")
 
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("🛒 Adicionar ao Carrinho de Compras", type="primary", use_container_width=True):
@@ -993,7 +1007,7 @@ else:
                 "unidade": unidade_medida,
                 "quantidade": qtd_compra, 
                 "valor_compra": pr_compra, 
-                "valor_venda": pr_venda
+                "valor_venda": st.session_state.venda_val
             })
             st.success(f"✅ '{prod_compra}' adicionado ao carrinho!")
             st.rerun()
