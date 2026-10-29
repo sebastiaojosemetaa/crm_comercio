@@ -954,41 +954,90 @@ else:
         produtos_opt = carregar_coluna("produtos", "produto") or ["ABACATE", "AMEIXA IMPORTADA"]
         fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
         grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
+        unidades_opt = ["KG", "CAIXA", "UNIDADE", "METRO", "LITRO", "PACOTE", "SACO", "GRAMAS"]
 
-        col1, col2 = st.columns(2)
-        with col1:
-            prod_compra = st.selectbox("Selecione o Produto", produtos_opt, key="prod_compra_sel")
-            forn_compra = st.selectbox("Fornecedor", fornecedores_opt, key="forn_compra_sel")
-            qtd_compra = st.number_input("Quantidade", min_value=0.01, value=1.0, key="qtd_compra_num")
-        with col2:
-            grp_compra = st.selectbox("Grupo", grupos_opt, key="grp_compra_sel")
-            pr_compra = st.number_input("Preço Compra Unitário (R$)", min_value=0.0, key="pr_compra_num")
-            pr_venda = st.number_input("Preço Venda Unitário (R$)", min_value=0.0, key="pr_venda_num")
+        with st.form("form_entrada_estoque"):
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                prod_compra = st.selectbox("Selecione o Produto", produtos_opt, key="prod_compra_sel")
+                forn_compra = st.selectbox("Fornecedor", fornecedores_opt, key="forn_compra_sel")
+            with col2:
+                grp_compra = st.selectbox("Grupo", grupos_opt, key="grp_compra_sel")
+                unidade_medida = st.selectbox("Unidade de Medida", unidades_opt, key="unidade_medida_sel")
+            with col3:
+                qtd_compra = st.number_input("Quantidade", min_value=0.01, value=1.0, key="qtd_compra_num")
+                pr_compra = st.number_input("Preço Compra Unitário (R$)", min_value=0.0, format="%.2f", key="pr_compra_num")
+                pr_venda = st.number_input("Preço Venda Unitário (R$)", min_value=0.0, format="%.2f", key="pr_venda_num")
 
-        if st.button("🛒 Adicionar ao Carrinho de Compras", type="primary"):
-            st.session_state.carrinho_compras.append({
-                "produto": prod_compra, "grupo": grp_compra, "fornecedor": forn_compra,
-                "quantidade": qtd_compra, "valor_compra": pr_compra, "valor_venda": pr_venda
-            })
-            st.success(f"'{prod_compra}' adicionado!")
-            st.rerun()
+            btn_add_carrinho = st.form_submit_button("🛒 Adicionar ao Carrinho de Compras", type="primary", use_container_width=True)
+            
+            if btn_add_carrinho:
+                st.session_state.carrinho_compras.append({
+                    "produto": prod_compra, 
+                    "grupo": grp_compra, 
+                    "fornecedor": forn_compra,
+                    "unidade": unidade_medida,
+                    "quantidade": qtd_compra, 
+                    "valor_compra": pr_compra, 
+                    "valor_venda": pr_venda
+                })
+                st.success(f"✅ '{prod_compra}' adicionado ao carrinho!")
+                st.rerun()
 
         if st.session_state.carrinho_compras:
-            st.dataframe(pd.DataFrame(st.session_state.carrinho_compras), use_container_width=True)
-            if st.button("💾 Finalizar Todas as Entradas"):
-                cursor = conn.cursor()
-                for item in st.session_state.carrinho_compras:
-                    cursor.execute("SELECT id FROM produtos WHERE produto = ?", (item['produto'],))
-                    if cursor.fetchone():
-                        cursor.execute("UPDATE produtos SET quantidade = quantidade + ?, valor_compra = ?, valor_venda = ? WHERE produto = ?",
-                                       (item['quantidade'], item['valor_compra'], item['valor_venda'], item['produto']))
-                    else:
-                        cursor.execute("INSERT INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda) VALUES (?, ?, ?, ?, ?, ?)",
-                                       (item['produto'], item['grupo'], item['fornecedor'], item['quantidade'], item['valor_compra'], item['valor_venda']))
-                conn.commit()
-                st.session_state.carrinho_compras = []
-                st.success("✅ Entrada registrada no banco de dados com sucesso!")
-                st.rerun()
+            st.markdown("### 📋 Itens no Carrinho de Compras")
+            df_carrinho_compras = pd.DataFrame(st.session_state.carrinho_compras)
+            df_exib_compras = df_carrinho_compras[['produto', 'grupo', 'fornecedor', 'unidade', 'quantidade', 'valor_compra', 'valor_venda']].copy()
+            df_exib_compras.columns = ['Produto', 'Grupo', 'Fornecedor', 'Unidade', 'Qtd', 'Preço Compra', 'Preço Venda']
+            
+            st.dataframe(df_exib_compras, use_container_width=True)
+
+            col_del1, col_del2, col_del3 = st.columns(3)
+            with col_del1:
+                item_remover_idx = st.number_input("Índice do item para remover:", min_value=0, max_value=max(0, len(st.session_state.carrinho_compras)-1), step=1, key="num_idx_remover_compra")
+                if st.button("❌ Remover Item Selecionado", use_container_width=True):
+                    if len(st.session_state.carrinho_compras) > 0:
+                        st.session_state.carrinho_compras.pop(item_remover_idx)
+                        st.success("🗑️ Item removido do carrinho!")
+                        st.rerun()
+            with col_del2:
+                st.markdown("<br>", unsafe_allow_html=True)
+                if st.button("🧹 Limpar Todo o Carrinho", use_container_width=True):
+                    st.session_state.carrinho_compras = []
+                    st.success("🧹 Carrinho limpo com sucesso!")
+                    st.rerun()
+            with col_del3:
+                st.markdown("<br>", unsafe_allow_html=True)
+                if st.button("💾 Finalizar Todas as Entradas", type="primary", use_container_width=True):
+                    cursor = conn.cursor()
+                    
+                    # Garante que a coluna unidade existe na tabela produtos
+                    cursor.execute("PRAGMA table_info(produtos)")
+                    cols_prod = [c[1] for c in cursor.fetchall()]
+                    if "unidade" not in cols_prod:
+                        try: cursor.execute("ALTER TABLE produtos ADD COLUMN unidade TEXT")
+                        except Exception: pass
+
+                    for item in st.session_state.carrinho_compras:
+                        cursor.execute("SELECT id FROM produtos WHERE produto = ?", (item['produto'],))
+                        if cursor.fetchone():
+                            cursor.execute("""
+                                UPDATE produtos 
+                                SET quantidade = quantidade + ?, valor_compra = ?, valor_venda = ?, grupo = ?, fornecedor = ?, unidade = ?
+                                WHERE produto = ?
+                            """, (item['quantidade'], item['valor_compra'], item['valor_venda'], item['grupo'], item['fornecedor'], item['unidade'], item['produto']))
+                        else:
+                            cursor.execute("""
+                                INSERT INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda, unidade) 
+                                VALUES (?, ?, ?, ?, ?, ?, ?)
+                            """, (item['produto'], item['grupo'], item['fornecedor'], item['quantidade'], item['valor_compra'], item['valor_venda'], item['unidade']))
+                    
+                    conn.commit()
+                    st.session_state.carrinho_compras = []
+                    st.success("✅ Entrada registrada no banco de dados e estoque atualizado com sucesso!")
+                    st.rerun()
+        else:
+            st.info("ℹ️ Nenhum item adicionado ao carrinho de compras ainda.")
 
     # -------------------------------------------------------------
     # 5. MÓDULO CADASTROS
