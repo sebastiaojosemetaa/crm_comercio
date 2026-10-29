@@ -758,8 +758,8 @@ else:
             total_movimentado = df_movs['valor'].sum() if not df_movs.empty else 0.0
             st.metric("Total Movimentado neste Caixa", f"R$ {total_movimentado:,.2f}")
 
-            # --- NOVO: Resumo de Vendas por Utilizador / Vendedor ---
-            st.markdown("### 👥 Vendas Realizadas por Utilizador (Funcionário)")
+            # --- RESUMO DE VENDAS POR UTILIZADOR E FORMA DE PAGAMENTO ---
+            st.markdown("### 👥 Desempenho de Vendas por Utilizador")
             df_vendas_usuario = carregar_dados("""
                 SELECT 
                     COALESCE(vendedor, 'Desconhecido') as Utilizador, 
@@ -774,7 +774,24 @@ else:
                 df_vendas_usuario.columns = ['Utilizador', 'Qtd. Vendas', 'Total Vendido (R$)']
                 st.dataframe(df_vendas_usuario, use_container_width=True)
             else:
-                st.info("ℹ️ Nenhuma venda registada até o momento.")
+                st.info("ℹ️ Nenhuma venda registada por utilizador até o momento.")
+
+            st.markdown("### 💳 Vendas Separadas por Forma de Pagamento")
+            df_vendas_pagto = carregar_dados("""
+                SELECT 
+                    COALESCE(forma_pagamento, 'Não Informado') as Forma_Pagamento, 
+                    COUNT(id) as Total_Vendas, 
+                    SUM(valor_total) as Valor_Total 
+                FROM vendas 
+                WHERE tipo = 'VENDA' 
+                GROUP BY forma_pagamento
+            """)
+            
+            if not df_vendas_pagto.empty:
+                df_vendas_pagto.columns = ['Forma de Pagamento', 'Qtd. Vendas', 'Total Arrecadado (R$)']
+                st.dataframe(df_vendas_pagto, use_container_width=True)
+            else:
+                st.info("ℹ️ Nenhuma venda registada por forma de pagamento até o momento.")
 
             st.markdown("---")
             with st.form("form_fechar_caixa"):
