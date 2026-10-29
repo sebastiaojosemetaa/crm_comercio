@@ -987,14 +987,21 @@ else:
         if st.session_state.carrinho_compras:
             st.markdown("### 📋 Itens no Carrinho de Compras")
             
-            # Garante que itens antigos no carrinho tenham o campo 'unidade' para evitar erros
             for item in st.session_state.carrinho_compras:
                 if 'unidade' not in item:
                     item['unidade'] = 'UNIDADE'
 
             df_carrinho_compras = pd.DataFrame(st.session_state.carrinho_compras)
-            df_exib_compras = df_carrinho_compras[['produto', 'grupo', 'fornecedor', 'unidade', 'quantidade', 'valor_compra', 'valor_venda']].copy()
-            df_exib_compras.columns = ['Produto', 'Grupo', 'Fornecedor', 'Unidade', 'Qtd', 'Preço Compra', 'Preço Venda']
+            
+            # Formata os preços com o cifrão de Real (R$) para exibição limpa
+            df_exib_compras = pd.DataFrame()
+            df_exib_compras['Produto'] = df_carrinho_compras['produto']
+            df_exib_compras['Grupo'] = df_carrinho_compras['grupo']
+            df_exib_compras['Fornecedor'] = df_carrinho_compras['fornecedor']
+            df_exib_compras['Unidade'] = df_carrinho_compras['unidade']
+            df_exib_compras['Qtd'] = df_carrinho_compras['quantidade']
+            df_exib_compras['Preço Compra'] = df_carrinho_compras['valor_compra'].apply(lambda x: f"R$ {float(x):,.2f}")
+            df_exib_compras['Preço Venda'] = df_carrinho_compras['valor_venda'].apply(lambda x: f"R$ {float(x):,.2f}")
             
             st.dataframe(df_exib_compras, use_container_width=True)
 
@@ -1030,7 +1037,7 @@ else:
                                 UPDATE produtos 
                                 SET quantidade = quantidade + ?, valor_compra = ?, valor_venda = ?, grupo = ?, fornecedor = ?, unidade = ?
                                 WHERE produto = ?
-                            """, (item['quantidade'], item['valor_comp_ra'] if 'valor_comp_ra' in item else item['valor_compra'], item['valor_venda'], item['grupo'], item['fornecedor'], item['unidade'], item['produto']))
+                            """, (item['quantidade'], item['valor_compra'], item['valor_venda'], item['grupo'], item['fornecedor'], item['unidade'], item['produto']))
                         else:
                             cursor.execute("""
                                 INSERT INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda, unidade) 
