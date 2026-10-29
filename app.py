@@ -633,8 +633,8 @@ else:
                         data_venda = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                         vendedor_atual = usr_exibicao
                         
-                        v_rec = valor_recebido if forma_pagto == "Dinheiro" else total_geral_carrinho
-                        t_val = troco if (forma_pagto == "Dinheiro" and troco >= 0) else 0.0
+                        v_rec = total_geral_carrinho
+                        t_val = 0.0
 
                         for item in st.session_state.carrinho_pdv:
                             cursor.execute("""
