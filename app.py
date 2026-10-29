@@ -951,6 +951,14 @@ else:
         if "carrinho_compras" not in st.session_state:
             st.session_state.carrinho_compras = []
 
+        # Inicializa estados para cálculo automático de margem e preço de venda
+        if 'compra_pr_compra' not in st.session_state:
+            st.session_state.compra_pr_compra = 0.0
+        if 'compra_margem' not in st.session_state:
+            st.session_state.compra_margem = 30.0
+        if 'compra_pr_venda' not in st.session_state:
+            st.session_state.compra_pr_venda = 0.0
+
         produtos_opt = carregar_coluna("produtos", "produto") or ["ABACATE", "AMEIXA IMPORTADA"]
         fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
         grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
@@ -966,12 +974,18 @@ else:
                 unidade_medida = st.selectbox("Unidade de Medida", unidades_opt, key="unidade_medida_sel")
             with col3:
                 qtd_compra = st.number_input("Quantidade", min_value=0.01, value=1.0, key="qtd_compra_num")
-                pr_compra = st.number_input("Preço Compra Unitário (R$)", min_value=0.0, format="%.2f", key="pr_compra_num")
-                pr_venda = st.number_input("Preço Venda Unitário (R$)", min_value=0.0, format="%.2f", key="pr_venda_num")
+                pr_compra = st.number_input("Preço Compra Unitário (R$)", min_value=0.0, format="%.2f", key="pr_compra_form")
+                
+                # Campos de Margem (%) e Preço de Venda (R$)
+                margem_perc = st.number_input("Margem de Lucro (%)", value=30.0, format="%.2f", key="margem_form")
+                pr_venda = st.number_input("Preço Venda Unitário (R$)", min_value=0.0, format="%.2f", key="pr_venda_form")
 
             btn_add_carrinho = st.form_submit_button("🛒 Adicionar ao Carrinho de Compras", type="primary", use_container_width=True)
             
             if btn_add_carrinho:
+                # Se o usuário alterou o preço de compra e deseja calcular via margem padrão ou inversa:
+                preco_venda_final = pr_venda if pr_venda > 0 else pr_compra * (1 + (margem_perc / 100))
+                
                 st.session_state.carrinho_compras.append({
                     "produto": prod_compra, 
                     "grupo": grp_compra, 
@@ -979,7 +993,7 @@ else:
                     "unidade": unidade_medida,
                     "quantidade": qtd_compra, 
                     "valor_compra": pr_compra, 
-                    "valor_venda": pr_venda
+                    "valor_venda": preco_venda_final
                 })
                 st.success(f"✅ '{prod_compra}' adicionado ao carrinho!")
                 st.rerun()
@@ -993,7 +1007,6 @@ else:
 
             df_carrinho_compras = pd.DataFrame(st.session_state.carrinho_compras)
             
-            # Formata os preços com o cifrão de Real (R$) para exibição limpa
             df_exib_compras = pd.DataFrame()
             df_exib_compras['Produto'] = df_carrinho_compras['produto']
             df_exib_compras['Grupo'] = df_carrinho_compras['grupo']
