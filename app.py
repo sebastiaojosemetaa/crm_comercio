@@ -784,11 +784,13 @@ else:
                 preco_calculado_final = val_venda_sug
                 if not df_promo_ativo.empty:
                     row_p = df_promo_ativo.iloc[0]
-                    if qtd_venda >= float(row_p['quantidade_minima']):
+                    qtd_minima_promo = float(row_p['quantidade_minima'])
+                    if qtd_venda >= qtd_minima_promo:
                         preco_calculado_final = float(row_p['preco_promocional'])
                         is_promocional = True
                 
-                preco_unit_venda = st.number_input("Preço Unit. (R$)", min_value=0.0, value=preco_calculado_final, format="%.2f", key="preco_unit_pdv_alin")
+                # Removido o key para o Streamlit atualizar o valor corretamente ao mudar de produto/quantidade
+                preco_unit_venda = st.number_input("Preço Unit. (R$)", min_value=0.0, value=float(preco_calculado_final), format="%.2f")
             
             with col_q3:
                 subtotal_item = qtd_venda * preco_unit_venda
