@@ -737,7 +737,8 @@ else:
         val_venda_sug, forn_sug, grupo_sug, cod_sug = obter_dados_produto(prod_selecionado) if prod_selecionado else (0.0, "", "", "")
 
         # --- VERIFICAÇÃO DE PROMOÇÃO INTELIGENTE (QUANTIDADE MÍNIMA) ---
-        df_promo_ativo = carregar_dados(f"SELECT * FROM produtos_promocao WHERE UPPER(TRIM(produto)) = UPPER(TRIM('{prod_selecionado}')) AND quantidade > 0")
+        prod_limpo_sel = str(prod_selecionado).strip().replace("'", "''")
+        df_promo_ativo = carregar_dados(f"SELECT * FROM produtos_promocao WHERE UPPER(TRIM(produto)) = UPPER(TRIM('{prod_limpo_sel}')) AND quantidade > 0")
         
         preco_unit_venda = val_venda_sug
         is_promocional = False
