@@ -542,21 +542,22 @@ else:
 
                     # Função corrigida para higienizar e gerar o payload oficial do Pix (Compatível com Celular, CNPJ, CPF, etc.)
                     def gerar_payload_pix(pix_key, nome_recebedor, cidade, valor_str, tipo_chave_pix):
-                        Id = lambda i, v: f"{i}{len(v):02d}{v}"
+                        # Remove formatações da chave
+                        digitos_limpos = ''.join(filter(str.isdigit, pix_key))
                         
-                        # Tratamento estrito: remove formatações (parênteses, traços e espaços) da chave para o padrão do Bacen
-                        if tipo_chave_pix in ["CNPJ", "CPF"]:
-                            chave_tratada = ''.join(filter(str.isdigit, pix_key))
-                        elif tipo_chave_pix == "Celular":
-                            digitos = ''.join(filter(str.isdigit, pix_key))
-                            if digitos.startswith("55") and len(digitos) >= 12:
-                                chave_tratada = "+" + digitos
+                        if tipo_chave_pix == "Celular":
+                            if not pix_key.startswith("+"):
+                                if len(digitos_limpos) >= 11:
+                                    chave_tratada = "+55" + digitos_limpos[-11:]
+                                else:
+                                    chave_tratada = "+55" + digitos_limpos
                             else:
-                                chave_tratada = "+55" + digitos
+                                chave_tratada = pix_key.strip()
+                        elif tipo_chave_pix in ["CNPJ", "CPF"]:
+                            chave_tratada = digitos_limpos
                         else:
                             chave_tratada = pix_key.strip()
 
-                        # Limpeza de caracteres especiais do nome e cidade (evita rejeição por acentuação gráfica inválida no EMV)
                         import unicodedata
                         def limpar_texto(texto):
                             nfkd = unicodedata.normalize('NFKD', texto)
@@ -565,25 +566,29 @@ else:
                         nome_tratado = limpar_texto(nome_recebedor)[:25]
                         cidade_tratada = limpar_texto(cidade)[:15]
 
-                        # Montagem do Payload EMV com comprimentos dinâmicos precisos
-                        gui = Id("00", "br.gov.bcb.pix")
-                        chave_field = Id("01", chave_tratada)
-                        merchant_account = Id("26", gui + chave_field)
-                        
+                        # Montagem dos blocos EMV com tamanho calculado dinamicamente
+                        def montar_campo(id_campo, valor_campo):
+                            return f"{id_campo}{len(valor_campo):02d}{valor_campo}"
+
+                        # Conta Pix (Merchant Account Information)
+                        gui = montar_campo("00", "br.gov.bcb.pix")
+                        chave_f = montar_campo("01", chave_tratada)
+                        merchant_account = montar_campo("26", gui + chave_f)
+
                         payload = (
-                            Id("00", "01") +
+                            montar_campo("00", "01") +
                             merchant_account +
-                            Id("52", "0000") +
-                            Id("53", "986") +
-                            Id("54", valor_str) +
-                            Id("58", "BR") +
-                            Id("60", nome_tratado) +
-                            Id("61", cidade_tratada) +
-                            Id("62", Id("05", "***")) +
-                            "6304" # Início do CRC16
+                            montar_campo("52", "0000") +
+                            montar_campo("53", "986") +
+                            montar_campo("54", valor_str) +
+                            montar_campo("58", "BR") +
+                            montar_campo("60", nome_tratado) +
+                            montar_campo("61", cidade_tratada) +
+                            montar_campo("62", montar_campo("05", "***")) +
+                            "6304"
                         )
-                        
-                        # Cálculo CRC16-CCITT padrão oficial do Banco Central
+
+                        # Cálculo CRC16-CCITT
                         crc = 0xFFFF
                         for char in payload:
                             crc ^= (ord(char) << 8)
@@ -593,7 +598,7 @@ else:
                                 else:
                                     crc = crc << 1
                                 crc &= 0xFFFF
-                                
+
                         return payload + f"{crc:04X}"
 
                     valor_formatado = f"{total_geral_carrinho:.2f}"
