@@ -446,7 +446,7 @@ else:
     # -------------------------------------------------------------
     # 1. MÓDULO PDV — FRENTE DE CAIXA
     # -------------------------------------------------------------
-    if menu_admin == "🛒 PDV — Frente de Caixa":
+    elif menu_admin == "🛒 PDV — Frente de Caixa":
         col_tit_pdv, col_modo_pdv = st.columns([2, 1], gap="small")
         with col_tit_pdv:
             st.markdown(f"### 🛒 PDV — Frente de Caixa — {nome_empresa_header} | 👤 Utilizador: {usr_exibicao}")
@@ -694,6 +694,14 @@ else:
                                 vendedor_atual
                             ))
 
+                            # Baixa no estoque promocional se pertencer à promoção
+                            if item.get('grupo') == "PROMOÇÃO":
+                                cursor.execute("""
+                                    UPDATE produtos_promocao 
+                                    SET quantidade = quantidade - ? 
+                                    WHERE UPPER(TRIM(produto)) = UPPER(TRIM(?)) AND quantidade >= ?
+                                """, (item['quantidade'], item['produto'], item['quantidade']))
+
                         cursor.execute(
                             "INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, 'VENDA', ?, ?, ?)",
                             (sessao_id, float(total_geral_carrinho), f"Venda PDV ({detalhes_pagto}) por {vendedor_atual}", data_venda)
@@ -728,19 +736,41 @@ else:
 
         val_venda_sug, forn_sug, grupo_sug, cod_sug = obter_dados_produto(prod_selecionado) if prod_selecionado else (0.0, "", "", "")
 
-        if is_simples:
-            qtd_venda = 1.0
-            preco_unit_venda = val_venda_sug
-            subtotal_item = preco_unit_venda
+        # --- VERIFICAÇÃO DE PROMOÇÃO INTELIGENTE (QUANTIDADE MÍNIMA) ---
+        df_promo_ativo = carregar_dados(f"SELECT * FROM produtos_promocao WHERE UPPER(TRIM(produto)) = UPPER(TRIM('{prod_selecionado}')) AND quantidade > 0")
+        
+        preco_unit_venda = val_venda_sug
+        is_promocional = False
+        qtd_minima_promo = 0.0
+
+        if not df_promo_ativo.empty:
+            row_p = df_promo_ativo.iloc[0]
+            preco_promo = float(row_p['preco_promocional'])
+            qtd_minima_promo = float(row_p['quantidade_minima'])
             
+            if is_simples:
+                if 1.0 >= qtd_minima_promo:
+                    preco_unit_venda = preco_promo
+                    is_promocional = True
+            else:
+                # O preço será validado com base na quantidade informada no modo completo abaixo
+                pass
+
+        if is_simples:
+            subtotal_item = preco_unit_venda
+            if is_promocional:
+                st.info(f"🏷️ **Promoção Ativa!** Preço promocional aplicado: R$ {preco_unit_venda:,.2f}")
+            elif not df_promo_ativo.empty:
+                st.info(f"ℹ️ Promoção disponível a partir de {qtd_minima_promo} un/kg (Preço normal aplicado).")
+
             if st.button("➕ [ Enter ] Incluir Produto", type="primary", use_container_width=True, key="btn_inc_prod_simples"):
                 if not prod_selecionado:
                     st.error("Selecione um produto.")
                 else:
                     st.session_state.carrinho_pdv.append({
-                        "codigo": cod_sug, "produto": prod_selecionado, "quantidade": qtd_venda,
+                        "codigo": cod_sug, "produto": prod_selecionado, "quantidade": 1.0,
                         "valor_unitario": preco_unit_venda, "valor_total": subtotal_item,
-                        "fornecedor": forn_sug, "grupo": grupo_sug
+                        "fornecedor": forn_sug, "grupo": "PROMOÇÃO" if is_promocional else grupo_sug
                     })
                     st.success(f"✅ '{prod_selecionado}' adicionado!")
                     st.rerun()
@@ -749,9 +779,21 @@ else:
             with col_q1:
                 qtd_venda = st.number_input("Qtd", min_value=0.01, value=1.0, step=1.0, key="qtd_prod_pdv_alin")
             with col_q2:
-                preco_unit_venda = st.number_input("Preço Unit. (R$)", min_value=0.0, value=val_venda_sug, format="%.2f", key="preco_unit_pdv_alin")
+                # Validação dinâmica da quantidade mínima para desconto no modo completo
+                if not df_promo_ativo.empty:
+                    row_p = df_promo_ativo.iloc[0]
+                    if qtd_venda >= float(row_p['quantidade_minima']):
+                        preco_unit_venda = float(row_p['preco_promocional'])
+                        is_promocional = True
+                
+                preco_unit_venda = st.number_input("Preço Unit. (R$)", min_value=0.0, value=preco_unit_venda, format="%.2f", key="preco_unit_pdv_alin")
             with col_q3:
                 subtotal_item = qtd_venda * preco_unit_venda
+                if is_promocional:
+                    st.success(f"🏷️ **Promoção Ativa!** (A partir de {qtd_minima_promo})")
+                elif not df_promo_ativo.empty:
+                    st.info(f"ℹ️ Promoção a partir de {qtd_minima_promo} un/kg.")
+
                 st.markdown(f"**Subtotal:** R$ {subtotal_item:,.2f}")
                 if st.button("➕ [ Enter ] Incluir Produto", type="primary", use_container_width=True, key="btn_inc_prod_completo"):
                     if not prod_selecionado:
@@ -760,7 +802,7 @@ else:
                         st.session_state.carrinho_pdv.append({
                             "codigo": cod_sug, "produto": prod_selecionado, "quantidade": qtd_venda,
                             "valor_unitario": preco_unit_venda, "valor_total": subtotal_item,
-                            "fornecedor": forn_sug, "grupo": grupo_sug
+                            "fornecedor": forn_sug, "grupo": "PROMOÇÃO" if is_promocional else grupo_sug
                         })
                         st.success(f"✅ '{prod_selecionado}' adicionado!")
                         st.rerun()
@@ -771,7 +813,6 @@ else:
     elif menu_admin == "📊 Fechamento & Financeiro":
         st.subheader(f"📊 Fechamento & Financeiro — {nome_empresa_header} | 👤 Utilizador: {usr_exibicao}")
         
-        # Criamos abas para separar a operação atual do histórico
         aba_caixa_atual, aba_historico_caixas = st.tabs(["🟢 Caixa Atual & Operação", "📚 Histórico de Caixas Fechados"])
 
         with aba_caixa_atual:
@@ -797,7 +838,6 @@ else:
                 total_movimentado = df_movs['valor'].sum() if not df_movs.empty else 0.0
                 st.metric("Total Movimentado neste Caixa", f"R$ {total_movimentado:,.2f}")
 
-                # --- RESUMO DE VENDAS POR UTILIZADOR E FORMA DE PAGAMENTO ---
                 st.markdown("### 👥 Desempenho de Vendas por Utilizador")
                 df_vendas_usuario = carregar_dados("""
                     SELECT 
@@ -1174,276 +1214,4 @@ else:
                                     usuario = ?, login = ?, senha = ?, cargo = ?,
                                     perm_pdv = ?, perm_financeiro = ?, perm_registrar_venda = ?, perm_compras = ?,
                                     perm_cadastros = ?, perm_rh = ?, perm_usuarios = ?, perm_backup = ?,
-                                    perm_contas_receber = ?, perm_estoque = ?, perm_configuracoes = ?
-                                WHERE id = ?
-                            """, (
-                                ed_nome, ed_login.strip().lower(), ed_senha, ed_cargo,
-                                1 if ep_pdv else 0, 1 if ep_fin else 0, 1 if ep_reg_v else 0, 1 if ep_comp else 0,
-                                1 if ep_cad else 0, 1 if ep_rh else 0, 1 if ep_usr else 0, 1 if ep_bkp else 0,
-                                1 if ep_cr else 0, 1 if ep_est else 0, 1 if ep_cfg else 0, int(u_row['id'])
-                            ))
-                            conn.commit()
-                            st.success("✅ Utilizador atualizado com sucesso!")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Erro ao atualizar utilizador: {e}")
-
-                    if btn_excluir_usr:
-                        if ed_login.strip().lower() == "administrador":
-                            st.error("❌ Não é permitido excluir o administrador principal do sistema.")
-                        else:
-                            try:
-                                cursor = conn.cursor()
-                                cursor.execute("DELETE FROM usuarios WHERE id = ?", (int(u_row['id']),))
-                                conn.commit()
-                                st.success("🗑️ Utilizador excluído com sucesso!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro ao excluir utilizador: {e}")
-            else:
-                st.info("Nenhum utilizador cadastrado além do administrador padrão.")
-
-    # -------------------------------------------------------------
-    # 8. BACKUP E RESTAURAÇÃO
-    # -------------------------------------------------------------
-    elif menu_admin == "💾 Backup e Restauração":
-        st.subheader("💾 Central de Backup e Restauração")
-        
-        tab_bkp_down, tab_bkp_up = st.tabs(["📥 Baixar Backup", "📤 Restaurar Backup"])
-
-        with tab_bkp_down:
-            st.markdown("### 📥 Fazer Backup dos Dados Atualizados")
-            st.info("Descarregue o ficheiro de cópia de segurança para guardar uma cópia do seu banco de dados.")
-            try:
-                with open("crm_comercio.db", "rb") as f:
-                    bytes_db = f.read()
-                st.download_button(
-                    label="📥 Baixar Arquivo de Backup (.db)",
-                    data=bytes_db,
-                    file_name=f"backup_crm_{datetime.now().strftime('%Y-%m-%d')}.db",
-                    mime="application/octet-stream",
-                    type="primary"
-                )
-            except Exception as e:
-                st.warning(f"Erro ao localizar o banco de dados: {e}")
-
-        with tab_bkp_up:
-            st.markdown("### 📤 Restaurar Ficheiro de Backup (.db)")
-            st.warning("⚠️ **ATENÇÃO:** A restauração irá substituir todos os dados atuais pelo conteúdo do ficheiro de backup selecionado.")
-            
-            uploaded_db = st.file_uploader("Selecione o ficheiro de backup (.db)", type=["db"])
-            
-            if uploaded_db is not None:
-                if st.button("🔴 Confirmar e Restaurar Backup Agora", type="primary"):
-                    try:
-                        conn.close()
-                        with open("crm_comercio.db", "wb") as f:
-                            f.write(uploaded_db.getbuffer())
-                        
-                        conn = get_connection()
-                        st.success("🎉 Backup restaurado com sucesso! Recarregando o sistema...")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"❌ Erro ao restaurar o banco de dados: {e}")
-
-    # -------------------------------------------------------------
-    # 9. CONTAS A RECEBER
-    # -------------------------------------------------------------
-    elif menu_admin == "💸 Contas a Receber":
-        st.subheader("💸 Contas a Receber")
-        df_pedidos_pendentes = carregar_dados("SELECT * FROM pedidos WHERE status = 'Pendente'")
-        if not df_pedidos_pendentes.empty:
-            st.dataframe(df_pedidos_pendentes, use_container_width=True)
-            st.metric("Total Pendente a Receber", f"R$ {df_pedidos_pendentes['valor_total'].sum():,.2f}")
-        else:
-            st.info("Nenhuma conta pendente a receber no momento.")
-
-    # -------------------------------------------------------------
-    # 10. ESTOQUE E PROMOÇÕES
-    # -------------------------------------------------------------
-    elif menu_admin == "📦 Estoque de Produtos":
-        st.subheader("📦 Estoque de Produtos e Promoções")
-        
-        tab_estoque_geral, tab_deposito_promo = st.tabs(["📋 Estoque Geral", "🏷️ Depósito / Produtos para Promoção"])
-        
-        with tab_estoque_geral:
-            df_prods = carregar_dados("SELECT * FROM produtos")
-            if not df_prods.empty:
-                st.data_editor(df_prods, use_container_width=True, key="editor_est_prods")
-            else:
-                st.info("Nenhum produto cadastrado no estoque.")
-                
-        with tab_deposito_promo:
-            st.markdown("### 🏷️ Guardar Produtos para Dias de Promoção")
-            
-            with st.form("form_cad_promocao"):
-                produtos_opt = carregar_coluna("produtos", "produto") or ["ABACATE"]
-                prod_p = st.selectbox("Selecione o Produto para a Promoção", produtos_opt)
-                
-                col_p1, col_p2, col_p3 = st.columns(3)
-                with col_p1:
-                    qtd_total_p = st.number_input("Qtd. Total Promocional (Estoque)", min_value=0.01, value=10.0, help="Quantidade total separada para esta promoção.")
-                with col_p2:
-                    qtd_min_p = st.number_input("Qtd. Mínima para Desconto", min_value=0.01, value=2.0, help="Quantidade mínima que o cliente deve levar para ativar o preço de promoção.")
-                with col_p3:
-                    preco_p = st.number_input("Preço Promocional (R$)", min_value=0.0, value=5.00, format="%.2f")
-                
-                if st.form_submit_button("💾 Guardar no Depósito de Promoção", type="primary"):
-                    cursor = conn.cursor()
-                    cursor.execute("""
-                        INSERT INTO produtos_promocao (produto, quantidade, quantidade_minima, preco_promocional)
-                        VALUES (?, ?, ?, ?)
-                    """, (prod_p, qtd_total_p, qtd_min_p, preco_p))
-                    conn.commit()
-                    st.success(f"✅ Promoção para '{prod_p}' cadastrada com sucesso!")
-                    st.rerun()
-            
-            st.markdown("#### 📋 Produtos Atualmente em Promoção")
-            df_promo_guardados = carregar_dados("SELECT * FROM produtos_promocao WHERE quantidade > 0")
-            if not df_promo_guardados.empty:
-                df_exib_promo = df_promo_guardados[['id', 'produto', 'quantidade', 'quantidade_minima', 'preco_promocional']].copy()
-                df_exib_promo.columns = ['ID', 'Produto', 'Qtd. Estoque Promo', 'Qtd. Mínima', 'Preço Promo (R$)']
-                st.dataframe(df_exib_promo, use_container_width=True)
-                
-                id_del_promo = st.number_input("ID da Promoção para Remover/Encerrar:", min_value=0, step=1, key="input_del_promo_id")
-                if st.button("🗑️ Encerrar Promoção Selecionada", type="primary"):
-                    if id_del_promo > 0:
-                        cursor = conn.cursor()
-                        cursor.execute("DELETE FROM produtos_promocao WHERE id = ?", (int(id_del_promo),))
-                        conn.commit()
-                        st.success("🗑️ Promoção encerrada com sucesso!")
-                        st.rerun()
-            else:
-                st.info("ℹ️ Nenhum produto em promoção ativa no momento.")
-
-    # -------------------------------------------------------------
-    # 11. CONFIGURAÇÕES
-    # -------------------------------------------------------------
-    elif menu_admin == "🏢 Configurações da Empresa":
-        st.subheader("🏢 Configurações e Dados da Empresa")
-
-        st.markdown("### 🔑 Ativação e Limite de Dispositivos")
-        
-        df_devs_count = carregar_dados("SELECT COUNT(*) as total FROM empresas_dispositivos WHERE ativado = 1")
-        total_ativados = int(df_devs_count.iloc[0]['total']) if not df_devs_count.empty else 0
-        
-        limite_permitido = int(reg_emp.get('limite_dispositivos', 1))
-        st.info(f"📊 **Status de Licença de Dispositivos:** {total_ativados} de {limite_permitido} dispositivo(s) autorizados.")
-
-        if dispositivo_esta_ativado:
-            dias_val = st.session_state.get('dias_licenca', 30)
-            st.success(f"✅ Este dispositivo está **ATIVADO**! Licença válida por {dias_val} dias.")
-            if st.button("🔄 Inserir Nova Chave / Renovar"):
-                cursor = conn.cursor()
-                cursor.execute("UPDATE empresas_dispositivos SET ativado = 0 WHERE device_id = ?", (device_id,))
-                conn.commit()
-                st.session_state['dispositivo_ativado'] = False
-                st.rerun()
-        else:
-            if total_ativados >= limite_permitido:
-                st.error(f"❌ Limite atingido! O limite máximo de {limite_permitido} dispositivo(s) já foi alcançado. Para ligar mais aparelhos, gere uma chave com um limite maior.")
-            else:
-                st.warning("⚠️ Insira a chave de ativação para liberar este dispositivo.")
-                doc_atual = str(reg_emp.get('cnpj', '19417439000142'))
-                st.info(f"Empresa Atual (CNPJ/CPF): `{doc_atual}`")
-
-                chave_digitada = st.text_input("Chave de Ativação:", key="input_chave_ativacao_config")
-
-                if st.button("🔓 Ativar Este Dispositivo", type="primary", key="btn_ativar_dispositivo_config"):
-                    apenas_digitos = ''.join(filter(str.isdigit, str(doc_atual)))
-                    chave_limpa = str(chave_digitada).strip().upper()
-
-                    sucesso = False
-                    dias_validade = 0
-                    limite_extraido = 1
-
-                    for sufixo, dias in [("TESTE", 7), ("MENSAL", 30), ("ANUAL", 365)]:
-                        for lim_test in range(1, 20):
-                            base_hash_str = apenas_digitos + "REY_CEBOLA_2026" + sufixo + str(lim_test)
-                            hash_hex = hashlib.md5(base_hash_str.encode()).hexdigest().upper()
-                            chave_esperada = f"CRM-{sufixo}-{lim_test}D-{hash_hex[:4]}-{hash_hex[4:8]}"
-
-                            if chave_limpa == chave_esperada:
-                                sucesso = True
-                                dias_validade = dias
-                                limite_extraido = lim_test
-                                break
-                        if sucesso:
-                            break
-
-                    if sucesso:
-                        cursor = conn.cursor()
-                        cursor.execute("""
-                            UPDATE empresas_dispositivos 
-                            SET ativado = 1, dias_licenca = ?, limite_dispositivos = ? 
-                            WHERE device_id = ?
-                        """, (dias_validade, limite_extraido, device_id))
-                        conn.commit()
-
-                        st.session_state['dispositivo_ativado'] = True
-                        st.session_state['dias_licenca'] = dias_validade
-                        st.session_state['limite_dispositivos'] = limite_extraido
-                        st.success(f"🎉 Dispositivo ativado com sucesso! Validade: {dias_validade} dias (Limite: {limite_extraido} disp.).")
-                        st.rerun()
-                    else:
-                        st.error("❌ Chave inválida para este CNPJ/CPF ou limite de dispositivos incorreto.")
-
-        st.markdown("---")
-        with st.form("form_cfg_emp"):
-            st.markdown("### 📝 Dados Gerais e Limites da Empresa")
-            nome_emp = st.text_input("Razão Social / Nome Fantasia", value=str(reg_emp.get('nome_empresa', 'REY DA CEBOLA')))
-            cnpj_emp = st.text_input("CNPJ ou CPF", value=str(reg_emp.get('cnpj', '19417439000142')))
-            tel_emp = st.text_input("Telefone de Contato", value=str(reg_emp.get('fone', '(99) 98501-6050')))
-            end_emp = st.text_input("Endereço Completo", value=str(reg_emp.get('endereco', 'RUA CAIPIRA, Nº 174')))
-            lim_disp = st.number_input("💻 Limite Máximo de Dispositivos Permitidos", min_value=1, max_value=50, value=int(reg_emp.get('limite_dispositivos', 1)))
-            
-            if st.form_submit_button("💾 Salvar Configurações", type="primary"):
-                cursor = conn.cursor()
-                cursor.execute("""
-                    INSERT OR REPLACE INTO empresas_dispositivos (device_id, nome_empresa, cnpj, fone, endereco, ativado, dias_licenca, limite_dispositivos)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, (device_id, nome_emp, cnpj_emp, tel_emp, end_emp, 1 if st.session_state.get('dispositivo_ativado') else 0, st.session_state.get('dias_licenca', 30), lim_disp))
-                conn.commit()
-                st.session_state['limite_dispositivos'] = lim_disp
-                st.success("✅ Configurações e limites salvos com sucesso!")
-                st.rerun()
-
-        # --- GESTÃO DE CHAVES PIX MÚLTIPLAS NAS CONFIGURAÇÕES ---
-        st.markdown("---")
-        st.markdown("### 💳 Gestão de Chaves Pix")
-        
-        with st.form("form_cad_chave_pix"):
-            col_cp1, col_cp2 = st.columns(2)
-            with col_cp1:
-                tipo_chave = st.selectbox("Tipo de Chave", ["CNPJ", "CPF", "Celular", "E-mail", "Chave Aleatória"])
-                valor_chave = st.text_input("Valor da Chave (ex: seu e-mail, celular ou CNPJ)")
-            with col_cp2:
-                favorecido_chave = st.text_input("Nome do Favorecido", value=nome_empresa_header)
-                cidade_chave = st.text_input("Cidade", value="SAO LUIS")
-            
-            if st.form_submit_button("➕ Cadastrar Nova Chave Pix", type="primary"):
-                if valor_chave.strip():
-                    cursor = conn.cursor()
-                    cursor.execute("""
-                        INSERT INTO chaves_pix (tipo, chave, favorecido, cidade)
-                        VALUES (?, ?, ?, ?)
-                    """, (tipo_chave, valor_chave.strip(), favorecido_chave.strip(), cidade_chave.strip()))
-                    conn.commit()
-                    st.success("✅ Chave Pix cadastrada com sucesso!")
-                    st.rerun()
-                else:
-                    st.error("Preencha o valor da chave Pix.")
-
-        df_chaves_cadastradas = carregar_dados("SELECT * FROM chaves_pix")
-        if not df_chaves_cadastradas.empty:
-            st.markdown("#### 📋 Chaves Pix Já Cadastradas")
-            st.dataframe(df_chaves_cadastradas, use_container_width=True)
-            
-            id_para_excluir = st.number_input("ID da Chave para Excluir (opcional):", min_value=0, step=1)
-            if st.button("🗑️ Excluir Chave Selecionada"):
-                if id_para_excluir > 0:
-                    cursor = conn.cursor()
-                    cursor.execute("DELETE FROM chaves_pix WHERE id = ?", (int(id_para_excluir),))
-                    conn.commit()
-                    st.success(f"Chave ID {id_para_excluir} excluída com sucesso!")
-                    st.rerun()
+                                    perm_contas_receber = ?, perm_estoque = ?, perm_configur
