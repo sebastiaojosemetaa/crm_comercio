@@ -1272,8 +1272,14 @@ else:
             with st.form("form_cad_promocao"):
                 produtos_opt = carregar_coluna("produtos", "produto") or ["ABACATE"]
                 prod_p = st.selectbox("Selecione o Produto para a Promoção", produtos_opt)
-                qtd_p = st.number_input("Quantidade Separada", min_value=0.01, value=10.0)
-                preco_p = st.number_input("Preço Promocional (R$)", min_value=0.0, value=5.00, format="%.2f")
+                
+                col_p1, col_p2, col_p3 = st.columns(3)
+                with col_p1:
+                    qtd_total_p = st.number_input("Qtd. Total Promocional (Estoque)", min_value=0.01, value=10.0, help="Quantidade total separada para esta promoção.")
+                with col_p2:
+                    qtd_min_p = st.number_input("Qtd. Mínima para Desconto", min_value=0.01, value=2.0, help="Quantidade mínima que o cliente deve levar para ativar o preço de promoção.")
+                with col_p3:
+                    preco_p = st.number_input("Preço Promocional (R$)", min_value=0.0, value=5.00, format="%.2f")
                 
                 if st.form_submit_button("💾 Guardar no Depósito de Promoção", type="primary"):
                     cursor = conn.cursor()
@@ -1282,43 +1288,37 @@ else:
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
                             produto TEXT,
                             quantidade REAL,
+                            quantidade_minima REAL DEFAULT 1,
                             preco_promocional REAL,
                             grupo TEXT,
                             fornecedor TEXT
                         )
                     """)
                     cursor.execute("""
-                        INSERT INTO produtos_promocao (produto, quantidade, preco_promocional)
-                        VALUES (?, ?, ?)
-                    """, (prod_p, qtd_p, preco_p))
+                        INSERT INTO produtos_promocao (produto, quantidade, quantidade_minima, preco_promocional)
+                        VALUES (?, ?, ?, ?)
+                    """, (prod_p, qtd_total_p, qtd_min_p, preco_p))
                     conn.commit()
-                    st.success(f"✅ Produto '{prod_p}' guardado com sucesso para os dias de promoção!")
+                    st.success(f"✅ Promoção para '{prod_p}' cadastrada com sucesso!")
                     st.rerun()
             
-            st.markdown("#### 📋 Produtos Atualmente Guardados para Promoção")
-            df_promo_guardados = carregar_dados("SELECT * FROM produtos_promocao")
+            st.markdown("#### 📋 Produtos Atualmente em Promoção")
+            df_promo_guardados = carregar_dados("SELECT * FROM produtos_promocao WHERE quantidade > 0")
             if not df_promo_guardados.empty:
-                st.dataframe(df_promo_guardados, use_container_width=True)
+                df_exib_promo = df_promo_guardados[['id', 'produto', 'quantidade', 'quantidade_minima', 'preco_promocional']].copy()
+                df_exib_promo.columns = ['ID', 'Produto', 'Qtd. Estoque Promo', 'Qtd. Mínima', 'Preço Promo (R$)']
+                st.dataframe(df_exib_promo, use_container_width=True)
                 
-                if st.button("🚀 Carregar Promoção e Ir para o PDV", type="primary", key="btn_enviar_promo_pdv_direto"):
-                    # Limpa o carrinho atual e insere os itens promocionais
-                    st.session_state.carrinho_pdv = []
-                    for idx, row in df_promo_guardados.iterrows():
-                        qtd_f = float(row['quantidade']) if row['quantidade'] else 1.0
-                        pr_f = float(row['preco_promocional']) if row['preco_promocional'] else 0.0
-                        st.session_state.carrinho_pdv.append({
-                            "codigo": "",
-                            "produto": str(row['produto']),
-                            "quantidade": qtd_f,
-                            "valor_unitario": pr_f,
-                            "valor_total": qtd_f * pr_f,
-                            "fornecedor": "",
-                            "grupo": "PROMOÇÃO"
-                        })
-                    st.success("🎉 Promoção carregada com sucesso! A redirecionar para o PDV...")
-                    st.rerun()
+                id_del_promo = st.number_input("ID da Promoção para Remover/Encerrar:", min_value=0, step=1, key="input_del_promo_id")
+                if st.button("🗑️ Encerrar Promoção Selecionada", type="primary"):
+                    if id_del_promo > 0:
+                        cursor = conn.cursor()
+                        cursor.execute("DELETE FROM produtos_promocao WHERE id = ?", (int(id_del_promo),))
+                        conn.commit()
+                        st.success("🗑️ Promoção encerrada com sucesso!")
+                        st.rerun()
             else:
-                st.info("ℹ️ Nenhum produto guardado no depósito promocional.")
+                st.info("ℹ️ Nenhum produto em promoção ativa no momento.")
 
     # -------------------------------------------------------------
     # 11. CONFIGURAÇÕES
