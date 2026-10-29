@@ -71,6 +71,17 @@ def adequar_banco_e_migrar():
         cursor = conn.cursor()
         
         cursor.execute("""
+            CREATE TABLE IF NOT EXISTS produtos_promocao (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                produto TEXT,
+                quantidade REAL,
+                preco_promocional REAL,
+                grupo TEXT,
+                fornecedor TEXT
+            )
+        """)
+        
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS empresas_dispositivos (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 device_id TEXT UNIQUE,
@@ -1241,15 +1252,69 @@ else:
             st.info("Nenhuma conta pendente a receber no momento.")
 
     # -------------------------------------------------------------
-    # 10. ESTOQUE
+    # 10. ESTOQUE E PROMOÇÕES
     # -------------------------------------------------------------
     elif menu_admin == "📦 Estoque de Produtos":
-        st.subheader("📦 Estoque de Produtos e Preços")
-        df_prods = carregar_dados("SELECT * FROM produtos")
-        if not df_prods.empty:
-            st.data_editor(df_prods, use_container_width=True, key="editor_est_prods")
-        else:
-            st.info("Nenhum produto cadastrado no estoque.")
+        st.subheader("📦 Estoque de Produtos e Promoções")
+        
+        tab_estoque_geral, tab_deposito_promo = st.tabs(["📋 Estoque Geral", "🏷️ Depósito / Produtos para Promoção"])
+        
+        with tab_estoque_geral:
+            df_prods = carregar_dados("SELECT * FROM produtos")
+            if not df_prods.empty:
+                st.data_editor(df_prods, use_container_width=True, key="editor_est_prods")
+            else:
+                st.info("Nenhum produto cadastrado no estoque.")
+                
+        with tab_deposito_promo:
+            st.markdown("### 🏷️ Guardar Produtos para Dias de Promoção")
+            
+            with st.form("form_cad_promocao"):
+                produtos_opt = carregar_coluna("produtos", "produto") or ["ABACATE"]
+                prod_p = st.selectbox("Selecione o Produto para a Promoção", produtos_opt)
+                qtd_p = st.number_input("Quantidade Separada", min_value=0.01, value=10.0)
+                preco_p = st.number_input("Preço Promocional (R$)", min_value=0.0, value=5.00, format="%.2f")
+                
+                if st.form_submit_button("💾 Guardar no Depósito de Promoção", type="primary"):
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        CREATE TABLE IF NOT EXISTS produtos_promocao (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            produto TEXT,
+                            quantidade REAL,
+                            preco_promocional REAL,
+                            grupo TEXT,
+                            fornecedor TEXT
+                        )
+                    """)
+                    cursor.execute("""
+                        INSERT INTO produtos_promocao (produto, quantidade, preco_promocional)
+                        VALUES (?, ?, ?)
+                    """, (prod_p, qtd_p, preco_p))
+                    conn.commit()
+                    st.success(f"✅ Produto '{prod_p}' guardado com sucesso para os dias de promoção!")
+                    st.rerun()
+            
+            st.markdown("#### 📋 Produtos Atualmente Guardados para Promoção")
+            df_promo_guardados = carregar_dados("SELECT * FROM produtos_promocao")
+            if not df_promo_guardados.empty:
+                st.dataframe(df_promo_guardados, use_container_width=True)
+                
+                if st.button("🚀 Carregar Todos os Produtos da Promoção para o PDV", type="primary"):
+                    for idx, row in df_promo_guardados.iterrows():
+                        st.session_state.carrinho_pdv.append({
+                            "codigo": "",
+                            "produto": row['produto'],
+                            "quantidade": row['quantidade'],
+                            "valor_unitario": row['preco_promocional'],
+                            "valor_total": row['quantidade'] * row['preco_promocional'],
+                            "fornecedor": "",
+                            "grupo": "PROMOCAO"
+                        })
+                    st.success("🎉 Todos os produtos promocionais foram carregados para o carrinho do PDV com sucesso!")
+                    st.rerun()
+            else:
+                st.info("ℹ️ Nenhum produto guardado no depósito promocional."))
 
     # -------------------------------------------------------------
     # 11. CONFIGURAÇÕES
