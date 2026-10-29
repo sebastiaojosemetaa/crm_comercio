@@ -753,10 +753,30 @@ else:
             sessao_id = int(df_caixa_atual.iloc[0]['id'])
             saldo_inicial = float(df_caixa_atual.iloc[0]['saldo_inicial'])
             st.success(f"🟢 **Caixa ABERTO** | Saldo Inicial: R$ {saldo_inicial:,.2f}")
+            
             df_movs = carregar_dados(f"SELECT * FROM caixa_movimentacoes WHERE sessao_id = {sessao_id}")
             total_movimentado = df_movs['valor'].sum() if not df_movs.empty else 0.0
             st.metric("Total Movimentado neste Caixa", f"R$ {total_movimentado:,.2f}")
 
+            # --- NOVO: Resumo de Vendas por Utilizador / Vendedor ---
+            st.markdown("### 👥 Vendas Realizadas por Utilizador (Funcionário)")
+            df_vendas_usuario = carregar_dados("""
+                SELECT 
+                    COALESCE(vendedor, 'Desconhecido') as Utilizador, 
+                    COUNT(id) as Total_Vendas, 
+                    SUM(valor_total) as Valor_Total 
+                FROM vendas 
+                WHERE tipo = 'VENDA' 
+                GROUP BY vendedor
+            """)
+            
+            if not df_vendas_usuario.empty:
+                df_vendas_usuario.columns = ['Utilizador', 'Qtd. Vendas', 'Total Vendido (R$)']
+                st.dataframe(df_vendas_usuario, use_container_width=True)
+            else:
+                st.info("ℹ️ Nenhuma venda registada até o momento.")
+
+            st.markdown("---")
             with st.form("form_fechar_caixa"):
                 saldo_final = st.number_input("Conferência de Saldo Final (Dinheiro)", min_value=0.0, value=saldo_inicial + total_movimentado)
                 if st.form_submit_button("🔒 Fechar Caixa"):
