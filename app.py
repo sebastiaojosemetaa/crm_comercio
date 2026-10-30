@@ -474,18 +474,28 @@ else:
             df_prod_pdv = pd.DataFrame()
 
         def obter_dados_produto(nome_prod):
-            if not df_prod_pdv.empty and nome_prod in lista_produtos_pdv:
-                p_row = df_prod_pdv[df_prod_pdv['produto'] == nome_prod].iloc[0]
-                val_v = float(p_row.get('valor_venda', 0.0) or p_row.get('venda', 0.0) or 0.0)
-                cod_prod = str(p_row.get('codigo', ''))
-                return val_v, str(p_row.get('fornecedor', '')), str(p_row.get('grupo', '')), cod_prod
+            try:
+                df_prod_pdv = pd.read_sql_query("SELECT * FROM produtos", conn)
+                if not df_prod_pdv.empty and 'produto' in df_prod_pdv.columns:
+                    match = df_prod_pdv[df_prod_pdv['produto'] == nome_prod]
+                    if not match.empty:
+                        p_row = match.iloc[0]
+                        val_v = float(p_row.get('valor_venda', 0.0) or p_row.get('venda', 0.0) or 0.0)
+                        cod_prod = str(p_row.get('codigo', ''))
+                        return val_v, str(p_row.get('fornecedor', '')), str(p_row.get('grupo', '')), cod_prod
+            except Exception:
+                pass
             return 0.0, "", "", ""
-
+        
         def obter_produto_por_codigo(cod):
-            if not df_prod_pdv.empty and 'codigo' in df_prod_pdv.columns:
-                match = df_prod_pdv[df_prod_pdv['codigo'].astype(str).str.strip() == str(cod).strip()]
-                if not match.empty:
-                    return str(match.iloc[0]['produto'])
+            try:
+                df_prod_pdv = pd.read_sql_query("SELECT * FROM produtos", conn)
+                if not df_prod_pdv.empty and 'codigo' in df_prod_pdv.columns:
+                    match = df_prod_pdv[df_prod_pdv['codigo'].astype(str).str.strip() == str(cod).strip()]
+                    if not match.empty:
+                        return str(match.iloc[0]['produto'])
+            except Exception:
+                pass
             return ""
 
         total_geral_carrinho = sum(item['valor_total'] for item in st.session_state.carrinho_pdv) if st.session_state.carrinho_pdv else 0.0
@@ -918,13 +928,10 @@ else:
     # MÓDULO REGISTRAR VENDA (VENDA BALCÃO / CARRINHO)
     # -------------------------------------------------------------
     elif menu_admin == "Registrar Venda":
-        st.subheader("🛒 Registrar Venda / Balcão")
-        st.write("Módulo em funcionamento!")
+        st.subheader(f"🛒 Registrar Venda / Balcão — {nome_empresa_header} | 👤 Utilizador: {usr_exibicao}")
         
         if "carrinho_reg_venda" not in st.session_state:
             st.session_state.carrinho_reg_venda = []
-        if "checkout_reg_ativo" not in st.session_state:
-            st.session_state.checkout_reg_ativo = False
 
         clientes_opt = carregar_coluna("clientes", "cliente") or ["Cliente Balcão"]
         lista_produtos_reg = carregar_coluna("produtos", "produto") or ["ABACATE", "CEBOLA CAIXA 1"]
@@ -941,7 +948,7 @@ else:
         with col_r2:
             qtd_reg = st.number_input("Quantidade", min_value=0.01, value=1.0, step=1.0, key="qtd_reg_venda")
         
-        # Puxa o preço sugerido do produto selecionado
+        # Puxa o preço sugerido do produto selecionado de forma global
         val_venda_sug, forn_sug, grupo_sug, cod_sug = obter_dados_produto(prod_selecionado_reg) if prod_selecionado_reg else (0.0, "", "", "")
 
         with col_r3:
@@ -1040,7 +1047,7 @@ else:
                             v_rec_reg, 
                             troco_reg, 
                             data_venda_atual, 
-                            vendedor_atual
+                            usr_exibicao
                         ))
 
                         cursor.execute("""
