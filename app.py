@@ -22,7 +22,7 @@ st.set_page_config(page_title="CRM Comércio - REY DA CEBOLA", layout="wide", pa
 # --- CONEXÃO E FUNÇÕES DE SUPORTE ---
 
 def get_connection():
-return sqlite3.connect("crm_comercio.db", check_same_thread=False)
+    return sqlite3.connect("crm_comercio.db", check_same_thread=False)
 
 conn = get_connection()
 
