@@ -1419,27 +1419,21 @@ else:
             df_prods = carregar_dados("SELECT * FROM produtos")
             
             if not df_prods.empty:
-                # Cria uma cópia formatada para exibição com o R$ nos preços
-                df_exib_est = pd.DataFrame()
-                df_exib_est['ID'] = df_prods['id']
-                df_exib_est['Código'] = df_prods['codigo']
-                df_exib_est['Produto'] = df_prods['produto']
-                df_exib_est['Qtd. Estoque'] = df_prods['quantidade']
-                df_exib_est['Preço Compra (R$)'] = df_prods['valor_compra'].apply(lambda x: f"R$ {float(x):,.2f}" if pd.notnull(x) and str(x).strip() != '' else "R$ 0,00")
-                df_exib_est['Preço Venda (R$)'] = df_prods['valor_venda'].apply(lambda x: f"R$ {float(x):,.2f}" if pd.notnull(x) and str(x).strip() != '' else "R$ 0,00")
-                df_exib_est['Grupo'] = df_prods['grupo']
-                df_exib_est['Fornecedor'] = df_prods['fornecedor']
-                
+                # Exibição da tabela de produtos
+                df_exib_est = df_prods[['id', 'codigo', 'produto', 'quantidade', 'valor_compra', 'valor_venda', 'grupo', 'fornecedor']].copy()
+                df_exib_est.columns = ['ID', 'Código', 'Produto', 'Qtd. Estoque', 'Preço Compra (R$)', 'Preço Venda (R$)', 'Grupo', 'Fornecedor']
                 st.dataframe(df_exib_est, use_container_width=True)
 
                 st.markdown("---")
                 st.markdown("### 🛠️ Editar ou Excluir Produto do Estoque")
                 
+                # Formata lista de produtos para o Selectbox
                 df_prods['label_prod'] = df_prods['id'].astype(str) + " - " + df_prods['produto'].astype(str)
                 lista_prods_edit = df_prods['label_prod'].tolist()
                 
                 prod_selecionado_est = st.selectbox("Selecione o Produto para Gerenciar:", lista_prods_edit, key="select_prod_gerenciar_est")
                 
+                # Puxa os dados do produto selecionado
                 p_row_est = df_prods[df_prods['label_prod'] == prod_selecionado_est].iloc[0]
                 id_prod_atual = int(p_row_est['id'])
 
