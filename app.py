@@ -1286,15 +1286,85 @@ else:
             st.info("Nenhuma conta pendente a receber no momento.")
 
     # -------------------------------------------------------------
-    # 10. ESTOQUE
+    # 10. ESTOQUE E PROMOÇÕES
     # -------------------------------------------------------------
     elif menu_admin == "📦 Estoque de Produtos":
-        st.subheader("📦 Estoque de Produtos e Preços")
-        df_prods = carregar_dados("SELECT * FROM produtos")
-        if not df_prods.empty:
-            st.data_editor(df_prods, use_container_width=True, key="editor_est_prods")
-        else:
-            st.info("Nenhum produto cadastrado no estoque.")
+        st.subheader("📦 Estoque de Produtos e Promoções")
+        
+        tab_estoque_geral, tab_deposito_promo = st.tabs(["📋 Estoque Geral", "🏷️ Depósito / Produtos para Promoção"])
+        
+        with tab_estoque_geral:
+            st.markdown("### 📋 Produtos no Estoque Geral")
+            df_prods = carregar_dados("SELECT * FROM produtos")
+            
+            if not df_prods.empty:
+                # Cria uma cópia formatada para exibição com o R$ nos preços
+                df_exib_est = pd.DataFrame()
+                df_exib_est['ID'] = df_prods['id']
+                df_exib_est['Código'] = df_prods['codigo']
+                df_exib_est['Produto'] = df_prods['produto']
+                df_exib_est['Qtd. Estoque'] = df_prods['quantidade']
+                df_exib_est['Preço Compra (R$)'] = df_prods['valor_compra'].apply(lambda x: f"R$ {float(x):,.2f}" if pd.notnull(x) and str(x).strip() != '' else "R$ 0,00")
+                df_exib_est['Preço Venda (R$)'] = df_prods['valor_venda'].apply(lambda x: f"R$ {float(x):,.2f}" if pd.notnull(x) and str(x).strip() != '' else "R$ 0,00")
+                df_exib_est['Grupo'] = df_prods['grupo']
+                df_exib_est['Fornecedor'] = df_prods['fornecedor']
+                
+                st.dataframe(df_exib_est, use_container_width=True)
+
+                st.markdown("---")
+                st.markdown("### 🛠️ Editar ou Excluir Produto do Estoque")
+                
+                df_prods['label_prod'] = df_prods['id'].astype(str) + " - " + df_prods['produto'].astype(str)
+                lista_prods_edit = df_prods['label_prod'].tolist()
+                
+                prod_selecionado_est = st.selectbox("Selecione o Produto para Gerenciar:", lista_prods_edit, key="select_prod_gerenciar_est")
+                
+                p_row_est = df_prods[df_prods['label_prod'] == prod_selecionado_est].iloc[0]
+                id_prod_atual = int(p_row_est['id'])
+
+                with st.form("form_editar_produto_estoque"):
+                    col_e1, col_e2, col_e3 = st.columns(3)
+                    with col_e1:
+                        ed_codigo = st.text_input("Código / Código de Barras", value=str(p_row_est.get('codigo', '') or ''))
+                        ed_produto = st.text_input("Nome do Produto", value=str(p_row_est.get('produto', '') or ''))
+                    with col_e2:
+                        ed_qtd = st.number_input("Quantidade em Estoque", value=float(p_row_est.get('quantidade', 0) or 0), step=1.0)
+                        ed_pr_compra = st.number_input("Preço de Compra (R$)", value=float(p_row_est.get('valor_compra', 0.0) or 0.0), format="%.2f")
+                    with col_e3:
+                        ed_pr_venda = st.number_input("Preço de Venda (R$)", value=float(p_row_est.get('valor_venda', 0.0) or 0.0), format="%.2f")
+                        ed_grupo = st.selectbox("Grupo", carregar_coluna("grupos", "grupo") or ["GERAL"], index=0)
+
+                    col_btn_est1, col_btn_est2 = st.columns(2)
+                    with col_btn_est1:
+                        btn_salvar_prod = st.form_submit_button("✏️ Salvar Alterações", type="primary", use_container_width=True)
+                    with col_btn_est2:
+                        btn_excluir_prod = st.form_submit_button("🗑️ Excluir Produto", use_container_width=True)
+
+                    if btn_salvar_prod:
+                        try:
+                            cursor = conn.cursor()
+                            cursor.execute("""
+                                UPDATE produtos 
+                                SET codigo = ?, produto = ?, quantidade = ?, valor_compra = ?, valor_venda = ?, grupo = ?
+                                WHERE id = ?
+                            """, (ed_codigo.strip(), ed_produto.strip().upper(), ed_qtd, ed_pr_compra, ed_pr_venda, ed_grupo, id_prod_atual))
+                            conn.commit()
+                            st.success(f"✅ Produto '{ed_produto}' atualizado com sucesso!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ Erro ao atualizar produto: {e}")
+
+                    if btn_excluir_prod:
+                        try:
+                            cursor = conn.cursor()
+                            cursor.execute("DELETE FROM produtos WHERE id = ?", (id_prod_atual,))
+                            conn.commit()
+                            st.success(f"🗑️ Produto removido do estoque com sucesso!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ Erro ao excluir produto: {e}")
+            else:
+                st.info("ℹ️ Nenhum produto cadastrado no estoque geral.")
 
     # -------------------------------------------------------------
     # 11. CONFIGURAÇÕES
