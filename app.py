@@ -1061,6 +1061,9 @@ else:
                         (sessao_id, float(total_geral_reg), f"Venda Balcão ({forma_pagto_reg}) - Cliente: {cliente_venda}", data_venda_atual)
                     )
                     conn.commit()
+                    st.session_state.carrinho_cliente = []
+                    st.success("✅ Pedido gravado com sucesso!")
+                    st.rerun()
 
                     st.session_state.carrinho_reg_venda = []
                     st.success(f"🎉 Venda Balcão no valor de **R$ {total_geral_reg:,.2f}** concluída com sucesso e estoque atualizado!")
