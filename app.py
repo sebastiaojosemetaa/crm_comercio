@@ -1,18 +1,9 @@
 import streamlit as st
-import streamlit.components.v1 as components
 import sqlite3
 import pandas as pd
-import base64
-from datetime import datetime, date, timedelta
-from reportlab.lib.pagesizes import letter
-from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-import io
-import datetime as dt
+from datetime import datetime
 import hashlib
 import uuid
-import string
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="CRM Comércio - REY DA CEBOLA", layout="wide", page_icon="🛍️")
@@ -80,53 +71,28 @@ def obter_dados_produto(nome_prod):
         pass
     return 0.0, "", "", ""
 
-def obter_produto_por_codigo(cod):
-    try:
-        df_prod_pdv = pd.read_sql_query("SELECT * FROM produtos", conn)
-        if not df_prod_pdv.empty and 'codigo' in df_prod_pdv.columns:
-            match = df_prod_pdv[df_prod_pdv['codigo'].astype(str).str.strip() == str(cod).strip()]
-            if not match.empty:
-                return str(match.iloc[0]['produto'])
-    except Exception:
-        pass
-    return ""
-
 def adequar_banco_e_migrar():
     try:
         cursor = conn.cursor()
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS produtos_promocao (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                produto TEXT,
-                quantidade REAL,
-                quantidade_minima REAL DEFAULT 1,
-                preco_promocional REAL,
-                grupo TEXT,
-                fornecedor TEXT
+                produto TEXT, quantidade REAL, quantidade_minima REAL DEFAULT 1,
+                preco_promocional REAL, grupo TEXT, fornecedor TEXT
             )
         """)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS empresas_dispositivos (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                device_id TEXT UNIQUE,
-                nome_empresa TEXT,
-                cnpj TEXT,
-                ie TEXT,
-                fone TEXT,
-                endereco TEXT,
-                ativado INTEGER DEFAULT 0,
-                dias_licenca INTEGER DEFAULT 30,
-                limite_dispositivos INTEGER DEFAULT 1
+                device_id TEXT UNIQUE, nome_empresa TEXT, cnpj TEXT, ie TEXT,
+                fone TEXT, endereco TEXT, ativado INTEGER DEFAULT 0,
+                dias_licenca INTEGER DEFAULT 30, limite_dispositivos INTEGER DEFAULT 1
             )
         """)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS chaves_pix (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                tipo TEXT,
-                chave TEXT,
-                favorecido TEXT,
-                cidade TEXT,
-                padrao INTEGER DEFAULT 0
+                tipo TEXT, chave TEXT, favorecido TEXT, cidade TEXT, padrao INTEGER DEFAULT 0
             )
         """)
         cursor.execute("CREATE TABLE IF NOT EXISTS produtos (id INTEGER PRIMARY KEY AUTOINCREMENT, produto TEXT)")
@@ -141,21 +107,13 @@ def adequar_banco_e_migrar():
 
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS vendas (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                cliente TEXT, produto TEXT, data TEXT
+                id INTEGER PRIMARY KEY AUTOINCREMENT, cliente TEXT, produto TEXT, data TEXT
             )
         """)
         for col in ["fornecedor", "grupo", "quantidade", "valor_venda", "valor_total", "forma_pagamento", "valor_recebido", "troco", "restante", "status", "tipo", "codigo", "codigo_venda", "vendedor"]:
             try: cursor.execute(f"ALTER TABLE vendas ADD COLUMN {col} TEXT")
             except Exception: pass
 
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS pedidos (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                cliente TEXT, produto TEXT, fornecedor TEXT, grupo TEXT,
-                quantidade REAL, valor_unitario REAL, valor_total REAL, status TEXT, data TEXT
-            )
-        """)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS caixa_sessoes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT, data_abertura TEXT, data_fechamento TEXT,
@@ -166,16 +124,6 @@ def adequar_banco_e_migrar():
             CREATE TABLE IF NOT EXISTS caixa_movimentacoes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT, sessao_id INTEGER, tipo TEXT,
                 valor REAL, descricao TEXT, data TEXT
-            )
-        """)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS funcionarios (
-                id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, cargo TEXT, salario REAL
-            )
-        """)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS pagamentos_funcionarios (
-                id INTEGER PRIMARY KEY AUTOINCREMENT, colaborador TEXT, valor REAL, data_pagamento TEXT
             )
         """)
         cursor.execute("""
@@ -241,7 +189,7 @@ st.sidebar.title("🔑 Acesso ao Sistema")
 st.sidebar.radio("Selecione o Perfil:", ["🔒 Administração / Vendedor"], key="perfil_principal_radio")
 st.sidebar.markdown("---")
 
-if st.session_state.get('dispositivo_ativado', False):
+if dispositivo_esta_ativado:
     st.sidebar.success("🟢 Dispositivo Ativado")
 else:
     st.sidebar.error("🔴 Dispositivo Não Ativado")
@@ -300,6 +248,11 @@ else:
         "📦 Estoque de Produtos",
         "🏢 Configurações da Empresa"
     ], key="radio_menu_admin_opcoes")
+
+    # TRAVA DE SEGURANÇA
+    if not dispositivo_esta_ativado and menu_admin != "🏢 Configurações da Empresa":
+        st.error("🚫 **ACESSO BLOQUEADO:** Este dispositivo não está ativado. Vá em **Configurações da Empresa** na barra lateral para inserir a chave de ativação.")
+        st.stop()
 
     # -------------------------------------------------------------
     # 1. MÓDULO PDV
@@ -671,3 +624,57 @@ else:
                 st.dataframe(df_promo, use_container_width=True)
             else:
                 st.info("ℹ️ Nenhum produto promocional registado.")
+
+    # -------------------------------------------------------------
+    # 7. CONFIGURAÇÕES DA EMPRESA
+    # -------------------------------------------------------------
+    elif menu_admin == "🏢 Configurações da Empresa":
+        st.subheader("🏢 Configurações e Dados da Empresa")
+        st.markdown("### 🔑 Ativação do Sistema")
+        
+        if dispositivo_esta_ativado:
+            st.success("✅ Este dispositivo está **ATIVADO** e licenciado!")
+            if st.button("🔄 Desativar / Inserir Outra Chave"):
+                cursor = conn.cursor()
+                cursor.execute("UPDATE empresas_dispositivos SET ativado = 0 WHERE device_id = ?", (device_id,))
+                conn.commit()
+                st.rerun()
+        else:
+            st.warning("⚠️ Insira a chave de ativação para liberar o acesso a todas as telas do sistema.")
+            chave_digitada = st.text_input("Chave de Ativação:", key="input_chave_config")
+            
+            if st.button("🔓 Ativar Dispositivo", type="primary"):
+                doc_atual = str(reg_emp.get('cnpj', '19417439000142'))
+                apenas_digitos = ''.join(filter(str.isdigit, str(doc_atual)))
+                chave_limpa = str(chave_digitada).strip().upper()
+
+                sucesso = False
+                dias_validade = 30
+                limite_extraido = 1
+
+                for sufixo, dias in [("TESTE", 7), ("MENSAL", 30), ("ANUAL", 365)]:
+                    for lim_test in range(1, 20):
+                        base_hash_str = apenas_digitos + "REY_CEBOLA_2026" + sufixo + str(lim_test)
+                        hash_hex = hashlib.md5(base_hash_str.encode()).hexdigest().upper()
+                        chave_esperada = f"CRM-{sufixo}-{lim_test}D-{hash_hex[:4]}-{hash_hex[4:8]}"
+
+                        if chave_limpa == chave_esperada:
+                            sucesso = True
+                            dias_validade = dias
+                            limite_extraido = lim_test
+                            break
+                    if sucesso:
+                        break
+
+                if sucesso:
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        UPDATE empresas_dispositivos 
+                        SET ativado = 1, dias_licenca = ?, limite_dispositivos = ? 
+                        WHERE device_id = ?
+                    """, (dias_validade, limite_extraido, device_id))
+                    conn.commit()
+                    st.success("🎉 Dispositivo ativado com sucesso! Todas as telas estão liberadas.")
+                    st.rerun()
+                else:
+                    st.error("❌ Chave de ativação inválida.")
