@@ -66,46 +66,66 @@ def salvar_cliente_completo(nome, tel, doc, endereco, cidade):
     except Exception as e:
         return False, f"Erro ao cadastrar cliente: {e}"
 
-def obter_dados_produto(nome_prod):
-    try:
-        df_prod_pdv = pd.read_sql_query("SELECT * FROM produtos", conn)
-        if not df_prod_pdv.empty and 'produto' in df_prod_pdv.columns:
-            match = df_prod_pdv[df_prod_pdv['produto'] == nome_prod]
-            if not match.empty:
-                p_row = match.iloc[0]
-                val_v = float(p_row.get('valor_venda', 0.0) or p_row.get('venda', 0.0) or 0.0)
-                cod_prod = str(p_row.get('codigo', ''))
-                return val_v, str(p_row.get('fornecedor', '')), str(p_row.get('grupo', '')), cod_prod
-    except Exception:
-        pass
-    return 0.0, "", "", ""
-
 def adequar_banco_e_migrar():
     try:
         cursor = conn.cursor()
+        
+        # TABELA DE PRODUTOS EM PROMOÇÃO
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS produtos_promocao (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                produto TEXT, quantidade REAL, quantidade_minima REAL DEFAULT 1,
-                preco_promocional REAL, grupo TEXT, fornecedor TEXT
+                produto TEXT,
+                quantidade REAL,
+                quantidade_minima REAL DEFAULT 1,
+                preco_promocional REAL,
+                grupo TEXT,
+                fornecedor TEXT
             )
         """)
+        cursor.execute("PRAGMA table_info(produtos_promocao)")
+        cols_promo = [col[1] for col in cursor.fetchall()]
+        if "quantidade_minima" not in cols_promo:
+            try: cursor.execute("ALTER TABLE produtos_promocao ADD COLUMN quantidade_minima REAL DEFAULT 1")
+            except Exception: pass
+        
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS empresas_dispositivos (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                device_id TEXT UNIQUE, nome_empresa TEXT, cnpj TEXT, ie TEXT,
-                fone TEXT, endereco TEXT, ativado INTEGER DEFAULT 0,
-                dias_licenca INTEGER DEFAULT 30, limite_dispositivos INTEGER DEFAULT 1
+                device_id TEXT UNIQUE,
+                nome_empresa TEXT,
+                cnpj TEXT,
+                ie TEXT,
+                fone TEXT,
+                endereco TEXT,
+                ativado INTEGER DEFAULT 0,
+                dias_licenca INTEGER DEFAULT 30,
+                limite_dispositivos INTEGER DEFAULT 1
             )
         """)
+        
+        # TABELA DE CHAVES PIX MULTIPLAS
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS chaves_pix (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                tipo TEXT, chave TEXT, favorecido TEXT, cidade TEXT, padrao INTEGER DEFAULT 0
+                tipo TEXT,
+                chave TEXT,
+                favorecido TEXT,
+                cidade TEXT,
+                padrao INTEGER DEFAULT 0
             )
         """)
+
+        cursor.execute("PRAGMA table_info(empresas_dispositivos)")
+        cols_emp = [col[1] for col in cursor.fetchall()]
+        if "ativado" not in cols_emp:
+            cursor.execute("ALTER TABLE empresas_dispositivos ADD COLUMN ativado INTEGER DEFAULT 0")
+        if "dias_licenca" not in cols_emp:
+            cursor.execute("ALTER TABLE empresas_dispositivos ADD COLUMN dias_licenca INTEGER DEFAULT 30")
+        if "limite_dispositivos" not in cols_emp:
+            cursor.execute("ALTER TABLE empresas_dispositivos ADD COLUMN limite_dispositivos INTEGER DEFAULT 1")
+
         cursor.execute("CREATE TABLE IF NOT EXISTS produtos (id INTEGER PRIMARY KEY AUTOINCREMENT, produto TEXT)")
-        for col in ["fornecedor", "grupo", "preco_compra", "preco_venda", "venda", "quantidade", "estoque", "codigo", "unidade"]:
+        for col in ["fornecedor", "grupo", "preco_compra", "preco_venda", "venda", "quantidade", "estoque", "codigo"]:
             try: cursor.execute(f"ALTER TABLE produtos ADD COLUMN {col} TEXT")
             except Exception: pass
 
@@ -116,7 +136,8 @@ def adequar_banco_e_migrar():
 
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS vendas (
-                id INTEGER PRIMARY KEY AUTOINCREMENT, cliente TEXT, produto TEXT, data TEXT
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                cliente TEXT, produto TEXT, data TEXT
             )
         """)
         for col in ["fornecedor", "grupo", "quantidade", "valor_venda", "valor_total", "forma_pagamento", "valor_recebido", "troco", "restante", "status", "tipo", "codigo", "codigo_venda", "vendedor"]:
@@ -124,35 +145,89 @@ def adequar_banco_e_migrar():
             except Exception: pass
 
         cursor.execute("""
+            CREATE TABLE IF NOT EXISTS pedidos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                cliente TEXT, produto TEXT, fornecedor TEXT, grupo TEXT,
+                quantidade REAL, valor_unitario REAL, valor_total REAL, status TEXT, data TEXT
+            )
+        """)
+
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS caixa_sessoes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT, data_abertura TEXT, data_fechamento TEXT,
                 saldo_inicial REAL, saldo_final REAL, status TEXT
             )
         """)
+
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS caixa_movimentacoes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT, sessao_id INTEGER, tipo TEXT,
                 valor REAL, descricao TEXT, data TEXT
             )
         """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS funcionarios (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome TEXT,
+                cargo TEXT,
+                salario REAL
+            )
+        """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS pagamentos_funcionarios (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                colaborador TEXT,
+                valor REAL,
+                data_pagamento TEXT
+            )
+        """)
+
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS usuarios (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                usuario TEXT, login TEXT UNIQUE, senha TEXT, cargo TEXT,
-                perm_pdv INTEGER DEFAULT 1, perm_financeiro INTEGER DEFAULT 1,
-                perm_registrar_venda INTEGER DEFAULT 1, perm_compras INTEGER DEFAULT 0,
-                perm_cadastros INTEGER DEFAULT 1, perm_rh INTEGER DEFAULT 0,
-                perm_usuarios INTEGER DEFAULT 0, perm_backup INTEGER DEFAULT 0,
-                perm_contas_receber INTEGER DEFAULT 1, perm_estoque INTEGER DEFAULT 1,
+                usuario TEXT,
+                login TEXT UNIQUE,
+                senha TEXT,
+                cargo TEXT,
+                perm_pdv INTEGER DEFAULT 1,
+                perm_financeiro INTEGER DEFAULT 1,
+                perm_registrar_venda INTEGER DEFAULT 1,
+                perm_compras INTEGER DEFAULT 0,
+                perm_cadastros INTEGER DEFAULT 1,
+                perm_rh INTEGER DEFAULT 0,
+                perm_usuarios INTEGER DEFAULT 0,
+                perm_backup INTEGER DEFAULT 0,
+                perm_contas_receber INTEGER DEFAULT 1,
+                perm_estoque INTEGER DEFAULT 1,
                 perm_configuracoes INTEGER DEFAULT 0
             )
         """)
+        
+        cursor.execute("PRAGMA table_info(usuarios)")
+        cols_usr = [col[1] for col in cursor.fetchall()]
+        colunas_necessarias_usr = {
+            "usuario": "TEXT", "login": "TEXT", "senha": "TEXT", "cargo": "TEXT",
+            "perm_pdv": "INTEGER DEFAULT 1", "perm_financeiro": "INTEGER DEFAULT 1",
+            "perm_registrar_venda": "INTEGER DEFAULT 1", "perm_compras": "INTEGER DEFAULT 0",
+            "perm_cadastros": "INTEGER DEFAULT 1", "perm_rh": "INTEGER DEFAULT 0",
+            "perm_usuarios": "INTEGER DEFAULT 0", "perm_backup": "INTEGER DEFAULT 0",
+            "perm_contas_receber": "INTEGER DEFAULT 1", "perm_estoque": "INTEGER DEFAULT 1",
+            "perm_configuracoes": "INTEGER DEFAULT 0"
+        }
+        for coluna, tipo in colunas_necessarias_usr.items():
+            if coluna not in cols_usr:
+                try: cursor.execute(f"ALTER TABLE usuarios ADD COLUMN {coluna} {tipo}")
+                except Exception: pass
+
         conn.commit()
     except Exception as e:
         pass
 
 adequar_banco_e_migrar()
 
+# --- DISPOSITIVO E IDENTIFICADOR ÚNICO REAL POR APARELHO ---
 if "device_id" not in st.query_params or not st.query_params["device_id"]:
     st.query_params["device_id"] = str(uuid.uuid4())
 device_id = st.query_params["device_id"]
@@ -169,19 +244,41 @@ if df_emp_dev.empty:
 
 reg_emp = df_emp_dev.iloc[0] if not df_emp_dev.empty else {}
 nome_empresa_header = str(reg_emp.get('nome_empresa', 'REY DA CEBOLA'))
-dispositivo_esta_ativado = bool(reg_emp.get('ativado', 0) == 1)
 
+dispositivo_esta_ativado = bool(reg_emp.get('ativado', 0) == 1)
+dias_licenca_atual = int(reg_emp.get('dias_licenca', 30))
+limite_dispositivos_atual = int(reg_emp.get('limite_dispositivos', 1))
+
+st.session_state["dispositivo_ativado"] = dispositivo_esta_ativado
+st.session_state["dias_licenca"] = dias_licenca_atual
+st.session_state["limite_dispositivos"] = limite_dispositivos_atual
+
+# --- OUTROS ESTADOS DE SESSÃO ---
 if 'autenticado' not in st.session_state:
     st.session_state['autenticado'] = False
+
 if 'usuario_logado' not in st.session_state:
     st.session_state['usuario_logado'] = ""
+
 if 'login_efetuado' not in st.session_state:
     st.session_state['login_efetuado'] = ""
+
 if 'cargo_logado' not in st.session_state:
     st.session_state['cargo_logado'] = ""
+
+if 'permissoes_usuario' not in st.session_state:
+    st.session_state['permissoes_usuario'] = {}
+
 if 'carrinho_pdv' not in st.session_state:
     st.session_state.carrinho_pdv = []
 
+if "carrinho_cliente" not in st.session_state:
+    st.session_state.carrinho_cliente = []
+
+if 'tela_checkout_ativa' not in st.session_state:
+    st.session_state.tela_checkout_ativa = False
+
+# --- ESTILO VISUAL METÁLICO ---
 st.markdown("""
 <style>
     .stApp { background: linear-gradient(135deg, #e0e0e0 0%, #b0b0b0 100%) !important; color: #000000 !important; }
@@ -194,16 +291,45 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# --- PAINEL LATERAL (DEV) — GERADOR DE CHAVES ---
+with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
+    senha_dev = st.text_input("Senha Mestre Dev", type="password", key="pwd_dev_topo")
+    if senha_dev == "13142715":
+        tipo_plano = st.selectbox("Tipo de Chave:", ["Teste (7 Dias)", "Mensal (30 Dias)", "Anual (365 Dias)"], key="select_tipo_plano_dev")
+        doc_cliente = st.text_input("CNPJ ou CPF do Cliente:", key="doc_dev_topo_doc")
+        limite_dev_topo = st.number_input("Limite de Dispositivos:", min_value=1, max_value=50, value=1, key="limite_dev_topo_num")
+        
+        if st.button("Gerar Chave", key="btn_dev_topo_acao"):
+            if doc_cliente.strip():
+                sufixo_tipo = "TESTE" if "Teste" in tipo_plano else ("MENSAL" if "Mensal" in tipo_plano else "ANUAL")
+                doc_limpo = ''.join(filter(str.isdigit, str(doc_cliente)))
+                
+                cursor = conn.cursor()
+                cursor.execute("""
+                    UPDATE empresas_dispositivos 
+                    SET limite_dispositivos = ? 
+                    WHERE REPLACE(REPLACE(REPLACE(cnpj, '.', ''), '/', ''), '-', '') = ?
+                """, (limite_dev_topo, doc_limpo))
+                conn.commit()
+
+                base_hash_str = doc_limpo + "REY_CEBOLA_2026" + sufixo_tipo + str(limite_dev_topo)
+                hash_hex = hashlib.md5(base_hash_str.encode()).hexdigest().upper()
+                st.code(f"CRM-{sufixo_tipo}-{limite_dev_topo}D-{hash_hex[:4]}-{hash_hex[4:8]}", language="text")
+                st.success(f"Chave gerada! Limite definido: {limite_dev_topo} dispositivo(s).")
+
 st.sidebar.title("🔑 Acesso ao Sistema")
 st.sidebar.radio("Selecione o Perfil:", ["🔒 Administração / Vendedor"], key="perfil_principal_radio")
 st.sidebar.markdown("---")
 
-if dispositivo_esta_ativado:
+if st.session_state.get('dispositivo_ativado', False):
     st.sidebar.success("🟢 Dispositivo Ativado")
 else:
     st.sidebar.error("🔴 Dispositivo Não Ativado")
 st.sidebar.markdown("---")
 
+# ==========================================
+# ECRÃ DE LOGIN OU INTERFACE PRINCIPAL
+# ==========================================
 if not st.session_state['autenticado']:
     st.markdown("## 🔐 Autenticação do Sistema")
     with st.form("form_login_sistema"):
@@ -217,12 +343,17 @@ if not st.session_state['autenticado']:
                 st.session_state['usuario_logado'] = "administrador"
                 st.session_state['login_efetuado'] = "administrador"
                 st.session_state['cargo_logado'] = "Administrador"
+                st.session_state['permissoes_usuario'] = {
+                    "pdv": 1, "financeiro": 1, "registrar_venda": 1, "compras": 1,
+                    "cadastros": 1, "rh": 1, "usuarios": 1, "backup": 1,
+                    "contas_receber": 1, "estoque": 1, "configuracoes": 1
+                }
                 st.success("Login efetuado com sucesso!")
                 st.rerun()
             else:
                 try:
                     cursor = conn.cursor()
-                    cursor.execute("SELECT id, usuario, login, senha, cargo FROM usuarios WHERE LOWER(TRIM(login)) = ? AND senha = ?", (usuario_input, senha_input))
+                    cursor.execute("SELECT id, usuario, login, senha, cargo, perm_pdv, perm_financeiro, perm_registrar_venda, perm_compras, perm_cadastros, perm_rh, perm_usuarios, perm_backup, perm_contas_receber, perm_estoque, perm_configuracoes FROM usuarios WHERE LOWER(TRIM(login)) = ? AND senha = ?", (usuario_input, senha_input))
                     user_row = cursor.fetchone()
                     cursor.close()
                     if user_row:
@@ -230,37 +361,86 @@ if not st.session_state['autenticado']:
                         st.session_state['login_efetuado'] = str(user_row[2] if user_row[2] else usuario_input)
                         st.session_state['usuario_logado'] = str(user_row[1] if user_row[1] else usuario_input)
                         st.session_state['cargo_logado'] = str(user_row[4] if user_row[4] else "Funcionário")
+                        
+                        def safe_int(val):
+                            try: return int(val) if val is not None else 0
+                            except: return 0
+
+                        st.session_state['permissoes_usuario'] = {
+                            "pdv": safe_int(user_row[5]),
+                            "financeiro": safe_int(user_row[6]),
+                            "registrar_venda": safe_int(user_row[7]),
+                            "compras": safe_int(user_row[8]),
+                            "cadastros": safe_int(user_row[9]),
+                            "rh": safe_int(user_row[10]),
+                            "usuarios": safe_int(user_row[11]),
+                            "backup": safe_int(user_row[12]),
+                            "contas_receber": safe_int(user_row[13]),
+                            "estoque": safe_int(user_row[14]),
+                            "configuracoes": safe_int(user_row[15])
+                        }
                         st.success("Login efetuado com sucesso!")
                         st.rerun()
                     else:
-                        st.error("❌ Usuário ou senha incorretos.")
+                        st.error("❌ Usuário ou senha incorretos. Verifique os dados.")
                 except Exception as e:
                     st.error(f"Erro ao autenticar: {e}")
+
 else:
+    # --- INTERFACE PRINCIPAL APÓS O LOGIN ---
     usr_exibicao = str(st.session_state.get('usuario_logado') or "Utilizador")
+    login_atual = str(st.session_state.get('login_efetuado') or '').lower()
     
     st.sidebar.write(f"👤 **Utilizador:** `{usr_exibicao}`")
+    
     if st.sidebar.button("🚪 Sair do Sistema"):
         st.session_state['autenticado'] = False
+        st.session_state['usuario_logado'] = ""
+        st.session_state['login_efetuado'] = ""
+        st.session_state['cargo_logado'] = ""
+        st.session_state['permissoes_usuario'] = {}
         st.rerun()
 
-    menu_admin = st.sidebar.radio("Navegação", [
-        "🛒 PDV — Frente de Caixa",
-        "📊 Fechamento & Financeiro",
-        "🛒 Registrar Venda",
-        "📦 Entrada de Estoque (Compras)",
-        "👥 Cadastros (Clientes / Fornecedores / Grupos)",
-        "👥 Gestão de Recursos Humanos (RH)",
-        "🔐 Gestão de Utilizadores e Logins",
-        "💾 Backup e Restauração",
-        "💸 Contas a Receber",
-        "📦 Estoque de Produtos",
-        "🏢 Configurações da Empresa"
-    ], key="radio_menu_admin_opcoes")
+    # VERIFICAÇÃO DE MESTRE OU PERMISSÕES PERSONALIZADAS
+    is_admin_master = (login_atual == "administrador" or st.session_state.get('cargo_logado') == "Administrador")
+    perms = st.session_state.get('permissoes_usuario', {})
 
-    # TRAVA DE SEGURANÇA
-    if not dispositivo_esta_ativado and menu_admin != "🏢 Configurações da Empresa":
-        st.error("🚫 **ACESSO BLOQUEADO:** Este dispositivo não está ativado. Vá em **Configurações da Empresa** na barra lateral para inserir a chave de ativação.")
+    opcoes_menu_disponiveis = []
+    
+    if is_admin_master or perms.get("pdv", 1) == 1:
+        opcoes_menu_disponiveis.append("🛒 PDV — Frente de Caixa")
+    if is_admin_master or perms.get("financeiro", 0) == 1:
+        opcoes_menu_disponiveis.append("📊 Fechamento & Financeiro")
+    if is_admin_master or perms.get("registrar_venda", 1) == 1:
+        opcoes_menu_disponiveis.append("🛒 Registrar Venda")
+    if is_admin_master or perms.get("compras", 0) == 1:
+        opcoes_menu_disponiveis.append("📦 Entrada de Estoque (Compras)")
+    if is_admin_master or perms.get("cadastros", 1) == 1:
+        opcoes_menu_disponiveis.append("👥 Cadastros (Clientes / Fornecedores / Grupos)")
+    if is_admin_master or perms.get("rh", 0) == 1:
+        opcoes_menu_disponiveis.append("👥 Gestão de Recursos Humanos (RH)")
+    if is_admin_master or perms.get("usuarios", 0) == 1:
+        opcoes_menu_disponiveis.append("🔐 Gestão de Utilizadores e Logins")
+    if is_admin_master or perms.get("backup", 0) == 1:
+        opcoes_menu_disponiveis.append("💾 Backup e Restauração")
+    if is_admin_master or perms.get("contas_receber", 1) == 1:
+        opcoes_menu_disponiveis.append("💸 Contas a Receber")
+    if is_admin_master or perms.get("estoque", 1) == 1:
+        opcoes_menu_disponiveis.append("📦 Estoque de Produtos")
+    if is_admin_master or perms.get("configuracoes", 0) == 1:
+        opcoes_menu_disponiveis.append("🏢 Configurações da Empresa")
+
+    if not opcoes_menu_disponiveis:
+        opcoes_menu_disponiveis = ["🛒 PDV — Frente de Caixa"]
+
+    menu_admin = st.sidebar.radio("Navegação", opcoes_menu_disponiveis, key="radio_menu_admin_opcoes")
+
+    # --- TRAVA DE SEGURANÇA DE LICENÇA POR DISPOSITIVO ---
+    df_check_ativado = carregar_dados(f"SELECT ativado FROM empresas_dispositivos WHERE device_id = '{device_id}'")
+    status_disp_real = int(df_check_ativado.iloc[0]['ativado']) if not df_check_ativado.empty else 0
+
+    if status_disp_real == 0 and menu_admin != "🏢 Configurações da Empresa":
+        st.error("🚫 **ACESSO BLOQUEADO:** Este dispositivo não está ativado na licença. Vá em **Configurações da Empresa** para inserir a chave de ativação.")
         st.stop()
 
     # -------------------------------------------------------------
