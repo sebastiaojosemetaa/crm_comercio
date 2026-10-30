@@ -918,7 +918,8 @@ else:
     # MÓDULO REGISTRAR VENDA (VENDA BALCÃO / CARRINHO)
     # -------------------------------------------------------------
     elif menu_admin == "Registrar Venda":
-        st.subheader(f"🛒 Registrar Venda / Balcão — REY DA CEBOLA | 👤 Utilizador: {vendedor_atual}")
+        st.subheader("🛒 Registrar Venda / Balcão")
+        st.write("Módulo em funcionamento!")
         
         if "carrinho_reg_venda" not in st.session_state:
             st.session_state.carrinho_reg_venda = []
