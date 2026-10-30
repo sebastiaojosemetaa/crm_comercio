@@ -290,7 +290,7 @@ st.markdown("""
 
 """, unsafe_allow_html=True)
 
---- PAINEL LATERAL (DEV) — GERADOR DE CHAVES ---
+# --- PAINEL LATERAL (DEV) — GERADOR DE CHAVES ---
 
 with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
 senha_dev = st.text_input("Senha Mestre Dev", type="password", key="pwd_dev_topo")
