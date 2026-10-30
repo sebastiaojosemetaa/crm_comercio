@@ -222,8 +222,6 @@ if 'login_efetuado' not in st.session_state:
     st.session_state['login_efetuado'] = ""
 if 'cargo_logado' not in st.session_state:
     st.session_state['cargo_logado'] = ""
-if 'permissoes_usuario' not in st.session_state:
-    st.session_state['permissoes_usuario'] = {}
 if 'carrinho_pdv' not in st.session_state:
     st.session_state.carrinho_pdv = []
 
@@ -267,7 +265,7 @@ if not st.session_state['autenticado']:
             else:
                 try:
                     cursor = conn.cursor()
-                    cursor.execute("SELECT id, usuario, login, senha, cargo, perm_pdv, perm_financeiro, perm_registrar_venda, perm_compras, perm_cadastros, perm_rh, perm_usuarios, perm_backup, perm_contas_receber, perm_estoque, perm_configuracoes FROM usuarios WHERE LOWER(TRIM(login)) = ? AND senha = ?", (usuario_input, senha_input))
+                    cursor.execute("SELECT id, usuario, login, senha, cargo FROM usuarios WHERE LOWER(TRIM(login)) = ? AND senha = ?", (usuario_input, senha_input))
                     user_row = cursor.fetchone()
                     cursor.close()
                     if user_row:
@@ -283,7 +281,6 @@ if not st.session_state['autenticado']:
                     st.error(f"Erro ao autenticar: {e}")
 else:
     usr_exibicao = str(st.session_state.get('usuario_logado') or "Utilizador")
-    login_atual = str(st.session_state.get('login_efetuado') or '').lower()
     
     st.sidebar.write(f"👤 **Utilizador:** `{usr_exibicao}`")
     if st.sidebar.button("🚪 Sair do Sistema"):
@@ -308,11 +305,105 @@ else:
     # 1. MÓDULO PDV
     # -------------------------------------------------------------
     if menu_admin == "🛒 PDV — Frente de Caixa":
-        st.subheader(f"🛒 PDV — Frente de Caixa — {nome_empresa_header}")
-        st.info("Utilize a barra lateral para navegar ou gerenciar as vendas rápidas.")
+        st.subheader(f"🛒 PDV — Frente de Caixa — {nome_empresa_header} | 👤 Utilizador: {usr_exibicao}")
+        
+        df_caixa_aberto = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
+        if not df_caixa_aberto.empty:
+            st.success("🟢 Caixa Aberto e Operacional")
+        else:
+            st.warning("⚠️ Atenção: Não há nenhum caixa aberto no momento.")
+
+        try:
+            df_prod_pdv = pd.read_sql_query("SELECT * FROM produtos", conn)
+            lista_produtos_pdv = df_prod_pdv['produto'].tolist() if not df_prod_pdv.empty else []
+        except Exception:
+            lista_produtos_pdv = []
+            df_prod_pdv = pd.DataFrame()
+
+        total_geral_carrinho = sum(item['valor_total'] for item in st.session_state.carrinho_pdv) if st.session_state.carrinho_pdv else 0.0
+        st.markdown(f"### 🛒 Itens Lançados no Carrinho | Total Geral: **R$ {total_geral_carrinho:,.2f}**")
+
+        if st.session_state.carrinho_pdv:
+            df_carrinho = pd.DataFrame(st.session_state.carrinho_pdv)
+            st.dataframe(df_carrinho[['codigo', 'produto', 'quantidade', 'valor_unitario', 'valor_total']], use_container_width=True)
+
+            if st.button("❌ Limpar Carrinho PDV", use_container_width=True):
+                st.session_state.carrinho_pdv = []
+                st.rerun()
+        else:
+            st.info("Nenhum item lançado no carrinho PDV ainda.")
+
+        prod_selecionado = st.selectbox("Pesquisar / Selecionar Produto", [""] + lista_produtos_pdv, key="sel_prod_pdv_alin")
+        val_venda_sug, forn_sug, grupo_sug, cod_sug = obter_dados_produto(prod_selecionado) if prod_selecionado else (0.0, "", "", "")
+
+        col_q1, col_q2 = st.columns(2)
+        with col_q1:
+            qtd_venda = st.number_input("Qtd", min_value=0.01, value=1.0, step=1.0)
+        with col_q2:
+            preco_unit_venda = st.number_input("Preço Unit. (R$)", min_value=0.0, value=float(val_venda_sug), format="%.2f")
+
+        subtotal_item = qtd_venda * preco_unit_venda
+        if st.button("➕ [ Enter ] Incluir Produto no PDV", type="primary", use_container_width=True):
+            if not prod_selecionado:
+                st.error("Selecione um produto.")
+            else:
+                st.session_state.carrinho_pdv.append({
+                    "codigo": cod_sug, "produto": prod_selecionado, "quantidade": qtd_venda,
+                    "valor_unitario": preco_unit_venda, "valor_total": subtotal_item,
+                    "fornecedor": forn_sug, "grupo": grupo_sug
+                })
+                st.success(f"✅ '{prod_selecionado}' adicionado!")
+                st.rerun()
 
     # -------------------------------------------------------------
-    # 2. REGISTRAR VENDA (VENDA BALCÃO)
+    # 2. FECHAMENTO & FINANCEIRO
+    # -------------------------------------------------------------
+    elif menu_admin == "📊 Fechamento & Financeiro":
+        st.subheader(f"📊 Fechamento & Financeiro — {nome_empresa_header} | 👤 Utilizador: {usr_exibicao}")
+        aba_caixa_atual, aba_historico_caixas = st.tabs(["🟢 Caixa Atual & Operação", "📚 Histórico de Caixas Fechados"])
+
+        with aba_caixa_atual:
+            df_caixa_atual = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
+            if df_caixa_atual.empty:
+                st.info("O caixa encontra-se **FECHADO**. Insira o valor inicial para abri-lo.")
+                with st.form("form_abrir_caixa"):
+                    saldo_inicial = st.number_input("Saldo Inicial em Dinheiro (Troco)", min_value=0.0, step=10.0)
+                    if st.form_submit_button("Abrir Caixa"):
+                        cursor = conn.cursor()
+                        cursor.execute("INSERT INTO caixa_sessoes (data_abertura, saldo_inicial, status) VALUES (?, ?, 'ABERTO')",
+                                       (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), saldo_inicial))
+                        conn.commit()
+                        st.success("Caixa aberto com sucesso!")
+                        st.rerun()
+            else:
+                sessao_id = int(df_caixa_atual.iloc[0]['id'])
+                saldo_inicial = float(df_caixa_atual.iloc[0]['saldo_inicial'])
+                st.success(f"🟢 **Caixa ABERTO** | Saldo Inicial: R$ {saldo_inicial:,.2f}")
+                
+                df_movs = carregar_dados(f"SELECT * FROM caixa_movimentacoes WHERE sessao_id = {sessao_id}")
+                total_movimentado = df_movs['valor'].sum() if not df_movs.empty else 0.0
+                st.metric("Total Movimentado neste Caixa", f"R$ {total_movimentado:,.2f}")
+
+                with st.form("form_fechar_caixa"):
+                    saldo_final = st.number_input("Conferência de Saldo Final (Dinheiro)", min_value=0.0, value=saldo_inicial + total_movimentado)
+                    if st.form_submit_button("🔒 Fechar Caixa"):
+                        cursor = conn.cursor()
+                        cursor.execute("UPDATE caixa_sessoes SET data_fechamento = ?, saldo_final = ?, status = 'FECHADO' WHERE id = ?",
+                                       (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), saldo_final, sessao_id))
+                        conn.commit()
+                        st.success("Caixa fechado com sucesso!")
+                        st.rerun()
+
+        with aba_historico_caixas:
+            st.markdown("### 📚 Histórico de Caixas Fechados")
+            df_historico = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'FECHADO' ORDER BY id DESC")
+            if not df_historico.empty:
+                st.dataframe(df_historico, use_container_width=True)
+            else:
+                st.info("ℹ️ Nenhum caixa fechado registado no histórico.")
+
+    # -------------------------------------------------------------
+    # 3. REGISTRAR VENDA (VENDA BALCÃO)
     # -------------------------------------------------------------
     elif menu_admin == "🛒 Registrar Venda":
         st.subheader(f"🛒 Registrar Venda / Balcão — {nome_empresa_header} | 👤 Utilizador: {usr_exibicao}")
@@ -436,81 +527,140 @@ else:
             st.info("ℹ️ Nenhum item adicionado ao pedido/carrinho ainda.")
 
     # -------------------------------------------------------------
-    # 3. MÓDULO ESTOQUE DE PRODUTOS
+    # 4. ENTRADA DE ESTOQUE (COMPRAS)
+    # -------------------------------------------------------------
+    elif menu_admin == "📦 Entrada de Estoque (Compras)":
+        st.subheader("📦 Entrada de Estoque (Compras)")
+        if "carrinho_compras" not in st.session_state:
+            st.session_state.carrinho_compras = []
+
+        produtos_opt = carregar_coluna("produtos", "produto") or ["ABACATE", "AMEIXA IMPORTADA"]
+        fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
+        grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
+        unidades_opt = ["KG", "CAIXA", "UNIDADE", "METRO", "LITRO", "PACOTE", "SACO", "GRAMAS"]
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            prod_compra = st.selectbox("Selecione o Produto", produtos_opt, key="prod_compra_sel")
+            forn_compra = st.selectbox("Fornecedor", fornecedores_opt, key="forn_compra_sel")
+        with col2:
+            grp_compra = st.selectbox("Grupo", grupos_opt, key="grp_compra_sel")
+            unidade_medida = st.selectbox("Unidade de Medida", unidades_opt, key="unidade_medida_sel")
+        with col3:
+            qtd_compra = st.number_input("Quantidade", min_value=0.01, value=6.0, key="qtd_compra_num")
+            pr_compra = st.number_input("Preço Compra Unitário (R$)", min_value=0.0, value=90.0, format="%.2f", key="pr_compra_form")
+
+        if 'margem_perc' not in st.session_state:
+            st.session_state.margem_perc = 30.0
+        if 'preco_venda' not in st.session_state:
+            st.session_state.preco_venda = pr_compra * (1 + (st.session_state.margem_perc / 100))
+        if 'ultimo_preco_compra' not in st.session_state:
+            st.session_state.ultimo_preco_compra = pr_compra
+
+        if pr_compra != st.session_state.ultimo_preco_compra:
+            st.session_state.ultimo_preco_compra = pr_compra
+            st.session_state.preco_venda = pr_compra * (1 + (st.session_state.margem_perc / 100))
+
+        def atualizar_por_margem():
+            m = st.session_state.widget_margem
+            st.session_state.margem_perc = m
+            st.session_state.preco_venda = pr_compra * (1 + (m / 100))
+
+        def atualizar_por_preco():
+            v = st.session_state.widget_venda
+            st.session_state.preco_venda = v
+            if pr_compra > 0:
+                st.session_state.margem_perc = ((v - pr_compra) / pr_compra) * 100
+
+        col_m1, col_m2 = st.columns(2)
+        with col_m1:
+            st.number_input("Margem de Lucro (%)", value=float(st.session_state.margem_perc), format="%.2f", key="widget_margem", on_change=atualizar_por_margem)
+        with col_m2:
+            st.number_input("Preço Venda Unitário (R$)", min_value=0.0, value=float(st.session_state.preco_venda), format="%.2f", key="widget_venda", on_change=atualizar_por_preco)
+
+        st.success(f"🟢 Preço de Venda Ativo: **R$ {st.session_state.preco_venda:,.2f}** | Margem Atual: **{st.session_state.margem_perc:,.2f}%**")
+
+        if st.button("🛒 Adicionar ao Carrinho de Compras", type="primary", use_container_width=True):
+            st.session_state.carrinho_compras.append({
+                "produto": prod_compra, "grupo": grp_compra, "fornecedor": forn_compra,
+                "unidade": unidade_medida, "quantidade": qtd_compra, "valor_compra": pr_compra, "valor_venda": st.session_state.preco_venda
+            })
+            st.success(f"✅ '{prod_compra}' adicionado ao carrinho!")
+            st.rerun()
+
+        if st.session_state.carrinho_compras:
+            st.markdown("### 📋 Itens no Carrinho de Compras")
+            df_carrinho_compras = pd.DataFrame(st.session_state.carrinho_compras)
+            st.dataframe(df_carrinho_compras, use_container_width=True)
+
+            if st.button("💾 Finalizar Todas as Entradas", type="primary", use_container_width=True):
+                cursor = conn.cursor()
+                for item in st.session_state.carrinho_compras:
+                    cursor.execute("SELECT id FROM produtos WHERE produto = ?", (item['produto'],))
+                    if cursor.fetchone():
+                        cursor.execute("""
+                            UPDATE produtos 
+                            SET quantidade = quantidade + ?, valor_compra = ?, valor_venda = ?, grupo = ?, fornecedor = ?, unidade = ?
+                            WHERE produto = ?
+                        """, (item['quantidade'], item['valor_compra'], item['valor_venda'], item['grupo'], item['fornecedor'], item['unidade'], item['produto']))
+                    else:
+                        cursor.execute("""
+                            INSERT INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda, unidade) 
+                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                        """, (item['produto'], item['grupo'], item['fornecedor'], item['quantidade'], item['valor_compra'], item['valor_venda'], item['unidade']))
+                conn.commit()
+                st.session_state.carrinho_compras = []
+                st.success("✅ Estoque atualizado com sucesso!")
+                st.rerun()
+
+    # -------------------------------------------------------------
+    # 5. CADASTROS
+    # -------------------------------------------------------------
+    elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
+        st.subheader("👥 Cadastros (Clientes / Fornecedores / Grupos)")
+        tab_cli, tab_forn, tab_grup = st.tabs(["👤 Clientes", "🏢 Fornecedores", "🏷️ Grupos"])
+
+        with tab_cli:
+            with st.form("form_cad_cli"):
+                n_cli = st.text_input("Nome do Cliente")
+                t_cli = st.text_input("Telefone")
+                if st.form_submit_button("Salvar Cliente"):
+                    if n_cli.strip():
+                        salvar_cliente_completo(n_cli, t_cli, "", "", "")
+                        st.success("Cliente cadastrado com sucesso!")
+                        st.rerun()
+            st.dataframe(carregar_dados("SELECT * FROM clientes"), use_container_width=True)
+
+        with tab_forn:
+            with st.form("form_cad_forn"):
+                n_forn = st.text_input("Nome do Fornecedor")
+                if st.form_submit_button("Salvar Fornecedor"):
+                    salvar_simples("fornecedores", "fornecedor", n_forn.upper())
+                    st.success("Fornecedor cadastrado com sucesso!")
+                    st.rerun()
+            st.dataframe(carregar_dados("SELECT * FROM fornecedores"), use_container_width=True)
+
+        with tab_grup:
+            with st.form("form_cad_grup"):
+                n_grup = st.text_input("Nome do Grupo")
+                if st.form_submit_button("Salvar Grupo"):
+                    salvar_simples("grupos", "grupo", n_grup.upper())
+                    st.success("Grupo cadastrado com sucesso!")
+                    st.rerun()
+            st.dataframe(carregar_dados("SELECT * FROM grupos"), use_container_width=True)
+
+    # -------------------------------------------------------------
+    # 6. ESTOQUE DE PRODUTOS
     # -------------------------------------------------------------
     elif menu_admin == "📦 Estoque de Produtos":
         st.subheader("📦 Estoque de Produtos e Promoções")
-        
         tab_estoque_geral, tab_deposito_promo = st.tabs(["📋 Estoque Geral", "🏷️ Depósito / Produtos para Promoção"])
         
         with tab_estoque_geral:
             st.markdown("### 📋 Produtos no Estoque Geral")
             df_prods = carregar_dados("SELECT * FROM produtos")
-            
             if not df_prods.empty:
-                df_exib_est = pd.DataFrame()
-                df_exib_est['ID'] = df_prods['id']
-                df_exib_est['Código'] = df_prods['codigo']
-                df_exib_est['Produto'] = df_prods['produto']
-                df_exib_est['Qtd. Estoque'] = df_prods['quantidade']
-                df_exib_est['Preço Compra (R$)'] = df_prods['valor_compra'].apply(lambda x: f"R$ {float(x):,.2f}" if pd.notnull(x) and str(x).strip() != '' else "R$ 0,00")
-                df_exib_est['Preço Venda (R$)'] = df_prods['valor_venda'].apply(lambda x: f"R$ {float(x):,.2f}" if pd.notnull(x) and str(x).strip() != '' else "R$ 0,00")
-                df_exib_est['Grupo'] = df_prods['grupo']
-                df_exib_est['Fornecedor'] = df_prods['fornecedor']
-                
-                st.dataframe(df_exib_est, use_container_width=True)
-
-                st.markdown("---")
-                st.markdown("### 🛠️ Editar ou Excluir Produto do Estoque")
-                
-                df_prods['label_prod'] = df_prods['id'].astype(str) + " - " + df_prods['produto'].astype(str)
-                lista_prods_edit = df_prods['label_prod'].tolist()
-                
-                prod_selecionado_est = st.selectbox("Selecione o Produto para Gerenciar:", lista_prods_edit, key="select_prod_gerenciar_est")
-                p_row_est = df_prods[df_prods['label_prod'] == prod_selecionado_est].iloc[0]
-                id_prod_atual = int(p_row_est['id'])
-
-                with st.form("form_editar_produto_estoque"):
-                    col_e1, col_e2, col_e3 = st.columns(3)
-                    with col_e1:
-                        ed_codigo = st.text_input("Código / Código de Barras", value=str(p_row_est.get('codigo', '') or ''))
-                        ed_produto = st.text_input("Nome do Produto", value=str(p_row_est.get('produto', '') or ''))
-                    with col_e2:
-                        ed_qtd = st.number_input("Quantidade em Estoque", value=float(p_row_est.get('quantidade', 0) or 0), step=1.0)
-                        ed_pr_compra = st.number_input("Preço de Compra (R$)", value=float(p_row_est.get('valor_compra', 0.0) or 0.0), format="%.2f")
-                    with col_e3:
-                        ed_pr_venda = st.number_input("Preço de Venda (R$)", value=float(p_row_est.get('valor_venda', 0.0) or 0.0), format="%.2f")
-                        ed_grupo = st.selectbox("Grupo", carregar_coluna("grupos", "grupo") or ["GERAL"], index=0)
-
-                    col_btn_est1, col_btn_est2 = st.columns(2)
-                    with col_btn_est1:
-                        btn_salvar_prod = st.form_submit_button("✏️ Salvar Alterações", type="primary", use_container_width=True)
-                    with col_btn_est2:
-                        btn_excluir_prod = st.form_submit_button("🗑️ Excluir Produto", use_container_width=True)
-
-                    if btn_salvar_prod:
-                        try:
-                            cursor = conn.cursor()
-                            cursor.execute("""
-                                UPDATE produtos 
-                                SET codigo = ?, produto = ?, quantidade = ?, valor_compra = ?, valor_venda = ?, grupo = ?
-                                WHERE id = ?
-                            """, (ed_codigo.strip(), ed_produto.strip().upper(), ed_qtd, ed_pr_compra, ed_pr_venda, ed_grupo, id_prod_atual))
-                            conn.commit()
-                            st.success(f"✅ Produto '{ed_produto}' atualizado com sucesso!")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"❌ Erro ao atualizar produto: {e}")
-
-                    if btn_excluir_prod:
-                        try:
-                            cursor = conn.cursor()
-                            cursor.execute("DELETE FROM produtos WHERE id = ?", (id_prod_atual,))
-                            conn.commit()
-                            st.success(f"🗑️ Produto removido com sucesso!")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"❌ Erro ao excluir produto: {e}")
+                st.dataframe(df_prods, use_container_width=True)
             else:
                 st.info("ℹ️ Nenhum produto cadastrado no estoque geral.")
 
@@ -520,4 +670,4 @@ else:
             if not df_promo.empty:
                 st.dataframe(df_promo, use_container_width=True)
             else:
-                st.info("ℹ️ Nenhum produto promocional registado no momento.")
+                st.info("ℹ️ Nenhum produto promocional registado.")
