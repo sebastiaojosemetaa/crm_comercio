@@ -15,11 +15,11 @@ import uuid
 import string
 import unicodedata
 
---- CONFIGURAÇÃO DA PÁGINA ---
+# --- CONFIGURAÇÃO DA PÁGINA ---
 
 st.set_page_config(page_title="CRM Comércio - REY DA CEBOLA", layout="wide", page_icon="🛍️")
 
---- CONEXÃO E FUNÇÕES DE SUPORTE ---
+# --- CONEXÃO E FUNÇÕES DE SUPORTE ---
 
 def get_connection():
 return sqlite3.connect("crm_comercio.db", check_same_thread=False)
@@ -231,7 +231,7 @@ except Exception as e:
 
 adequar_banco_e_migrar()
 
---- DISPOSITIVO E IDENTIFICADOR ÚNICO REAL POR APARELHO ---
+# --- DISPOSITIVO E IDENTIFICADOR ÚNICO REAL POR APARELHO ---
 
 if "device_id" not in st.query_params or not st.query_params["device_id"]:
 st.query_params["device_id"] = str(uuid.uuid4())
@@ -258,7 +258,7 @@ st.session_state["dispositivo_ativado"] = dispositivo_esta_ativado
 st.session_state["dias_licenca"] = dias_licenca_atual
 st.session_state["limite_dispositivos"] = limite_dispositivos_atual
 
---- OUTROS ESTADOS DE SESSÃO ---
+# --- OUTROS ESTADOS DE SESSÃO ---
 
 if 'autenticado' not in st.session_state:
 st.session_state['autenticado'] = False
@@ -284,7 +284,7 @@ st.session_state.carrinho_cliente = []
 if 'tela_checkout_ativa' not in st.session_state:
 st.session_state.tela_checkout_ativa = False
 
---- ESTILO VISUAL METÁLICO ---
+# --- ESTILO VISUAL METÁLICO ---
 
 st.markdown("""
 
