@@ -1095,6 +1095,276 @@ else:
                 n_cli = st.text_input("Nome do Cliente")
                 t_cli = st.text_input("Telefone")
     # -------------------------------------------------------------
+    # 6. MÓDULO RH (RECURSOS HUMANOS)
+    # -------------------------------------------------------------
+    elif menu_admin == "👥 Gestão de Recursos Humanos (RH)":
+        st.subheader("👥 Gestão de Recursos Humanos (RH)")
+        aba_colab, aba_pag = st.tabs(["👥 Colaboradores", "💸 Registar Pagamentos / Vales"])
+
+        with aba_colab:
+            sub_tab_cad, sub_tab_ger = st.tabs(["➕ Cadastrar Novo Colaborador", "🛠️ Editar / Excluir Colaboradores"])
+
+            with sub_tab_cad:
+                with st.form("form_cad_func"):
+                    n_func = st.text_input("Nome Completo")
+                    c_func = st.text_input("Cargo")
+                    s_func = st.number_input("Salário Base (R$)", value=1412.00)
+                    if st.form_submit_button("Salvar Colaborador", type="primary"):
+                        if n_func.strip():
+                            cursor = conn.cursor()
+                            cursor.execute("INSERT INTO funcionarios (nome, cargo, salario) VALUES (?, ?, ?)", (n_func, c_func, s_func))
+                            conn.commit()
+                            st.success("Colaborador cadastrado com sucesso!")
+                            st.rerun()
+                        else:
+                            st.error("Preencha o nome do colaborador.")
+
+                st.markdown("### 📋 Colaboradores Cadastrados")
+                st.dataframe(carregar_dados("SELECT * FROM funcionarios"), use_container_width=True)
+
+            with sub_tab_ger:
+                st.markdown("### 📋 Selecione um Colaborador para Editar ou Excluir")
+                df_funcs_all = carregar_dados("SELECT * FROM funcionarios")
+                if not df_funcs_all.empty:
+                    df_funcs_all['label'] = df_funcs_all['id'].astype(str) + " - " + df_funcs_all['nome'] + " (" + df_funcs_all['cargo'] + ")"
+                    lista_labels = df_funcs_all['label'].tolist()
+                    
+                    colab_selecionado_edit = st.selectbox("Selecione o Colaborador", lista_labels, key="sel_colab_edit_key")
+                    
+                    f_row = df_funcs_all[df_funcs_all['label'] == colab_selecionado_edit].iloc[0]
+                    
+                    with st.form("form_edit_colaborador"):
+                        ed_nome_f = st.text_input("Nome Completo", value=str(f_row.get('nome', '')))
+                        ed_cargo_f = st.text_input("Cargo", value=str(f_row.get('cargo', '')))
+                        ed_salario_f = st.number_input("Salário Base (R$)", value=float(f_row.get('salario', 1412.00)), format="%.2f")
+
+                        col_btn_f1, col_btn_f2 = st.columns(2)
+                        with col_btn_f1:
+                            btn_salvar_alt_f = st.form_submit_button("✏️ Salvar / Alterar Colaborador", type="primary")
+                        with col_btn_f2:
+                            btn_excluir_f = st.form_submit_button("🗑️ Excluir Colaborador")
+
+                        if btn_salvar_alt_f:
+                            try:
+                                cursor = conn.cursor()
+                                cursor.execute("""
+                                    UPDATE funcionarios SET nome = ?, cargo = ?, salario = ? WHERE id = ?
+                                """, (ed_nome_f, ed_cargo_f, ed_salario_f, int(f_row['id'])))
+                                conn.commit()
+                                st.success("✅ Colaborador atualizado com sucesso!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao atualizar colaborador: {e}")
+
+                        if btn_excluir_f:
+                            try:
+                                cursor = conn.cursor()
+                                cursor.execute("DELETE FROM funcionarios WHERE id = ?", (int(f_row['id']),))
+                                conn.commit()
+                                st.success("🗑️ Colaborador excluído com sucesso!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao excluir colaborador: {e}")
+                else:
+                    st.info("Nenhum colaborador cadastrado.")
+
+        with aba_pag:
+            funcs = carregar_coluna("funcionarios", "nome")
+            if funcs:
+                colab_sel = st.selectbox("Colaborador", funcs)
+                val_pag = st.number_input("Valor Pagamento (R$)", min_value=0.0)
+                if st.button("Registar Pagamento"):
+                    cursor = conn.cursor()
+                    cursor.execute("INSERT INTO pagamentos_funcionarios (colaborador, valor, data_pagamento) VALUES (?, ?, ?)",
+                                   (colab_sel, val_pag, datetime.now().strftime("%Y-%m-%d")))
+                    conn.commit()
+                    st.success("Pagamento efetuado com sucesso!")
+                    st.rerun()
+    # -------------------------------------------------------------
+    # 7. GESTÃO DE UTILIZADORES E LOGINS
+    # -------------------------------------------------------------
+    elif menu_admin == "🔐 Gestão de Utilizadores e Logins":
+        st.subheader("🔐 Gestão de Logins e Permissões de Acesso aos Menus")
+        
+        tab_novo_usr, tab_ger_usr = st.tabs(["➕ Cadastrar Novo Utilizador", "🛠️ Editar / Excluir Utilizadores"])
+
+        with tab_novo_usr:
+            with st.form("form_cad_usuario_novo"):
+                st.markdown("### Preencha os dados do novo funcionário")
+                col_u1, col_u2 = st.columns(2)
+                with col_u1:
+                    nome_usuario = st.text_input("Nome Completo do Funcionário")
+                    login_usuario = st.text_input("Login de Acesso (ex: joao.silva)")
+                with col_u2:
+                    senha_usuario = st.text_input("Senha de Acesso", type="password")
+                    cargo_usuario = st.selectbox("Cargo / Nível", ["Vendedor", "Caixa", "Gerente", "Administrador"])
+
+                st.markdown("#### 🎯 Permissões de Acesso (Menus Laterais)")
+                col_p1, col_p2, col_p3 = st.columns(3)
+                with col_p1:
+                    p_pdv = st.checkbox("🛒 PDV — Frente de Caixa", value=True)
+                    p_fin = st.checkbox("📊 Fechamento & Financeiro", value=False)
+                    p_reg_v = st.checkbox("🛒 Registrar Venda", value=True)
+                    p_comp = st.checkbox("📦 Entrada de Estoque", value=False)
+                with col_p2:
+                    p_cad = st.checkbox("👥 Cadastros (Clientes/Forn)", value=True)
+                    p_rh = st.checkbox("👥 Recursos Humanos (RH)", value=False)
+                    p_usr = st.checkbox("🔐 Gestão de Utilizadores", value=False)
+                    p_bkp = st.checkbox("💾 Backup e Restauração", value=False)
+                with col_p3:
+                    p_cr = st.checkbox("💸 Contas a Receber", value=True)
+                    p_est = st.checkbox("📦 Estoque de Produtos", value=True)
+                    p_cfg = st.checkbox("🏢 Configurações Empresa", value=False)
+
+                if st.form_submit_button("💾 Salvar Novo Utilizador", type="primary"):
+                    if not login_usuario.strip() or not senha_usuario.strip():
+                        st.error("Preencha o login e a senha.")
+                    else:
+                        try:
+                            cursor = conn.cursor()
+                            cursor.execute("""
+                                INSERT INTO usuarios (
+                                    usuario, login, senha, cargo, 
+                                    perm_pdv, perm_financeiro, perm_registrar_venda, perm_compras, 
+                                    perm_cadastros, perm_rh, perm_usuarios, perm_backup, 
+                                    perm_contas_receber, perm_estoque, perm_configuracoes
+                                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            """, (
+                                nome_usuario, login_usuario.strip().lower(), senha_usuario, cargo_usuario,
+                                1 if p_pdv else 0, 1 if p_fin else 0, 1 if p_reg_v else 0, 1 if p_comp else 0,
+                                1 if p_cad else 0, 1 if p_rh else 0, 1 if p_usr else 0, 1 if p_bkp else 0,
+                                1 if p_cr else 0, 1 if p_est else 0, 1 if p_cfg else 0
+                            ))
+                            conn.commit()
+                            st.success(f"✅ Utilizador '{login_usuario}' criado com sucesso!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro ao salvar utilizador (talvez o login já exista): {e}")
+
+        with tab_ger_usr:
+            st.markdown("### 📋 Selecione um Utilizador para Editar ou Excluir")
+            df_users_all = carregar_dados("SELECT * FROM usuarios")
+            if not df_users_all.empty:
+                lista_logins = df_users_all['login'].tolist()
+                user_selecionado_edit = st.selectbox("Selecione o Login do Utilizador", lista_logins, key="sel_user_edit_key")
+                
+                u_row = df_users_all[df_users_all['login'] == user_selecionado_edit].iloc[0]
+                
+                with st.form("form_edit_usuario"):
+                    ed_nome = st.text_input("Nome Completo", value=str(u_row.get('usuario', '')))
+                    ed_login = st.text_input("Login de Acesso", value=str(u_row.get('login', '')))
+                    ed_senha = st.text_input("Nova Senha (ou mantenha a atual)", value=str(u_row.get('senha', '')))
+                    ed_cargo = st.selectbox("Cargo", ["Vendedor", "Caixa", "Gerente", "Administrador"], index=["Vendedor", "Caixa", "Gerente", "Administrador"].index(str(u_row.get('cargo', 'Vendedor'))) if str(u_row.get('cargo', 'Vendedor')) in ["Vendedor", "Caixa", "Gerente", "Administrador"] else 0)
+
+                    st.markdown("#### 🎯 Atualizar Permissões de Acesso")
+                    ep_pdv = st.checkbox("🛒 PDV — Frente de Caixa", value=bool(u_row.get('perm_pdv', 1)))
+                    ep_fin = st.checkbox("📊 Fechamento & Financeiro", value=bool(u_row.get('perm_financeiro', 0)))
+                    ep_reg_v = st.checkbox("🛒 Registrar Venda", value=bool(u_row.get('perm_registrar_venda', 1)))
+                    ep_comp = st.checkbox("📦 Entrada de Estoque", value=bool(u_row.get('perm_compras', 0)))
+                    ep_cad = st.checkbox("👥 Cadastros (Clientes/Forn)", value=bool(u_row.get('perm_cadastros', 1)))
+                    ep_rh = st.checkbox("👥 Recursos Humanos (RH)", value=bool(u_row.get('perm_rh', 0)))
+                    ep_usr = st.checkbox("🔐 Gestão de Utilizadores", value=bool(u_row.get('perm_usuarios', 0)))
+                    ep_bkp = st.checkbox("💾 Backup e Restauração", value=bool(u_row.get('perm_backup', 0)))
+                    ep_cr = st.checkbox("💸 Contas a Receber", value=bool(u_row.get('perm_contas_receber', 1)))
+                    ep_est = st.checkbox("📦 Estoque de Produtos", value=bool(u_row.get('perm_estoque', 1)))
+                    ep_cfg = st.checkbox("🏢 Configurações Empresa", value=bool(u_row.get('perm_configuracoes', 0)))
+
+                    col_btn_ed1, col_btn_ed2 = st.columns(2)
+                    with col_btn_ed1:
+                        btn_salvar_alt = st.form_submit_button("✏️ Salvar / Alterar Utilizador", type="primary")
+                    with col_btn_ed2:
+                        btn_excluir_usr = st.form_submit_button("🗑️ Excluir Utilizador")
+
+                    if btn_salvar_alt:
+                        try:
+                            cursor = conn.cursor()
+                            cursor.execute("""
+                                UPDATE usuarios SET 
+                                    usuario = ?, login = ?, senha = ?, cargo = ?,
+                                    perm_pdv = ?, perm_financeiro = ?, perm_registrar_venda = ?, perm_compras = ?,
+                                    perm_cadastros = ?, perm_rh = ?, perm_usuarios = ?, perm_backup = ?,
+                                    perm_contas_receber = ?, perm_estoque = ?, perm_configuracoes = ?
+                                WHERE id = ?
+                            """, (
+                                ed_nome, ed_login.strip().lower(), ed_senha, ed_cargo,
+                                1 if ep_pdv else 0, 1 if ep_fin else 0, 1 if ep_reg_v else 0, 1 if ep_comp else 0,
+                                1 if ep_cad else 0, 1 if ep_rh else 0, 1 if ep_usr else 0, 1 if ep_bkp else 0,
+                                1 if ep_cr else 0, 1 if ep_est else 0, 1 if ep_cfg else 0, int(u_row['id'])
+                            ))
+                            conn.commit()
+                            st.success("✅ Utilizador atualizado com sucesso!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro ao atualizar utilizador: {e}")
+
+                    if btn_excluir_usr:
+                        if ed_login.strip().lower() == "administrador":
+                            st.error("❌ Não é permitido excluir o administrador principal do sistema.")
+                        else:
+                            try:
+                                cursor = conn.cursor()
+                                cursor.execute("DELETE FROM usuarios WHERE id = ?", (int(u_row['id']),))
+                                conn.commit()
+                                st.success("🗑️ Utilizador excluído com sucesso!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao excluir utilizador: {e}")
+            else:
+                st.info("Nenhum utilizador cadastrado além do administrador padrão.")
+    # -------------------------------------------------------------
+    # 8. BACKUP E RESTAURAÇÃO
+    # -------------------------------------------------------------
+    elif menu_admin == "💾 Backup e Restauração":
+        st.subheader("💾 Central de Backup e Restauração")
+        
+        tab_bkp_down, tab_bkp_up = st.tabs(["📥 Baixar Backup", "📤 Restaurar Backup"])
+
+        with tab_bkp_down:
+            st.markdown("### 📥 Fazer Backup dos Dados Atualizados")
+            st.info("Descarregue o ficheiro de cópia de segurança para guardar uma cópia do seu banco de dados.")
+            try:
+                with open("crm_comercio.db", "rb") as f:
+                    bytes_db = f.read()
+                st.download_button(
+                    label="📥 Baixar Arquivo de Backup (.db)",
+                    data=bytes_db,
+                    file_name=f"backup_crm_{datetime.now().strftime('%Y-%m-%d')}.db",
+                    mime="application/octet-stream",
+                    type="primary"
+                )
+            except Exception as e:
+                st.warning(f"Erro ao localizar o banco de dados: {e}")
+
+        with tab_bkp_up:
+            st.markdown("### 📤 Restaurar Ficheiro de Backup (.db)")
+            st.warning("⚠️ **ATENÇÃO:** A restauração irá substituir todos os dados atuais pelo conteúdo do ficheiro de backup selecionado.")
+            
+            uploaded_db = st.file_uploader("Selecione o ficheiro de backup (.db)", type=["db"])
+            
+            if uploaded_db is not None:
+                if st.button("🔴 Confirmar e Restaurar Backup Agora", type="primary"):
+                    try:
+                        conn.close()
+                        with open("crm_comercio.db", "wb") as f:
+                            f.write(uploaded_db.getbuffer())
+                        
+                        conn = get_connection()
+                        st.success("🎉 Backup restaurado com sucesso! Recarregando o sistema...")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Erro ao restaurar o banco de dados: {e}")
+    # -------------------------------------------------------------
+    # 9. CONTAS A RECEBER
+    # -------------------------------------------------------------
+    elif menu_admin == "💸 Contas a Receber":
+        st.subheader("💸 Contas a Receber")
+        df_pedidos_pendentes = carregar_dados("SELECT * FROM pedidos WHERE status = 'Pendente'")
+        if not df_pedidos_pendentes.empty:
+            st.dataframe(df_pedidos_pendentes, use_container_width=True)
+            st.metric("Total Pendente a Receber", f"R$ {df_pedidos_pendentes['valor_total'].sum():,.2f}")
+        else:
+            st.info("Nenhuma conta pendente a receber no momento.")
+    # -------------------------------------------------------------
     # 10. ESTOQUE E PROMOÇÕES
     # -------------------------------------------------------------
     elif menu_admin == "📦 Estoque de Produtos":
