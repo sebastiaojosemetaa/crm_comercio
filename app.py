@@ -474,28 +474,18 @@ else:
             df_prod_pdv = pd.DataFrame()
 
         def obter_dados_produto(nome_prod):
-            try:
-                df_prod_pdv = pd.read_sql_query("SELECT * FROM produtos", conn)
-                if not df_prod_pdv.empty and 'produto' in df_prod_pdv.columns:
-                    match = df_prod_pdv[df_prod_pdv['produto'] == nome_prod]
-                    if not match.empty:
-                        p_row = match.iloc[0]
-                        val_v = float(p_row.get('valor_venda', 0.0) or p_row.get('venda', 0.0) or 0.0)
-                        cod_prod = str(p_row.get('codigo', ''))
-                        return val_v, str(p_row.get('fornecedor', '')), str(p_row.get('grupo', '')), cod_prod
-            except Exception:
-                pass
+            if not df_prod_pdv.empty and nome_prod in lista_produtos_pdv:
+                p_row = df_prod_pdv[df_prod_pdv['produto'] == nome_prod].iloc[0]
+                val_v = float(p_row.get('valor_venda', 0.0) or p_row.get('venda', 0.0) or 0.0)
+                cod_prod = str(p_row.get('codigo', ''))
+                return val_v, str(p_row.get('fornecedor', '')), str(p_row.get('grupo', '')), cod_prod
             return 0.0, "", "", ""
-        
+
         def obter_produto_por_codigo(cod):
-            try:
-                df_prod_pdv = pd.read_sql_query("SELECT * FROM produtos", conn)
-                if not df_prod_pdv.empty and 'codigo' in df_prod_pdv.columns:
-                    match = df_prod_pdv[df_prod_pdv['codigo'].astype(str).str.strip() == str(cod).strip()]
-                    if not match.empty:
-                        return str(match.iloc[0]['produto'])
-            except Exception:
-                pass
+            if not df_prod_pdv.empty and 'codigo' in df_prod_pdv.columns:
+                match = df_prod_pdv[df_prod_pdv['codigo'].astype(str).str.strip() == str(cod).strip()]
+                if not match.empty:
+                    return str(match.iloc[0]['produto'])
             return ""
 
         total_geral_carrinho = sum(item['valor_total'] for item in st.session_state.carrinho_pdv) if st.session_state.carrinho_pdv else 0.0
@@ -703,15 +693,8 @@ else:
                                 data_venda, 
                                 vendedor_atual
                             ))
-                    
-                            # 1. DÁ A BAIXA NO ESTOQUE GERAL (Subtrai a quantidade vendida do produto)
-                            cursor.execute("""
-                                UPDATE produtos 
-                                SET quantidade = quantidade - ? 
-                                WHERE UPPER(TRIM(produto)) = UPPER(TRIM(?))
-                            """, (item['quantidade'], item['produto']))
-                    
-                            # 2. Baixa no estoque promocional se pertencer à promoção
+
+                            # Baixa no estoque promocional se pertencer à promoção
                             if item.get('grupo') == "PROMOÇÃO":
                                 cursor.execute("""
                                     UPDATE produtos_promocao 
@@ -925,7 +908,7 @@ else:
                 st.info("ℹ️ Nenhum caixa fechado registado no histórico até o momento.")
 
     # -------------------------------------------------------------
-    # MÓDULO REGISTRAR VENDA (VENDA BALCÃO / CARRINHO)
+    # 3. MÓDULO REGISTRAR VENDA
     # -------------------------------------------------------------
     elif menu_admin == "🛒 Registrar Venda":
         st.subheader(f"🛒 Registrar Venda / Pedido — {nome_empresa_header} | 👤 Utilizador: {usr_exibicao}")
