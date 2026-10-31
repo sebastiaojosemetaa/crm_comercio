@@ -1018,10 +1018,18 @@ else:
 
             if st.button("🔴 Finalizar e Salvar Pedido", type="primary", use_container_width=True, key="btn_finalizar_reg_venda"):
                 try:
-                    # Abre uma conexão dedicada para esta transação com timeout
-                    with sqlite3.connect("seu_banco.db", timeout=30.0) as conexao_transacao:
+                    with sqlite3.connect("crm_comercio.db", timeout=30.0) as conexao_transacao:
                         cursor = conexao_transacao.cursor()
                         
+                        # Garante que todas as tabelas necessárias existem
+                        cursor.execute("""
+                            CREATE TABLE IF NOT EXISTS produtos (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                produto TEXT,
+                                quantidade REAL,
+                                valor_venda REAL
+                            )
+                        """)
                         cursor.execute("""
                             CREATE TABLE IF NOT EXISTS vendas_cabecalho (
                                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1068,6 +1076,7 @@ else:
                                 VALUES (?, ?, ?, ?, ?)
                             """, (venda_id_gerado, item['produto'], item['quantidade'], item['valor_unitario'], item['valor_total']))
                             
+                            # Atualiza o estoque com segurança
                             cursor.execute("""
                                 UPDATE produtos 
                                 SET quantidade = quantidade - ? 
