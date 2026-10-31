@@ -1084,10 +1084,10 @@ else:
             st.info("ℹ️ Nenhum item lançado no carrinho deste pedido ainda.")
 
         # -------------------------------------------------------------
-        # HISTÓRICO DE VENDAS (COM SELEÇÃO POR ID E CLIENTE)
+        # HISTÓRICO DE VENDAS (COM OPÇÃO DE EDITAR E EXCLUIR ITENS)
         # -------------------------------------------------------------
         st.markdown("---")
-        st.markdown("### 📋 Histórico de Vendas (Gerenciar / Ver Produtos)")
+        st.markdown("### 📋 Histórico de Vendas (Gerenciar / Editar / Excluir)")
         
         try:
             df_vendas_cab = carregar_dados("SELECT * FROM vendas_cabecalho ORDER BY id DESC")
@@ -1100,23 +1100,88 @@ else:
             df_vendas_cab['label_venda'] = "Venda #" + df_vendas_cab['id'].astype(str) + " - Cliente: " + df_vendas_cab['cliente'].astype(str) + " (" + df_vendas_cab['data'].astype(str) + ")"
             lista_vendas_edit = df_vendas_cab['label_venda'].tolist()
 
-            venda_selecionada_label = st.selectbox("Selecione a Venda para Visualizar os Produtos / Gerenciar:", lista_vendas_edit, key="select_venda_gerenciar")
+            venda_selecionada_label = st.selectbox("Selecione a Venda para Gerenciar:", lista_vendas_edit, key="select_venda_gerenciar")
 
             row_venda_sel = df_vendas_cab[df_vendas_cab['label_venda'] == venda_selecionada_label].iloc[0]
             id_venda_atual = int(row_venda_sel['id'])
 
-            # Carrega os produtos específicos desta venda selecionada
+            # Carrega os produtos desta venda selecionada
             df_itens_venda = carregar_dados(f"SELECT * FROM vendas_itens WHERE venda_id = {id_venda_atual}")
             
             st.markdown(f"#### 📦 Produtos da Venda #{id_venda_atual} ({row_venda_sel['cliente']})")
             if not df_itens_venda.empty:
-                st.dataframe(df_itens_venda[['produto', 'quantidade', 'valor_unitario', 'valor_total']], use_container_width=True)
+                st.dataframe(df_itens_venda[['id', 'produto', 'quantidade', 'valor_unitario', 'valor_total']], use_container_width=True)
+
+                # Seleciona um item específico da venda para editar ou remover
+                df_itens_venda['label_item'] = "Item #" + df_itens_venda['id'].astype(str) + " - " + df_itens_venda['produto'].astype(str) + " (Qtd: " + df_itens_venda['quantidade'].astype(str) + ")"
+                lista_itens_venda = df_itens_venda['label_item'].tolist()
+
+                item_selecionado_label = st.selectbox("Selecione um Produto específico desta Venda para Editar/Excluir:", lista_itens_venda, key="sel_item_venda_gerenciar")
+                
+                row_item_sel = df_itens_venda[df_itens_venda['label_item'] == item_selecionado_label].iloc[0]
+                id_item_atual = int(row_item_sel['id'])
+
+                with st.form("form_editar_item_venda"):
+                    st.markdown(f"**Editando Item:** {row_item_sel['produto']}")
+                    col_ed1, col_ed2 = st.columns(2)
+                    with col_ed1:
+                        novo_qtd_item = st.number_input("Quantidade", value=float(row_item_sel['quantidade']), min_value=0.01, step=1.0)
+                    with col_ed2:
+                        novo_val_item = st.number_input("Valor Unitário (R$)", value=float(row_item_sel['valor_unitario']), min_value=0.0, format="%.2f")
+
+                    col_b_ed1, col_b_ed2 = st.columns(2)
+                    with col_b_ed1:
+                        btn_salvar_item = st.form_submit_button("✏️ Salvar Alteração do Item", type="primary", use_container_width=True)
+                    with col_b_ed2:
+                        btn_excluir_item = st.form_submit_button("🗑️ Excluir Apenas Este Item", use_container_width=True)
+
+                    if btn_salvar_item:
+                        try:
+                            novo_total_item = novo_qtd_item * novo_val_item
+                            cursor = conn.cursor()
+                            cursor.execute("""
+                                UPDATE vendas_itens 
+                                SET quantidade = ?, valor_unitario = ?, valor_total = ?
+                                WHERE id = ?
+                            """, (novo_qtd_item, novo_val_item, novo_total_item, id_item_atual))
+                            
+                            # Atualiza o total geral na tabela cabeçalho
+                            cursor.execute("""
+                                UPDATE vendas_cabecalho 
+                                SET total = (SELECT SUM(valor_total) FROM vendas_itens WHERE venda_id = ?)
+                                WHERE id = ?
+                            """, (id_venda_atual, id_venda_atual))
+                            
+                            conn.commit()
+                            st.success("✅ Item da venda atualizado com sucesso!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ Erro ao atualizar item: {e}")
+
+                    if btn_excluir_item:
+                        try:
+                            cursor = conn.cursor()
+                            cursor.execute("DELETE FROM vendas_itens WHERE id = ?", (id_item_atual,))
+                            
+                            # Atualiza o total geral na tabela cabeçalho
+                            cursor.execute("""
+                                UPDATE vendas_cabecalho 
+                                SET total = COALESCE((SELECT SUM(valor_total) FROM vendas_itens WHERE venda_id = ?), 0)
+                                WHERE id = ?
+                            """, (id_venda_atual, id_venda_atual))
+                            
+                            conn.commit()
+                            st.success("🗑️ Item excluído da venda com sucesso!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ Erro ao excluir item: {e}")
             else:
                 st.info("Nenhum item encontrado para esta venda.")
 
+            st.markdown("---")
             with st.form("form_excluir_venda_completa"):
-                st.warning(f"⚠️ Atenção: Ao excluir a Venda #{id_venda_atual}, todos os registos associados serão removidos.")
-                if st.form_submit_button("🗑️ Excluir Venda Selecionada", type="primary", use_container_width=True):
+                st.warning(f"⚠️ Zona de Perigo: Excluir a **Venda #{id_venda_atual** inteira (todos os itens e registos associados).")
+                if st.form_submit_button("🗑️ Excluir Venda Completa", type="primary", use_container_width=True):
                     try:
                         cursor = conn.cursor()
                         cursor.execute("DELETE FROM vendas_itens WHERE venda_id = ?", (id_venda_atual,))
