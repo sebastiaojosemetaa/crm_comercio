@@ -909,7 +909,7 @@ else:
                 st.info("ℹ️ Nenhum caixa fechado registado no histórico até o momento.")
 
     # -------------------------------------------------------------
-    # 3. MÓDULO REGISTRAR VENDA / PEDIDOS (COM DATAS DE PARCELAS EDITÁVEIS)
+    # 3. MÓDULO REGISTRAR VENDA / PEDIDOS (HISTÓRICO AGRUPADO POR VENDA)
     # -------------------------------------------------------------
     elif menu_admin == "🛒 Registrar Venda":
         st.subheader(f"🛒 Registrar Venda / Pedido — {nome_empresa_header} | 👤 Utilizador: {usr_exibicao}")
@@ -992,9 +992,7 @@ else:
 
                 st.markdown("#### 📅 Datas de Vencimento das Parcelas (Editáveis)")
                 from datetime import timedelta
-                
                 for p_idx in range(int(num_parc_reg)):
-                    # Calcula 30 dias a mais para cada parcela subsequente a partir de hoje
                     data_sugerida = datetime.now().date() + timedelta(days=30 * (p_idx + 1))
                     data_venc = st.date_input(f"Vencimento da Parcela {p_idx + 1} / {num_parc_reg} (R$ {valor_cada_parc:.2f}):", value=data_sugerida, key=f"venc_parc_{p_idx}")
                     datas_vencimentos_parcelas.append(str(data_venc))
@@ -1008,21 +1006,26 @@ else:
                     try:
                         cursor = conn.cursor()
                         
+                        # Criação das tabelas se não existirem
                         cursor.execute("""
-                            CREATE TABLE IF NOT EXISTS pedidos (
+                            CREATE TABLE IF NOT EXISTS vendas_cabecalho (
                                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                                 cliente TEXT,
+                                forma_pagamento TEXT,
+                                data TEXT,
+                                total REAL
+                            )
+                        """)
+                        cursor.execute("""
+                            CREATE TABLE IF NOT EXISTS vendas_itens (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                venda_id INTEGER,
                                 produto TEXT,
                                 quantidade REAL,
                                 valor_unitario REAL,
-                                valor_total REAL,
-                                forma_pagamento TEXT,
-                                status TEXT,
-                                data TEXT
+                                valor_total REAL
                             )
                         """)
-                        
-                        # Tabela para contas a receber / parcelas
                         cursor.execute("""
                             CREATE TABLE IF NOT EXISTS contas_receber (
                                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1035,42 +1038,43 @@ else:
                         """)
                         conn.commit()
 
-                        try:
-                            cursor.execute("ALTER TABLE pedidos ADD COLUMN forma_pagamento TEXT")
-                            conn.commit()
-                        except Exception:
-                            pass
-
                         data_agora = f"{data_venda_input} " + datetime.now().strftime("%H:%M:%S")
                         
-                        # Salva cada item do carrinho nos pedidos
+                        # Salva o cabeçalho da venda
+                        cursor.execute("""
+                            INSERT INTO vendas_cabecalho (cliente, forma_pagamento, data, total)
+                            VALUES (?, ?, ?, ?)
+                        """, (cliente_ped, detalhes_pagto_reg, data_agora, total_carrinho_atual))
+                        
+                        venda_id_gerado = cursor.lastrowid
+
+                        # Salva os itens e dá baixa no estoque
                         for item in st.session_state.carrinho_cliente:
                             cursor.execute("""
-                                INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, forma_pagamento, status, data)
-                                VALUES (?, ?, ?, ?, ?, ?, 'Concluído', ?)
-                            """, (cliente_ped, item['produto'], item['quantidade'], item['valor_unitario'], item['valor_total'], detalhes_pagto_reg, data_agora))
+                                INSERT INTO vendas_itens (venda_id, produto, quantidade, valor_unitario, valor_total)
+                                VALUES (?, ?, ?, ?, ?)
+                            """, (venda_id_gerado, item['produto'], item['quantidade'], item['valor_unitario'], item['valor_total']))
                             
-                            # Baixa no estoque
                             cursor.execute("""
                                 UPDATE produtos 
                                 SET quantidade = quantidade - ? 
                                 WHERE UPPER(TRIM(produto)) = UPPER(TRIM(?))
                             """, (item['quantidade'], item['produto']))
 
-                        # Se for parcelado, grava cada parcela na tabela de contas a receber com sua data editada
+                        # Gera parcelas se for o caso
                         if forma_pagto_reg == "Parcelado" and datas_vencimentos_parcelas:
                             for idx_p, dt_v in enumerate(datas_vencimentos_parcelas):
                                 cursor.execute("""
                                     INSERT INTO contas_receber (cliente, valor, vencimento, status, descricao)
                                     VALUES (?, ?, ?, 'Pendente', ?)
-                                """, (cliente_ped, valor_cada_parc, dt_v, f"Parcela {idx_p+1}/{num_parc_reg} - Venda em {data_venda_input}"))
+                                """, (cliente_ped, valor_cada_parc, dt_v, f"Venda #{venda_id_gerado} - Parcela {idx_p+1}/{num_parc_reg}"))
 
                         conn.commit()
                         st.session_state.carrinho_cliente = []
-                        st.success("✅ Pedido gravado, parcelas geradas e estoque atualizado com sucesso!")
+                        st.success(f"✅ Venda #{venda_id_gerado} gravada com sucesso!")
                         st.rerun()
                     except Exception as e:
-                        st.error(f"❌ Erro ao gravar pedido: {e}")
+                        st.error(f"❌ Erro ao gravar venda: {e}")
 
             with col_btn_fin2:
                 if st.button("❌ Cancelar / Limpar Carrinho", use_container_width=True, key="btn_cancelar_pedido_atual"):
@@ -1080,68 +1084,50 @@ else:
             st.info("ℹ️ Nenhum item lançado no carrinho deste pedido ainda.")
 
         # -------------------------------------------------------------
-        # HISTÓRICO DE PEDIDOS COM OPÇÕES DE EDITAR / EXCLUIR
+        # HISTÓRICO DE VENDAS (COM SELEÇÃO POR ID E CLIENTE)
         # -------------------------------------------------------------
         st.markdown("---")
-        st.markdown("### 📋 Histórico de Pedidos Registrados (Editar / Excluir)")
+        st.markdown("### 📋 Histórico de Vendas (Gerenciar / Ver Produtos)")
         
         try:
-            df_pedidos_cad = carregar_dados("SELECT * FROM pedidos ORDER BY id DESC")
+            df_vendas_cab = carregar_dados("SELECT * FROM vendas_cabecalho ORDER BY id DESC")
         except Exception:
-            df_pedidos_cad = pd.DataFrame()
+            df_vendas_cab = pd.DataFrame()
 
-        if df_pedidos_cad is not None and not df_pedidos_cad.empty:
-            st.dataframe(df_pedidos_cad, use_container_width=True)
+        if df_vendas_cab is not None and not df_vendas_cab.empty:
+            st.dataframe(df_vendas_cab, use_container_width=True)
 
-            df_pedidos_cad['label_ped'] = df_pedidos_cad['id'].astype(str) + " - " + df_pedidos_cad['cliente'].astype(str) + " (" + df_pedidos_cad['produto'].astype(str) + ")"
-            lista_ped_edit = df_pedidos_cad['label_ped'].tolist()
+            df_vendas_cab['label_venda'] = "Venda #" + df_vendas_cab['id'].astype(str) + " - Cliente: " + df_vendas_cab['cliente'].astype(str) + " (" + df_vendas_cab['data'].astype(str) + ")"
+            lista_vendas_edit = df_vendas_cab['label_venda'].tolist()
 
-            ped_selecionado = st.selectbox("Selecione o Pedido para Gerenciar:", lista_ped_edit, key="select_pedido_gerenciar")
+            venda_selecionada_label = st.selectbox("Selecione a Venda para Visualizar os Produtos / Gerenciar:", lista_vendas_edit, key="select_venda_gerenciar")
 
-            p_row_ped = df_pedidos_cad[df_pedidos_cad['label_ped'] == ped_selecionado].iloc[0]
-            id_ped_atual = int(p_row_ped['id'])
+            row_venda_sel = df_vendas_cab[df_vendas_cab['label_venda'] == venda_selecionada_label].iloc[0]
+            id_venda_atual = int(row_venda_sel['id'])
 
-            with st.form("form_gerenciar_pedido"):
-                col_ep1, col_ep2 = st.columns(2)
-                with col_ep1:
-                    ed_cli_ped = st.text_input("Cliente", value=str(p_row_ped.get('cliente', '')))
-                    ed_prod_ped = st.text_input("Produto", value=str(p_row_ped.get('produto', '')))
-                with col_ep2:
-                    ed_qtd_ped = st.number_input("Quantidade", value=float(p_row_ped.get('quantidade', 1.0)), step=1.0)
-                    ed_val_ped = st.number_input("Valor Unitário (R$)", value=float(p_row_ped.get('valor_unitario', 0.0)), format="%.2f")
+            # Carrega os produtos específicos desta venda selecionada
+            df_itens_venda = carregar_dados(f"SELECT * FROM vendas_itens WHERE venda_id = {id_venda_atual}")
+            
+            st.markdown(f"#### 📦 Produtos da Venda #{id_venda_atual} ({row_venda_sel['cliente']})")
+            if not df_itens_venda.empty:
+                st.dataframe(df_itens_venda[['produto', 'quantidade', 'valor_unitario', 'valor_total']], use_container_width=True)
+            else:
+                st.info("Nenhum item encontrado para esta venda.")
 
-                col_btn_ped1, col_btn_ped2 = st.columns(2)
-                with col_btn_ped1:
-                    btn_alt_ped = st.form_submit_button("✏️ Salvar Alterações do Pedido", type="primary", use_container_width=True)
-                with col_btn_ped2:
-                    btn_del_ped = st.form_submit_button("🗑️ Excluir Pedido", type="primary", use_container_width=True)
-
-                if btn_alt_ped:
-                    try:
-                        novo_total = ed_qtd_ped * ed_val_ped
-                        cursor = conn.cursor()
-                        cursor.execute("""
-                            UPDATE pedidos 
-                            SET cliente = ?, produto = ?, quantidade = ?, valor_unitario = ?, valor_total = ?
-                            WHERE id = ?
-                        """, (ed_cli_ped.strip().upper(), ed_prod_ped.strip().upper(), ed_qtd_ped, ed_val_ped, novo_total, id_ped_atual))
-                        conn.commit()
-                        st.success("✅ Pedido atualizado com sucesso!")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"❌ Erro ao atualizar pedido: {e}")
-
-                if btn_del_ped:
+            with st.form("form_excluir_venda_completa"):
+                st.warning(f"⚠️ Atenção: Ao excluir a Venda #{id_venda_atual}, todos os registos associados serão removidos.")
+                if st.form_submit_button("🗑️ Excluir Venda Selecionada", type="primary", use_container_width=True):
                     try:
                         cursor = conn.cursor()
-                        cursor.execute("DELETE FROM pedidos WHERE id = ?", (id_ped_atual,))
+                        cursor.execute("DELETE FROM vendas_itens WHERE venda_id = ?", (id_venda_atual,))
+                        cursor.execute("DELETE FROM vendas_cabecalho WHERE id = ?", (id_venda_atual,))
                         conn.commit()
-                        st.success("🗑️ Pedido excluído com sucesso!")
+                        st.success(f"🗑️ Venda #{id_venda_atual} excluída com sucesso!")
                         st.rerun()
                     except Exception as e:
-                        st.error(f"❌ Excluir pedido erro: {e}")
+                        st.error(f"❌ Erro ao excluir venda: {e}")
         else:
-            st.info("ℹ️ Nenhum pedido registado até o momento.")
+            st.info("ℹ️ Nenhuma venda registada até o momento.")
 
     # -------------------------------------------------------------
     # 4. MÓDULO ENTRADA DE ESTOQUE (COMPRAS)
