@@ -909,7 +909,7 @@ else:
                 st.info("ℹ️ Nenhum caixa fechado registado no histórico até o momento.")
 
     # -------------------------------------------------------------
-    # 3. MÓDULO REGISTRAR VENDA / PEDIDOS (HISTÓRICO AGRUPADO POR VENDA)
+    # 3. MÓDULO REGISTRAR VENDA / PEDIDOS (TELA ÚNICA E DIVISÃO INTELIGENTE)
     # -------------------------------------------------------------
     elif menu_admin == "🛒 Registrar Venda":
         st.subheader(f"🛒 Registrar Venda / Pedido — {nome_empresa_header} | 👤 Utilizador: {usr_exibicao}")
@@ -938,6 +938,8 @@ else:
 
         st.markdown("---")
         
+        # 1. ADICIONAR ITENS AO CARRINHO (NOVA VENDA)
+        st.markdown("### ➕ Adicionar Produtos ao Pedido Atual")
         col_prod_r1, col_prod_r2, col_prod_r3 = st.columns([2, 1, 1])
         with col_prod_r1:
             prod_item = st.selectbox("Selecione o Produto", produtos_base, key="sel_prod_reg_venda")
@@ -953,7 +955,7 @@ else:
         with col_prod_r3:
             v_venda_ped = st.number_input("Preço Unitário (R$)", min_value=0.0, value=float(val_sugestao), format="%.2f", key=f"preco_unit_{prod_item}")
 
-        if st.button("➕ Incluir no Pedido", type="primary", use_container_width=True, key="btn_incluir_reg_venda"):
+        if st.button("➕ Incluir no Carrinho", type="primary", use_container_width=True, key="btn_incluir_reg_venda"):
             st.session_state.carrinho_cliente.append({
                 "produto": prod_item, "quantidade": qtd_ped, "valor_unitario": v_venda_ped, "valor_total": qtd_ped * v_venda_ped
             })
@@ -972,122 +974,11 @@ else:
                     st.success("Item removido do carrinho!")
                     st.rerun()
 
-            st.markdown("---")
-            st.markdown("### 💳 Pagamento e Finalização")
-            
-            forma_pagto_reg = st.selectbox(
-                "Forma de Pagamento / Condição", 
-                ["Dinheiro", "Pix", "Cartão Débito", "Cartão Crédito", "Fiado", "Parcelado"],
-                key="sel_forma_pagto_reg_venda"
-            )
-
-            total_carrinho_atual = sum(i['valor_total'] for i in st.session_state.carrinho_cliente)
-            detalhes_pagto_reg = forma_pagto_reg
-            datas_vencimentos_parcelas = []
-
-            if forma_pagto_reg == "Parcelado":
-                num_parc_reg = st.number_input("Quantidade de Parcelas:", min_value=2, max_value=24, value=2, step=1, key="num_parc_reg_venda")
-                valor_cada_parc = total_carrinho_atual / num_parc_reg
-                detalhes_pagto_reg = f"Parcelado ({num_parc_reg}x de R$ {valor_cada_parc:,.2f})"
-
-                st.markdown("#### 📅 Datas de Vencimento das Parcelas (Editáveis)")
-                from datetime import timedelta
-                for p_idx in range(int(num_parc_reg)):
-                    data_sugerida = datetime.now().date() + timedelta(days=30 * (p_idx + 1))
-                    data_venc = st.date_input(f"Vencimento da Parcela {p_idx + 1} / {num_parc_reg} (R$ {valor_cada_parc:.2f}):", value=data_sugerida, key=f"venc_parc_{p_idx}")
-                    datas_vencimentos_parcelas.append(str(data_venc))
-
-            elif forma_pagto_reg == "Fiado":
-                detalhes_pagto_reg = f"Fiado ({cliente_ped})"
-
-            col_btn_fin1, col_btn_fin2 = st.columns(2)
-            with col_btn_fin1:
-                if st.button("🔴 Finalizar e Salvar Pedido", type="primary", use_container_width=True, key="btn_finalizar_reg_venda"):
-                    try:
-                        cursor = conn.cursor()
-                        
-                        # Criação das tabelas se não existirem
-                        cursor.execute("""
-                            CREATE TABLE IF NOT EXISTS vendas_cabecalho (
-                                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                cliente TEXT,
-                                forma_pagamento TEXT,
-                                data TEXT,
-                                total REAL
-                            )
-                        """)
-                        cursor.execute("""
-                            CREATE TABLE IF NOT EXISTS vendas_itens (
-                                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                venda_id INTEGER,
-                                produto TEXT,
-                                quantidade REAL,
-                                valor_unitario REAL,
-                                valor_total REAL
-                            )
-                        """)
-                        cursor.execute("""
-                            CREATE TABLE IF NOT EXISTS contas_receber (
-                                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                cliente TEXT,
-                                valor REAL,
-                                vencimento TEXT,
-                                status TEXT,
-                                descricao TEXT
-                            )
-                        """)
-                        conn.commit()
-
-                        data_agora = f"{data_venda_input} " + datetime.now().strftime("%H:%M:%S")
-                        
-                        # Salva o cabeçalho da venda
-                        cursor.execute("""
-                            INSERT INTO vendas_cabecalho (cliente, forma_pagamento, data, total)
-                            VALUES (?, ?, ?, ?)
-                        """, (cliente_ped, detalhes_pagto_reg, data_agora, total_carrinho_atual))
-                        
-                        venda_id_gerado = cursor.lastrowid
-
-                        # Salva os itens e dá baixa no estoque
-                        for item in st.session_state.carrinho_cliente:
-                            cursor.execute("""
-                                INSERT INTO vendas_itens (venda_id, produto, quantidade, valor_unitario, valor_total)
-                                VALUES (?, ?, ?, ?, ?)
-                            """, (venda_id_gerado, item['produto'], item['quantidade'], item['valor_unitario'], item['valor_total']))
-                            
-                            cursor.execute("""
-                                UPDATE produtos 
-                                SET quantidade = quantidade - ? 
-                                WHERE UPPER(TRIM(produto)) = UPPER(TRIM(?))
-                            """, (item['quantidade'], item['produto']))
-
-                        # Gera parcelas se for o caso
-                        if forma_pagto_reg == "Parcelado" and datas_vencimentos_parcelas:
-                            for idx_p, dt_v in enumerate(datas_vencimentos_parcelas):
-                                cursor.execute("""
-                                    INSERT INTO contas_receber (cliente, valor, vencimento, status, descricao)
-                                    VALUES (?, ?, ?, 'Pendente', ?)
-                                """, (cliente_ped, valor_cada_parc, dt_v, f"Venda #{venda_id_gerado} - Parcela {idx_p+1}/{num_parc_reg}"))
-
-                        conn.commit()
-                        st.session_state.carrinho_cliente = []
-                        st.success(f"✅ Venda #{venda_id_gerado} gravada com sucesso!")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"❌ Erro ao gravar venda: {e}")
-
-            with col_btn_fin2:
-                if st.button("❌ Cancelar / Limpar Carrinho", use_container_width=True, key="btn_cancelar_pedido_atual"):
-                    st.session_state.carrinho_cliente = []
-                    st.rerun()
-        else:
-            st.info("ℹ️ Nenhum item lançado no carrinho deste pedido ainda.")
-
         # -------------------------------------------------------------
-        # HISTÓRICO DE VENDAS COMPLETO (EDIÇÃO TOTAL DE DADOS, ITENS E PARCELAS)
+        # HISTÓRICO DE VENDAS E PAINEL DE EDIÇÃO TOTAL NA MESMA TELA
         # -------------------------------------------------------------
         st.markdown("---")
-        st.markdown("### 📋 Histórico de Vendas (Painel de Edição Completa)")
+        st.markdown("### 📋 Histórico e Gestão de Vendas (Tela Única)")
         
         try:
             df_vendas_cab = carregar_dados("SELECT * FROM vendas_cabecalho ORDER BY id DESC")
@@ -1100,105 +991,121 @@ else:
             df_vendas_cab['label_venda'] = "Venda #" + df_vendas_cab['id'].astype(str) + " - " + df_vendas_cab['cliente'].astype(str) + " (" + df_vendas_cab['data'].astype(str) + ")"
             lista_vendas_edit = df_vendas_cab['label_venda'].tolist()
 
-            venda_selecionada_label = st.selectbox("🎯 Selecione a Venda para Editar Tudo:", lista_vendas_edit, key="select_venda_gerenciar_master")
+            venda_selecionada_label = st.selectbox("🎯 Selecione a Venda para Gerenciar / Editar:", lista_vendas_edit, key="select_venda_gerenciar_master")
 
             row_venda_sel = df_vendas_cab[df_vendas_cab['label_venda'] == venda_selecionada_label].iloc[0]
             id_venda_atual = int(row_venda_sel['id'])
 
+            st.markdown(f"---")
             st.markdown(f"## 🛠️ Editando Venda #{id_venda_atual}")
             
-            # --- SEÇÃO 1: CABEÇALHO DA VENDA ---
-            with st.expander("📌 1. Editar Dados Gerais da Venda (Cliente, Data e Pagamento)", expanded=True):
-                col_cab1, col_cab2, col_cab3 = st.columns(3)
-                with col_cab1:
-                    novo_cli_venda = st.text_input("Cliente", value=str(row_venda_sel.get('cliente', '')), key=f"edit_cli_v_{id_venda_atual}")
-                with col_cab2:
-                    try:
-                        data_val_dt = datetime.strptime(str(row_venda_sel.get('data', ''))[:10], "%Y-%m-%d")
-                    except Exception:
-                        data_val_dt = datetime.now()
-                    nova_data_venda = st.date_input("Data da Venda", value=data_val_dt, key=f"edit_data_v_{id_venda_atual}")
-                with col_cab3:
-                    nova_forma_pagto = st.selectbox(
-                        "Forma de Pagamento",
-                        ["Dinheiro", "Pix", "Cartão Débito", "Cartão Crédito", "Fiado", "Parcelado"],
-                        index=["Dinheiro", "Pix", "Cartão Débito", "Cartão Crédito", "Fiado", "Parcelado"].index(
-                            str(row_venda_sel.get('forma_pagamento', '')).split(' ')[0] if str(row_venda_sel.get('forma_pagamento', '')).split(' ')[0] in ["Dinheiro", "Pix", "Cartão Débito", "Cartão Crédito", "Fiado", "Parcelado"] else "Dinheiro"
-                        ),
-                        key=f"edit_fp_v_{id_venda_atual}"
-                    )
+            # 1. CABEÇALHO
+            col_cab1, col_cab2, col_cab3 = st.columns(3)
+            with col_cab1:
+                novo_cli_venda = st.text_input("Cliente", value=str(row_venda_sel.get('cliente', '')), key=f"edit_cli_v_{id_venda_atual}")
+            with col_cab2:
+                try:
+                    data_val_dt = datetime.strptime(str(row_venda_sel.get('data', ''))[:10], "%Y-%m-%d")
+                except Exception:
+                    data_val_dt = datetime.now()
+                nova_data_venda = st.date_input("Data da Venda", value=data_val_dt, key=f"edit_data_v_{id_venda_atual}")
+            with col_cab3:
+                forma_atual_db = str(row_venda_sel.get('forma_pagamento', ''))
+                idx_fp = 0
+                opcoes_fp = ["Dinheiro", "Pix", "Cartão Débito", "Cartão Crédito", "Fiado", "Parcelado"]
+                for i_op, op_val in enumerate(opcoes_fp):
+                    if op_val.lower() in forma_atual_db.lower():
+                        idx_fp = i_op
+                        break
 
-            # --- SEÇÃO 2: ITENS DA VENDA ---
-            with st.expander("📦 2. Editar Produtos da Venda (Quantidades e Preços)", expanded=True):
-                df_itens_venda = carregar_dados(f"SELECT * FROM vendas_itens WHERE venda_id = {id_venda_atual}")
-                
-                if df_itens_venda is not None and not df_itens_venda.empty:
-                    novos_dados_itens = []
-                    for idx, row_it in df_itens_venda.iterrows():
-                        id_it = int(row_it['id'])
-                        st.markdown(f"**Produto:** {row_it['produto']}")
-                        col_it1, col_it2, col_it3, col_it4 = st.columns([2, 2, 2, 1])
-                        
-                        with col_it1:
-                            q_edit = st.number_input(f"Qtd ({row_it['produto']})", value=float(row_it['quantidade']), min_value=0.01, step=1.0, key=f"q_it_{id_it}")
-                        with col_it2:
-                            v_edit = st.number_input(f"Valor Unit. R$ ({row_it['produto']})", value=float(row_it['valor_unitario']), min_value=0.0, format="%.2f", key=f"v_it_{id_it}")
-                        with col_it3:
-                            tot_it = q_edit * v_edit
-                            st.write(f"Total: **R$ {tot_it:,.2f}**")
-                        with col_it4:
-                            exc_it = st.checkbox("Excluir", key=f"del_it_{id_it}")
+                nova_forma_pagto = st.selectbox("Forma de Pagamento", opcoes_fp, index=idx_fp, key=f"edit_fp_v_{id_venda_atual}")
 
-                        novos_dados_itens.append({
-                            "id": id_it,
-                            "produto": row_it['produto'],
-                            "quantidade": q_edit,
-                            "valor_unitario": v_edit,
-                            "valor_total": tot_it,
-                            "excluir": exc_it
-                        })
-                        st.markdown("---")
-                else:
-                    st.info("Nenhum produto cadastrado nesta venda.")
-                    novos_dados_itens = []
+            # 2. ITENS DA VENDA
+            st.markdown("#### 📦 Produtos da Venda")
+            df_itens_venda = carregar_dados(f"SELECT * FROM vendas_itens WHERE venda_id = {id_venda_atual}")
+            
+            novos_dados_itens = []
+            if df_itens_venda is not None and not df_itens_venda.empty:
+                for idx, row_it in df_itens_venda.iterrows():
+                    id_it = int(row_it['id'])
+                    col_it1, col_it2, col_it3, col_it4 = st.columns([2, 1, 1, 1])
+                    
+                    with col_it1:
+                        st.text(f"Prod: {row_it['produto']}")
+                    with col_it2:
+                        q_edit = st.number_input("Qtd", value=float(row_it['quantidade']), min_value=0.01, step=1.0, key=f"q_it_{id_it}")
+                    with col_it3:
+                        v_edit = st.number_input("Val. Unit.", value=float(row_it['valor_unitario']), min_value=0.0, format="%.2f", key=f"v_it_{id_it}")
+                    with col_it4:
+                        exc_it = st.checkbox("Excluir", key=f"del_it_{id_it}")
 
-            # --- SEÇÃO 3: ESTRUTURAÇÃO DE PARCELAS ---
+                    tot_it = q_edit * v_edit
+                    novos_dados_itens.append({
+                        "id": id_it, "produto": row_it['produto'], "quantidade": q_edit, "valor_unitario": v_edit, "valor_total": tot_it, "excluir": exc_it
+                    })
+            
+            total_itens_calculado = sum(it['valor_total'] for it in novos_dados_itens if not it['excluir'])
+            st.info(f"💡 **Valor Total Atual dos Produtos:** R$ {total_itens_calculado:,.2f}")
+
+            # 3. GESTÃO DE PARCELAS INTELIGENTE (COM DIVISÃO AUTOMÁTICA)
             novas_parcelas_editadas = []
             if nova_forma_pagto == "Parcelado":
-                with st.expander("📅 3. Gestão Personalizada de Parcelas (Valores e Vencimentos)", expanded=True):
-                    # Tenta carregar parcelas salvas anteriormente em contas_receber
-                    df_parc_exist = carregar_dados(f"SELECT * FROM contas_receber WHERE descricao LIKE '%Venda #{id_venda_atual}%'")
-                    
-                    qtd_parc_inicial = len(df_parc_exist) if (df_parc_exist is not None and not df_parc_exist.empty) else 2
-                    qtd_parc_input = st.number_input("Número de Parcelas:", min_value=1, max_value=24, value=qtd_parc_inicial, key=f"n_parc_edit_{id_venda_atual}")
-                    
-                    total_itens_calculado = sum(it['valor_total'] for it in novos_dados_itens if not it['excluir'])
-                    st.info(f"💡 Total Geral dos Produtos: **R$ {total_itens_calculado:,.2f}**")
-                    
-                    for p_i in range(int(qtd_parc_input)):
-                        val_def = (total_itens_calculado / qtd_parc_input)
-                        dt_def = datetime.now().date()
-                        
+                st.markdown("#### 📅 Gestão de Parcelas (Divisão Automática)")
+                df_parc_exist = carregar_dados(f"SELECT * FROM contas_receber WHERE descricao LIKE '%Venda #{id_venda_atual}%'")
+                
+                qtd_parc_inicial = len(df_parc_exist) if (df_parc_exist is not None and not df_parc_exist.empty) else 2
+                qtd_parc_input = st.number_input("Número de Parcelas:", min_value=1, max_value=24, value=qtd_parc_inicial, key=f"n_parc_edit_{id_venda_atual}")
+                
+                from datetime import timedelta
+                
+                # Coleta valores definidos pelo usuário ou calcula a divisão padrão
+                valores_parcelas_temp = []
+                soma_definida_pelo_usuario = 0.0
+                num_parcelas_livres = 0
+
+                for p_i in range(int(qtd_parc_input)):
+                    # Valor padrão sugerido caso não haja alteração manual
+                    val_sug = total_itens_calculado / qtd_parc_input
+                    if df_parc_exist is not None and p_i < len(df_parc_exist):
+                        val_sug = float(df_parc_exist.iloc[p_i].get('valor', val_sug))
+
+                    col_p1, col_p2 = st.columns(2)
+                    with col_p1:
+                        val_parc_p = st.number_input(f"Valor Parcela {p_i + 1} (R$)", value=float(val_sug), format="%.2f", key=f"val_p_{id_venda_atual}_{p_i}")
+                    with col_p2:
+                        dt_def = datetime.now().date() + timedelta(days=30 * (p_i + 1))
                         if df_parc_exist is not None and p_i < len(df_parc_exist):
-                            val_def = float(df_parc_exist.iloc[p_i].get('valor', val_def))
                             try:
                                 dt_def = datetime.strptime(str(df_parc_exist.iloc[p_i].get('vencimento', ''))[:10], "%Y-%m-%d").date()
                             except Exception:
                                 pass
+                        dt_parc_p = st.date_input(f"Vencimento Parcela {p_i + 1}", value=dt_def, key=f"dt_p_{id_venda_atual}_{p_i}")
 
-                        col_p1, col_p2 = st.columns(2)
-                        with col_p1:
-                            val_parc_p = st.number_input(f"Valor Parcela {p_i + 1} (R$)", value=float(val_def), format="%.2f", key=f"val_p_{id_venda_atual}_{p_i}")
-                        with col_p2:
-                            dt_parc_p = st.date_input(f"Vencimento Parcela {p_i + 1}", value=dt_def, key=f"dt_p_{id_venda_atual}_{p_i}")
-                        
-                        novas_parcelas_editadas.append({
-                            "numero": p_i + 1,
-                            "valor": val_parc_p,
-                            "vencimento": str(dt_parc_p)
-                        })
+                    valores_parcelas_temp.append({"valor": val_parc_p, "vencimento": str(dt_parc_p)})
 
-            # --- AÇÕES GERAIS DE SALVAR E EXCLUIR ---
+                # LÓGICA INTELIGENTE DE AUTO-DIVISÃO: 
+                # Se alterou a 1ª parcela, o restante divide-se automaticamente pelas demais!
+                if int(qtd_parc_input) > 1:
+                    primeiro_valor = valores_parcelas_temp[0]["valor"]
+                    restante_a_dividir = total_itens_calculado - primeiro_valor
+                    if restante_a_dividir < 0:
+                        restante_a_dividir = 0.0
+                    
+                    valor_cada_restante = restante_a_dividir / (int(qtd_parc_input) - 1)
+                    
+                    # Atualiza as parcelas restantes automaticamente
+                    for p_i in range(1, int(qtd_parc_input)):
+                        valores_parcelas_temp[p_i]["valor"] = round(valor_cada_restante, 2)
+
+                for p_i, p_val_data in enumerate(valores_parcelas_temp):
+                    novas_parcelas_editadas.append({
+                        "numero": p_i + 1,
+                        "valor": p_val_data["valor"],
+                        "vencimento": p_val_data["vencimento"]
+                    })
+                    st.caption(f"➡️ Parcela {p_i+1}: **R$ {p_val_data['valor']:,.2f}** para {p_val_data['vencimento']}")
+
+            # BOTÕES DE AÇÃO NA MESMA TELA
             st.markdown("---")
             col_b_main1, col_b_main2 = st.columns(2)
             
@@ -1207,7 +1114,6 @@ else:
                     try:
                         cursor = conn.cursor()
                         
-                        # 1. Atualizar ou Deletar Itens
                         total_venda_recalculado = 0.0
                         for it in novos_dados_itens:
                             if it['excluir']:
@@ -1220,7 +1126,6 @@ else:
                                 """, (it['quantidade'], it['valor_unitario'], it['valor_total'], it['id']))
                                 total_venda_recalculado += it['valor_total']
 
-                        # 2. Atualizar Cabeçalho da Venda
                         fp_desc = nova_forma_pagto
                         if nova_forma_pagto == "Parcelado":
                             fp_desc = f"Parcelado ({len(novas_parcelas_editadas)}x)"
@@ -1233,7 +1138,6 @@ else:
                             WHERE id = ?
                         """, (novo_cli_venda.strip().upper(), dt_string_final, fp_desc, total_venda_recalculado, id_venda_atual))
 
-                        # 3. Atualizar Parcelas em Contas a Receber (se for parcelado)
                         cursor.execute("DELETE FROM contas_receber WHERE descricao LIKE ?", (f"%Venda #{id_venda_atual}%",))
                         if nova_forma_pagto == "Parcelado":
                             for p_item in novas_parcelas_editadas:
@@ -1243,10 +1147,10 @@ else:
                                 """, (novo_cli_venda.strip().upper(), p_item['valor'], p_item['vencimento'], f"Venda #{id_venda_atual} - Parcela {p_item['numero']}/{len(novas_parcelas_editadas)}"))
 
                         conn.commit()
-                        st.success(f"✅ Venda #{id_venda_atual} e todas as suas configurações foram salvas com sucesso!")
+                        st.success(f"✅ Venda #{id_venda_atual} atualizada com sucesso!")
                         st.rerun()
                     except Exception as e:
-                        st.error(f"❌ Erro ao salvar alterações da venda: {e}")
+                        st.error(f"❌ Erro ao salvar: {e}")
 
             with col_b_main2:
                 if st.button("🗑️ Excluir Venda Completa", use_container_width=True, key=f"btn_del_all_{id_venda_atual}"):
@@ -1256,10 +1160,10 @@ else:
                         cursor.execute("DELETE FROM vendas_cabecalho WHERE id = ?", (id_venda_atual,))
                         cursor.execute("DELETE FROM contas_receber WHERE descricao LIKE ?", (f"%Venda #{id_venda_atual}%",))
                         conn.commit()
-                        st.success(f"🗑️ Venda #{id_venda_atual} excluída por completo!")
+                        st.success(f"🗑️ Venda #{id_venda_atual} excluída com sucesso!")
                         st.rerun()
                     except Exception as e:
-                        st.error(f"❌ Erro ao excluir venda: {e}")
+                        st.error(f"❌ Erro ao excluir: {e}")
         else:
             st.info("ℹ️ Nenhuma venda registrada até o momento.")
 
