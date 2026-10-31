@@ -654,8 +654,9 @@ else:
                         
                         v_rec = valor_recebido if forma_pagto == "Dinheiro" else total_geral_carrinho
                         t_val = troco if (forma_pagto == "Dinheiro" and troco >= 0) else 0.0
-
+                
                         for item in st.session_state.carrinho_pdv:
+                            # 1. Registra a venda individual na tabela de vendas
                             cursor.execute("""
                                 INSERT INTO vendas (
                                     cliente, produto, fornecedor, grupo, quantidade, 
@@ -676,15 +677,23 @@ else:
                                 data_venda, 
                                 vendedor_atual
                             ))
-
-                            # Baixa no estoque da promoção caso o item pertença à promoção
+                
+                            # 2. DÁ BAIXA AUTOMÁTICA NO ESTOQUE GERAL (tabela produtos)
+                            cursor.execute("""
+                                UPDATE produtos 
+                                SET quantidade = quantidade - ? 
+                                WHERE id = ? OR UPPER(TRIM(produto)) = UPPER(TRIM(?))
+                            """, (item['quantidade'], item.get('produto_id', 0), item['produto']))
+                
+                            # 3. Baixa no estoque da promoção (se o item for promocional)
                             if item.get('grupo') == "PROMOÇÃO":
                                 cursor.execute("""
                                     UPDATE promocoes 
                                     SET qtd_estoque_promo = qtd_estoque_promo - ? 
                                     WHERE produto_id = ? AND qtd_estoque_promo >= ?
                                 """, (item['quantidade'], item.get('produto_id'), item['quantidade']))
-
+                
+                        # Registra a movimentação no caixa
                         cursor.execute(
                             "INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, 'VENDA', ?, ?, ?)",
                             (sessao_id, float(total_geral_carrinho), f"Venda PDV ({detalhes_pagto}) por {vendedor_atual}", data_venda)
@@ -693,7 +702,7 @@ else:
                         
                         st.session_state.carrinho_pdv = []
                         st.session_state.tela_checkout_ativa = False
-                        st.success(f"🎉 Venda de R$ {total_geral_carrinho:,.2f} via **{detalhes_pagto}** concluída com sucesso!")
+                        st.success(f"🎉 Venda de R$ {total_geral_carrinho:,.2f} concluída e estoque atualizado com sucesso!")
                         st.rerun()
 
         else:
