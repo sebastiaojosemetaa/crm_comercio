@@ -1322,6 +1322,11 @@ else:
                 p_row_est = df_prods[df_prods['label_prod'] == prod_selecionado_est].iloc[0]
                 id_prod_atual = int(p_row_est['id'])
 
+                # Tratamento seguro para o índice do grupo
+                grupos_disponiveis = carregar_coluna("grupos", "grupo") or ["GERAL"]
+                grupo_atual = str(p_row_est.get('grupo', 'GERAL'))
+                indice_grupo = grupos_disponiveis.index(grupo_atual) if grupo_atual in grupos_disponiveis else 0
+
                 with st.form("form_editar_produto_estoque"):
                     col_e1, col_e2, col_e3 = st.columns(3)
                     with col_e1:
@@ -1332,7 +1337,7 @@ else:
                         ed_pr_compra = st.number_input("Preço de Compra (R$)", value=float(p_row_est.get('valor_compra', 0.0) or 0.0), format="%.2f")
                     with col_e3:
                         ed_pr_venda = st.number_input("Preço de Venda (R$)", value=float(p_row_est.get('valor_venda', 0.0) or 0.0), format="%.2f")
-                        ed_grupo = st.selectbox("Grupo", carregar_coluna("grupos", "grupo") or ["GERAL"], index=0)
+                        ed_grupo = st.selectbox("Grupo", grupos_disponiveis, index=indice_grupo)
 
                     col_btn_est1, col_btn_est2 = st.columns(2)
                     with col_btn_est1:
@@ -1359,7 +1364,7 @@ else:
                             cursor = conn.cursor()
                             cursor.execute("DELETE FROM produtos WHERE id = ?", (id_prod_atual,))
                             conn.commit()
-                            st.success(f"🗑️ Produto removido do estoque com sucesso!")
+                            st.success("🗑️ Produto removido do estoque com sucesso!")
                             st.rerun()
                         except Exception as e:
                             st.error(f"❌ Erro ao excluir produto: {e}")
