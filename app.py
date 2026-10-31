@@ -1552,9 +1552,7 @@ else:
                                     st.rerun()
                                 except Exception as e:
                                     st.error(f"❌ Erro ao excluir promoção: {e}")
-                    
-                    st.info(f"ℹ️ Nenhuma promoção ativa encontrada. ({e})")
-                    else:
+                                        
                         st.info("ℹ️ Nenhuma promoção ativa configurada no momento.")
                 except Exception:
                     st.info("ℹ️ Nenhuma promoção ativa encontrada.")
