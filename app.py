@@ -981,7 +981,7 @@ else:
                 try:
                     cursor = conn.cursor()
                     
-                    # Garante que a tabela pedidos existe com as colunas necessárias
+                    # Garante que a tabela pedidos existe
                     cursor.execute("""
                         CREATE TABLE IF NOT EXISTS pedidos (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -996,6 +996,13 @@ else:
                         )
                     """)
                     conn.commit()
+
+                    # Garante que a coluna forma_pagamento existe caso a tabela seja antiga
+                    try:
+                        cursor.execute("ALTER TABLE pedidos ADD COLUMN forma_pagamento TEXT")
+                        conn.commit()
+                    except Exception:
+                        pass # A coluna já existe
 
                     data_agora = f"{data_venda_input} " + datetime.now().strftime("%H:%M:%S")
                     for item in st.session_state.carrinho_cliente:
