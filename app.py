@@ -1811,10 +1811,11 @@ else:
                         st.error(f"❌ Erro ao restaurar o banco de dados: {e}")
 
     # -------------------------------------------------------------
-    # MÓDULO CONTAS A RECEBER (CORINGA / SEMPRE VISÍVEL)
+    # MÓDULO CONTAS A RECEBER (OTIMIZADO E SEM LINHAS VAZIAS)
     # -------------------------------------------------------------
     elif "Contas a Receber" in str(menu_admin):
         try:
+            # Título posicionado logo no topo (onde marcou de verde)
             st.subheader(f"💰 Contas a Receber / Haveres — {nome_empresa_header} | 👤 Utilizador: {usr_exibicao}")
             
             # Conexão direta com a base de dados
@@ -1853,8 +1854,6 @@ else:
             df_contas = pd.read_sql_query("SELECT * FROM contas_receber ORDER BY id DESC", conn_cr)
             conn_cr.close()
             
-            st.markdown("---")
-            
             if df_contas is not None and not df_contas.empty:
                 if 'valor_pago' not in df_contas.columns:
                     df_contas['valor_pago'] = 0.0
@@ -1866,7 +1865,6 @@ else:
                 st.markdown("### 📋 Lista de Contas e Parcelas")
                 st.dataframe(df_contas[['id', 'cliente', 'descricao', 'valor', 'valor_pago', 'restante', 'vencimento', 'status', 'data_quitacao']], use_container_width=True)
 
-                st.markdown("---")
                 st.markdown("### ⚙️ Gerenciar Conta / Registrar Haver ou Pagamento")
 
                 df_contas['label_conta'] = "Conta #" + df_contas['id'].astype(str) + " - " + df_contas['cliente'].astype(str) + " (Restante: R$ " + df_contas['restante'].astype(str) + ")"
