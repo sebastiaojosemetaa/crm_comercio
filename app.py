@@ -1395,7 +1395,7 @@ else:
                 st.warning("⚠️ Nenhum produto cadastrado no estoque geral.")
 
         # -------------------------------------------------------------
-        # ABA 2: DEPÓSITO / PRODUTOS PARA PROMOÇÃO (SEM FORMULÁRIO)
+        # ABA 2: DEPÓSITO / PRODUTOS PARA PROMOÇÃO (CORRIGIDO)
         # -------------------------------------------------------------
         with tab_deposito_promo:
             st.markdown("### 🏷️ Enviar Produto para Promoção no PDV")
@@ -1414,12 +1414,6 @@ else:
                     )
                 """)
                 conn.commit()
-
-                try:
-                    cursor.execute("ALTER TABLE promocoes ADD COLUMN qtd_estoque_promo REAL DEFAULT 0")
-                    conn.commit()
-                except Exception:
-                    pass
             except Exception:
                 pass
 
@@ -1429,7 +1423,7 @@ else:
                 df_prods_promo['label_promo'] = df_prods_promo['id'].astype(str) + " - " + df_prods_promo['produto'].astype(str)
                 lista_prods_promo = df_prods_promo['label_promo'].tolist()
                 
-                prod_selecionado_promo = st.selectbox("Selecione o Produto para Promoção:", lista_prods_promo, key="select_prod_promo_direto_v3")
+                prod_selecionado_promo = st.selectbox("Selecione o Produto para Promoção:", lista_prods_promo, key="select_prod_promo_corrigido")
                 
                 p_row_promo = df_prods_promo[df_prods_promo['label_promo'] == prod_selecionado_promo].iloc[0]
                 id_prod_promo = int(p_row_promo['id'])
@@ -1437,14 +1431,14 @@ else:
                 
                 col_p1, col_p2, col_p3 = st.columns(3)
                 with col_p1:
-                    preco_promocional = st.number_input("Preço Promocional (R$)", value=float(p_row_promo.get('valor_venda', 0.0) or 0.0), format="%.2f", key="input_preco_promo_v3")
+                    preco_promocional = st.number_input("Preço Promocional (R$)", value=float(p_row_promo.get('valor_venda', 0.0) or 0.0), format="%.2f", key="input_preco_promo_corr")
                 with col_p2:
-                    qtd_minima_ativacao = st.number_input("Qtd. Mínima p/ Ativar PDV", value=1.0, step=1.0, min_value=1.0, key="input_qtd_min_v3")
+                    qtd_minima_ativacao = st.number_input("Qtd. Mínima p/ Ativar PDV", value=1.0, step=1.0, min_value=1.0, key="input_qtd_min_corr")
                 with col_p3:
-                    qtd_estoque_promo = st.number_input("Qtd. Estoque da Promoção", value=float(qtd_estoque_atual_geral), step=1.0, min_value=1.0, key="input_qtd_est_promo_v3")
+                    qtd_estoque_promo = st.number_input("Qtd. Estoque da Promoção", value=float(qtd_estoque_atual_geral), step=1.0, min_value=1.0, key="input_qtd_est_promo_corr")
                 
                 st.markdown("")
-                btn_enviar_pdv = st.button("🚀 Enviar para o PDV (Ativar Promoção)", type="primary", use_container_width=True, key="btn_enviar_promo_v3")
+                btn_enviar_pdv = st.button("🚀 Enviar para o PDV (Ativar Promoção)", type="primary", use_container_width=True, key="btn_enviar_promo_corr")
                 
                 if btn_enviar_pdv:
                     try:
@@ -1465,7 +1459,7 @@ else:
                             """, (id_prod_promo, preco_promocional, qtd_minima_ativacao, qtd_estoque_promo))
                         
                         conn.commit()
-                        st.success(f"✅ Promoção de '{p_row_promo['produto']}' ativada com sucesso com estoque limitado de {qtd_estoque_promo} un!")
+                        st.success(f"✅ Promoção de '{p_row_promo['produto']}' ativada com sucesso!")
                         st.rerun()
                     except Exception as e:
                         st.error(f"❌ Erro ao salvar promoção: {e}")
@@ -1473,6 +1467,7 @@ else:
                 st.markdown("---")
                 st.markdown("### 📋 Promoções Configuradas para o PDV")
                 try:
+                    # Consulta SQL corrigida na ordem exata das colunas
                     df_promos_ativas = carregar_dados("""
                         SELECT 
                             p.id as ID, 
@@ -1491,7 +1486,7 @@ else:
                 except Exception:
                     st.info("ℹ️ Nenhuma promoção ativa encontrada.")
             else:
-                st.warning("⚠️ Cadastre produtos no estoque geral primeiro para poder configurá-los em promoção.")
+                st.warning("⚠️ Cadastre produtos no estoque geral primeiro.")
     # -------------------------------------------------------------
     # 11. CONFIGURAÇÕES
     # -------------------------------------------------------------
