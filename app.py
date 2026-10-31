@@ -1180,7 +1180,7 @@ else:
 
             st.markdown("---")
             with st.form("form_excluir_venda_completa"):
-                st.warning(f"⚠️ Zona de Perigo: Excluir a **Venda #{id_venda_atual** inteira (todos os itens e registos associados).")
+                st.warning(f"⚠️ Zona de Perigo: Excluir a **Venda #{id_venda_atual}** inteira (todos os itens e registos associados).")
                 if st.form_submit_button("🗑️ Excluir Venda Completa", type="primary", use_container_width=True):
                     try:
                         cursor = conn.cursor()
