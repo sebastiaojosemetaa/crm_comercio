@@ -1289,7 +1289,6 @@ else:
     # 10. ESTOQUE E PROMOÇÕES
     # -------------------------------------------------------------
     elif menu_admin == "📦 Estoque de Produtos":
-        st.write("🔍 DEBUG: Entrou no bloco de Estoque de Produtos com sucesso!")
         st.subheader("📦 Estoque de Produtos e Promoções")
         
         tab_estoque_geral, tab_deposito_promo = st.tabs(["📋 Estoque Geral", "🏷️ Depósito / Produtos para Promoção"])
@@ -1297,7 +1296,7 @@ else:
         with tab_estoque_geral:
             st.markdown("### 📋 Produtos no Estoque Geral")
             
-            # 1. Garante que a tabela 'produtos' existe para evitar erros de SQL
+            # 1. Garante que a tabela 'produtos' existe
             try:
                 cursor = conn.cursor()
                 cursor.execute("""
@@ -1314,15 +1313,27 @@ else:
                 """)
                 conn.commit()
             except Exception as e:
-                st.error(f"❌ Erro ao verificar/criar tabela produtos: {e}")
+                st.error(f"❌ Erro ao criar tabela: {e}")
 
-            # 2. Tenta carregar os dados com segurança
+            # 2. Tenta carregar os dados
             try:
                 df_prods = carregar_dados("SELECT * FROM produtos")
-                st.write(f"🔍 DEBUG: Dados carregados com sucesso! Linhas: {len(df_prods) if df_prods is not None else 0}")
             except Exception as e:
-                st.error(f"❌ Erro ao carregar dados do banco: {e}")
                 df_prods = pd.DataFrame()
+
+            # 3. Se estiver vazio, insere um produto de exemplo automaticamente para destravar a tela
+            if df_prods is None or df_prods.empty:
+                try:
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        INSERT INTO produtos (codigo, produto, quantidade, valor_compra, valor_venda, grupo, fornecedor)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """, ("001", "PRODUTO EXEMPLO", 10.0, 5.00, 10.00, "GERAL", "FORNECEDOR PADRÃO"))
+                    conn.commit()
+                    # Recarrega os dados após inserir o exemplo
+                    df_prods = carregar_dados("SELECT * FROM produtos")
+                except Exception as e:
+                    st.error(f"❌ Erro ao inserir produto de exemplo: {e}")
 
             if df_prods is not None and not df_prods.empty:
                 # Cria uma cópia formatada para exibição com o R$ nos preços
@@ -1396,7 +1407,7 @@ else:
                         except Exception as e:
                             st.error(f"❌ Erro ao excluir produto: {e}")
             else:
-                st.warning("⚠️ A tabela de produtos está vazia. Cadastre o primeiro produto através da tela de Compras / Entrada de Estoque para exibir a tabela.")
+                st.warning("⚠️ Não foi possível carregar os dados da tabela produtos.")
     # -------------------------------------------------------------
     # 11. CONFIGURAÇÕES
     # -------------------------------------------------------------
