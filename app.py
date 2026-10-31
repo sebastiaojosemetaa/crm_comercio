@@ -1295,9 +1295,14 @@ else:
         
         with tab_estoque_geral:
             st.markdown("### 📋 Produtos no Estoque Geral")
-            df_prods = carregar_dados("SELECT * FROM produtos")
             
-            if not df_prods.empty:
+            try:
+                df_prods = carregar_dados("SELECT * FROM produtos")
+            except Exception as e:
+                st.error(f"❌ Erro ao carregar dados do banco: {e}")
+                df_prods = pd.DataFrame()
+
+            if df_prods is not None and not df_prods.empty:
                 # Cria uma cópia formatada para exibição com o R$ nos preços
                 df_exib_est = pd.DataFrame()
                 df_exib_est['ID'] = df_prods['id']
@@ -1369,7 +1374,7 @@ else:
                         except Exception as e:
                             st.error(f"❌ Erro ao excluir produto: {e}")
             else:
-                st.info("ℹ️ Nenhum produto cadastrado no estoque geral.")
+                st.warning("⚠️ A tabela de produtos está vazia ou não retornou registos do banco de dados. Cadastre um produto primeiro na tela de compras/entrada.")
 
     # -------------------------------------------------------------
     # 11. CONFIGURAÇÕES
