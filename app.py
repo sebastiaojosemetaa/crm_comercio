@@ -938,18 +938,25 @@ else:
             data_venda_input = st.date_input("Data da Venda", value=datetime.now(), key="input_data_reg_venda")
 
         st.markdown("---")
+        
+        # Seleção do produto primeiro para capturar o preço exato
         col_prod_r1, col_prod_r2, col_prod_r3 = st.columns([2, 1, 1])
         with col_prod_r1:
             prod_item = st.selectbox("Selecione o Produto", produtos_base, key="sel_prod_reg_venda")
+        
+        # Busca dinâmica do preço do produto selecionado no DataFrame
+        val_sugestao = 0.0
+        if not df_p_admin.empty and prod_item in produtos_base:
+            p_match = df_p_admin[df_p_admin['produto'] == prod_item]
+            if not p_match.empty:
+                p_row = p_match.iloc[0]
+                val_sugestao = float(p_row.get('valor_venda', 0.0) or p_row.get('venda', 0.0) or 0.0)
+
         with col_prod_r2:
             qtd_ped = st.number_input("Quantidade", min_value=0.01, value=1.0, key="qtd_reg_venda")
         with col_prod_r3:
-            val_sugestao = 10.0
-            if not df_p_admin.empty and prod_item in produtos_base:
-                p_match = df_p_admin[df_p_admin['produto'] == prod_item]
-                if not p_match.empty:
-                    val_sugestao = float(p_match.iloc[0].get('valor_venda', 10.0) or 10.0)
-            v_venda_ped = st.number_input("Preço Unitário (R$)", min_value=0.0, value=val_sugestao, format="%.2f", key="preco_reg_venda")
+            # Removido o valor fixo antigo e utilizando o preço real do produto com uma chave dinâmica baseada no produto
+            v_venda_ped = st.number_input("Preço Unitário (R$)", min_value=0.0, value=float(val_sugestao), format="%.2f", key=f"preco_unit_{prod_item}")
 
         if st.button("➕ Incluir no Pedido", type="primary", use_container_width=True, key="btn_incluir_reg_venda"):
             st.session_state.carrinho_cliente.append({
@@ -974,7 +981,6 @@ else:
             st.markdown("---")
             st.markdown("### 💳 Pagamento e Finalização")
             
-            # Forma de pagamento posicionada logo acima do botão de finalizar
             forma_pagto_reg = st.selectbox(
                 "Forma de Pagamento / Condição", 
                 ["Dinheiro", "Pix", "Cartão Débito", "Cartão Crédito", "Fiado", "Parcelado"],
@@ -1072,70 +1078,6 @@ else:
                     btn_alt_ped = st.form_submit_button("✏️ Salvar Alterações do Pedido", type="primary", use_container_width=True)
                 with col_btn_ped2:
                     btn_del_ped = st.form_submit_button("🗑️ Excluir Pedido", type="primary", use_container_width=True)
-
-                if btn_alt_ped:
-                    try:
-                        novo_total = ed_qtd_ped * ed_val_ped
-                        cursor = conn.cursor()
-                        cursor.execute("""
-                            UPDATE pedidos 
-                            SET cliente = ?, produto = ?, quantidade = ?, valor_unitario = ?, valor_total = ?
-                            WHERE id = ?
-                        """, (ed_cli_ped.strip().upper(), ed_prod_ped.strip().upper(), ed_qtd_ped, ed_val_ped, novo_total, id_ped_atual))
-                        conn.commit()
-                        st.success("✅ Pedido atualizado com sucesso!")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"❌ Erro ao atualizar pedido: {e}")
-
-                if btn_del_ped:
-                    try:
-                        cursor = conn.cursor()
-                        cursor.execute("DELETE FROM pedidos WHERE id = ?", (id_ped_atual,))
-                        conn.commit()
-                        st.success("🗑️ Pedido excluído com sucesso!")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"❌ Erro ao excluir pedido: {e}")
-        else:
-            st.info("ℹ️ Nenhum pedido registado até o momento.")
-
-        # -------------------------------------------------------------
-        # HISTÓRICO DE PEDIDOS COM OPÇÕES DE EDITAR / EXCLUIR
-        # -------------------------------------------------------------
-        st.markdown("---")
-        st.markdown("### 📋 Histórico de Pedidos Registrados (Editar / Excluir)")
-        
-        try:
-            df_pedidos_cad = carregar_dados("SELECT * FROM pedidos ORDER BY id DESC")
-        except Exception:
-            df_pedidos_cad = pd.DataFrame()
-
-        if df_pedidos_cad is not None and not df_pedidos_cad.empty:
-            st.dataframe(df_pedidos_cad, use_container_width=True)
-
-            df_pedidos_cad['label_ped'] = df_pedidos_cad['id'].astype(str) + " - " + df_pedidos_cad['cliente'].astype(str) + " (" + df_pedidos_cad['produto'].astype(str) + ")"
-            lista_ped_edit = df_pedidos_cad['label_ped'].tolist()
-
-            ped_selecionado = st.selectbox("Selecione o Pedido para Gerenciar:", lista_ped_edit, key="select_pedido_gerenciar")
-
-            p_row_ped = df_pedidos_cad[df_pedidos_cad['label_ped'] == ped_selecionado].iloc[0]
-            id_ped_atual = int(p_row_ped['id'])
-
-            with st.form("form_gerenciar_pedido"):
-                col_ep1, col_ep2 = st.columns(2)
-                with col_ep1:
-                    ed_cli_ped = st.text_input("Cliente", value=str(p_row_ped.get('cliente', '')))
-                    ed_prod_ped = st.text_input("Produto", value=str(p_row_ped.get('produto', '')))
-                with col_ep2:
-                    ed_qtd_ped = st.number_input("Quantidade", value=float(p_row_ped.get('quantidade', 1.0)), step=1.0)
-                    ed_val_ped = st.number_input("Valor Unitário (R$)", value=float(p_row_ped.get('valor_unitario', 0.0)), format="%.2f")
-
-                col_btn_ped1, col_btn_ped2 = st.columns(2)
-                with col_btn_ped1:
-                    btn_alt_ped = st.form_submit_button("✏️ Salvar Alterações do Pedido", type="primary", use_container_width=True)
-                with col_btn_ped2:
-                    btn_del_ped = st.form_submit_button("🗑️ Excluir Pedido", use_container_width=True)
 
                 if btn_alt_ped:
                     try:
