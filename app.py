@@ -1811,13 +1811,13 @@ else:
                         st.error(f"❌ Erro ao restaurar o banco de dados: {e}")
 
     # -------------------------------------------------------------
-    # MÓDULO CONTAS A RECEBER (BLINDADO)
+    # MÓDULO CONTAS A RECEBER (CORINGA / SEMPRE VISÍVEL)
     # -------------------------------------------------------------
-    elif menu_admin in ["Contas a Receber", "💰 Contas a Receber"]:
+    elif "Contas a Receber" in str(menu_admin):
         try:
             st.subheader(f"💰 Contas a Receber / Haveres — {nome_empresa_header} | 👤 Utilizador: {usr_exibicao}")
             
-            # Conexão direta e segura
+            # Conexão direta com a base de dados
             conn_cr = sqlite3.connect("crm_comercio.db", timeout=30.0)
             cursor_cr = conn_cr.cursor()
             
@@ -1849,7 +1849,7 @@ else:
                 except Exception:
                     pass
 
-            # Carrega dados
+            # Lê os dados
             df_contas = pd.read_sql_query("SELECT * FROM contas_receber ORDER BY id DESC", conn_cr)
             conn_cr.close()
             
@@ -1872,7 +1872,7 @@ else:
                 df_contas['label_conta'] = "Conta #" + df_contas['id'].astype(str) + " - " + df_contas['cliente'].astype(str) + " (Restante: R$ " + df_contas['restante'].astype(str) + ")"
                 lista_contas_sel = df_contas['label_conta'].tolist()
 
-                conta_escolhida = st.selectbox("Selecione a Conta / Parcela para Baixa ou Haver:", lista_contas_sel, key="sel_conta_segura")
+                conta_escolhida = st.selectbox("Selecione a Conta / Parcela para Baixa ou Haver:", lista_contas_sel, key="sel_conta_segura_coringa")
 
                 row_conta_sel = df_contas[df_contas['label_conta'] == conta_escolhida].iloc[0]
                 id_conta_atual = int(row_conta_sel['id'])
