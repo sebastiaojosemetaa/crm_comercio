@@ -1084,10 +1084,10 @@ else:
             st.info("ℹ️ Nenhum item lançado no carrinho deste pedido ainda.")
 
         # -------------------------------------------------------------
-        # HISTÓRICO DE VENDAS (COM OPÇÃO DE EDITAR E EXCLUIR ITENS)
+        # HISTÓRICO DE VENDAS COMPLETO (EDIÇÃO TOTAL DE DADOS, ITENS E PARCELAS)
         # -------------------------------------------------------------
         st.markdown("---")
-        st.markdown("### 📋 Histórico de Vendas (Gerenciar / Editar / Excluir)")
+        st.markdown("### 📋 Histórico de Vendas (Painel de Edição Completa)")
         
         try:
             df_vendas_cab = carregar_dados("SELECT * FROM vendas_cabecalho ORDER BY id DESC")
@@ -1097,102 +1097,171 @@ else:
         if df_vendas_cab is not None and not df_vendas_cab.empty:
             st.dataframe(df_vendas_cab, use_container_width=True)
 
-            df_vendas_cab['label_venda'] = "Venda #" + df_vendas_cab['id'].astype(str) + " - Cliente: " + df_vendas_cab['cliente'].astype(str) + " (" + df_vendas_cab['data'].astype(str) + ")"
+            df_vendas_cab['label_venda'] = "Venda #" + df_vendas_cab['id'].astype(str) + " - " + df_vendas_cab['cliente'].astype(str) + " (" + df_vendas_cab['data'].astype(str) + ")"
             lista_vendas_edit = df_vendas_cab['label_venda'].tolist()
 
-            venda_selecionada_label = st.selectbox("Selecione a Venda para Gerenciar:", lista_vendas_edit, key="select_venda_gerenciar")
+            venda_selecionada_label = st.selectbox("🎯 Selecione a Venda para Editar Tudo:", lista_vendas_edit, key="select_venda_gerenciar_master")
 
             row_venda_sel = df_vendas_cab[df_vendas_cab['label_venda'] == venda_selecionada_label].iloc[0]
             id_venda_atual = int(row_venda_sel['id'])
 
-            # Carrega os produtos desta venda selecionada
-            df_itens_venda = carregar_dados(f"SELECT * FROM vendas_itens WHERE venda_id = {id_venda_atual}")
+            st.markdown(f"## 🛠️ Editando Venda #{id_venda_atual}")
             
-            st.markdown(f"#### 📦 Produtos da Venda #{id_venda_atual} ({row_venda_sel['cliente']})")
-            if not df_itens_venda.empty:
-                st.dataframe(df_itens_venda[['id', 'produto', 'quantidade', 'valor_unitario', 'valor_total']], use_container_width=True)
+            # --- SEÇÃO 1: CABEÇALHO DA VENDA ---
+            with st.expander("📌 1. Editar Dados Gerais da Venda (Cliente, Data e Pagamento)", expanded=True):
+                col_cab1, col_cab2, col_cab3 = st.columns(3)
+                with col_cab1:
+                    novo_cli_venda = st.text_input("Cliente", value=str(row_venda_sel.get('cliente', '')), key=f"edit_cli_v_{id_venda_atual}")
+                with col_cab2:
+                    try:
+                        data_val_dt = datetime.strptime(str(row_venda_sel.get('data', ''))[:10], "%Y-%m-%d")
+                    except Exception:
+                        data_val_dt = datetime.now()
+                    nova_data_venda = st.date_input("Data da Venda", value=data_val_dt, key=f"edit_data_v_{id_venda_atual}")
+                with col_cab3:
+                    nova_forma_pagto = st.selectbox(
+                        "Forma de Pagamento",
+                        ["Dinheiro", "Pix", "Cartão Débito", "Cartão Crédito", "Fiado", "Parcelado"],
+                        index=["Dinheiro", "Pix", "Cartão Débito", "Cartão Crédito", "Fiado", "Parcelado"].index(
+                            str(row_venda_sel.get('forma_pagamento', '')).split(' ')[0] if str(row_venda_sel.get('forma_pagamento', '')).split(' ')[0] in ["Dinheiro", "Pix", "Cartão Débito", "Cartão Crédito", "Fiado", "Parcelado"] else "Dinheiro"
+                        ),
+                        key=f"edit_fp_v_{id_venda_atual}"
+                    )
 
-                # Seleciona um item específico da venda para editar ou remover
-                df_itens_venda['label_item'] = "Item #" + df_itens_venda['id'].astype(str) + " - " + df_itens_venda['produto'].astype(str) + " (Qtd: " + df_itens_venda['quantidade'].astype(str) + ")"
-                lista_itens_venda = df_itens_venda['label_item'].tolist()
-
-                item_selecionado_label = st.selectbox("Selecione um Produto específico desta Venda para Editar/Excluir:", lista_itens_venda, key="sel_item_venda_gerenciar")
+            # --- SEÇÃO 2: ITENS DA VENDA ---
+            with st.expander("📦 2. Editar Produtos da Venda (Quantidades e Preços)", expanded=True):
+                df_itens_venda = carregar_dados(f"SELECT * FROM vendas_itens WHERE venda_id = {id_venda_atual}")
                 
-                row_item_sel = df_itens_venda[df_itens_venda['label_item'] == item_selecionado_label].iloc[0]
-                id_item_atual = int(row_item_sel['id'])
+                if df_itens_venda is not None and not df_itens_venda.empty:
+                    novos_dados_itens = []
+                    for idx, row_it in df_itens_venda.iterrows():
+                        id_it = int(row_it['id'])
+                        st.markdown(f"**Produto:** {row_it['produto']}")
+                        col_it1, col_it2, col_it3, col_it4 = st.columns([2, 2, 2, 1])
+                        
+                        with col_it1:
+                            q_edit = st.number_input(f"Qtd ({row_it['produto']})", value=float(row_it['quantidade']), min_value=0.01, step=1.0, key=f"q_it_{id_it}")
+                        with col_it2:
+                            v_edit = st.number_input(f"Valor Unit. R$ ({row_it['produto']})", value=float(row_it['valor_unitario']), min_value=0.0, format="%.2f", key=f"v_it_{id_it}")
+                        with col_it3:
+                            tot_it = q_edit * v_edit
+                            st.write(f"Total: **R$ {tot_it:,.2f}**")
+                        with col_it4:
+                            exc_it = st.checkbox("Excluir", key=f"del_it_{id_it}")
 
-                with st.form("form_editar_item_venda"):
-                    st.markdown(f"**Editando Item:** {row_item_sel['produto']}")
-                    col_ed1, col_ed2 = st.columns(2)
-                    with col_ed1:
-                        novo_qtd_item = st.number_input("Quantidade", value=float(row_item_sel['quantidade']), min_value=0.01, step=1.0)
-                    with col_ed2:
-                        novo_val_item = st.number_input("Valor Unitário (R$)", value=float(row_item_sel['valor_unitario']), min_value=0.0, format="%.2f")
+                        novos_dados_itens.append({
+                            "id": id_it,
+                            "produto": row_it['produto'],
+                            "quantidade": q_edit,
+                            "valor_unitario": v_edit,
+                            "valor_total": tot_it,
+                            "excluir": exc_it
+                        })
+                        st.markdown("---")
+                else:
+                    st.info("Nenhum produto cadastrado nesta venda.")
+                    novos_dados_itens = []
 
-                    col_b_ed1, col_b_ed2 = st.columns(2)
-                    with col_b_ed1:
-                        btn_salvar_item = st.form_submit_button("✏️ Salvar Alteração do Item", type="primary", use_container_width=True)
-                    with col_b_ed2:
-                        btn_excluir_item = st.form_submit_button("🗑️ Excluir Apenas Este Item", use_container_width=True)
+            # --- SEÇÃO 3: ESTRUTURAÇÃO DE PARCELAS ---
+            novas_parcelas_editadas = []
+            if nova_forma_pagto == "Parcelado":
+                with st.expander("📅 3. Gestão Personalizada de Parcelas (Valores e Vencimentos)", expanded=True):
+                    # Tenta carregar parcelas salvas anteriormente em contas_receber
+                    df_parc_exist = carregar_dados(f"SELECT * FROM contas_receber WHERE descricao LIKE '%Venda #{id_venda_atual}%'")
+                    
+                    qtd_parc_inicial = len(df_parc_exist) if (df_parc_exist is not None and not df_parc_exist.empty) else 2
+                    qtd_parc_input = st.number_input("Número de Parcelas:", min_value=1, max_value=24, value=qtd_parc_inicial, key=f"n_parc_edit_{id_venda_atual}")
+                    
+                    total_itens_calculado = sum(it['valor_total'] for it in novos_dados_itens if not it['excluir'])
+                    st.info(f"💡 Total Geral dos Produtos: **R$ {total_itens_calculado:,.2f}**")
+                    
+                    for p_i in range(int(qtd_parc_input)):
+                        val_def = (total_itens_calculado / qtd_parc_input)
+                        dt_def = datetime.now().date()
+                        
+                        if df_parc_exist is not None and p_i < len(df_parc_exist):
+                            val_def = float(df_parc_exist.iloc[p_i].get('valor', val_def))
+                            try:
+                                dt_def = datetime.strptime(str(df_parc_exist.iloc[p_i].get('vencimento', ''))[:10], "%Y-%m-%d").date()
+                            except Exception:
+                                pass
 
-                    if btn_salvar_item:
-                        try:
-                            novo_total_item = novo_qtd_item * novo_val_item
-                            cursor = conn.cursor()
-                            cursor.execute("""
-                                UPDATE vendas_itens 
-                                SET quantidade = ?, valor_unitario = ?, valor_total = ?
-                                WHERE id = ?
-                            """, (novo_qtd_item, novo_val_item, novo_total_item, id_item_atual))
-                            
-                            # Atualiza o total geral na tabela cabeçalho
-                            cursor.execute("""
-                                UPDATE vendas_cabecalho 
-                                SET total = (SELECT SUM(valor_total) FROM vendas_itens WHERE venda_id = ?)
-                                WHERE id = ?
-                            """, (id_venda_atual, id_venda_atual))
-                            
-                            conn.commit()
-                            st.success("✅ Item da venda atualizado com sucesso!")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"❌ Erro ao atualizar item: {e}")
+                        col_p1, col_p2 = st.columns(2)
+                        with col_p1:
+                            val_parc_p = st.number_input(f"Valor Parcela {p_i + 1} (R$)", value=float(val_def), format="%.2f", key=f"val_p_{id_venda_atual}_{p_i}")
+                        with col_p2:
+                            dt_parc_p = st.date_input(f"Vencimento Parcela {p_i + 1}", value=dt_def, key=f"dt_p_{id_venda_atual}_{p_i}")
+                        
+                        novas_parcelas_editadas.append({
+                            "numero": p_i + 1,
+                            "valor": val_parc_p,
+                            "vencimento": str(dt_parc_p)
+                        })
 
-                    if btn_excluir_item:
-                        try:
-                            cursor = conn.cursor()
-                            cursor.execute("DELETE FROM vendas_itens WHERE id = ?", (id_item_atual,))
-                            
-                            # Atualiza o total geral na tabela cabeçalho
-                            cursor.execute("""
-                                UPDATE vendas_cabecalho 
-                                SET total = COALESCE((SELECT SUM(valor_total) FROM vendas_itens WHERE venda_id = ?), 0)
-                                WHERE id = ?
-                            """, (id_venda_atual, id_venda_atual))
-                            
-                            conn.commit()
-                            st.success("🗑️ Item excluído da venda com sucesso!")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"❌ Erro ao excluir item: {e}")
-            else:
-                st.info("Nenhum item encontrado para esta venda.")
-
+            # --- AÇÕES GERAIS DE SALVAR E EXCLUIR ---
             st.markdown("---")
-            with st.form("form_excluir_venda_completa"):
-                st.warning(f"⚠️ Zona de Perigo: Excluir a **Venda #{id_venda_atual}** inteira (todos os itens e registos associados).")
-                if st.form_submit_button("🗑️ Excluir Venda Completa", type="primary", use_container_width=True):
+            col_b_main1, col_b_main2 = st.columns(2)
+            
+            with col_b_main1:
+                if st.button("💾 Salvar Todas as Alterações da Venda", type="primary", use_container_width=True, key=f"btn_save_all_{id_venda_atual}"):
+                    try:
+                        cursor = conn.cursor()
+                        
+                        # 1. Atualizar ou Deletar Itens
+                        total_venda_recalculado = 0.0
+                        for it in novos_dados_itens:
+                            if it['excluir']:
+                                cursor.execute("DELETE FROM vendas_itens WHERE id = ?", (it['id'],))
+                            else:
+                                cursor.execute("""
+                                    UPDATE vendas_itens 
+                                    SET quantidade = ?, valor_unitario = ?, valor_total = ?
+                                    WHERE id = ?
+                                """, (it['quantidade'], it['valor_unitario'], it['valor_total'], it['id']))
+                                total_venda_recalculado += it['valor_total']
+
+                        # 2. Atualizar Cabeçalho da Venda
+                        fp_desc = nova_forma_pagto
+                        if nova_forma_pagto == "Parcelado":
+                            fp_desc = f"Parcelado ({len(novas_parcelas_editadas)}x)"
+                        
+                        dt_string_final = f"{nova_data_venda} " + datetime.now().strftime("%H:%M:%S")
+                        
+                        cursor.execute("""
+                            UPDATE vendas_cabecalho 
+                            SET cliente = ?, data = ?, forma_pagamento = ?, total = ?
+                            WHERE id = ?
+                        """, (novo_cli_venda.strip().upper(), dt_string_final, fp_desc, total_venda_recalculado, id_venda_atual))
+
+                        # 3. Atualizar Parcelas em Contas a Receber (se for parcelado)
+                        cursor.execute("DELETE FROM contas_receber WHERE descricao LIKE ?", (f"%Venda #{id_venda_atual}%",))
+                        if nova_forma_pagto == "Parcelado":
+                            for p_item in novas_parcelas_editadas:
+                                cursor.execute("""
+                                    INSERT INTO contas_receber (cliente, valor, vencimento, status, descricao)
+                                    VALUES (?, ?, ?, 'Pendente', ?)
+                                """, (novo_cli_venda.strip().upper(), p_item['valor'], p_item['vencimento'], f"Venda #{id_venda_atual} - Parcela {p_item['numero']}/{len(novas_parcelas_editadas)}"))
+
+                        conn.commit()
+                        st.success(f"✅ Venda #{id_venda_atual} e todas as suas configurações foram salvas com sucesso!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Erro ao salvar alterações da venda: {e}")
+
+            with col_b_main2:
+                if st.button("🗑️ Excluir Venda Completa", use_container_width=True, key=f"btn_del_all_{id_venda_atual}"):
                     try:
                         cursor = conn.cursor()
                         cursor.execute("DELETE FROM vendas_itens WHERE venda_id = ?", (id_venda_atual,))
                         cursor.execute("DELETE FROM vendas_cabecalho WHERE id = ?", (id_venda_atual,))
+                        cursor.execute("DELETE FROM contas_receber WHERE descricao LIKE ?", (f"%Venda #{id_venda_atual}%",))
                         conn.commit()
-                        st.success(f"🗑️ Venda #{id_venda_atual} excluída com sucesso!")
+                        st.success(f"🗑️ Venda #{id_venda_atual} excluída por completo!")
                         st.rerun()
                     except Exception as e:
                         st.error(f"❌ Erro ao excluir venda: {e}")
         else:
-            st.info("ℹ️ Nenhuma venda registada até o momento.")
+            st.info("ℹ️ Nenhuma venda registrada até o momento.")
 
     # -------------------------------------------------------------
     # 4. MÓDULO ENTRADA DE ESTOQUE (COMPRAS)
