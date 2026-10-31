@@ -1486,7 +1486,6 @@ else:
                 st.markdown("---")
                 st.markdown("### 📋 Promoções Configuradas para o PDV")
                 try:
-                    # Consulta SQL corrigida na ordem exata das colunas
                     df_promos_ativas = carregar_dados("""
                         SELECT 
                             p.id as ID, 
@@ -1500,6 +1499,61 @@ else:
                     """)
                     if df_promos_ativas is not None and not df_promos_ativas.empty:
                         st.dataframe(df_promos_ativas, use_container_width=True)
+
+                        st.markdown("---")
+                        st.markdown("### 🛠️ Editar ou Excluir Promoção Configurada")
+                        
+                        df_promos_ativas['label_promo_edit'] = df_promos_ativas['ID'].astype(str) + " - " + df_promos_ativas['Produto'].astype(str)
+                        lista_promos_edit = df_promos_ativas['label_promo_edit'].tolist()
+                        
+                        promo_selecionada_gerir = st.selectbox("Selecione a Promoção para Gerenciar:", lista_promos_edit, key="select_promo_gerenciar_admin")
+                        
+                        p_row_selecionada = df_promos_ativas[df_promos_ativas['label_promo_edit'] == promo_selecionada_gerir].iloc[0]
+                        id_promo_atual = int(p_row_selecionada['ID'])
+
+                        # Carrega os valores atuais da promoção selecionada
+                        cursor = conn.cursor()
+                        cursor.execute("SELECT preco_promo, qtd_minima, qtd_estoque_promo FROM promocoes WHERE id = ?", (id_promo_atual,))
+                        dados_atuais_promo = cursor.fetchone()
+
+                        val_ant_preco = float(dados_atuais_promo[0]) if dados_atuais_promo else 0.0
+                        val_ant_min = float(dados_atuais_promo[1]) if dados_atuais_promo else 1.0
+                        val_ant_est = float(dados_atuais_promo[2]) if dados_atuais_promo else 0.0
+
+                        col_ed1, col_ed2, col_ed3 = st.columns(3)
+                        with col_ed1:
+                            edit_preco_promo = st.number_input("Novo Preço Promo (R$)", value=val_ant_preco, format="%.2f", key="edit_val_promo")
+                        with col_ed2:
+                            edit_qtd_min = st.number_input("Nova Qtd. Mínima PDV", value=val_ant_min, step=1.0, min_value=1.0, key="edit_qtd_min_promo")
+                        with col_ed3:
+                            edit_estoque_promo = st.number_input("Novo Estoque Promo", value=val_ant_est, step=1.0, min_value=0.0, key="edit_est_promo")
+
+                        col_btn_p1, col_btn_p2 = st.columns(2)
+                        with col_btn_p1:
+                            if st.button("✏️ Salvar Alterações da Promoção", type="primary", use_container_width=True, key="btn_salvar_alt_promo"):
+                                try:
+                                    cursor.execute("""
+                                        UPDATE promocoes 
+                                        SET preco_promo = ?, qtd_minima = ?, qtd_estoque_promo = ?
+                                        WHERE id = ?
+                                    """, (edit_preco_promo, edit_qtd_min, edit_estoque_promo, id_promo_atual))
+                                    conn.commit()
+                                    st.success("✅ Promoção atualizada com sucesso!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"❌ Erro ao atualizar promoção: {e}")
+
+                        with col_btn_p2:
+                            if st.button("🗑️ Excluir / Desativar Promoção", use_container_width=True, key="btn_excluir_promo_pdv"):
+                                try:
+                                    cursor.execute("UPDATE promocoes SET ativo = 0 WHERE id = ?", (id_promo_atual,))
+                                    conn.commit()
+                                    st.success("🗑️ Promoção removida/desativada com sucesso!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"❌ Erro ao excluir promoção: {e}")
+                    
+                    st.info(f"ℹ️ Nenhuma promoção ativa encontrada. ({e})")
                     else:
                         st.info("ℹ️ Nenhuma promoção ativa configurada no momento.")
                 except Exception:
