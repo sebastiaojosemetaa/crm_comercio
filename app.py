@@ -1811,16 +1811,15 @@ else:
                         st.error(f"❌ Erro ao restaurar o banco de dados: {e}")
 
     # -------------------------------------------------------------
-    # MÓDULO CONTAS A RECEBER (GESTÃO DE HAVERES E PARCELAS)
+    # MÓDULO CONTAS A RECEBER (BLINDADO E CORRIGIDO)
     # -------------------------------------------------------------
     elif menu_admin == "Contas a Receber":
         st.subheader(f"💰 Contas a Receber / Haveres — {nome_empresa_header} | 👤 Utilizador: {usr_exibicao}")
         
+        # Garante a criação da tabela diretamente com sqlite3 puro
         try:
             with sqlite3.connect("crm_comercio.db", timeout=30.0) as conn_cr:
                 cursor_cr = conn_cr.cursor()
-                
-                # Cria a tabela se não existir
                 cursor_cr.execute("""
                     CREATE TABLE IF NOT EXISTS contas_receber (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1835,40 +1834,48 @@ else:
                     )
                 """)
                 conn_cr.commit()
-
-                # Tenta adicionar as colunas caso a tabela seja de uma versão anterior
-                for col_sql in [
+                
+                # Adiciona colunas se faltarem
+                for col_cmd in [
                     "ALTER TABLE contas_receber ADD COLUMN valor_pago REAL DEFAULT 0.0",
                     "ALTER TABLE contas_receber ADD COLUMN data_quitacao TEXT",
                     "ALTER TABLE contas_receber ADD COLUMN data_lancamento TEXT"
                 ]:
                     try:
-                        cursor_cr.execute(col_sql)
+                        cursor_cr.execute(col_cmd)
                         conn_cr.commit()
                     except Exception:
                         pass
-            
-            df_contas = carregar_dados("SELECT * FROM contas_receber ORDER BY id DESC")
+        except Exception as ex_db:
+            st.error(f"Erro ao inicializar banco de dados: {ex_db}")
+
+        # Carrega os dados com segurança
+        try:
+            df_contas = pd.read_sql_query("SELECT * FROM contas_receber ORDER BY id DESC", sqlite3.connect("crm_comercio.db"))
         except Exception as e:
-            st.error(f"Erro ao carregar contas a receber: {e}")
+            st.warning(f"Aviso ao carregar dados: {e}")
             df_contas = pd.DataFrame()
+
+        st.markdown("---")
 
         if df_contas is not None and not df_contas.empty:
             if 'valor_pago' not in df_contas.columns:
                 df_contas['valor_pago'] = 0.0
             
+            df_contas['valor'] = pd.to_numeric(df_contas['valor'], errors='coerce').fillna(0.0)
+            df_contas['valor_pago'] = pd.to_numeric(df_contas['valor_pago'], errors='coerce').fillna(0.0)
             df_contas['restante'] = df_contas['valor'] - df_contas['valor_pago']
             
-            # Exibe tabela formatada
+            st.markdown("### 📋 Lista de Contas e Parcelas")
             st.dataframe(df_contas[['id', 'cliente', 'descricao', 'valor', 'valor_pago', 'restante', 'vencimento', 'status', 'data_quitacao']], use_container_width=True)
 
             st.markdown("---")
             st.markdown("### ⚙️ Gerenciar Conta / Registrar Haver ou Pagamento")
 
-            df_contas['label_conta'] = "Conta #" + df_contas['id'].astype(str) + " - Cliente: " + df_contas['cliente'].astype(str) + " (Restante: R$ " + df_contas['restante'].astype(str) + ")"
+            df_contas['label_conta'] = "Conta #" + df_contas['id'].astype(str) + " - " + df_contas['cliente'].astype(str) + " (Restante: R$ " + df_contas['restante'].astype(str) + ")"
             lista_contas_sel = df_contas['label_conta'].tolist()
 
-            conta_escolhida = st.selectbox("Selecione a Conta / Parcela para Baixa ou Haver:", lista_contas_sel)
+            conta_escolhida = st.selectbox("Selecione a Conta / Parcela para Baixa ou Haver:", lista_contas_sel, key="sel_conta_gerenciar")
 
             row_conta_sel = df_contas[df_contas['label_conta'] == conta_escolhida].iloc[0]
             id_conta_atual = int(row_conta_sel['id'])
@@ -1930,7 +1937,7 @@ else:
                     except Exception as e:
                         st.error(f"❌ Erro ao excluir: {e}")
         else:
-            st.info("ℹ️ Nenhuma conta pendente ou a receber no momento.")
+            st.info("ℹ️ Nenhuma conta pendente ou a receber no momento. (Nota: As parcelas criadas nas vendas em 'Parcelado' aparecerão aqui automaticamente).")
         
     # -------------------------------------------------------------
     # 10. ESTOQUE E PROMOÇÕES
