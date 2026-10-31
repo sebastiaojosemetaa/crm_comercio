@@ -1819,7 +1819,8 @@ else:
         try:
             with sqlite3.connect("crm_comercio.db", timeout=30.0) as conn_cr:
                 cursor_cr = conn_cr.cursor()
-                # Garante que a tabela tem todas as colunas necessárias para controle de haveres/parciais
+                
+                # Cria a tabela se não existir
                 cursor_cr.execute("""
                     CREATE TABLE IF NOT EXISTS contas_receber (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1834,6 +1835,18 @@ else:
                     )
                 """)
                 conn_cr.commit()
+
+                # Tenta adicionar as colunas caso a tabela seja de uma versão anterior
+                for col_sql in [
+                    "ALTER TABLE contas_receber ADD COLUMN valor_pago REAL DEFAULT 0.0",
+                    "ALTER TABLE contas_receber ADD COLUMN data_quitacao TEXT",
+                    "ALTER TABLE contas_receber ADD COLUMN data_lancamento TEXT"
+                ]:
+                    try:
+                        cursor_cr.execute(col_sql)
+                        conn_cr.commit()
+                    except Exception:
+                        pass
             
             df_contas = carregar_dados("SELECT * FROM contas_receber ORDER BY id DESC")
         except Exception as e:
@@ -1841,20 +1854,18 @@ else:
             df_contas = pd.DataFrame()
 
         if df_contas is not None and not df_contas.empty:
-            # Calcula o restante automaticamente se não existir a coluna valor_pago
             if 'valor_pago' not in df_contas.columns:
                 df_contas['valor_pago'] = 0.0
             
             df_contas['restante'] = df_contas['valor'] - df_contas['valor_pago']
             
-            # Exibe tabela resumida formatada
+            # Exibe tabela formatada
             st.dataframe(df_contas[['id', 'cliente', 'descricao', 'valor', 'valor_pago', 'restante', 'vencimento', 'status', 'data_quitacao']], use_container_width=True)
 
             st.markdown("---")
             st.markdown("### ⚙️ Gerenciar Conta / Registrar Haver ou Pagamento")
 
-            # Cria um seletor amigável para escolher a conta pelo ID e Cliente
-            df_contas['label_conta'] = "Conta #" + df_contas['id'].astype(str) + " - Cliente: " + df_contas['cliente'].astype(str) + " (Restante: R$ " + (df_contas['valor'] - df_contas['valor_pago']).astype(str) + ")"
+            df_contas['label_conta'] = "Conta #" + df_contas['id'].astype(str) + " - Cliente: " + df_contas['cliente'].astype(str) + " (Restante: R$ " + df_contas['restante'].astype(str) + ")"
             lista_contas_sel = df_contas['label_conta'].tolist()
 
             conta_escolhida = st.selectbox("Selecione a Conta / Parcela para Baixa ou Haver:", lista_contas_sel)
@@ -1865,12 +1876,12 @@ else:
             valor_ja_pago = float(row_conta_sel.get('valor_pago', 0.0) or 0.0)
             restante_atual = valor_total_conta - valor_ja_pago
 
-            st.info(f"📌 **Detalhes da Conta:** Cliente: **{row_conta_sel['cliente']}** | Total: **R$ {valor_total_conta:,.2f}** | Já Pago: **R$ {valor_ja_pago:,.2f}** | Restante: **R$ {restante_atual:,.2f}**")
+            st.info(f"📌 **Detalhes:** Cliente: **{row_conta_sel['cliente']}** | Total: **R$ {valor_total_conta:,.2f}** | Já Pago: **R$ {valor_ja_pago:,.2f}** | Restante: **R$ {restante_atual:,.2f}**")
 
             with st.form(f"form_baixa_conta_{id_conta_atual}"):
                 tipo_operacao = st.radio("Escolha a Ação:", ["Receber Valor Total (Quitar)", "Dar Haver / Pagamento Parcial"], horizontal=True)
                 
-                valor_operacao = st.number_input("Valor da Operação (R$):", min_value=0.01, value=float(restante_atual), format="%.2f")
+                valor_operacao = st.number_input("Valor da Operação (R$):", min_value=0.01, value=float(max(0.01, restante_atual)), format="%.2f")
                 data_pagto_input = st.date_input("Data do Pagamento / Haver:", value=datetime.now())
 
                 col_b1, col_b2 = st.columns(2)
@@ -1884,18 +1895,8 @@ else:
                         with sqlite3.connect("crm_comercio.db", timeout=30.0) as conn_up:
                             cursor_up = conn_up.cursor()
                             
-                            # Adiciona colunas se faltarem no banco antigo
-                            try:
-                                cursor_up.execute("ALTER TABLE contas_receber ADD COLUMN valor_pago REAL DEFAULT 0.0")
-                                cursor_up.execute("ALTER TABLE contas_receber ADD COLUMN data_quitacao TEXT")
-                                cursor_up.execute("ALTER TABLE contas_receber ADD COLUMN data_lancamento TEXT")
-                                conn_up.commit()
-                            except Exception:
-                                pass
-
                             novo_valor_pago = valor_ja_pago + valor_operacao
                             novo_restante = valor_total_conta - novo_valor_pago
-                            
                             nova_data_str = str(data_pagto_input)
 
                             if tipo_operacao == "Receber Valor Total (Quitar)" or novo_restante <= 0.01:
@@ -1904,7 +1905,7 @@ else:
                                 novo_valor_pago = valor_total_conta
                             else:
                                 novo_status = "Parcial"
-                                data_quit_str = "-" # Ainda não quitado por completo
+                                data_quit_str = "-"
 
                             cursor_up.execute("""
                                 UPDATE contas_receber 
