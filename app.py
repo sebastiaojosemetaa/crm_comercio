@@ -729,7 +729,7 @@ else:
         if not df_promo_ativo.empty:
             row_p = df_promo_ativo.iloc[0]
             preco_promo = float(row_p['preco_promo'])
-            qtd_minima_promo = float(row_p['qtd_minima'])
+            qtd_minima_promo = float(row_p['qtd_minima']) # Corrigido de quantidade_minima para qtd_minima
 
         if is_simples:
             subtotal_item = preco_unit_venda
@@ -762,7 +762,7 @@ else:
                 preco_calculado_final = val_venda_sug
                 if not df_promo_ativo.empty:
                     row_p = df_promo_ativo.iloc[0]
-                    qtd_minima_promo = float(row_p['quantidade_minima'])
+                    qtd_minima_promo = float(row_p['qtd_minima']) # Corrigido aqui também
                     if qtd_venda >= qtd_minima_promo:
                         preco_calculado_final = float(row_p['preco_promo'])
                         is_promocional = True
@@ -784,7 +784,7 @@ else:
                         st.session_state.carrinho_pdv.append({
                             "codigo": cod_sug, "produto": prod_selecionado, "quantidade": qtd_venda,
                             "valor_unitario": preco_unit_venda, "valor_total": subtotal_item,
-                            "fornecedor": forn_sug, "grupo": "PROMOÇÃO" if is_promocional else grupo_s_ug if 'grupo_sug' in locals() else grupo_sug,
+                            "fornecedor": forn_sug, "grupo": "PROMOÇÃO" if is_promocional else grupo_sug,
                             "produto_id": id_prod_sug
                         })
                         st.success(f"✅ '{prod_selecionado}' adicionado!")
