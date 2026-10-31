@@ -1294,6 +1294,14 @@ else:
         tab_estoque_geral, tab_deposito_promo = st.tabs(["📋 Estoque Geral", "🏷️ Depósito / Produtos para Promoção"])
         
         # -------------------------------------------------------------
+    # 10. ESTOQUE E PROMOÇÕES
+    # -------------------------------------------------------------
+    if "Estoque de Produtos" in str(menu_admin) or menu_admin == "📦 Estoque de Produtos":
+        st.subheader("📦 Estoque de Produtos e Promoções")
+        
+        tab_estoque_geral, tab_deposito_promo = st.tabs(["📋 Estoque Geral", "🏷️ Depósito / Produtos para Promoção"])
+        
+        # -------------------------------------------------------------
         # ABA 1: ESTOQUE GERAL
         # -------------------------------------------------------------
         with tab_estoque_geral:
@@ -1392,16 +1400,15 @@ else:
                         except Exception as e:
                             st.error(f"❌ Erro ao excluir produto: {e}")
             else:
-                st.warning("⚠️ Nenhum produto cadastrado no estoque geral.")       
-        
+                st.warning("⚠️ Nenhum produto cadastrado no estoque geral.")
+
         # -------------------------------------------------------------
-        # ABA 2: DEPÓSITO / PRODUTOS PARA PROMOÇÃO (INTEGRAÇÃO COM PDV)
+        # ABA 2: DEPÓSITO / PRODUTOS PARA PROMOÇÃO (SEM FORMULÁRIO)
         # -------------------------------------------------------------
         with tab_deposito_promo:
             st.markdown("### 🏷️ Enviar Produto para Promoção no PDV")
-            st.markdown("Selecione um produto existente, defina o preço promocional e a quantidade mínima necessária para que o PDV ative a promoção automaticamente.")
+            st.markdown("Selecione um produto, defina o preço promocional, a quantidade mínima para ativação no PDV e o limite de estoque da promoção.")
             
-            # Cria a tabela de promoções caso não exista
             try:
                 cursor = conn.cursor()
                 cursor.execute("""
@@ -1410,10 +1417,17 @@ else:
                         produto_id INTEGER,
                         preco_promo REAL,
                         qtd_minima REAL,
+                        qtd_estoque_promo REAL,
                         ativo INTEGER DEFAULT 1
                     )
                 """)
                 conn.commit()
+
+                try:
+                    cursor.execute("ALTER TABLE promocoes ADD COLUMN qtd_estoque_promo REAL DEFAULT 0")
+                    conn.commit()
+                except Exception:
+                    pass
             except Exception:
                 pass
 
@@ -1423,51 +1437,57 @@ else:
                 df_prods_promo['label_promo'] = df_prods_promo['id'].astype(str) + " - " + df_prods_promo['produto'].astype(str)
                 lista_prods_promo = df_prods_promo['label_promo'].tolist()
                 
-                prod_selecionado_promo = st.selectbox("Selecione o Produto para Promoção:", lista_prods_promo, key="select_prod_para_promo")
+                prod_selecionado_promo = st.selectbox("Selecione o Produto para Promoção:", lista_prods_promo, key="select_prod_promo_direto_v3")
                 
                 p_row_promo = df_prods_promo[df_prods_promo['label_promo'] == prod_selecionado_promo].iloc[0]
                 id_prod_promo = int(p_row_promo['id'])
+                qtd_estoque_atual_geral = float(p_row_promo.get('quantidade', 0.0) or 0.0)
                 
-                with st.form("form_cadastrar_promocao_pdv"):
-                    col_p1, col_p2 = st.columns(2)
-                    with col_p1:
-                        preco_promocional = st.number_input("Preço Promocional (R$)", value=float(p_row_promo.get('valor_venda', 0.0) or 0.0), format="%.2f")
-                    with col_p2:
-                        qtd_minima_ativacao = st.number_input("Qtd. Mínima para Ativar no PDV", value=1.0, step=1.0, min_value=1.0)
-                    
-                    btn_enviar_pdv = st.form_submit_button("🚀 Enviar para o PDV (Ativar Promoção)", type="primary", use_container_width=True)
-                    
-                    if btn_enviar_pdv:
-                        try:
-                            cursor = conn.cursor()
-                            # Verifica se já existe registo de promoção para este produto
-                            cursor.execute("SELECT id FROM promocoes WHERE produto_id = ?", (id_prod_promo,))
-                            existe_promo = cursor.fetchone()
-                            
-                            if existe_promo:
-                                cursor.execute("""
-                                    UPDATE promocoes 
-                                    SET preco_promo = ?, qtd_minima = ?, ativo = 1
-                                    WHERE produto_id = ?
-                                """, (preco_promocional, qtd_minima_ativacao, id_prod_promo))
-                            else:
-                                cursor.execute("""
-                                    INSERT INTO promocoes (produto_id, preco_promo, qtd_minima, ativo)
-                                    VALUES (?, ?, ?, 1)
-                                """, (id_prod_promo, preco_promocional, qtd_minima_ativacao))
-                            
-                            conn.commit()
-                            st.success(f"✅ Produto '{p_row_promo['produto']}' configurado para promoção! O PDV irá ativá-lo ao atingir a quantidade.")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"❌ Erro ao salvar promoção: {e}")
+                col_p1, col_p2, col_p3 = st.columns(3)
+                with col_p1:
+                    preco_promocional = st.number_input("Preço Promocional (R$)", value=float(p_row_promo.get('valor_venda', 0.0) or 0.0), format="%.2f", key="input_preco_promo_v3")
+                with col_p2:
+                    qtd_minima_ativacao = st.number_input("Qtd. Mínima p/ Ativar PDV", value=1.0, step=1.0, min_value=1.0, key="input_qtd_min_v3")
+                with col_p3:
+                    qtd_estoque_promo = st.number_input("Qtd. Estoque da Promoção", value=float(qtd_estoque_atual_geral), step=1.0, min_value=1.0, key="input_qtd_est_promo_v3")
                 
-                # Listagem das promoções ativas cadastradas
+                st.markdown("")
+                btn_enviar_pdv = st.button("🚀 Enviar para o PDV (Ativar Promoção)", type="primary", use_container_width=True, key="btn_enviar_promo_v3")
+                
+                if btn_enviar_pdv:
+                    try:
+                        cursor = conn.cursor()
+                        cursor.execute("SELECT id FROM promocoes WHERE produto_id = ?", (id_prod_promo,))
+                        existe_promo = cursor.fetchone()
+                        
+                        if existe_promo:
+                            cursor.execute("""
+                                UPDATE promocoes 
+                                SET preco_promo = ?, qtd_minima = ?, qtd_estoque_promo = ?, ativo = 1
+                                WHERE produto_id = ?
+                            """, (preco_promocional, qtd_minima_ativacao, qtd_estoque_promo, id_prod_promo))
+                        else:
+                            cursor.execute("""
+                                INSERT INTO promocoes (produto_id, preco_promo, qtd_minima, qtd_estoque_promo, ativo)
+                                VALUES (?, ?, ?, ?, 1)
+                            """, (id_prod_promo, preco_promocional, qtd_minima_ativacao, qtd_estoque_promo))
+                        
+                        conn.commit()
+                        st.success(f"✅ Promoção de '{p_row_promo['produto']}' ativada com sucesso com estoque limitado de {qtd_estoque_promo} un!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Erro ao salvar promoção: {e}")
+                
                 st.markdown("---")
                 st.markdown("### 📋 Promoções Configuradas para o PDV")
                 try:
                     df_promos_ativas = carregar_dados("""
-                        SELECT p.id as ID, pr.produto as Produto, p.preco_promo as [Preço Promo (R$)], p.qtd_minima as [Qtd. Mínima PDV]
+                        SELECT 
+                            p.id as ID, 
+                            pr.produto as Produto, 
+                            p.preco_promo as [Preço Promo (R$)], 
+                            p.qtd_minima as [Qtd. Mínima PDV],
+                            p.qtd_estoque_promo as [Estoque da Promoção]
                         FROM promocoes p 
                         JOIN produtos pr ON p.produto_id = pr.id 
                         WHERE p.ativo = 1
