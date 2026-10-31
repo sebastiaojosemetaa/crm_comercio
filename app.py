@@ -1811,16 +1811,125 @@ else:
                         st.error(f"❌ Erro ao restaurar o banco de dados: {e}")
 
     # -------------------------------------------------------------
-    # 9. CONTAS A RECEBER
+    # MÓDULO CONTAS A RECEBER (GESTÃO DE HAVERES E PARCELAS)
     # -------------------------------------------------------------
-    elif menu_admin == "💸 Contas a Receber":
-        st.subheader("💸 Contas a Receber")
-        df_pedidos_pendentes = carregar_dados("SELECT * FROM pedidos WHERE status = 'Pendente'")
-        if not df_pedidos_pendentes.empty:
-            st.dataframe(df_pedidos_pendentes, use_container_width=True)
-            st.metric("Total Pendente a Receber", f"R$ {df_pedidos_pendentes['valor_total'].sum():,.2f}")
+    elif menu_admin == "Contas a Receber":
+        st.subheader(f"💰 Contas a Receber / Haveres — {nome_empresa_header} | 👤 Utilizador: {usr_exibicao}")
+        
+        try:
+            with sqlite3.connect("crm_comercio.db", timeout=30.0) as conn_cr:
+                cursor_cr = conn_cr.cursor()
+                # Garante que a tabela tem todas as colunas necessárias para controle de haveres/parciais
+                cursor_cr.execute("""
+                    CREATE TABLE IF NOT EXISTS contas_receber (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        cliente TEXT,
+                        valor REAL,
+                        valor_pago REAL DEFAULT 0.0,
+                        vencimento TEXT,
+                        data_lancamento TEXT,
+                        data_quitacao TEXT,
+                        status TEXT,
+                        descricao TEXT
+                    )
+                """)
+                conn_cr.commit()
+            
+            df_contas = carregar_dados("SELECT * FROM contas_receber ORDER BY id DESC")
+        except Exception as e:
+            st.error(f"Erro ao carregar contas a receber: {e}")
+            df_contas = pd.DataFrame()
+
+        if df_contas is not None and not df_contas.empty:
+            # Calcula o restante automaticamente se não existir a coluna valor_pago
+            if 'valor_pago' not in df_contas.columns:
+                df_contas['valor_pago'] = 0.0
+            
+            df_contas['restante'] = df_contas['valor'] - df_contas['valor_pago']
+            
+            # Exibe tabela resumida formatada
+            st.dataframe(df_contas[['id', 'cliente', 'descricao', 'valor', 'valor_pago', 'restante', 'vencimento', 'status', 'data_quitacao']], use_container_width=True)
+
+            st.markdown("---")
+            st.markdown("### ⚙️ Gerenciar Conta / Registrar Haver ou Pagamento")
+
+            # Cria um seletor amigável para escolher a conta pelo ID e Cliente
+            df_contas['label_conta'] = "Conta #" + df_contas['id'].astype(str) + " - Cliente: " + df_contas['cliente'].astype(str) + " (Restante: R$ " + (df_contas['valor'] - df_contas['valor_pago']).astype(str) + ")"
+            lista_contas_sel = df_contas['label_conta'].tolist()
+
+            conta_escolhida = st.selectbox("Selecione a Conta / Parcela para Baixa ou Haver:", lista_contas_sel)
+
+            row_conta_sel = df_contas[df_contas['label_conta'] == conta_escolhida].iloc[0]
+            id_conta_atual = int(row_conta_sel['id'])
+            valor_total_conta = float(row_conta_sel['valor'])
+            valor_ja_pago = float(row_conta_sel.get('valor_pago', 0.0) or 0.0)
+            restante_atual = valor_total_conta - valor_ja_pago
+
+            st.info(f"📌 **Detalhes da Conta:** Cliente: **{row_conta_sel['cliente']}** | Total: **R$ {valor_total_conta:,.2f}** | Já Pago: **R$ {valor_ja_pago:,.2f}** | Restante: **R$ {restante_atual:,.2f}**")
+
+            with st.form(f"form_baixa_conta_{id_conta_atual}"):
+                tipo_operacao = st.radio("Escolha a Ação:", ["Receber Valor Total (Quitar)", "Dar Haver / Pagamento Parcial"], horizontal=True)
+                
+                valor_operacao = st.number_input("Valor da Operação (R$):", min_value=0.01, value=float(restante_atual), format="%.2f")
+                data_pagto_input = st.date_input("Data do Pagamento / Haver:", value=datetime.now())
+
+                col_b1, col_b2 = st.columns(2)
+                with col_b1:
+                    btn_executar = st.form_submit_button("✅ Confirmar Operação", type="primary", use_container_width=True)
+                with col_b2:
+                    btn_excluir_conta = st.form_submit_button("🗑️ Excluir Conta", use_container_width=True)
+
+                if btn_executar:
+                    try:
+                        with sqlite3.connect("crm_comercio.db", timeout=30.0) as conn_up:
+                            cursor_up = conn_up.cursor()
+                            
+                            # Adiciona colunas se faltarem no banco antigo
+                            try:
+                                cursor_up.execute("ALTER TABLE contas_receber ADD COLUMN valor_pago REAL DEFAULT 0.0")
+                                cursor_up.execute("ALTER TABLE contas_receber ADD COLUMN data_quitacao TEXT")
+                                cursor_up.execute("ALTER TABLE contas_receber ADD COLUMN data_lancamento TEXT")
+                                conn_up.commit()
+                            except Exception:
+                                pass
+
+                            novo_valor_pago = valor_ja_pago + valor_operacao
+                            novo_restante = valor_total_conta - novo_valor_pago
+                            
+                            nova_data_str = str(data_pagto_input)
+
+                            if tipo_operacao == "Receber Valor Total (Quitar)" or novo_restante <= 0.01:
+                                novo_status = "Quitado"
+                                data_quit_str = nova_data_str
+                                novo_valor_pago = valor_total_conta
+                            else:
+                                novo_status = "Parcial"
+                                data_quit_str = "-" # Ainda não quitado por completo
+
+                            cursor_up.execute("""
+                                UPDATE contas_receber 
+                                SET valor_pago = ?, status = ?, data_quitacao = ?
+                                WHERE id = ?
+                            """, (novo_valor_pago, novo_status, data_quit_str, id_conta_atual))
+                            conn_up.commit()
+
+                        st.success(f"✅ Operação efetuada com sucesso! Restante atual: R$ {max(0.0, valor_total_conta - novo_valor_pago):,.2f}")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Erro ao atualizar conta: {e}")
+
+                if btn_excluir_conta:
+                    try:
+                        with sqlite3.connect("crm_comercio.db", timeout=30.0) as conn_del:
+                            cursor_del = conn_del.cursor()
+                            cursor_del.execute("DELETE FROM contas_receber WHERE id = ?", (id_conta_atual,))
+                            conn_del.commit()
+                        st.success("🗑️ Conta excluída com sucesso!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Erro ao excluir: {e}")
         else:
-            st.info("Nenhuma conta pendente a receber no momento.")
+            st.info("ℹ️ Nenhuma conta pendente ou a receber no momento.")
         
     # -------------------------------------------------------------
     # 10. ESTOQUE E PROMOÇÕES
