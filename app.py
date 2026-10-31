@@ -1811,17 +1811,24 @@ else:
                         st.error(f"❌ Erro ao restaurar o banco de dados: {e}")
 
     # -------------------------------------------------------------
-    # MÓDULO CONTAS A RECEBER (BLINDADO E CORRIGIDO)
+    # MÓDULO CONTAS A RECEBER (DIAGNÓSTICO E EXIBIÇÃO FORÇADA)
     # -------------------------------------------------------------
-    elif menu_admin == "Contas a Receber":
+    elif menu_admin == "Contas a Receber" or menu_admin == "💰 Contas a Receber":
         st.subheader(f"💰 Contas a Receber / Haveres — {nome_empresa_header} | 👤 Utilizador: {usr_exibicao}")
         
-        # Garante a criação da tabela diretamente com sqlite3 puro
+        # Teste de conexão e leitura direta
         try:
-            with sqlite3.connect("crm_comercio.db", timeout=30.0) as conn_cr:
-                cursor_cr = conn_cr.cursor()
-                cursor_cr.execute("""
-                    CREATE TABLE IF NOT EXISTS contas_receber (
+            conn_diag = sqlite3.connect("crm_comercio.db", timeout=30.0)
+            cursor_diag = conn_diag.cursor()
+            
+            # Verifica se a tabela existe
+            cursor_diag.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='contas_receber'")
+            tabela_existe = cursor_diag.fetchone()
+            
+            if not tabela_existe:
+                st.warning("⚠️ A tabela 'contas_receber' não existia e foi criada agora.")
+                cursor_diag.execute("""
+                    CREATE TABLE contas_receber (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         cliente TEXT,
                         valor REAL,
@@ -1833,27 +1840,16 @@ else:
                         descricao TEXT
                     )
                 """)
-                conn_cr.commit()
-                
-                # Adiciona colunas se faltarem
-                for col_cmd in [
-                    "ALTER TABLE contas_receber ADD COLUMN valor_pago REAL DEFAULT 0.0",
-                    "ALTER TABLE contas_receber ADD COLUMN data_quitacao TEXT",
-                    "ALTER TABLE contas_receber ADD COLUMN data_lancamento TEXT"
-                ]:
-                    try:
-                        cursor_cr.execute(col_cmd)
-                        conn_cr.commit()
-                    except Exception:
-                        pass
-        except Exception as ex_db:
-            st.error(f"Erro ao inicializar banco de dados: {ex_db}")
+                conn_diag.commit()
 
-        # Carrega os dados com segurança
-        try:
-            df_contas = pd.read_sql_query("SELECT * FROM contas_receber ORDER BY id DESC", sqlite3.connect("crm_comercio.db"))
-        except Exception as e:
-            st.warning(f"Aviso ao carregar dados: {e}")
+            # Lê os dados diretamente
+            df_contas = pd.read_sql_query("SELECT * FROM contas_receber ORDER BY id DESC", conn_diag)
+            conn_diag.close()
+            
+            st.success(f"🔍 Diagnóstico: Conexão bem-sucedida! Total de registos encontrados na tabela: **{len(df_contas)}**")
+            
+        except Exception as err_diag:
+            st.error(f"❌ Erro crítico no banco de dados: {err_diag}")
             df_contas = pd.DataFrame()
 
         st.markdown("---")
@@ -1875,7 +1871,7 @@ else:
             df_contas['label_conta'] = "Conta #" + df_contas['id'].astype(str) + " - " + df_contas['cliente'].astype(str) + " (Restante: R$ " + df_contas['restante'].astype(str) + ")"
             lista_contas_sel = df_contas['label_conta'].tolist()
 
-            conta_escolhida = st.selectbox("Selecione a Conta / Parcela para Baixa ou Haver:", lista_contas_sel, key="sel_conta_gerenciar")
+            conta_escolhida = st.selectbox("Selecione a Conta / Parcela para Baixa ou Haver:", lista_contas_sel, key="sel_conta_gerenciar_diag")
 
             row_conta_sel = df_contas[df_contas['label_conta'] == conta_escolhida].iloc[0]
             id_conta_atual = int(row_conta_sel['id'])
@@ -1937,7 +1933,7 @@ else:
                     except Exception as e:
                         st.error(f"❌ Erro ao excluir: {e}")
         else:
-            st.info("ℹ️ Nenhuma conta pendente ou a receber no momento. (Nota: As parcelas criadas nas vendas em 'Parcelado' aparecerão aqui automaticamente).")
+            st.info("ℹ️ A tabela está vazia (0 registos). Para testar, faça uma venda na opção **'🛒 Registrar Venda'** selecionando a condição **'Parcelado'** — as parcelas aparecerão aqui instantaneamente.")
         
     # -------------------------------------------------------------
     # 10. ESTOQUE E PROMOÇÕES
