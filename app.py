@@ -1284,16 +1284,8 @@ else:
             st.metric("Total Pendente a Receber", f"R$ {df_pedidos_pendentes['valor_total'].sum():,.2f}")
         else:
             st.info("Nenhuma conta pendente a receber no momento.")
-
-    # -------------------------------------------------------------
-    # 10. ESTOQUE E PROMOÇÕES
-    # -------------------------------------------------------------
-    if "Estoque de Produtos" in str(menu_admin) or menu_admin == "📦 Estoque de Produtos":
-        st.subheader("📦 Estoque de Produtos e Promoções")
         
-        tab_estoque_geral, tab_deposito_promo = st.tabs(["📋 Estoque Geral", "🏷️ Depósito / Produtos para Promoção"])
-        
-        # -------------------------------------------------------------
+    # -------------------------------------------------------------
     # 10. ESTOQUE E PROMOÇÕES
     # -------------------------------------------------------------
     if "Estoque de Produtos" in str(menu_admin) or menu_admin == "📦 Estoque de Produtos":
