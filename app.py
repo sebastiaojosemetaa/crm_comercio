@@ -1803,7 +1803,13 @@ else:
                 with col_p2:
                     qtd_minima_ativacao = st.number_input("Qtd. Mínima p/ Ativar PDV", value=1.0, step=1.0, min_value=1.0, key="input_qtd_min_corr")
                 with col_p3:
-                    qtd_estoque_promo = st.number_input("Qtd. Estoque da Promoção", value=float(qtd_estoque_atual_geral), step=1.0, min_value=1.0, key="input_qtd_est_promo_corr")
+                    qtd_estoque_promo = st.number_input(
+                        "Qtd. Estoque da Promoção", 
+                        value=float(max(0.0, qtd_estoque_atual_geral)), 
+                        step=1.0, 
+                        min_value=0.0, 
+                        key="..."
+                    )
                 
                 st.markdown("")
                 btn_enviar_pdv = st.button("🚀 Enviar para o PDV (Ativar Promoção)", type="primary", use_container_width=True, key="btn_enviar_promo_corr")
