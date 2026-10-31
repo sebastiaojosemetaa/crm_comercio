@@ -460,8 +460,9 @@ else:
                 p_row = df_prod_pdv[df_prod_pdv['produto'] == nome_prod].iloc[0]
                 val_v = float(p_row.get('valor_venda', 0.0) or p_row.get('venda', 0.0) or 0.0)
                 cod_prod = str(p_row.get('codigo', ''))
-                return val_v, str(p_row.get('fornecedor', '')), str(p_row.get('grupo', '')), cod_prod
-            return 0.0, "", "", ""
+                prod_id = int(p_row.get('id', 0))
+                return val_v, str(p_row.get('fornecedor', '')), str(p_row.get('grupo', '')), cod_prod, prod_id
+            return 0.0, "", "", "", 0
 
         def obter_produto_por_codigo(cod):
             if not df_prod_pdv.empty and 'codigo' in df_prod_pdv.columns:
@@ -538,7 +539,7 @@ else:
                     st.info(f"📅 Venda dividida em **{num_parc}x** de **R$ {valor_parc:,.2f}**.")
 
                 elif forma_pagto == "Pix":
-                    st.markdown("#### 📱 Pague com Pix (QR Code Oficial)")
+                    st.markdown("### 📱 Pague com Pix (QR Code Oficial)")
                     
                     df_chaves_db = carregar_dados("SELECT * FROM chaves_pix")
                     
@@ -676,13 +677,13 @@ else:
                                 vendedor_atual
                             ))
 
-                            # Baixa no estoque promocional se pertencer à promoção
+                            # Baixa no estoque da promoção caso o item pertença à promoção
                             if item.get('grupo') == "PROMOÇÃO":
                                 cursor.execute("""
-                                    UPDATE produtos_promocao 
-                                    SET quantidade = quantidade - ? 
-                                    WHERE UPPER(TRIM(produto)) = UPPER(TRIM(?)) AND quantidade >= ?
-                                """, (item['quantidade'], item['produto'], item['quantidade']))
+                                    UPDATE promocoes 
+                                    SET qtd_estoque_promo = qtd_estoque_promo - ? 
+                                    WHERE produto_id = ? AND qtd_estoque_promo >= ?
+                                """, (item['quantidade'], item.get('produto_id'), item['quantidade']))
 
                         cursor.execute(
                             "INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, 'VENDA', ?, ?, ?)",
@@ -716,11 +717,10 @@ else:
 
             prod_selecionado = st.selectbox("Pesquisar / Selecionar Produto", [""] + lista_produtos_pdv, index=idx_padrao, key="sel_prod_pdv_alin")
 
-        val_venda_sug, forn_sug, grupo_sug, cod_sug = obter_dados_produto(prod_selecionado) if prod_selecionado else (0.0, "", "", "")
+        val_venda_sug, forn_sug, grupo_sug, cod_sug, id_prod_sug = obter_dados_produto(prod_selecionado) if prod_selecionado else (0.0, "", "", "", 0)
 
-        # --- VERIFICAÇÃO DE PROMOÇÃO INTELIGENTE (QUANTIDADE MÍNIMA) ---
-        prod_limpo_sel = str(prod_selecionado).strip().replace("'", "''")
-        df_promo_ativo = carregar_dados(f"SELECT * FROM produtos_promocao WHERE UPPER(TRIM(produto)) = UPPER(TRIM('{prod_limpo_sel}')) AND quantidade > 0")
+        # --- VERIFICAÇÃO DE PROMOÇÃO INTELIGENTE (CONSULTANDO A TABELA 'promocoes') ---
+        df_promo_ativo = carregar_dados(f"SELECT * FROM promocoes WHERE produto_id = {id_prod_sug} AND ativo = 1 AND qtd_estoque_promo > 0")
         
         preco_unit_venda = val_venda_sug
         is_promocional = False
@@ -728,19 +728,15 @@ else:
 
         if not df_promo_ativo.empty:
             row_p = df_promo_ativo.iloc[0]
-            preco_promo = float(row_p['preco_promocional'])
-            qtd_minima_promo = float(row_p['quantidade_minima'])
-            
-            if is_simples:
-                if 1.0 >= qtd_minima_promo:
-                    preco_unit_venda = preco_promo
-                    is_promocional = True
-            else:
-                pass
+            preco_promo = float(row_p['preco_promo'])
+            qtd_minima_promo = float(row_p['qtd_minima'])
 
         if is_simples:
             subtotal_item = preco_unit_venda
-            if is_promocional:
+            if not df_promo_ativo.empty and 1.0 >= qtd_minima_promo:
+                preco_unit_venda = float(df_promo_ativo.iloc[0]['preco_promo'])
+                subtotal_item = preco_unit_venda
+                is_promocional = True
                 st.info(f"🏷️ **Promoção Ativa!** Preço promocional aplicado: R$ {preco_unit_venda:,.2f}")
             elif not df_promo_ativo.empty:
                 st.info(f"ℹ️ Promoção disponível a partir de {qtd_minima_promo} un/kg (Preço normal aplicado).")
@@ -752,7 +748,8 @@ else:
                     st.session_state.carrinho_pdv.append({
                         "codigo": cod_sug, "produto": prod_selecionado, "quantidade": 1.0,
                         "valor_unitario": preco_unit_venda, "valor_total": subtotal_item,
-                        "fornecedor": forn_sug, "grupo": "PROMOÇÃO" if is_promocional else grupo_sug
+                        "fornecedor": forn_sug, "grupo": "PROMOÇÃO" if is_promocional else grupo_sug,
+                        "produto_id": id_prod_sug
                     })
                     st.success(f"✅ '{prod_selecionado}' adicionado!")
                     st.rerun()
@@ -762,22 +759,20 @@ else:
                 qtd_venda = st.number_input("Qtd", min_value=0.01, value=1.0, step=1.0, key="qtd_prod_pdv_alin")
             
             with col_q2:
-                # Validação dinâmica da quantidade mínima para desconto no modo completo
                 preco_calculado_final = val_venda_sug
                 if not df_promo_ativo.empty:
                     row_p = df_promo_ativo.iloc[0]
                     qtd_minima_promo = float(row_p['quantidade_minima'])
                     if qtd_venda >= qtd_minima_promo:
-                        preco_calculado_final = float(row_p['preco_promocional'])
+                        preco_calculado_final = float(row_p['preco_promo'])
                         is_promocional = True
                 
-                # Removido o key para o Streamlit atualizar o valor corretamente ao mudar de produto/quantidade
                 preco_unit_venda = st.number_input("Preço Unit. (R$)", min_value=0.0, value=float(preco_calculado_final), format="%.2f")
             
             with col_q3:
                 subtotal_item = qtd_venda * preco_unit_venda
                 if is_promocional:
-                    st.success(f"🏷️ **Promoção Ativa!** (A partir de {qtd_minima_promo})")
+                    st.success(f"🏷️ **Promoção Ativa!** (A partir de {qtd_minima_promo} un)")
                 elif not df_promo_ativo.empty:
                     st.info(f"ℹ️ Promoção a partir de {qtd_minima_promo} un/kg.")
 
@@ -789,11 +784,11 @@ else:
                         st.session_state.carrinho_pdv.append({
                             "codigo": cod_sug, "produto": prod_selecionado, "quantidade": qtd_venda,
                             "valor_unitario": preco_unit_venda, "valor_total": subtotal_item,
-                            "fornecedor": forn_sug, "grupo": "PROMOÇÃO" if is_promocional else grupo_sug
+                            "fornecedor": forn_sug, "grupo": "PROMOÇÃO" if is_promocional else grupo_s_ug if 'grupo_sug' in locals() else grupo_sug,
+                            "produto_id": id_prod_sug
                         })
                         st.success(f"✅ '{prod_selecionado}' adicionado!")
                         st.rerun()
-
     # -------------------------------------------------------------
     # 2. MÓDULO FECHAMENTO & FINANCEIRO
     # -------------------------------------------------------------
