@@ -719,9 +719,16 @@ else:
 
         val_venda_sug, forn_sug, grupo_sug, cod_sug, id_prod_sug = obter_dados_produto(prod_selecionado) if prod_selecionado else (0.0, "", "", "", 0)
 
-        # --- VERIFICAÇÃO DE PROMOÇÃO INTELIGENTE (CONSULTANDO A TABELA 'promocoes') ---
+        # --- VERIFICAÇÃO DE PROMOÇÃO INTELIGENTE (CONSULTANDO 'promocoes' E DESCONTANDO O CARRINHO) ---
         df_promo_ativo = carregar_dados(f"SELECT * FROM promocoes WHERE produto_id = {id_prod_sug} AND ativo = 1 AND qtd_estoque_promo > 0")
         
+        # Calcula quantas unidades deste produto JÁ ESTÃO no carrinho atual
+        qtd_ja_no_carrinho = 0.0
+        if st.session_state.carrinho_pdv:
+            for item_c in st.session_state.carrinho_pdv:
+                if item_c.get('produto_id') == id_prod_sug:
+                    qtd_ja_no_carrinho += float(item_c.get('quantidade', 0.0))
+
         preco_unit_venda = val_venda_sug
         is_promocional = False
         qtd_minima_promo = 0.0
@@ -729,17 +736,23 @@ else:
         if not df_promo_ativo.empty:
             row_p = df_promo_ativo.iloc[0]
             preco_promo = float(row_p['preco_promo'])
-            qtd_minima_promo = float(row_p['qtd_minima']) # Corrigido de quantidade_minima para qtd_minima
+            qtd_minima_promo = float(row_p['qtd_minima'])
+            estoque_promo_restante = float(row_p['qtd_estoque_promo']) - qtd_ja_no_carrinho
+        else:
+            estoque_promo_restante = 0.0
 
         if is_simples:
             subtotal_item = preco_unit_venda
-            if not df_promo_ativo.empty and 1.0 >= qtd_minima_promo:
-                preco_unit_venda = float(df_promo_ativo.iloc[0]['preco_promo'])
+            if estoque_promo_restante >= 1.0 and 1.0 >= qtd_minima_promo:
+                preco_unit_venda = preco_promo
                 subtotal_item = preco_unit_venda
                 is_promocional = True
                 st.info(f"🏷️ **Promoção Ativa!** Preço promocional aplicado: R$ {preco_unit_venda:,.2f}")
             elif not df_promo_ativo.empty:
-                st.info(f"ℹ️ Promoção disponível a partir de {qtd_minima_promo} un/kg (Preço normal aplicado).")
+                if estoque_promo_restante <= 0:
+                    st.warning("⚠️ Estoque da promoção esgotado! Aplicando preço normal.")
+                else:
+                    st.info(f"ℹ️ Promoção disponível a partir de {qtd_minima_promo} un/kg (Preço normal aplicado).")
 
             if st.button("➕ [ Enter ] Incluir Produto", type="primary", use_container_width=True, key="btn_inc_prod_simples"):
                 if not prod_selecionado:
@@ -761,10 +774,9 @@ else:
             with col_q2:
                 preco_calculado_final = val_venda_sug
                 if not df_promo_ativo.empty:
-                    row_p = df_promo_ativo.iloc[0]
-                    qtd_minima_promo = float(row_p['qtd_minima']) # Corrigido aqui também
-                    if qtd_venda >= qtd_minima_promo:
-                        preco_calculado_final = float(row_p['preco_promo'])
+                    # Só ativa a promoção se a nova quantidade couber no estoque restante da promoção
+                    if qtd_venda >= qtd_minima_promo and estoque_promo_restante >= qtd_venda:
+                        preco_calculado_final = preco_promo
                         is_promocional = True
                 
                 preco_unit_venda = st.number_input("Preço Unit. (R$)", min_value=0.0, value=float(preco_calculado_final), format="%.2f")
@@ -772,9 +784,12 @@ else:
             with col_q3:
                 subtotal_item = qtd_venda * preco_unit_venda
                 if is_promocional:
-                    st.success(f"🏷️ **Promoção Ativa!** (A partir de {qtd_minima_promo} un)")
+                    st.success(f"🏷️ **Promoção Ativa!** (Estoque Promo Restante: {estoque_promo_restante} un)")
                 elif not df_promo_ativo.empty:
-                    st.info(f"ℹ️ Promoção a partir de {qtd_minima_promo} un/kg.")
+                    if estoque_promo_restante <= 0 or qtd_venda > estoque_promo_restante:
+                        st.warning(f"⚠️ Estoque da promoção esgotado/insuficiente! (Restante: {max(0.0, estoque_promo_restante)} un)")
+                    else:
+                        st.info(f"ℹ️ Promoção a partir de {qtd_minima_promo} un/kg.")
 
                 st.markdown(f"**Subtotal:** R$ {subtotal_item:,.2f}")
                 if st.button("➕ [ Enter ] Incluir Produto", type="primary", use_container_width=True, key="btn_inc_prod_completo"):
