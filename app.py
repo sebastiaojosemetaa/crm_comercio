@@ -992,31 +992,93 @@ else:
                 st.rerun()
 
     # -------------------------------------------------------------
-    # 5. MÓDULO CADASTROS
+    # 5. MÓDULO CADASTROS (CLIENTES, FORNECEDORES E GRUPOS)
     # -------------------------------------------------------------
     elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
         st.subheader("👥 Cadastros (Clientes / Fornecedores / Grupos)")
         tab_cli, tab_forn, tab_grup = st.tabs(["👤 Clientes", "🏢 Fornecedores", "🏷️ Grupos"])
 
+        # -------------------------------------------------------------
+        # ABA 1: CLIENTES
+        # -------------------------------------------------------------
         with tab_cli:
+            st.markdown("### 👤 Cadastro de Clientes")
             with st.form("form_cad_cli"):
                 n_cli = st.text_input("Nome do Cliente")
                 t_cli = st.text_input("Telefone")
-                if st.form_submit_button("Salvar Cliente"):
+                if st.form_submit_button("Salvar Cliente", type="primary"):
                     if n_cli.strip():
                         salvar_cliente_completo(n_cli, t_cli, "", "", "")
-                        st.success("Cliente cadastrado com sucesso!")
+                        st.success("✅ Cliente cadastrado com sucesso!")
                         st.rerun()
+                    else:
+                        st.warning("⚠️ O nome do cliente não pode estar vazio.")
 
-            st.dataframe(carregar_dados("SELECT * FROM clientes"), use_container_width=True)
+            st.markdown("---")
+            st.markdown("### 📋 Clientes Cadastrados (Editar / Excluir)")
+            try:
+                df_clientes = carregar_dados("SELECT * FROM clientes")
+            except Exception:
+                df_clientes = pd.DataFrame()
+
+            if df_clientes is not None and not df_clientes.empty:
+                st.dataframe(df_clientes, use_container_width=True)
+
+                # Coluna amigável para busca no selectbox
+                col_nome_cli = 'cliente' if 'cliente' in df_clientes.columns else ('nome' if 'nome' in df_clientes.columns else df_clientes.columns[1])
+                df_clientes['label_cli'] = df_clientes['id'].astype(str) + " - " + df_clientes[col_nome_cli].astype(str)
+                lista_cli_edit = df_clientes['label_cli'].tolist()
+
+                cli_selecionado = st.selectbox("Selecione o Cliente para Gerenciar:", lista_cli_edit, key="select_cli_gerenciar_cad")
+
+                p_row_cli = df_clientes[df_clientes['label_cli'] == cli_selecionado].iloc[0]
+                id_cli_atual = int(p_row_cli['id'])
+                nome_cli_atual = str(p_row_cli.get(col_nome_cli, ''))
+                fone_cli_atual = str(p_row_cli.get('fone', p_row_cli.get('telefone', '')) or '')
+
+                with st.form("form_gerenciar_cliente_cad"):
+                    col_c1, col_c2 = st.columns(2)
+                    with col_c1:
+                        ed_nome_cli = st.text_input("Nome do Cliente", value=nome_cli_atual)
+                    with col_c2:
+                        ed_fone_cli = st.text_input("Telefone", value=fone_cli_atual)
+
+                    col_btn_c1, col_btn_c2 = st.columns(2)
+                    with col_btn_c1:
+                        btn_alt_cli = st.form_submit_button("✏️ Salvar Alterações", type="primary", use_container_width=True)
+                    with col_btn_c2:
+                        btn_del_cli = st.form_submit_button("🗑️ Excluir Cliente", use_container_width=True)
+
+                    if btn_alt_cli:
+                        if ed_nome_cli.strip():
+                            try:
+                                cursor = conn.cursor()
+                                cursor.execute(f"UPDATE clientes SET {col_nome_cli} = ?, fone = ? WHERE id = ?", (ed_nome_cli.strip().upper(), ed_fone_cli.strip(), id_cli_atual))
+                                conn.commit()
+                                st.success(f"✅ Cliente '{ed_nome_cli}' atualizado com sucesso!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"❌ Erro ao atualizar cliente: {e}")
+                        else:
+                            st.warning("⚠️ O nome não pode ser vazio.")
+
+                    if btn_del_cli:
+                        try:
+                            cursor = conn.cursor()
+                            cursor.execute("DELETE FROM clientes WHERE id = ?", (id_cli_atual,))
+                            conn.commit()
+                            st.success("🗑️ Cliente excluído com sucesso!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ Erro ao excluir cliente: {e}")
+            else:
+                st.info("ℹ️ Nenhum cliente cadastrado no momento.")
 
         # -------------------------------------------------------------
-        # ABA DE FORNECEDORES (DENTRO DE CADASTROS)
+        # ABA 2: FORNECEDORES
         # -------------------------------------------------------------
-        with tab_fornecedores: # Substitua pelo nome da sua variável de aba de fornecedores
+        with tab_forn:
             st.markdown("### 🏢 Gestão de Fornecedores")
-            
-            # Formulário de Cadastro Inicial (que já tens ou vais ajustar)
             with st.form("form_cadastrar_fornecedor"):
                 nome_fornecedor_input = st.text_input("Nome do Fornecedor")
                 btn_salvar_forn = st.form_submit_button("Salvar Fornecedor", type="primary")
@@ -1036,7 +1098,6 @@ else:
 
             st.markdown("---")
             st.markdown("### 📋 Fornecedores Cadastrados (Editar / Excluir)")
-            
             try:
                 df_fornecedores = carregar_dados("SELECT * FROM fornecedores")
             except Exception:
@@ -1045,17 +1106,16 @@ else:
             if df_fornecedores is not None and not df_fornecedores.empty:
                 st.dataframe(df_fornecedores, use_container_width=True)
 
-                # Cria uma etiqueta única para selecionar na lista
                 df_fornecedores['label_forn'] = df_fornecedores['id'].astype(str) + " - " + df_fornecedores['fornecedor'].astype(str)
                 lista_forn_edit = df_fornecedores['label_forn'].tolist()
 
-                forn_selecionado = st.selectbox("Selecione o Fornecedor para Gerenciar:", lista_forn_edit, key="select_forn_gerenciar")
+                forn_selecionado = st.selectbox("Selecione o Fornecedor para Gerenciar:", lista_forn_edit, key="select_forn_gerenciar_cad")
 
                 p_row_forn = df_fornecedores[df_fornecedores['label_forn'] == forn_selecionado].iloc[0]
                 id_forn_atual = int(p_row_forn['id'])
                 nome_forn_atual = str(p_row_forn['fornecedor'])
 
-                with st.form("form_gerenciar_fornecedor"):
+                with st.form("form_gerenciar_fornecedor_cad"):
                     novo_nome_fornecedor = st.text_input("Alterar Nome do Fornecedor", value=nome_forn_atual)
 
                     col_f1, col_f2 = st.columns(2)
@@ -1089,15 +1149,73 @@ else:
             else:
                 st.info("ℹ️ Nenhum fornecedor cadastrado no momento.")
 
+        # -------------------------------------------------------------
+        # ABA 3: GRUPOS
+        # -------------------------------------------------------------
         with tab_grup:
+            st.markdown("### 🏷️ Gestão de Grupos de Produtos")
             with st.form("form_cad_grup"):
                 n_grup = st.text_input("Nome do Grupo")
-                if st.form_submit_button("Salvar Grupo"):
-                    salvar_simples("grupos", "grupo", n_grup.upper())
-                    st.success("Grupo cadastrado com sucesso!")
-                    st.rerun()
+                if st.form_submit_button("Salvar Grupo", type="primary"):
+                    if n_grup.strip():
+                        salvar_simples("grupos", "grupo", n_grup.upper())
+                        st.success("✅ Grupo cadastrado com sucesso!")
+                        st.rerun()
+                    else:
+                        st.warning("⚠️ O nome do grupo não pode estar vazio.")
 
-            st.dataframe(carregar_dados("SELECT * FROM grupos"), use_container_width=True)
+            st.markdown("---")
+            st.markdown("### 📋 Grupos Cadastrados (Editar / Excluir)")
+            try:
+                df_grupos = carregar_dados("SELECT * FROM grupos")
+            except Exception:
+                df_grupos = pd.DataFrame()
+
+            if df_grupos is not None and not df_grupos.empty:
+                st.dataframe(df_grupos, use_container_width=True)
+
+                df_grupos['label_grup'] = df_grupos['id'].astype(str) + " - " + df_grupos['grupo'].astype(str)
+                lista_grup_edit = df_grupos['label_grup'].tolist()
+
+                grup_selecionado = st.selectbox("Selecione o Grupo para Gerenciar:", lista_grup_edit, key="select_grup_gerenciar_cad")
+
+                p_row_grup = df_grupos[df_grupos['label_grup'] == grup_selecionado].iloc[0]
+                id_grup_atual = int(p_row_grup['id'])
+                nome_grup_atual = str(p_row_grup['grupo'])
+
+                with st.form("form_gerenciar_grupo_cad"):
+                    novo_nome_grupo = st.text_input("Alterar Nome do Grupo", value=nome_grup_atual)
+
+                    col_g1, col_g2 = st.columns(2)
+                    with col_g1:
+                        btn_alt_grup = st.form_submit_button("✏️ Salvar Alterações", type="primary", use_container_width=True)
+                    with col_g2:
+                        btn_del_grup = st.form_submit_button("🗑️ Excluir Grupo", use_container_width=True)
+
+                    if btn_alt_grup:
+                        if novo_nome_grupo.strip():
+                            try:
+                                cursor = conn.cursor()
+                                cursor.execute("UPDATE grupos SET grupo = ? WHERE id = ?", (novo_nome_grupo.strip().upper(), id_grup_atual))
+                                conn.commit()
+                                st.success(f"✅ Grupo atualizado para '{novo_nome_grupo.strip().upper()}' com sucesso!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"❌ Erro ao atualizar grupo: {e}")
+                        else:
+                            st.warning("⚠️ O nome não pode ser vazio.")
+
+                    if btn_del_grup:
+                        try:
+                            cursor = conn.cursor()
+                            cursor.execute("DELETE FROM grupos WHERE id = ?", (id_grup_atual,))
+                            conn.commit()
+                            st.success("🗑️ Grupo excluído com sucesso!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ Erro ao excluir grupo: {e}")
+            else:
+                st.info("ℹ️ Nenhum grupo cadastrado no momento.")
 
     # -------------------------------------------------------------
     # 6. MÓDULO RH (RECURSOS HUMANOS)
