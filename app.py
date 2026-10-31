@@ -909,14 +909,24 @@ else:
                 st.info("ℹ️ Nenhum caixa fechado registado no histórico até o momento.")
 
     # -------------------------------------------------------------
-    # 3. MÓDULO REGISTRAR VENDA / PEDIDOS
+    # 3. MÓDULO REGISTRAR VENDA / PEDIDOS (CORRIGIDO)
     # -------------------------------------------------------------
     elif menu_admin == "🛒 Registrar Venda":
         st.subheader(f"🛒 Registrar Venda / Pedido — {nome_empresa_header} | 👤 Utilizador: {usr_exibicao}")
         
-        # Busca clientes cadastrados no banco de dados
-        clientes_opt = carregar_coluna("clientes", "nome") or ["Cliente Balcão"]
-        if not clientes_opt or clientes_opt == [""]:
+        # Busca inteligente de clientes na tabela 'clientes'
+        try:
+            df_cli_db = carregar_dados("SELECT * FROM clientes")
+            if df_cli_db is not None and not df_cli_db.empty:
+                # Identifica automaticamente qual é a coluna do nome do cliente
+                col_nome_c = 'cliente' if 'cliente' in df_cli_db.columns else ('nome' if 'nome' in df_cli_db.columns else df_cli_db.columns[1])
+                clientes_opt = df_cli_db[col_nome_c].dropna().astype(str).tolist()
+            else:
+                clientes_opt = ["Cliente Balcão"]
+        except Exception:
+            clientes_opt = ["Cliente Balcão"]
+
+        if not clientes_opt:
             clientes_opt = ["Cliente Balcão"]
 
         df_p_admin = carregar_dados("SELECT * FROM produtos")
