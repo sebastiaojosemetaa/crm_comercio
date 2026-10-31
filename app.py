@@ -19,7 +19,7 @@ st.set_page_config(page_title="CRM Comércio - REY DA CEBOLA", layout="wide", pa
 
 # --- CONEXÃO E FUNÇÕES DE SUPORTE ---
 def get_connection():
-    return sqlite3.connect("crm_comercio.db", check_same_thread=False)
+    return sqlite3.connect("crm_comercio.db", timeout=30.0, check_same_thread=False)
 
 conn = get_connection()
 
@@ -1018,68 +1018,71 @@ else:
 
             if st.button("🔴 Finalizar e Salvar Pedido", type="primary", use_container_width=True, key="btn_finalizar_reg_venda"):
                 try:
-                    cursor = conn.cursor()
-                    
-                    cursor.execute("""
-                        CREATE TABLE IF NOT EXISTS vendas_cabecalho (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            cliente TEXT,
-                            forma_pagamento TEXT,
-                            data TEXT,
-                            total REAL
-                        )
-                    """)
-                    cursor.execute("""
-                        CREATE TABLE IF NOT EXISTS vendas_itens (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            venda_id INTEGER,
-                            produto TEXT,
-                            quantidade REAL,
-                            valor_unitario REAL,
-                            valor_total REAL
-                        )
-                    """)
-                    cursor.execute("""
-                        CREATE TABLE IF NOT EXISTS contas_receber (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            cliente TEXT,
-                            valor REAL,
-                            vencimento TEXT,
-                            status TEXT,
-                            descricao TEXT
-                        )
-                    """)
-                    conn.commit()
-
-                    data_agora = f"{data_venda_input} " + datetime.now().strftime("%H:%M:%S")
-                    
-                    cursor.execute("""
-                        INSERT INTO vendas_cabecalho (cliente, forma_pagamento, data, total)
-                        VALUES (?, ?, ?, ?)
-                    """, (cliente_ped, detalhes_pagto_reg, data_agora, total_carrinho_atual))
-                    
-                    venda_id_gerado = cursor.lastrowid
-
-                    for item in st.session_state.carrinho_cliente:
-                        cursor.execute("""
-                            INSERT INTO vendas_itens (venda_id, produto, quantidade, valor_unitario, valor_total)
-                            VALUES (?, ?, ?, ?, ?)
-                        """, (venda_id_gerado, item['produto'], item['quantidade'], item['valor_unitario'], item['valor_total']))
+                    # Abre uma conexão dedicada para esta transação com timeout
+                    with sqlite3.connect("seu_banco.db", timeout=30.0) as conexao_transacao:
+                        cursor = conexao_transacao.cursor()
                         
                         cursor.execute("""
-                            UPDATE produtos 
-                            SET quantidade = quantidade - ? 
-                            WHERE UPPER(TRIM(produto)) = UPPER(TRIM(?))
-                        """, (item['quantidade'], item['produto']))
+                            CREATE TABLE IF NOT EXISTS vendas_cabecalho (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                cliente TEXT,
+                                forma_pagamento TEXT,
+                                data TEXT,
+                                total REAL
+                            )
+                        """)
+                        cursor.execute("""
+                            CREATE TABLE IF NOT EXISTS vendas_itens (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                venda_id INTEGER,
+                                produto TEXT,
+                                quantidade REAL,
+                                valor_unitario REAL,
+                                valor_total REAL
+                            )
+                        """)
+                        cursor.execute("""
+                            CREATE TABLE IF NOT EXISTS contas_receber (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                cliente TEXT,
+                                valor REAL,
+                                vencimento TEXT,
+                                status TEXT,
+                                descricao TEXT
+                            )
+                        """)
+                        conexao_transacao.commit()
 
-                    if forma_pagto_reg == "Parcelado" and valores_parcelas_novas:
-                        for idx_p, (val_p_item, dt_v_item) in enumerate(zip(valores_parcelas_novas, datas_vencimentos_parcelas_novas)):
+                        data_agora = f"{data_venda_input} " + datetime.now().strftime("%H:%M:%S")
+                        
+                        cursor.execute("""
+                            INSERT INTO vendas_cabecalho (cliente, forma_pagamento, data, total)
+                            VALUES (?, ?, ?, ?)
+                        """, (cliente_ped, detalhes_pagto_reg, data_agora, total_carrinho_atual))
+                        
+                        venda_id_gerado = cursor.lastrowid
+
+                        for item in st.session_state.carrinho_cliente:
                             cursor.execute("""
-                                INSERT INTO contas_receber (cliente, valor, vencimento, status, descricao)
-                                VALUES (?, ?, ?, 'Pendente', ?)
-                            """, (cliente_ped, val_p_item, dt_v_item, f"Venda #{venda_id_gerado} - Parcela {idx_p+1}/{len(valores_parcelas_novas)}"))
+                                INSERT INTO vendas_itens (venda_id, produto, quantidade, valor_unitario, valor_total)
+                                VALUES (?, ?, ?, ?, ?)
+                            """, (venda_id_gerado, item['produto'], item['quantidade'], item['valor_unitario'], item['valor_total']))
+                            
+                            cursor.execute("""
+                                UPDATE produtos 
+                                SET quantidade = quantidade - ? 
+                                WHERE UPPER(TRIM(produto)) = UPPER(TRIM(?))
+                            """, (item['quantidade'], item['produto']))
 
-                    conn.commit()
+                        if forma_pagto_reg == "Parcelado" and valores_parcelas_novas:
+                            for idx_p, (val_p_item, dt_v_item) in enumerate(zip(valores_parcelas_novas, datas_vencimentos_parcelas_novas)):
+                                cursor.execute("""
+                                    INSERT INTO contas_receber (cliente, valor, vencimento, status, descricao)
+                                    VALUES (?, ?, ?, 'Pendente', ?)
+                                """, (cliente_ped, val_p_item, dt_v_item, f"Venda #{venda_id_gerado} - Parcela {idx_p+1}/{len(valores_parcelas_novas)}"))
+
+                        conexao_transacao.commit()
+
                     st.session_state.carrinho_cliente = []
                     st.success(f"✅ Venda #{venda_id_gerado} gravada com sucesso!")
                     st.rerun()
