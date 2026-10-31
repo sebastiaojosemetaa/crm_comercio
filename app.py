@@ -1010,15 +1010,84 @@ else:
 
             st.dataframe(carregar_dados("SELECT * FROM clientes"), use_container_width=True)
 
-        with tab_forn:
-            with st.form("form_cad_forn"):
-                n_forn = st.text_input("Nome do Fornecedor")
-                if st.form_submit_button("Salvar Fornecedor"):
-                    salvar_simples("fornecedores", "fornecedor", n_forn.upper())
-                    st.success("Fornecedor cadastrado com sucesso!")
-                    st.rerun()
+        # -------------------------------------------------------------
+        # ABA DE FORNECEDORES (DENTRO DE CADASTROS)
+        # -------------------------------------------------------------
+        with tab_fornecedores: # Substitua pelo nome da sua variável de aba de fornecedores
+            st.markdown("### 🏢 Gestão de Fornecedores")
+            
+            # Formulário de Cadastro Inicial (que já tens ou vais ajustar)
+            with st.form("form_cadastrar_fornecedor"):
+                nome_fornecedor_input = st.text_input("Nome do Fornecedor")
+                btn_salvar_forn = st.form_submit_button("Salvar Fornecedor", type="primary")
+                
+                if btn_salvar_forn:
+                    if nome_fornecedor_input.strip():
+                        try:
+                            cursor = conn.cursor()
+                            cursor.execute("INSERT INTO fornecedores (fornecedor) VALUES (?)", (nome_fornecedor_input.strip().upper(),))
+                            conn.commit()
+                            st.success(f"✅ Fornecedor '{nome_fornecedor_input}' cadastrado com sucesso!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ Erro ao cadastrar fornecedor: {e}")
+                    else:
+                        st.warning("⚠️ O nome do fornecedor não pode estar vazio.")
 
-            st.dataframe(carregar_dados("SELECT * FROM fornecedores"), use_container_width=True)
+            st.markdown("---")
+            st.markdown("### 📋 Fornecedores Cadastrados (Editar / Excluir)")
+            
+            try:
+                df_fornecedores = carregar_dados("SELECT * FROM fornecedores")
+            except Exception:
+                df_fornecedores = pd.DataFrame()
+
+            if df_fornecedores is not None and not df_fornecedores.empty:
+                st.dataframe(df_fornecedores, use_container_width=True)
+
+                # Cria uma etiqueta única para selecionar na lista
+                df_fornecedores['label_forn'] = df_fornecedores['id'].astype(str) + " - " + df_fornecedores['fornecedor'].astype(str)
+                lista_forn_edit = df_fornecedores['label_forn'].tolist()
+
+                forn_selecionado = st.selectbox("Selecione o Fornecedor para Gerenciar:", lista_forn_edit, key="select_forn_gerenciar")
+
+                p_row_forn = df_fornecedores[df_fornecedores['label_forn'] == forn_selecionado].iloc[0]
+                id_forn_atual = int(p_row_forn['id'])
+                nome_forn_atual = str(p_row_forn['fornecedor'])
+
+                with st.form("form_gerenciar_fornecedor"):
+                    novo_nome_fornecedor = st.text_input("Alterar Nome do Fornecedor", value=nome_forn_atual)
+
+                    col_f1, col_f2 = st.columns(2)
+                    with col_f1:
+                        btn_alterar_forn = st.form_submit_button("✏️ Salvar Alterações", type="primary", use_container_width=True)
+                    with col_f2:
+                        btn_excluir_forn = st.form_submit_button("🗑️ Excluir Fornecedor", use_container_width=True)
+
+                    if btn_alterar_forn:
+                        if novo_nome_fornecedor.strip():
+                            try:
+                                cursor = conn.cursor()
+                                cursor.execute("UPDATE fornecedores SET fornecedor = ? WHERE id = ?", (novo_nome_fornecedor.strip().upper(), id_forn_atual))
+                                conn.commit()
+                                st.success(f"✅ Fornecedor atualizado para '{novo_nome_fornecedor.strip().upper()}' com sucesso!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"❌ Erro ao atualizar fornecedor: {e}")
+                        else:
+                            st.warning("⚠️ O campo não pode ficar vazio.")
+
+                    if btn_excluir_forn:
+                        try:
+                            cursor = conn.cursor()
+                            cursor.execute("DELETE FROM fornecedores WHERE id = ?", (id_forn_atual,))
+                            conn.commit()
+                            st.success("🗑️ Fornecedor excluído com sucesso!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ Erro ao excluir fornecedor: {e}")
+            else:
+                st.info("ℹ️ Nenhum fornecedor cadastrado no momento.")
 
         with tab_grup:
             with st.form("form_cad_grup"):
