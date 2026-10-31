@@ -1289,6 +1289,7 @@ else:
     # 10. ESTOQUE E PROMOÇÕES
     # -------------------------------------------------------------
     elif menu_admin == "📦 Estoque de Produtos":
+        st.write("🔍 DEBUG: Entrou no bloco de Estoque de Produtos com sucesso!")
         st.subheader("📦 Estoque de Produtos e Promoções")
         
         tab_estoque_geral, tab_deposito_promo = st.tabs(["📋 Estoque Geral", "🏷️ Depósito / Produtos para Promoção"])
@@ -1298,6 +1299,7 @@ else:
             
             try:
                 df_prods = carregar_dados("SELECT * FROM produtos")
+                st.write(f"🔍 DEBUG: Dados carregados. Linhas encontradas: {len(df_prods) if df_prods is not None else 'Nulo'}")
             except Exception as e:
                 st.error(f"❌ Erro ao carregar dados do banco: {e}")
                 df_prods = pd.DataFrame()
@@ -1374,8 +1376,7 @@ else:
                         except Exception as e:
                             st.error(f"❌ Erro ao excluir produto: {e}")
             else:
-                st.warning("⚠️ A tabela de produtos está vazia ou não retornou registos do banco de dados. Cadastre um produto primeiro na tela de compras/entrada.")
-
+                st.warning("⚠️ A tabela de produtos está vazia ou não retornou registos do banco de dados.")
     # -------------------------------------------------------------
     # 11. CONFIGURAÇÕES
     # -------------------------------------------------------------
