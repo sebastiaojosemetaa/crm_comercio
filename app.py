@@ -909,40 +909,180 @@ else:
                 st.info("ℹ️ Nenhum caixa fechado registado no histórico até o momento.")
 
     # -------------------------------------------------------------
-    # 3. MÓDULO REGISTRAR VENDA
+    # 3. MÓDULO REGISTRAR VENDA / PEDIDOS
     # -------------------------------------------------------------
     elif menu_admin == "🛒 Registrar Venda":
         st.subheader(f"🛒 Registrar Venda / Pedido — {nome_empresa_header} | 👤 Utilizador: {usr_exibicao}")
+        
+        # Busca clientes cadastrados no banco de dados
         clientes_opt = carregar_coluna("clientes", "nome") or ["Cliente Balcão"]
+        if not clientes_opt or clientes_opt == [""]:
+            clientes_opt = ["Cliente Balcão"]
+
         df_p_admin = carregar_dados("SELECT * FROM produtos")
         produtos_base = df_p_admin['produto'].tolist() if not df_p_admin.empty else ["ABACATE", "AMEIXA IMPORTADA"]
         
-        cliente_ped = st.selectbox("Cliente", clientes_opt)
-        prod_item = st.selectbox("Selecione o Produto", produtos_base)
-        qtd_ped = st.number_input("Quantidade", min_value=0.01, value=1.0)
-        v_venda_ped = st.number_input("Preço Unitário (R$)", min_value=0.0, value=10.0)
+        col_v1, col_v2 = st.columns(2)
+        with col_v1:
+            cliente_ped = st.selectbox("Selecione o Cliente", clientes_opt, key="sel_cliente_reg_venda")
+        with col_v2:
+            data_venda_input = st.date_input("Data da Venda", value=datetime.now(), key="input_data_reg_venda")
 
-        if st.button("➕ Incluir no Pedido", type="primary"):
+        # Formas de pagamento avançadas
+        forma_pagto_reg = st.selectbox(
+            "Forma de Pagamento / Condição", 
+            ["Dinheiro", "Pix", "Cartão Débito", "Cartão Crédito", "Fiado", "Parcelado"],
+            key="sel_forma_pagto_reg_venda"
+        )
+
+        detalhes_pagto_reg = forma_pagto_reg
+        if forma_pagto_reg == "Parcelado":
+            num_parc_reg = st.number_input("Quantidade de Parcelas:", min_value=2, max_value=24, value=2, step=1, key="num_parc_reg_venda")
+            detalhes_pagto_reg = f"Parcelado ({num_parc_reg}x)"
+        elif forma_pagto_reg == "Fiado":
+            detalhes_pagto_reg = f"Fiado ({cliente_ped})"
+
+        st.markdown("---")
+        col_prod_r1, col_prod_r2, col_prod_r3 = st.columns([2, 1, 1])
+        with col_prod_r1:
+            prod_item = st.selectbox("Selecione o Produto", produtos_base, key="sel_prod_reg_venda")
+        with col_prod_r2:
+            qtd_ped = st.number_input("Quantidade", min_value=0.01, value=1.0, key="qtd_reg_venda")
+        with col_prod_r3:
+            # Sugere o preço de venda automaticamente se o produto existir no df
+            val_sugestao = 10.0
+            if not df_p_admin.empty and prod_item in produtos_base:
+                p_match = df_p_admin[df_p_admin['produto'] == prod_item]
+                if not p_match.empty:
+                    val_sugestao = float(p_match.iloc[0].get('valor_venda', 10.0) or 10.0)
+            v_venda_ped = st.number_input("Preço Unitário (R$)", min_value=0.0, value=val_sugestao, format="%.2f", key="preco_reg_venda")
+
+        if st.button("➕ Incluir no Pedido", type="primary", use_container_width=True, key="btn_incluir_reg_venda"):
             st.session_state.carrinho_cliente.append({
                 "produto": prod_item, "quantidade": qtd_ped, "valor_unitario": v_venda_ped, "valor_total": qtd_ped * v_venda_ped
             })
-            st.success(f"'{prod_item}' incluído no pedido!")
+            st.success(f"✅ '{prod_item}' incluído no pedido!")
             st.rerun()
 
         if st.session_state.carrinho_cliente:
-            st.dataframe(pd.DataFrame(st.session_state.carrinho_cliente), use_container_width=True)
-            if st.button("🔴 Finalizar e Salvar Pedido", type="primary"):
-                cursor = conn.cursor()
-                data_agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                for item in st.session_state.carrinho_cliente:
+            st.markdown("### 🛒 Itens do Pedido Atual")
+            df_carrinho_reg = pd.DataFrame(st.session_state.carrinho_cliente)
+            st.dataframe(df_carrinho_reg, use_container_width=True)
+
+            # Botão para remover item específico do carrinho temporário
+            item_para_remover = st.selectbox("Selecionar item para remover do carrinho atual (opcional):", [""] + df_carrinho_reg['produto'].tolist(), key="sel_remover_item_carrinho")
+            if item_para_remover and item_para_remover != "":
+                if st.button("🗑️ Remover Item Selecionado do Carrinho", key="btn_remover_item_carrinho"):
+                    st.session_state.carrinho_cliente = [i for i in st.session_state.carrinho_cliente if i['produto'] != item_para_remover]
+                    st.success("Item removido do carrinho!")
+                    st.rerun()
+
+            if st.button("🔴 Finalizar e Salvar Pedido", type="primary", use_container_width=True, key="btn_finalizar_reg_venda"):
+                try:
+                    cursor = conn.cursor()
+                    
+                    # Garante que a tabela pedidos existe com as colunas necessárias
                     cursor.execute("""
-                        INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, status, data)
-                        VALUES (?, ?, ?, ?, ?, 'Pendente', ?)
-                    """, (cliente_ped, item['produto'], item['quantidade'], item['valor_unitario'], item['valor_total'], data_agora))
-                conn.commit()
-                st.session_state.carrinho_cliente = []
-                st.success("✅ Pedido gravado com sucesso!")
-                st.rerun()
+                        CREATE TABLE IF NOT EXISTS pedidos (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            cliente TEXT,
+                            produto TEXT,
+                            quantidade REAL,
+                            valor_unitario REAL,
+                            valor_total REAL,
+                            forma_pagamento TEXT,
+                            status TEXT,
+                            data TEXT
+                        )
+                    """)
+                    conn.commit()
+
+                    data_agora = f"{data_venda_input} " + datetime.now().strftime("%H:%M:%S")
+                    for item in st.session_state.carrinho_cliente:
+                        cursor.execute("""
+                            INSERT INTO pedidos (cliente, produto, quantidade, valor_unitario, valor_total, forma_pagamento, status, data)
+                            VALUES (?, ?, ?, ?, ?, ?, 'Concluído', ?)
+                        """, (cliente_ped, item['produto'], item['quantidade'], item['valor_unitario'], item['valor_total'], detalhes_pagto_reg, data_agora))
+                        
+                        # Dá baixa automática no estoque geral ao concluir o pedido/venda
+                        cursor.execute("""
+                            UPDATE produtos 
+                            SET quantidade = quantidade - ? 
+                            WHERE UPPER(TRIM(produto)) = UPPER(TRIM(?))
+                        """, (item['quantidade'], item['produto']))
+
+                    conn.commit()
+                    st.session_state.carrinho_cliente = []
+                    st.success("✅ Pedido gravado e estoque atualizado com sucesso!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ Erro ao gravar pedido: {e}")
+        else:
+            st.info("ℹ️ Nenhum item lançado no carrinho deste pedido ainda.")
+
+        # -------------------------------------------------------------
+        # HISTÓRICO DE PEDIDOS COM OPÇÕES DE EDITAR / EXCLUIR
+        # -------------------------------------------------------------
+        st.markdown("---")
+        st.markdown("### 📋 Histórico de Pedidos Registrados (Editar / Excluir)")
+        
+        try:
+            df_pedidos_cad = carregar_dados("SELECT * FROM pedidos ORDER BY id DESC")
+        except Exception:
+            df_pedidos_cad = pd.DataFrame()
+
+        if df_pedidos_cad is not None and not df_pedidos_cad.empty:
+            st.dataframe(df_pedidos_cad, use_container_width=True)
+
+            df_pedidos_cad['label_ped'] = df_pedidos_cad['id'].astype(str) + " - " + df_pedidos_cad['cliente'].astype(str) + " (" + df_pedidos_cad['produto'].astype(str) + ")"
+            lista_ped_edit = df_pedidos_cad['label_ped'].tolist()
+
+            ped_selecionado = st.selectbox("Selecione o Pedido para Gerenciar:", lista_ped_edit, key="select_pedido_gerenciar")
+
+            p_row_ped = df_pedidos_cad[df_pedidos_cad['label_ped'] == ped_selecionado].iloc[0]
+            id_ped_atual = int(p_row_ped['id'])
+
+            with st.form("form_gerenciar_pedido"):
+                col_ep1, col_ep2 = st.columns(2)
+                with col_ep1:
+                    ed_cli_ped = st.text_input("Cliente", value=str(p_row_ped.get('cliente', '')))
+                    ed_prod_ped = st.text_input("Produto", value=str(p_row_ped.get('produto', '')))
+                with col_ep2:
+                    ed_qtd_ped = st.number_input("Quantidade", value=float(p_row_ped.get('quantidade', 1.0)), step=1.0)
+                    ed_val_ped = st.number_input("Valor Unitário (R$)", value=float(p_row_ped.get('valor_unitario', 0.0)), format="%.2f")
+
+                col_btn_ped1, col_btn_ped2 = st.columns(2)
+                with col_btn_ped1:
+                    btn_alt_ped = st.form_submit_button("✏️ Salvar Alterações do Pedido", type="primary", use_container_width=True)
+                with col_btn_ped2:
+                    btn_del_ped = st.form_submit_button("🗑️ Excluir Pedido", use_container_width=True)
+
+                if btn_alt_ped:
+                    try:
+                        novo_total = ed_qtd_ped * ed_val_ped
+                        cursor = conn.cursor()
+                        cursor.execute("""
+                            UPDATE pedidos 
+                            SET cliente = ?, produto = ?, quantidade = ?, valor_unitario = ?, valor_total = ?
+                            WHERE id = ?
+                        """, (ed_cli_ped.strip().upper(), ed_prod_ped.strip().upper(), ed_qtd_ped, ed_val_ped, novo_total, id_ped_atual))
+                        conn.commit()
+                        st.success("✅ Pedido atualizado com sucesso!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Erro ao atualizar pedido: {e}")
+
+                if btn_del_ped:
+                    try:
+                        cursor = conn.cursor()
+                        cursor.execute("DELETE FROM pedidos WHERE id = ?", (id_ped_atual,))
+                        conn.commit()
+                        st.success("🗑️ Pedido excluído com sucesso!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Erro ao excluir pedido: {e}")
+        else:
+            st.info("ℹ️ Nenhum pedido registado até o momento.")
 
     # -------------------------------------------------------------
     # 4. MÓDULO ENTRADA DE ESTOQUE (COMPRAS)
