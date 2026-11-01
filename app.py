@@ -447,6 +447,42 @@ else:
             st.success("🟢 Caixa Aberto e Operacional")
         else:
             st.warning("⚠️ Atenção: Não há nenhum caixa aberto no momento.")
+            # --- BUSCA BLINDADA DE CLIENTES CADASTRADOS ---
+            lista_clientes_pdv = ["Cliente Balcão"]
+            try:
+                conn_cli = sqlite3.connect("crm_comercio.db", timeout=30.0)
+                cursor_cli = conn_cli.cursor()
+                
+                cursor_cli.execute("SELECT name FROM sqlite_master WHERE type='table'")
+                tabelas_existentes = [t[0] for t in cursor_cli.fetchall()]
+                
+                for tab in tabelas_existentes:
+                    try:
+                        df_tmp = pd.read_sql_query(f"SELECT * FROM {tab}", conn_cli)
+                        for col in df_tmp.columns:
+                            if any(k in col.lower() for k in ['nome', 'cliente', 'razao_social']):
+                                vals = df_tmp[col].dropna().astype(str).tolist()
+                                for v in vals:
+                                    v_clean = v.strip()
+                                    if v_clean and v_clean != "None" and v_clean not in lista_clientes_pdv:
+                                        lista_clientes_pdv.append(v_clean)
+                    except Exception:
+                        pass
+                conn_cli.close()
+            except Exception:
+                lista_clientes_pdv = ["Cliente Balcão"]
+    
+            # --- SELEÇÃO DE CLIENTE ALINHADA NO PDV ---
+            col_cli1, col_cli2 = st.columns([2, 1])
+            with col_cli1:
+                cliente_pdv_selecionado = st.selectbox(
+                    "👤 Selecione o Cliente da Venda:", 
+                    options=lista_clientes_pdv, 
+                    key="select_cliente_pdv_topo"
+                )
+            with col_cli2:
+                st.write("") 
+                st.info(f"Cliente: **{cliente_pdv_selecionado}**")
 
         try:
             df_prod_pdv = pd.read_sql_query("SELECT * FROM produtos", conn)
