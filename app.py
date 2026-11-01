@@ -528,7 +528,22 @@ else:
                     st.info("💳 Pagamento via **Cartão de Débito** à vista.")
 
                 elif forma_pagto == "Fiado":
-                    cliente_fiado = st.selectbox("Selecione o Cliente para o Fiado:", carregar_coluna("clientes", "nome") or ["Cliente Balcão"], key="select_cliente_fiado_pdv")
+                    # --- CARREGAR CLIENTES CADASTRADOS NO PDV ---
+                    try:
+                        conn_cli = sqlite3.connect("crm_comercio.db", timeout=30.0)
+                        df_cli_db = pd.read_sql_query("SELECT nome FROM clientes UNION SELECT cliente FROM contas_receber", conn_cli)
+                        conn_cli.close()
+                        
+                        lista_clientes_pdv = ["Cliente Balcão"]
+                        if df_cli_db is not None and not df_cli_db.empty:
+                            for col in df_cli_db.columns:
+                                for c_val in df_cli_db[col].dropna().astype(str).tolist():
+                                    if c_val and c_val != "None" and c_val not in lista_clientes_pdv:
+                                        lista_clientes_pdv.append(c_val)
+                    except Exception:
+                        lista_clientes_pdv = ["Cliente Balcão"]
+            
+                    cliente_fiado = st.selectbox("Selecione o Cliente:", options=lista_clientes_pdv, key="select_cliente_pdv_geral")
                     detalhes_pagto = f"Fiado ({cliente_fiado})"
                     st.warning(f"⚠️ Esta venda será registada como **Fiado** para o cliente: **{cliente_fiado}**")
 
