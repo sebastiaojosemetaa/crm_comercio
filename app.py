@@ -449,18 +449,15 @@ else:
             st.warning("⚠️ Caixa Fechado")
 
         # -------------------------------------------------------------
-        # SELEÇÃO DE CLIENTE VISÍVEL E DIRETA NO TOPO DO PDV
+        # SELEÇÃO DE CLIENTE CADASTRADO NO TOPO DO PDV
         # -------------------------------------------------------------
         try:
-            # Tenta carregar os clientes cadastrados da tabela 'clientes'
             lista_cli_cadastrados = carregar_coluna("clientes", "nome")
             if not lista_cli_cadastrados:
-                # Tenta outra coluna caso se chame cliente ou razao_social
                 lista_cli_cadastrados = carregar_coluna("clientes", "cliente") or carregar_coluna("clientes", "razao_social")
         except Exception:
             lista_cli_cadastrados = []
 
-        # Monta a lista final com "Cliente Balcão" no topo
         opcoes_clientes = ["Cliente Balcão"]
         if lista_cli_cadastrados:
             for c in lista_cli_cadastrados:
@@ -477,43 +474,6 @@ else:
         with col_c2:
             st.info(f"Cliente: **{cliente_pdv_selecionado}**")
         st.markdown("---")
-            st.warning("⚠️ Atenção: Não há nenhum caixa aberto no momento.")
-            # --- BUSCA BLINDADA DE CLIENTES CADASTRADOS ---
-            lista_clientes_pdv = ["Cliente Balcão"]
-            try:
-                conn_cli = sqlite3.connect("crm_comercio.db", timeout=30.0)
-                cursor_cli = conn_cli.cursor()
-                
-                cursor_cli.execute("SELECT name FROM sqlite_master WHERE type='table'")
-                tabelas_existentes = [t[0] for t in cursor_cli.fetchall()]
-                
-                for tab in tabelas_existentes:
-                    try:
-                        df_tmp = pd.read_sql_query(f"SELECT * FROM {tab}", conn_cli)
-                        for col in df_tmp.columns:
-                            if any(k in col.lower() for k in ['nome', 'cliente', 'razao_social']):
-                                vals = df_tmp[col].dropna().astype(str).tolist()
-                                for v in vals:
-                                    v_clean = v.strip()
-                                    if v_clean and v_clean != "None" and v_clean not in lista_clientes_pdv:
-                                        lista_clientes_pdv.append(v_clean)
-                    except Exception:
-                        pass
-                conn_cli.close()
-            except Exception:
-                lista_clientes_pdv = ["Cliente Balcão"]
-    
-            # --- SELEÇÃO DE CLIENTE ALINHADA NO PDV ---
-            col_cli1, col_cli2 = st.columns([2, 1])
-            with col_cli1:
-                cliente_pdv_selecionado = st.selectbox(
-                    "👤 Selecione o Cliente da Venda:", 
-                    options=lista_clientes_pdv, 
-                    key="select_cliente_pdv_topo"
-                )
-            with col_cli2:
-                st.write("") 
-                st.info(f"Cliente: **{cliente_pdv_selecionado}**")
 
         try:
             df_prod_pdv = pd.read_sql_query("SELECT * FROM produtos", conn)
