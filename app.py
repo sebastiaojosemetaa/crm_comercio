@@ -974,150 +974,129 @@ else:
                     st.success("Item removido do carrinho!")
                     st.rerun()
 
-            # --- TELA DE CHECKOUT / FORMA DE PAGAMENTO DINÂMICA ---
-            if st.session_state.get('tela_checkout_ativa', False):
-                st.markdown("---")
-                st.markdown("### 💳 Ecrã de Pagamento / Checkout")
+            st.markdown("---")
+            st.markdown("### 💳 Pagamento e Finalização do Carrinho Atual")
+            
+            forma_pagto_reg = st.selectbox(
+                "Forma de Pagamento / Condição", 
+                ["Dinheiro", "Pix", "Cartão Débito", "Cartão Crédito", "Fiado", "Parcelado"],
+                key="sel_forma_pagto_reg_venda"
+            )
+
+            total_carrinho_atual = sum(i['valor_total'] for i in st.session_state.carrinho_cliente)
+            detalhes_pagto_reg = forma_pagto_reg
+            datas_vencimentos_parcelas_novas = []
+            valores_parcelas_novas = []
+
+            if forma_pagto_reg == "Parcelado":
+                num_parc_reg = st.number_input("Quantidade de Parcelas:", min_value=1, max_value=24, value=2, step=1, key="num_parc_reg_venda")
+                from datetime import timedelta
                 
-                forma_pagto = st.radio(
-                    "Selecione a Forma de Pagamento:", 
-                    ["Dinheiro", "Cartão Débito", "Cartão Crédito", "Fiado", "Parcelado", "Pix"], 
-                    horizontal=True, 
-                    key="radio_forma_pagto_checkout"
-                )
+                for p_i in range(int(num_parc_reg)):
+                    val_sug = total_carrinho_atual / num_parc_reg
+                    col_p1, col_p2 = st.columns(2)
+                    with col_p1:
+                        v_p = st.number_input(f"Valor Parcela {p_i + 1} (R$)", value=float(val_sug), format="%.2f", key=f"val_novo_p_{p_i}")
+                    with col_p2:
+                        dt_sug = datetime.now().date() + timedelta(days=30 * (p_i + 1))
+                        d_p = st.date_input(f"Vencimento Parcela {p_i + 1}", value=dt_sug, key=f"dt_novo_p_{p_i}")
+                    valores_parcelas_novas.append(v_p)
+                    datas_vencimentos_parcelas_novas.append(str(d_p))
 
-                valor_recebido = 0.0
-                troco = 0.0
-                detalhes_pagto = forma_pagto
+                # Auto divisão inteligente para nova venda
+                if int(num_parc_reg) > 1:
+                    prim_v = valores_parcelas_novas[0]
+                    rest = total_carrinho_atual - prim_v
+                    if rest < 0: rest = 0.0
+                    cada_rest = rest / (int(num_parc_reg) - 1)
+                    for p_i in range(1, int(num_parc_reg)):
+                        valores_parcelas_novas[p_i] = round(cada_rest, 2)
 
-                if forma_pagto == "Dinheiro":
-                    valor_recebido = st.number_input("Valor Recebido em Dinheiro (R$)", min_value=0.0, value=total_geral_carrinho, format="%.2f", key="input_val_recebido_dinheiro")
-                    troco = valor_recebido - total_geral_carrinho
-                    if troco >= 0:
-                        st.success(f"💵 **Troco a Devolver:** R$ {troco:,.2f}")
-                    else:
-                        st.warning(f"⚠️ Falta R$ {abs(troco):,.2f} para completar o pagamento.")
+                detalhes_pagto_reg = f"Parcelado ({int(num_parc_reg)}x)"
+            elif forma_pagto_reg == "Fiado":
+                detalhes_pagto_reg = f"Fiado ({cliente_ped})"
 
-                elif forma_pagto == "Cartão Crédito":
-                    parcelas = st.selectbox("Número de Parcelas:", ["1x (À vista)", "2x", "3x", "4x", "5x", "6x", "10x", "12x"], key="select_parcelas_cartao")
-                    detalhes_pagto = f"Cartão Crédito ({parcelas})"
-                    st.info(f"💳 Pagamento selecionado: **Cartão Crédito em {parcelas}**")
+            if st.button("🔴 Finalizar e Salvar Pedido", type="primary", use_container_width=True, key="btn_finalizar_reg_venda"):
+                try:
+                    with sqlite3.connect("crm_comercio.db", timeout=30.0) as conexao_transacao:
+                        cursor = conexao_transacao.cursor()
+                        
+                        # Garante que todas as tabelas necessárias existem
+                        cursor.execute("""
+                            CREATE TABLE IF NOT EXISTS produtos (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                produto TEXT,
+                                quantidade REAL,
+                                valor_venda REAL
+                            )
+                        """)
+                        cursor.execute("""
+                            CREATE TABLE IF NOT EXISTS vendas_cabecalho (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                cliente TEXT,
+                                forma_pagamento TEXT,
+                                data TEXT,
+                                total REAL
+                            )
+                        """)
+                        cursor.execute("""
+                            CREATE TABLE IF NOT EXISTS vendas_itens (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                venda_id INTEGER,
+                                produto TEXT,
+                                quantidade REAL,
+                                valor_unitario REAL,
+                                valor_total REAL
+                            )
+                        """)
+                        cursor.execute("""
+                            CREATE TABLE IF NOT EXISTS contas_receber (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                cliente TEXT,
+                                valor REAL,
+                                vencimento TEXT,
+                                status TEXT,
+                                descricao TEXT
+                            )
+                        """)
+                        conexao_transacao.commit()
 
-                elif forma_pagto == "Cartão Débito":
-                    st.info("💳 Pagamento via **Cartão de Débito** à vista.")
+                        data_agora = f"{data_venda_input} " + datetime.now().strftime("%H:%M:%S")
+                        
+                        cursor.execute("""
+                            INSERT INTO vendas_cabecalho (cliente, forma_pagamento, data, total)
+                            VALUES (?, ?, ?, ?)
+                        """, (cliente_ped, detalhes_pagto_reg, data_agora, total_carrinho_atual))
+                        
+                        venda_id_gerado = cursor.lastrowid
 
-                elif forma_pagto == "Fiado":
-                    cliente_fiado = st.selectbox("Selecione o Cliente para o Fiado:", carregar_coluna("clientes", "nome") or ["Cliente Balcão"], key="select_cliente_fiado_pdv")
-                    detalhes_pagto = f"Fiado ({cliente_fiado})"
-                    st.warning(f"⚠️ Esta venda será registada como **Fiado** para o cliente: **{cliente_fiado}**")
+                        for item in st.session_state.carrinho_cliente:
+                            cursor.execute("""
+                                INSERT INTO vendas_itens (venda_id, produto, quantidade, valor_unitario, valor_total)
+                                VALUES (?, ?, ?, ?, ?)
+                            """, (venda_id_gerado, item['produto'], item['quantidade'], item['valor_unitario'], item['valor_total']))
+                            
+                            # Atualiza o estoque com segurança
+                            cursor.execute("""
+                                UPDATE produtos 
+                                SET quantidade = quantidade - ? 
+                                WHERE UPPER(TRIM(produto)) = UPPER(TRIM(?))
+                            """, (item['quantidade'], item['produto']))
 
-                elif forma_pagto == "Parcelado":
-                    num_parc = st.number_input("Quantidade de Parcelas Próprias:", min_value=2, max_value=24, value=2, step=1, key="num_parc_proprias")
-                    valor_parc = total_geral_carrinho / num_parc
-                    detalhes_pagto = f"Parcelado ({num_parc}x de R$ {valor_parc:,.2f})"
-                    st.info(f"📅 Venda dividida em **{num_parc}x** de **R$ {valor_parc:,.2f}**.")
+                        if forma_pagto_reg == "Parcelado" and valores_parcelas_novas:
+                            for idx_p, (val_p_item, dt_v_item) in enumerate(zip(valores_parcelas_novas, datas_vencimentos_parcelas_novas)):
+                                cursor.execute("""
+                                    INSERT INTO contas_receber (cliente, valor, vencimento, status, descricao)
+                                    VALUES (?, ?, ?, 'Pendente', ?)
+                                """, (cliente_ped, val_p_item, dt_v_item, f"Venda #{venda_id_gerado} - Parcela {idx_p+1}/{len(valores_parcelas_novas)}"))
 
-                elif forma_pagto == "Pix":
-                    st.markdown("### 📱 Pague com Pix (QR Code Oficial)")
-                    
-                    df_chaves_db = carregar_dados("SELECT * FROM chaves_pix")
-                    
-                    if df_chaves_db.empty:
-                        st.info("ℹ️ Nenhuma chave cadastrada em Configurações. Usando o CNPJ padrão da empresa.")
-                        lista_opcoes_pix = ["CNPJ Padrão: 19417439000142"]
-                        dict_chaves = {"CNPJ Padrão: 19417439000142": {"tipo": "CNPJ", "chave": "19417439000142", "favorecido": nome_empresa_header, "cidade": "SAO LUIS"}}
-                    else:
-                        dict_chaves = {}
-                        lista_opcoes_pix = []
-                        for idx, row in df_chaves_db.iterrows():
-                            rotulo = f"[{row['tipo']}] {row['chave']} - {row['favorecido']}"
-                            lista_opcoes_pix.append(rotulo)
-                            dict_chaves[rotulo] = row
+                        conexao_transacao.commit()
 
-                    chave_escolhida_label = st.selectbox("Escolha a Chave Pix para esta venda:", lista_opcoes_pix, key="select_chave_pix_venda")
-                    dados_chave_atual = dict_chaves[chave_escolhida_label]
-
-                    pix_key_val = str(dados_chave_atual['chave'])
-                    fav_val = str(dados_chave_atual['favorecido'])
-                    cidade_val = str(dados_chave_atual['cidade'])
-                    tipo_val = str(dados_chave_atual['tipo'])
-
-                    st.info("Aponte a câmara do telemóvel para o QR Code abaixo ou utilize a chave selecionada.")
-
-                    def gerar_payload_pix(pix_key, nome_recebedor, cidade, valor_str, tipo_chave_pix):
-                        if tipo_chave_pix in ["CNPJ", "CPF"]:
-                            chave_tratada = ''.join(filter(str.isdigit, pix_key))
-                        elif tipo_chave_pix == "Celular":
-                            digitos = ''.join(filter(str.isdigit, pix_key))
-                            if digitos.startswith("55") and len(digitos) >= 12:
-                                chave_tratada = "+" + digitos
-                            else:
-                                chave_tratada = "+55" + digitos
-                        else:
-                            chave_tratada = pix_key.strip()
-
-                        import unicodedata
-                        def limpar_texto(texto):
-                            nfkd = unicodedata.normalize('NFKD', texto)
-                            return "".join([c for c in nfkd if not unicodedata.combining(c)]).upper()
-
-                        nome_tratado = limpar_texto(nome_recebedor)[:25]
-                        cidade_tratada = limpar_texto(cidade)[:15]
-
-                        def montar_campo(id_campo, valor_campo):
-                            return f"{id_campo}{len(valor_campo):02d}{valor_campo}"
-
-                        gui = montar_campo("00", "br.gov.bcb.pix")
-                        chave_f = montar_campo("01", chave_tratada)
-                        merchant_account = montar_campo("26", gui + chave_f)
-
-                        payload = (
-                            montar_campo("00", "01") +
-                            montar_campo("01", "12") +
-                            merchant_account +
-                            montar_campo("52", "0000") +
-                            montar_campo("53", "986") +
-                            montar_campo("54", valor_str) +
-                            montar_campo("58", "BR") +
-                            montar_campo("60", nome_tratado) +
-                            montar_campo("61", cidade_tratada) +
-                            montar_campo("62", montar_campo("05", "***")) +
-                            "6304"
-                        )
-
-                        crc = 0xFFFF
-                        for char in payload:
-                            crc ^= (ord(char) << 8)
-                            for _ in range(8):
-                                if crc & 0x8000:
-                                    crc = (crc << 1) ^ 0x1021
-                                else:
-                                    crc = crc << 1
-                                crc &= 0xFFFF
-
-                        return payload + f"{crc:04X}"
-
-                    valor_formatado = f"{total_geral_carrinho:.2f}"
-                    
-                    pix_payload = gerar_payload_pix(
-                        pix_key=pix_key_val,
-                        nome_recebedor=fav_val,
-                        cidade=cidade_val,
-                        valor_str=valor_formatado,
-                        tipo_chave_pix=tipo_val
-                    )
-                    
-                    qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={pix_payload}"
-                    
-                    col_qr_img, col_qr_info = st.columns([1, 2], gap="medium")
-                    with col_qr_img:
-                        st.image(qr_url, width=190, caption="Escaneie o QR Code")
-                    with col_qr_info:
-                        st.markdown(f"**Valor a Pagar:** R$ {total_geral_carrinho:,.2f}")
-                        st.markdown(f"**Favorecido:** `{fav_val}`")
-                        st.markdown(f"**Chave ({tipo_val}):** `{pix_key_val}`")
-                        st.text_input("Chave Pix Copia e Cola:", value=pix_payload, key="input_pix_copia_cola_detalhe")
-                        st.success("🟢 Aguardando confirmação do pagamento Pix...")
+                    st.session_state.carrinho_cliente = []
+                    st.success(f"✅ Venda #{venda_id_gerado} gravada com sucesso!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ Erro ao gravar venda: {e}")
 
         # -------------------------------------------------------------
         # 2. HISTÓRICO E GESTÃO DE VENDAS (TELA ÚNICA COM EDIÇÃO TOTAL)
