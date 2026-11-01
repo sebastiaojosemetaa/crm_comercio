@@ -977,44 +977,75 @@ else:
             st.markdown("---")
             st.markdown("### 💳 Pagamento e Finalização do Carrinho Atual")
             
-            forma_pagto_reg = st.selectbox(
-                "Forma de Pagamento / Condição", 
-                ["Dinheiro", "Pix", "Cartão Débito", "Cartão Crédito", "Fiado", "Parcelado"],
-                key="sel_forma_pagto_reg_venda"
-            )
-
-            total_carrinho_atual = sum(i['valor_total'] for i in st.session_state.carrinho_cliente)
-            detalhes_pagto_reg = forma_pagto_reg
-            datas_vencimentos_parcelas_novas = []
-            valores_parcelas_novas = []
-
-            if forma_pagto_reg == "Parcelado":
-                num_parc_reg = st.number_input("Quantidade de Parcelas:", min_value=1, max_value=24, value=2, step=1, key="num_parc_reg_venda")
-                from datetime import timedelta
+            lista_clientes_pdv = ["Cliente Balcão"]
+            try:
+                conn_cli = sqlite3.connect("crm_comercio.db", timeout=30.0)
+                cursor_cli = conn_cli.cursor()
                 
-                for p_i in range(int(num_parc_reg)):
-                    val_sug = total_carrinho_atual / num_parc_reg
-                    col_p1, col_p2 = st.columns(2)
-                    with col_p1:
-                        v_p = st.number_input(f"Valor Parcela {p_i + 1} (R$)", value=float(val_sug), format="%.2f", key=f"val_novo_p_{p_i}")
-                    with col_p2:
-                        dt_sug = datetime.now().date() + timedelta(days=30 * (p_i + 1))
-                        d_p = st.date_input(f"Vencimento Parcela {p_i + 1}", value=dt_sug, key=f"dt_novo_p_{p_i}")
-                    valores_parcelas_novas.append(v_p)
-                    datas_vencimentos_parcelas_novas.append(str(d_p))
-
-                # Auto divisão inteligente para nova venda
-                if int(num_parc_reg) > 1:
-                    prim_v = valores_parcelas_novas[0]
-                    rest = total_carrinho_atual - prim_v
-                    if rest < 0: rest = 0.0
-                    cada_rest = rest / (int(num_parc_reg) - 1)
-                    for p_i in range(1, int(num_parc_reg)):
-                        valores_parcelas_novas[p_i] = round(cada_rest, 2)
-
-                detalhes_pagto_reg = f"Parcelado ({int(num_parc_reg)}x)"
-            elif forma_pagto_reg == "Fiado":
-                detalhes_pagto_reg = f"Fiado ({cliente_ped})"
+                # Descobre todas as tabelas do banco
+                cursor_cli.execute("SELECT name FROM sqlite_master WHERE type='table'")
+                tabelas_existentes = [t[0] for t in cursor_cli.fetchall()]
+                
+                for tab in tabelas_existentes:
+                    try:
+                        df_tmp = pd.read_sql_query(f"SELECT * FROM {tab}", conn_cli)
+                        for col in df_tmp.columns:
+                            # Procura colunas que tenham nome, cliente ou razao
+                            if any(k in col.lower() for k in ['nome', 'cliente', 'razao_social', 'nome_cliente']):
+                                vals = df_tmp[col].dropna().astype(str).tolist()
+                                for v in vals:
+                                    v_clean = v.strip()
+                                    if v_clean and v_clean != "None" and v_clean not in lista_clientes_pdv:
+                                        lista_clientes_pdv.append(v_clean)
+                    except Exception:
+                        pass
+                conn_cli.close()
+            except Exception:
+                lista_clientes_pdv = ["Cliente Balcão"]
+    
+            # 1. Seleção do Cliente ÚNICA (fica visível para QUALQUER forma de pagamento)
+            cliente_ped = st.selectbox(
+                "Selecione o Cliente:", 
+                options=lista_clientes_pdv, 
+                key="select_cliente_pdv_global"
+            )
+    
+            # 2. Seleção da Forma de Pagamento
+            forma_pagto = st.radio(
+                "Selecione a Forma de Pagamento:",
+                ["Dinheiro", "Cartão Débito", "Cartão Crédito", "Fiado", "Parcelado", "Pix"],
+                horizontal=True
+            )
+    
+            # Detalhes específicos de cada forma de pagamento
+            detalhes_pagto = f"{forma_pagto} ({cliente_ped})"
+    
+            if forma_pagto == "Cartão Crédito":
+                parcelas = st.selectbox("Número de Parcelas:", ["1x (À vista)", "2x", "3x", "4x", "5x", "6x", "10x", "12x"], key="select_parc_cc")
+                detalhes_pagto = f"Cartão Crédito ({parcelas}) - Cliente: {cliente_ped}"
+                st.info(f"💳 Pagamento em **Cartão de Crédito ({parcelas})** para **{cliente_ped}**")
+    
+            elif forma_pagto == "Cartão Débito":
+                detalhes_pagto = f"Cartão Débito - Cliente: {cliente_ped}"
+                st.info(f"💳 Pagamento via **Cartão de Débito** para **{cliente_ped}**")
+    
+            elif forma_pagto == "Dinheiro":
+                detalhes_pagto = f"Dinheiro - Cliente: {cliente_ped}"
+                st.info(f"💵 Pagamento em **Dinheiro** para **{cliente_ped}**")
+    
+            elif forma_pagto == "Fiado":
+                detalhes_pagto = f"Fiado ({cliente_ped})"
+                st.warning(f"⚠️ Esta venda será registada como **Fiado** para o cliente: **{cliente_ped}**")
+    
+            elif forma_pagto == "Parcelado":
+                num_parc = st.number_input("Quantidade de Parcelas Próprias:", min_value=2, max_value=24, value=2, step=1, key="num_parc_pdv")
+                valor_parc = total_geral_carrinho / num_parc
+                detalhes_pagto = f"Parcelado ({num_parc}x de R$ {valor_parc:,.2f}) - Cliente: {cliente_ped}"
+                st.info(f"📅 Venda dividida em **{num_parc}x de R$ {valor_parc:,.2f}** para **{cliente_ped}**")
+    
+            elif forma_pagto == "Pix":
+                detalhes_pagto = f"Pix - Cliente: {cliente_ped}"
+                st.info(f"📱 Pagamento via **Pix** para **{cliente_ped}**")
 
             if st.button("🔴 Finalizar e Salvar Pedido", type="primary", use_container_width=True, key="btn_finalizar_reg_venda"):
                 try:
