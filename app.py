@@ -1834,7 +1834,7 @@ else:
                 fontSize=18,
                 textColor=colors.HexColor('#004085'),
                 alignment=1, # Centralizado
-                spaceAfter=4
+                spaceAfter=8  # Espaço maior para separar do CNPJ
             )
             style_header_sub = ParagraphStyle(
                 'HeaderSub',
@@ -1860,8 +1860,8 @@ else:
             story.append(Spacer(1, 4))
             story.append(Paragraph("Extrato Financeiro / Comprovante do Cliente", style_title))
 
-            # Dados do Cliente e Data
-            data_hora_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            # Data formatada no padrão brasileiro (DD/MM/YYYY HH:MM:SS)
+            data_hora_atual = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
             story.append(Paragraph(f"<b>Cliente: {nome_cliente}</b> | <b>Gerado em: {data_hora_atual}</b>", styles['Normal']))
             story.append(Spacer(1, 8))
 
@@ -1885,16 +1885,24 @@ else:
             story.append(t_totais)
             story.append(Spacer(1, 12))
 
-            # Tabela de Detalhamento
+            # Tabela de Detalhamento com datas de vencimento também formatadas em DD/MM/YYYY se possível
             data_tabela = [["ID", "Descrição / Parcela", "Total (R$)", "Pago (R$)", "Restante (R$)", "Vencimento", "Status"]]
             for _, r in df_contas_cliente.iterrows():
+                # Formata a data de vencimento para DD/MM/YYYY caso esteja no formato YYYY-MM-DD
+                venc_str = str(r['vencimento'])[:10]
+                try:
+                    dt_obj = datetime.strptime(venc_str, "%Y-%m-%d")
+                    venc_str = dt_obj.strftime("%d/%m/%Y")
+                except Exception:
+                    pass
+
                 data_tabela.append([
                     str(r['id']),
                     str(r['descricao']),
                     f"{r['valor']:,.2f}",
                     f"{r['valor_pago']:,.2f}",
                     f"{r['restante']:,.2f}",
-                    str(r['vencimento']),
+                    venc_str,
                     str(r['status'])
                 ])
 
