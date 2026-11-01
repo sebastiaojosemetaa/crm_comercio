@@ -1821,6 +1821,13 @@ else:
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
         def gerar_pdf_comprovante_cliente(nome_cliente, df_contas_cliente):
+            import io
+            from datetime import datetime, timezone, timedelta
+            from reportlab.lib.pagesizes import letter
+            from reportlab.lib import colors
+            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+
             buffer = io.BytesIO()
             doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
             story = []
@@ -1833,8 +1840,8 @@ else:
                 fontName='Helvetica-Bold',
                 fontSize=18,
                 textColor=colors.HexColor('#004085'),
-                alignment=1, # Centralizado
-                spaceAfter=8  # Espaço maior para separar do CNPJ
+                alignment=1,
+                spaceAfter=8
             )
             style_header_sub = ParagraphStyle(
                 'HeaderSub',
@@ -1860,8 +1867,10 @@ else:
             story.append(Spacer(1, 4))
             story.append(Paragraph("Extrato Financeiro / Comprovante do Cliente", style_title))
 
-            # Data formatada no padrão brasileiro (DD/MM/YYYY HH:MM:SS)
-            data_hora_atual = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+            # Ajusta para o fuso horário do Brasil (UTC-3)
+            fuso_brasil = timezone(timedelta(hours=-3))
+            data_hora_atual = datetime.now(fuso_brasil).strftime("%d/%m/%Y %H:%M:%S")
+            
             story.append(Paragraph(f"<b>Cliente: {nome_cliente}</b> | <b>Gerado em: {data_hora_atual}</b>", styles['Normal']))
             story.append(Spacer(1, 8))
 
@@ -1885,10 +1894,9 @@ else:
             story.append(t_totais)
             story.append(Spacer(1, 12))
 
-            # Tabela de Detalhamento com datas de vencimento também formatadas em DD/MM/YYYY se possível
+            # Tabela de Detalhamento com datas no formato DD/MM/YYYY
             data_tabela = [["ID", "Descrição / Parcela", "Total (R$)", "Pago (R$)", "Restante (R$)", "Vencimento", "Status"]]
             for _, r in df_contas_cliente.iterrows():
-                # Formata a data de vencimento para DD/MM/YYYY caso esteja no formato YYYY-MM-DD
                 venc_str = str(r['vencimento'])[:10]
                 try:
                     dt_obj = datetime.strptime(venc_str, "%Y-%m-%d")
