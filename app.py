@@ -448,9 +448,7 @@ else:
         else:
             st.warning("⚠️ Caixa Fechado")
 
-        # -------------------------------------------------------------
-        # SELEÇÃO DE CLIENTE CADASTRADO NO TOPO DO PDV
-        # -------------------------------------------------------------
+        # Seleção de Cliente Cadastrado no Topo do PDV
         try:
             lista_cli_cadastrados = carregar_coluna("clientes", "nome")
             if not lista_cli_cadastrados:
@@ -522,7 +520,6 @@ else:
                     else:
                         st.error("Abra o caixa antes de finalizar.")
 
-            # --- TELA DE CHECKOUT / FORMA DE PAGAMENTO DINÂMICA ---
             if st.session_state.get('tela_checkout_ativa', False):
                 st.markdown("---")
                 st.markdown("### 💳 Ecrã de Pagamento / Checkout")
@@ -555,9 +552,8 @@ else:
                     st.info("💳 Pagamento via **Cartão de Débito** à vista.")
 
                 elif forma_pagto == "Fiado":
-                    cliente_fiado = st.selectbox("Selecione o Cliente para o Fiado:", carregar_coluna("clientes", "nome") or ["Cliente Balcão"], key="select_cliente_fiado_pdv")
-                    detalhes_pagto = f"Fiado ({cliente_fiado})"
-                    st.warning(f"⚠️ Esta venda será registada como **Fiado** para o cliente: **{cliente_fiado}**")
+                    detalhes_pagto = f"Fiado ({cliente_pdv_selecionado})"
+                    st.warning(f"⚠️ Esta venda será registada como **Fiado** para o cliente: **{cliente_pdv_selecionado}**")
 
                 elif forma_pagto == "Parcelado":
                     num_parc = st.number_input("Quantidade de Parcelas Próprias:", min_value=2, max_value=24, value=2, step=1, key="num_parc_proprias")
@@ -683,7 +679,6 @@ else:
                         t_val = troco if (forma_pagto == "Dinheiro" and troco >= 0) else 0.0
                 
                         for item in st.session_state.carrinho_pdv:
-                            # 1. Registra a venda individual na tabela de vendas
                             cursor.execute("""
                                 INSERT INTO vendas (
                                     cliente, produto, fornecedor, grupo, quantidade, 
@@ -691,7 +686,7 @@ else:
                                     valor_recebido, troco, status, tipo, data, vendedor
                                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Concluído', 'VENDA', ?, ?)
                             """, (
-                                "Cliente Balcão", 
+                                cliente_pdv_selecionado, 
                                 item['produto'], 
                                 item['fornecedor'], 
                                 item['grupo'], 
@@ -705,14 +700,12 @@ else:
                                 vendedor_atual
                             ))
                 
-                            # 2. DÁ BAIXA AUTOMÁTICA NO ESTOQUE GERAL (tabela produtos)
                             cursor.execute("""
                                 UPDATE produtos 
                                 SET quantidade = quantidade - ? 
                                 WHERE id = ? OR UPPER(TRIM(produto)) = UPPER(TRIM(?))
                             """, (item['quantidade'], item.get('produto_id', 0), item['produto']))
                 
-                            # 3. Baixa no estoque da promoção (se o item for promocional)
                             if item.get('grupo') == "PROMOÇÃO":
                                 cursor.execute("""
                                     UPDATE promocoes 
@@ -720,7 +713,6 @@ else:
                                     WHERE produto_id = ? AND qtd_estoque_promo >= ?
                                 """, (item['quantidade'], item.get('produto_id'), item['quantidade']))
                 
-                        # Registra a movimentação no caixa
                         cursor.execute(
                             "INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, 'VENDA', ?, ?, ?)",
                             (sessao_id, float(total_geral_carrinho), f"Venda PDV ({detalhes_pagto}) por {vendedor_atual}", data_venda)
@@ -729,7 +721,7 @@ else:
                         
                         st.session_state.carrinho_pdv = []
                         st.session_state.tela_checkout_ativa = False
-                        st.success(f"🎉 Venda de R$ {total_geral_carrinho:,.2f} concluída e estoque atualizado com sucesso!")
+                        st.success(f"🎉 Venda de R$ {total_geral_carrinho:,.2f} concluída para **{cliente_pdv_selecionado}** e estoque atualizado!")
                         st.rerun()
 
         else:
@@ -755,10 +747,8 @@ else:
 
         val_venda_sug, forn_sug, grupo_sug, cod_sug, id_prod_sug = obter_dados_produto(prod_selecionado) if prod_selecionado else (0.0, "", "", "", 0)
 
-        # --- VERIFICAÇÃO DE PROMOÇÃO INTELIGENTE (CONSULTANDO 'promocoes' E DESCONTANDO O CARRINHO) ---
         df_promo_ativo = carregar_dados(f"SELECT * FROM promocoes WHERE produto_id = {id_prod_sug} AND ativo = 1 AND qtd_estoque_promo > 0")
         
-        # Calcula quantas unidades deste produto JÁ ESTÃO no carrinho atual
         qtd_ja_no_carrinho = 0.0
         if st.session_state.carrinho_pdv:
             for item_c in st.session_state.carrinho_pdv:
@@ -810,7 +800,6 @@ else:
             with col_q2:
                 preco_calculado_final = val_venda_sug
                 if not df_promo_ativo.empty:
-                    # Só ativa a promoção se a nova quantidade couber no estoque restante da promoção
                     if qtd_venda >= qtd_minima_promo and estoque_promo_restante >= qtd_venda:
                         preco_calculado_final = preco_promo
                         is_promocional = True
