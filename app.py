@@ -499,35 +499,77 @@ else:
             if st.session_state.get('tela_checkout_ativa', False):
                 st.markdown("---")
                 st.markdown("### 💳 Ecrã de Pagamento / Checkout")
-                
-                forma_pagto = st.radio(
-                    "Selecione a Forma de Pagamento:", 
-                    ["Dinheiro", "Cartão Débito", "Cartão Crédito", "Fiado", "Parcelado", "Pix"], 
-                    horizontal=True, 
-                    key="radio_forma_pagto_checkout"
+
+                # --- BUSCA BLINDADA DE CLIENTES EM TODAS AS TABELAS ---
+                lista_clientes_pdv = ["Cliente Balcão"]
+                try:
+                    conn_cli = sqlite3.connect("crm_comercio.db", timeout=30.0)
+                    cursor_cli = conn_cli.cursor()
+                    
+                    # Descobre todas as tabelas do banco
+                    cursor_cli.execute("SELECT name FROM sqlite_master WHERE type='table'")
+                    tabelas_existentes = [t[0] for t in cursor_cli.fetchall()]
+                    
+                    for tab in tabelas_existentes:
+                        try:
+                            df_tmp = pd.read_sql_query(f"SELECT * FROM {tab}", conn_cli)
+                            for col in df_tmp.columns:
+                                # Procura colunas que tenham nome, cliente ou razao
+                                if any(k in col.lower() for k in ['nome', 'cliente', 'razao_social', 'nome_cliente']):
+                                    vals = df_tmp[col].dropna().astype(str).tolist()
+                                    for v in vals:
+                                        v_clean = v.strip()
+                                        if v_clean and v_clean != "None" and v_clean not in lista_clientes_pdv:
+                                            lista_clientes_pdv.append(v_clean)
+                        except Exception:
+                            pass
+                    conn_cli.close()
+                except Exception:
+                    lista_clientes_pdv = ["Cliente Balcão"]
+        
+                # 1. Seleção do Cliente ÚNICA (fica visível para QUALQUER forma de pagamento)
+                cliente_ped = st.selectbox(
+                    "Selecione o Cliente:", 
+                    options=lista_clientes_pdv, 
+                    key="select_cliente_pdv_global"
                 )
-
-                valor_recebido = 0.0
-                troco = 0.0
-                detalhes_pagto = forma_pagto
-
-                if forma_pagto == "Dinheiro":
-                    valor_recebido = st.number_input("Valor Recebido em Dinheiro (R$)", min_value=0.0, value=total_geral_carrinho, format="%.2f", key="input_val_recebido_dinheiro")
-                    troco = valor_recebido - total_geral_carrinho
-                    if troco >= 0:
-                        st.success(f"💵 **Troco a Devolver:** R$ {troco:,.2f}")
-                    else:
-                        st.warning(f"⚠️ Falta R$ {abs(troco):,.2f} para completar o pagamento.")
-
-                elif forma_pagto == "Cartão Crédito":
-                    parcelas = st.selectbox("Número de Parcelas:", ["1x (À vista)", "2x", "3x", "4x", "5x", "6x", "10x", "12x"], key="select_parcelas_cartao")
-                    detalhes_pagto = f"Cartão Crédito ({parcelas})"
-                    st.info(f"💳 Pagamento selecionado: **Cartão Crédito em {parcelas}**")
-
+        
+                # 2. Seleção da Forma de Pagamento
+                forma_pagto = st.radio(
+                    "Selecione a Forma de Pagamento:",
+                    ["Dinheiro", "Cartão Débito", "Cartão Crédito", "Fiado", "Parcelado", "Pix"],
+                    horizontal=True
+                )
+        
+                # Detalhes específicos de cada forma de pagamento
+                detalhes_pagto = f"{forma_pagto} ({cliente_ped})"
+        
+                if forma_pagto == "Cartão Crédito":
+                    parcelas = st.selectbox("Número de Parcelas:", ["1x (À vista)", "2x", "3x", "4x", "5x", "6x", "10x", "12x"], key="select_parc_cc")
+                    detalhes_pagto = f"Cartão Crédito ({parcelas}) - Cliente: {cliente_ped}"
+                    st.info(f"💳 Pagamento em **Cartão de Crédito ({parcelas})** para **{cliente_ped}**")
+        
                 elif forma_pagto == "Cartão Débito":
-                    st.info("💳 Pagamento via **Cartão de Débito** à vista.")
-
+                    detalhes_pagto = f"Cartão Débito - Cliente: {cliente_ped}"
+                    st.info(f"💳 Pagamento via **Cartão de Débito** para **{cliente_ped}**")
+        
+                elif forma_pagto == "Dinheiro":
+                    detalhes_pagto = f"Dinheiro - Cliente: {cliente_ped}"
+                    st.info(f"💵 Pagamento em **Dinheiro** para **{cliente_ped}**")
+        
                 elif forma_pagto == "Fiado":
+                    detalhes_pagto = f"Fiado ({cliente_ped})"
+                    st.warning(f"⚠️ Esta venda será registada como **Fiado** para o cliente: **{cliente_ped}**")
+        
+                elif forma_pagto == "Parcelado":
+                    num_parc = st.number_input("Quantidade de Parcelas Próprias:", min_value=2, max_value=24, value=2, step=1, key="num_parc_pdv")
+                    valor_parc = total_geral_carrinho / num_parc
+                    detalhes_pagto = f"Parcelado ({num_parc}x de R$ {valor_parc:,.2f}) - Cliente: {cliente_ped}"
+                    st.info(f"📅 Venda dividida em **{num_parc}x de R$ {valor_parc:,.2f}** para **{cliente_ped}**")
+        
+                elif forma_pagto == "Pix":
+                    detalhes_pagto = f"Pix - Cliente: {cliente_ped}"
+                    st.info(f"📱 Pagamento via **Pix** para **{cliente_ped}**")
                     # --- CARREGAR CLIENTES CADASTRADOS NO PDV ---
                     try:
                         conn_cli = sqlite3.connect("crm_comercio.db", timeout=30.0)
