@@ -428,10 +428,10 @@ else:
     # -------------------------------------------------------------
     # 1. MÓDULO PDV — FRENTE DE CAIXA
     # -------------------------------------------------------------
-    elif menu_admin == "🛒 PDV — Frente de Caixa":
+    elif menu_admin == "🛒 PDV – Frente de Caixa":
         col_tit_pdv, col_modo_pdv = st.columns([2, 1], gap="small")
         with col_tit_pdv:
-            st.markdown(f"### 🛒 PDV — Frente de Caixa — {nome_empresa_header} | 👤 Utilizador: {usr_exibicao}")
+            st.markdown(f"### 🛒 PDV – Frente de Caixa — {nome_empresa_header} | 👤 Utilizador: {usr_exibicao}")
         with col_modo_pdv:
             modo_pdv_selecionado = st.radio(
                 "⚡ Alternar Modo do Sistema:",
@@ -442,10 +442,41 @@ else:
         is_simples = (modo_pdv_selecionado == "Modo Simples")
 
         df_caixa_aberto = carregar_dados("SELECT * FROM caixa_sessoes WHERE status = 'ABERTO'")
-        
+
         if not df_caixa_aberto.empty:
             st.success("🟢 Caixa Aberto e Operacional")
         else:
+            st.warning("⚠️ Caixa Fechado")
+
+        # -------------------------------------------------------------
+        # SELEÇÃO DE CLIENTE VISÍVEL E DIRETA NO TOPO DO PDV
+        # -------------------------------------------------------------
+        try:
+            # Tenta carregar os clientes cadastrados da tabela 'clientes'
+            lista_cli_cadastrados = carregar_coluna("clientes", "nome")
+            if not lista_cli_cadastrados:
+                # Tenta outra coluna caso se chame cliente ou razao_social
+                lista_cli_cadastrados = carregar_coluna("clientes", "cliente") or carregar_coluna("clientes", "razao_social")
+        except Exception:
+            lista_cli_cadastrados = []
+
+        # Monta a lista final com "Cliente Balcão" no topo
+        opcoes_clientes = ["Cliente Balcão"]
+        if lista_cli_cadastrados:
+            for c in lista_cli_cadastrados:
+                if c and str(c) not in opcoes_clientes:
+                    opcoes_clientes.append(str(c))
+
+        col_c1, col_c2 = st.columns([2, 1])
+        with col_c1:
+            cliente_pdv_selecionado = st.selectbox(
+                "👤 Selecione o Cliente da Venda:", 
+                options=opcoes_clientes, 
+                key="select_cliente_pdv_topo_final"
+            )
+        with col_c2:
+            st.info(f"Cliente: **{cliente_pdv_selecionado}**")
+        st.markdown("---")
             st.warning("⚠️ Atenção: Não há nenhum caixa aberto no momento.")
             # --- BUSCA BLINDADA DE CLIENTES CADASTRADOS ---
             lista_clientes_pdv = ["Cliente Balcão"]
