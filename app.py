@@ -1811,18 +1811,115 @@ else:
                         st.error(f"❌ Erro ao restaurar o banco de dados: {e}")
 
     # -------------------------------------------------------------
-    # MÓDULO CONTAS A RECEBER (OTIMIZADO E SEM LINHAS VAZIAS)
+    # MÓDULO CONTAS A RECEBER (COM COMPROVANTE / EXTRATO PDF)
     # -------------------------------------------------------------
     elif "Contas a Receber" in str(menu_admin):
+        import io
+        from reportlab.lib.pagesizes import letter
+        from reportlab.lib import colors
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+
+        def gerar_pdf_comprovante_cliente(nome_cliente, df_contas_cliente):
+            buffer = io.BytesIO()
+            doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
+            story = []
+
+            styles = getSampleStyleSheet()
+            
+            style_header_title = ParagraphStyle(
+                'HeaderTitle',
+                parent=styles['Normal'],
+                fontName='Helvetica-Bold',
+                fontSize=18,
+                textColor=colors.HexColor('#004085'),
+                alignment=1, # Centralizado
+                spaceAfter=4
+            )
+            style_header_sub = ParagraphStyle(
+                'HeaderSub',
+                parent=styles['Normal'],
+                fontName='Helvetica',
+                fontSize=9,
+                alignment=1,
+                spaceAfter=2
+            )
+            style_title = ParagraphStyle(
+                'TitleDoc',
+                parent=styles['Normal'],
+                fontName='Helvetica-Bold',
+                fontSize=12,
+                alignment=1,
+                spaceAfter=10
+            )
+
+            # Cabeçalho da Empresa
+            story.append(Paragraph(f"<b>{nome_empresa_header}</b>", style_header_title))
+            story.append(Paragraph("CNPJ: 194.174.39/000-42 &nbsp;&nbsp; INSC.EST.: 12.426725-4", style_header_sub))
+            story.append(Paragraph("CONTATO: (99) 98814-9722 OU (99) 98414-3943", style_header_sub))
+            story.append(Spacer(1, 4))
+            story.append(Paragraph("Extrato Financeiro / Comprovante do Cliente", style_title))
+
+            # Dados do Cliente e Data
+            data_hora_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            story.append(Paragraph(f"<b>Cliente: {nome_cliente}</b> | <b>Gerado em: {data_hora_atual}</b>", styles['Normal']))
+            story.append(Spacer(1, 8))
+
+            # Totais
+            total_dev = df_contas_cliente['restante'].sum()
+            total_pago = df_contas_cliente['valor_pago'].sum()
+
+            data_totais = [
+                [f"Saldo Devedor (Falta Pagar): R$ {total_dev:,.2f}", f"Total Ja Pago: R$ {total_pago:,.2f}"]
+            ]
+            t_totais = Table(data_totais, colWidths=[270, 270])
+            t_totais.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#EAEAEA')),
+                ('TEXTCOLOR', (0,0), (-1,-1), colors.black),
+                ('FONTNAME', (0,0), (-1,-1), 'Helvetica-Bold'),
+                ('FONTSIZE', (0,0), (-1,-1), 10),
+                ('BOX', (0,0), (-1,-1), 1, colors.black),
+                ('INNERGRID', (0,0), (-1,-1), 1, colors.black),
+                ('PADDING', (0,0), (-1,-1), 6),
+            ]))
+            story.append(t_totais)
+            story.append(Spacer(1, 12))
+
+            # Tabela de Detalhamento
+            data_tabela = [["ID", "Descrição / Parcela", "Total (R$)", "Pago (R$)", "Restante (R$)", "Vencimento", "Status"]]
+            for _, r in df_contas_cliente.iterrows():
+                data_tabela.append([
+                    str(r['id']),
+                    str(r['descricao']),
+                    f"{r['valor']:,.2f}",
+                    f"{r['valor_pago']:,.2f}",
+                    f"{r['restante']:,.2f}",
+                    str(r['vencimento']),
+                    str(r['status'])
+                ])
+
+            t_det = Table(data_tabela, colWidths=[30, 150, 70, 70, 70, 80, 70])
+            t_det.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#004085')),
+                ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+                ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0,0), (-1,0), 9),
+                ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+                ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+                ('PADDING', (0,0), (-1,-1), 4),
+            ]))
+            story.append(t_det)
+
+            doc.build(story)
+            buffer.seek(0)
+            return buffer.getvalue()
+
         try:
-            # Título posicionado logo no topo (onde marcou de verde)
             st.subheader(f"💰 Contas a Receber / Haveres — {nome_empresa_header} | 👤 Utilizador: {usr_exibicao}")
             
-            # Conexão direta com a base de dados
             conn_cr = sqlite3.connect("crm_comercio.db", timeout=30.0)
             cursor_cr = conn_cr.cursor()
             
-            # Cria a tabela se não existir
             cursor_cr.execute("""
                 CREATE TABLE IF NOT EXISTS contas_receber (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1838,7 +1935,6 @@ else:
             """)
             conn_cr.commit()
             
-            # Tenta adicionar colunas caso faltem
             for sql_alt in [
                 "ALTER TABLE contas_receber ADD COLUMN valor_pago REAL DEFAULT 0.0",
                 "ALTER TABLE contas_receber ADD COLUMN data_quitacao TEXT",
@@ -1850,7 +1946,6 @@ else:
                 except Exception:
                     pass
 
-            # Lê os dados
             df_contas = pd.read_sql_query("SELECT * FROM contas_receber ORDER BY id DESC", conn_cr)
             conn_cr.close()
             
@@ -1930,8 +2025,24 @@ else:
                             st.rerun()
                         except Exception as e_del:
                             st.error(f"❌ Erro ao excluir: {e_del}")
+
+                # Botão para gerar e baixar o Comprovante/Extrato do Cliente em PDF
+                st.markdown("---")
+                cliente_selecionado_nome = str(row_conta_sel['cliente'])
+                df_cliente_filtrado = df_contas[df_contas['cliente'] == cliente_selecionado_nome]
+
+                pdf_bytes = gerar_pdf_comprovante_cliente(cliente_selecionado_nome, df_cliente_filtrado)
+
+                st.download_button(
+                    label=f"📄 Baixar Extrato / Comprovante PDF ({cliente_selecionado_nome})",
+                    data=pdf_bytes,
+                    file_name=f"comprovante_{cliente_selecionado_nome.lower().replace(' ', '_')}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
+
             else:
-                st.info("ℹ️ Nenhuma conta pendente encontrada. Faça uma venda em modo **'Parcelado'** para gerar parcelas automaticamente aqui.")
+                st.info("ℹ️ Nenhuma conta pendente encontrada.")
         except Exception as err_geral:
             st.error(f"❌ Ocorreu um erro ao carregar o módulo Contas a Receber: {err_geral}")
         
