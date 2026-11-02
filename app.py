@@ -461,7 +461,7 @@ else:
 
             emp_nome = "REY DA CEBOLA"
             emp_cnpj = "19.417.439/0001-42"
-            emp_end = ""
+            emp_end = "INCR. EST"
 
             try:
                 df_empresa_cupom = carregar_dados("SELECT * FROM empresa LIMIT 1")
@@ -489,7 +489,7 @@ else:
 ========================================
            {emp_nome}
        CNPJ: {emp_cnpj}
-       {emp_end}
+       INCR. EST: {emp_end}
 ========================================
 Data: {data_venda}
 Vendedor: {vendedor_atual}
