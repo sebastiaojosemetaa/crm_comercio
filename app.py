@@ -784,31 +784,28 @@ else:
                                 </tr>
                                 """
 
-                            # MONTA O HTML DO CUPOM COM CSS DE ISOLAMENTO DE IMPRESSÃO
+                            # MONTA O HTML DO CUPOM COM CSS CORRIGIDO (CHAVES DUPLAS)
                             html_cupom_gerado = f"""
                             <style>
-                                @media print {
-                                    /* Oculta todos os elementos padrão do Streamlit ao imprimir */
-                                    body * {
+                                @media print {{
+                                    body * {{
                                         visibility: hidden !important;
-                                    }
-                                    /* Torna visível apenas a área do cupom */
-                                    #cupom_imprimir_exclusivo, #cupom_imprimir_exclusivo * {
+                                    }}
+                                    #cupom_imprimir_exclusivo, #cupom_imprimir_exclusivo * {{
                                         visibility: visible !important;
-                                    }
-                                    /* Posiciona o cupom no topo da página impressa */
-                                    #cupom_imprimir_exclusivo {
+                                    }}
+                                    #cupom_imprimir_exclusivo {{
                                         position: absolute !important;
                                         left: 0 !important;
                                         top: 0 !important;
                                         width: 100% !important;
                                         margin: 0 !important;
                                         border: none !important;
-                                    }
-                                    .nao-imprimir {
+                                    }}
+                                    .nao-imprimir {{
                                         display: none !important;
-                                    }
-                                }
+                                    }}
+                                }}
                             </style>
 
                             <div id="cupom_imprimir_exclusivo" style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; border: 1px dashed #ccc; font-family: monospace; color: #000; max-width: 400px; margin: auto;">
