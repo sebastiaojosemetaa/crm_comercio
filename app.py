@@ -440,7 +440,15 @@ else:
         if st.session_state.exibir_cupom_tela:
             st.success("🎉 Venda concluída com sucesso!")
             
-            # 1. Garante que as variáveis da empresa existem com valores padrão seguros
+            # 1. Garante todas as variáveis com valores padrão seguros
+            from datetime import datetime
+            data_venda = st.session_state.get('data_venda_final', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+            vendedor_atual = st.session_state.get('usuario_logado', st.session_state.get('vendedor', 'administrador'))
+            cliente_pdv_selecionado = st.session_state.get('cliente_pdv_selecionado', 'Cliente Diversos')
+            cli_doc_final = st.session_state.get('cli_doc_final', '000.000.000-00')
+            detalhes_pagto = st.session_state.get('detalhes_pagto', 'Dinheiro / Pix')
+            total_geral_carrinho = float(st.session_state.get('total_geral_carrinho', 0.0))
+
             emp_nome = "REY DA CEBOLA"
             emp_cnpj = "19.417.439/0001-42"
             emp_end = ""
@@ -465,7 +473,7 @@ else:
                 total_fmt = f"R$ {total_val:,.2f}"
                 texto_itens_cupom += f"- {prod_nome} | Qtd: {qtd_val}x | {total_fmt}\n"
 
-            # 3. Monta o texto final do cupom sem erros
+            # 3. Monta o texto final do cupom
             conteudo_cupom_texto = f"""
 ========================================
            {emp_nome}
