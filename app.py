@@ -449,7 +449,7 @@ else:
 
             conteudo_cupom_texto = f"""
 ========================================
-           {emp_nome}
+       f"Empresa: {emp_nome}"
        CNPJ: {emp_cnpj}
        {emp_end}
 ========================================
@@ -725,6 +725,7 @@ TOTAL GERAL: R$ {total_geral_carrinho:,.2f}
                             if forma_pagto == "Fiado" and 'input_data_venc_fiado' in st.session_state:
                                 data_vencimento_fiado_val = str(st.session_state.input_data_venc_fiado)
 
+                            # BUSCA OS DADOS DA EMPRESA COM SEGURANÇA
                             try:
                                 df_empresa_cupom = carregar_dados("SELECT * FROM empresa LIMIT 1")
                                 if not df_empresa_cupom.empty:
