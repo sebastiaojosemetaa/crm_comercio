@@ -213,7 +213,8 @@ adequar_banco_e_migrar()
 if "device_id" not in st.query_params or not st.query_params["device_id"]:
     st.query_params["device_id"] = str(uuid.uuid4())
 device_id = st.query_params["device_id"]
-
+if 'carrinho_compras' not in st.session_state:
+    st.session_state.carrinho_compras = []
 df_emp_dev = carregar_dados(f"SELECT * FROM empresas_dispositivos WHERE device_id = '{device_id}'")
 if df_emp_dev.empty:
     cursor = conn.cursor()
