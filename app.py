@@ -461,14 +461,12 @@ else:
 
             emp_nome = "REY DA CEBOLA"
             emp_cnpj = "19.417.439/0001-42"
-            emp_end = "12.426.725-4"
+            emp_end = ""
 
             try:
                 df_empresa_cupom = carregar_dados("SELECT * FROM empresa LIMIT 1")
                 if not df_empresa_cupom.empty:
                     emp_nome = str(df_empresa_cupom.iloc[0].get('nome', emp_nome))
-                    emp_cnpj = str(df_empresa_cupom.iloc[0].get('cnpj', emp_cnpj))
-                    emp_cnpj = str(df_empresa_cupom.iloc[0].get('insc. est', emp_insc. est))
                     emp_end = str(df_empresa_cupom.iloc[0].get('endereco', ''))
             except Exception:
                 pass
