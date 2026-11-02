@@ -448,6 +448,31 @@ else:
         else:
             st.warning("⚠️ Atenção: Não há nenhum caixa aberto no momento.")
 
+        # --- SELEÇÃO DE CLIENTE CADASTRADO NO TOPO DO PDV ---
+        try:
+            lista_cli_cadastrados = carregar_coluna("clientes", "nome")
+            if not lista_cli_cadastrados:
+                lista_cli_cadastrados = carregar_coluna("clientes", "cliente") or carregar_coluna("clientes", "razao_social")
+        except Exception:
+            lista_cli_cadastrados = []
+
+        opcoes_clientes = ["Cliente Balcão"]
+        if lista_cli_cadastrados:
+            for c in lista_cli_cadastrados:
+                if c and str(c) not in opcoes_clientes:
+                    opcoes_clientes.append(str(c))
+
+        col_c1, col_c2 = st.columns([2, 1])
+        with col_c1:
+            cliente_pdv_selecionado = st.selectbox(
+                "👤 Selecione o Cliente da Venda:", 
+                options=opcoes_clientes, 
+                key="select_cliente_pdv_topo_final"
+            )
+        with col_c2:
+            st.info(f"Cliente: **{cliente_pdv_selecionado}**")
+        st.markdown("---")
+
         try:
             df_prod_pdv = pd.read_sql_query("SELECT * FROM produtos", conn)
             lista_produtos_pdv = df_prod_pdv['produto'].tolist() if not df_prod_pdv.empty else []
@@ -528,9 +553,8 @@ else:
                     st.info("💳 Pagamento via **Cartão de Débito** à vista.")
 
                 elif forma_pagto == "Fiado":
-                    cliente_fiado = st.selectbox("Selecione o Cliente para o Fiado:", carregar_coluna("clientes", "nome") or ["Cliente Balcão"], key="select_cliente_fiado_pdv")
-                    detalhes_pagto = f"Fiado ({cliente_fiado})"
-                    st.warning(f"⚠️ Esta venda será registada como **Fiado** para o cliente: **{cliente_fiado}**")
+                    detalhes_pagto = f"Fiado ({cliente_pdv_selecionado})"
+                    st.warning(f"⚠️ Esta venda será registada como **Fiado** para o cliente: **{cliente_pdv_selecionado}**")
 
                 elif forma_pagto == "Parcelado":
                     num_parc = st.number_input("Quantidade de Parcelas Próprias:", min_value=2, max_value=24, value=2, step=1, key="num_parc_proprias")
@@ -656,7 +680,7 @@ else:
                         t_val = troco if (forma_pagto == "Dinheiro" and troco >= 0) else 0.0
                 
                         for item in st.session_state.carrinho_pdv:
-                            # 1. Registra a venda individual na tabela de vendas
+                            # 1. Registra a venda individual na tabela de vendas com o cliente selecionado
                             cursor.execute("""
                                 INSERT INTO vendas (
                                     cliente, produto, fornecedor, grupo, quantidade, 
@@ -664,7 +688,7 @@ else:
                                     valor_recebido, troco, status, tipo, data, vendedor
                                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Concluído', 'VENDA', ?, ?)
                             """, (
-                                "Cliente Balcão", 
+                                cliente_pdv_selecionado, 
                                 item['produto'], 
                                 item['fornecedor'], 
                                 item['grupo'], 
@@ -702,7 +726,7 @@ else:
                         
                         st.session_state.carrinho_pdv = []
                         st.session_state.tela_checkout_ativa = False
-                        st.success(f"🎉 Venda de R$ {total_geral_carrinho:,.2f} concluída e estoque atualizado com sucesso!")
+                        st.success(f"🎉 Venda de R$ {total_geral_carrinho:,.2f} para **{cliente_pdv_selecionado}** concluída e estoque atualizado com sucesso!")
                         st.rerun()
 
         else:
