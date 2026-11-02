@@ -1521,62 +1521,38 @@ O Senhor é meu pastor nada mim faltarar.
         with tab_cad_prod:
             st.markdown("### ➕ Cadastro de Novo Produto no Sistema")
             
-            # Inicializa o estado da sessão para os cálculos automáticos
-            if 'calc_compra' not in st.session_state:
-                st.session_state.calc_compra = 0.0
-            if 'calc_margem' not in st.session_state:
-                st.session_state.calc_margem = 0.0
-            if 'calc_venda' not in st.session_state:
-                st.session_state.calc_venda = 0.0
-    
             col_cp1, col_cp2 = st.columns(2)
             with col_cp1:
-                novo_cod_prod = st.text_input("Código / Código de Barras", key="input_cad_cod_final")
-                novo_nome_prod = st.text_input("Nome do Produto", key="input_cad_nome_final")
+                novo_cod_prod = st.text_input("Código / Código de Barras", key="input_cad_cod_v2")
+                novo_nome_prod = st.text_input("Nome do Produto", key="input_cad_nome_v2")
             with col_cp2:
                 try:
                     lista_grupos_cad = carregar_coluna("grupos", "grupo") or ["GERAL"]
                 except Exception:
                     lista_grupos_cad = ["GERAL"]
-                novo_grupo_prod = st.selectbox("Grupo / Categoria", lista_grupos_cad, key="select_cad_grupo_final")
+                novo_grupo_prod = st.selectbox("Grupo / Categoria", lista_grupos_cad, key="select_cad_grupo_v2")
                 
                 try:
                     lista_forn_cad = carregar_coluna("fornecedores", "nome") or carregar_coluna("fornecedores", "fornecedor") or ["GERAL"]
                 except Exception:
                     lista_forn_cad = ["GERAL"]
-                novo_forn_prod = st.selectbox("Fornecedor Padrão", lista_forn_cad, key="select_cad_forn_final")
+                novo_forn_prod = st.selectbox("Fornecedor Padrão", lista_forn_cad, key="select_cad_forn_v2")
     
-            # Linha de Preços com cálculo dinâmico baseado na sessão
+            # Linha de Preços com cálculo matemático direto
             col_p1, col_p2, col_p3 = st.columns(3)
             with col_p1:
-                p_compra = st.number_input("Preço de Compra Inicial (R$)", value=float(st.session_state.calc_compra), format="%.2f", key="inp_compra_sessao")
-                if p_compra != st.session_state.calc_compra:
-                    st.session_state.calc_compra = p_compra
-                    # Atualiza a venda com base na margem atual
-                    st.session_state.calc_venda = p_compra * (1 + (st.session_state.calc_margem / 100.0))
-                    st.rerun()
-    
+                p_compra = st.number_input("Preço de Compra Inicial (R$)", value=0.0, format="%.2f", key="inp_compra_direto")
             with col_p2:
-                margem_lucro = st.number_input("Margem de Lucro (%)", value=float(st.session_state.calc_margem), format="%.2f", key="inp_margem_sessao")
-                if margem_lucro != st.session_state.calc_margem:
-                    st.session_state.calc_margem = margem_lucro
-                    # Calcula o preço de venda automaticamente
-                    st.session_state.calc_venda = st.session_state.calc_compra * (1 + (margem_lucro / 100.0))
-                    st.rerun()
-    
+                margem_lucro = st.number_input("Margem de Lucro (%)", value=0.0, format="%.2f", key="inp_margem_direto")
             with col_p3:
-                p_venda = st.number_input("Preço de Venda Inicial (R$)", value=float(st.session_state.calc_venda), format="%.2f", key="inp_venda_sessao")
-                if p_venda != st.session_state.calc_venda:
-                    st.session_state.calc_venda = p_venda
-                    # Se o usuário alterar o preço de venda manualmente, calcula a nova margem de lucro de volta
-                    if st.session_state.calc_compra > 0:
-                        st.session_state.calc_margem = ((p_venda / st.session_state.calc_compra) - 1) * 100.0
-                    st.rerun()
+                # Cálculo feito diretamente a cada execução da página
+                p_venda_calculado = p_compra * (1 + (margem_lucro / 100.0))
+                p_venda = st.number_input("Preço de Venda Inicial (R$)", value=float(p_venda_calculado), format="%.2f", key="inp_venda_direto")
     
-            qtd_inicial_prod = st.number_input("Quantidade Inicial em Estoque", value=0.0, step=1.0, min_value=0.0, key="inp_cad_qtd_final")
+            qtd_inicial_prod = st.number_input("Quantidade Inicial em Estoque", value=0.0, step=1.0, min_value=0.0, key="inp_cad_qtd_v2")
     
             st.markdown("")
-            if st.button("💾 Salvar Novo Produto", type="primary", use_container_width=True, key="btn_salvar_prod_final"):
+            if st.button("💾 Salvar Novo Produto", type="primary", use_container_width=True, key="btn_salvar_prod_direto"):
                 if novo_nome_prod.strip():
                     try:
                         cursor = conn.cursor()
@@ -1587,8 +1563,8 @@ O Senhor é meu pastor nada mim faltarar.
                             novo_cod_prod.strip(), 
                             novo_nome_prod.strip().upper(), 
                             qtd_inicial_prod, 
-                            st.session_state.calc_compra, 
-                            st.session_state.calc_venda, 
+                            p_compra, 
+                            p_venda, 
                             novo_grupo_prod, 
                             novo_forn_prod
                         ))
