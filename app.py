@@ -440,14 +440,24 @@ else:
         if st.session_state.exibir_cupom_tela:
             st.success("🎉 Venda concluída com sucesso!")
             
-            # 1. Garante todas as variáveis com valores padrão seguros
             from datetime import datetime
             data_venda = st.session_state.get('data_venda_final', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
             vendedor_atual = st.session_state.get('usuario_logado', st.session_state.get('vendedor', 'administrador'))
-            cliente_pdv_selecionado = st.session_state.get('cliente_pdv_selecionado', 'Cliente Diversos')
-            cli_doc_final = st.session_state.get('cli_doc_final', '000.000.000-00')
+            
+            # Resgata o cliente selecionado no PDV
+            cliente_pdv_selecionado = st.session_state.get('cliente_pdv_selecionado', 'Cliente Balcão')
+            
+            # Busca o documento do cliente na base de dados
+            cli_doc_final = "Não informado"
+            try:
+                if cliente_pdv_selecionado and cliente_pdv_selecionado != "Cliente Balcão":
+                    df_cli_busca = carregar_dados(f"SELECT * FROM clientes WHERE nome = '{cliente_pdv_selecionado}' OR cliente = '{cliente_pdv_selecionado}' LIMIT 1")
+                    if not df_cli_busca.empty:
+                        cli_doc_final = str(df_cli_busca.iloc[0].get('cpf', df_cli_busca.iloc[0].get('cnpj', df_cli_busca.iloc[0].get('documento', 'Não informado'))))
+            except Exception:
+                pass
+
             detalhes_pagto = st.session_state.get('detalhes_pagto', 'Dinheiro / Pix')
-            total_geral_carrinho = float(st.session_state.get('total_geral_carrinho', 0.0))
 
             emp_nome = "REY DA CEBOLA"
             emp_cnpj = "19.417.439/0001-42"
@@ -462,19 +472,16 @@ else:
             except Exception:
                 pass
 
-            # Processa os itens e calcula o total geral automaticamente com segurança
             carrinho_impresso = st.session_state.get('carrinho_temp_para_imprimir', [])
             
             texto_itens_cupom = ""
-            total_geral_calculado = 0.0  # Inicia a soma do total
+            total_geral_calculado = 0.0  
             
             for item in carrinho_impresso:
                 prod_nome = str(item.get('produto', 'Item'))
                 qtd_val = float(item.get('quantidade', 1.0))
                 total_val = float(item.get('valor_total', 0.0))
-                
-                total_geral_calculado += total_val  # Soma o valor de cada item ao total geral
-                
+                total_geral_calculado += total_val  
                 total_fmt = f"R$ {total_val:,.2f}"
                 texto_itens_cupom += f"- {prod_nome} | Qtd: {qtd_val}x | {total_fmt}\n"
 
@@ -568,9 +575,8 @@ TOTAL GERAL: R$ {total_geral_calculado:,.2f}
                     options=opcoes_clientes, 
                     key="select_cliente_pdv_topo_final"
                 )
-            with col_c2:
-                st.info(f"Cliente: **{cliente_pdv_selecionado}**")
-            st.markdown("---")
+                # Salva na sessão para o cupom resgatar
+                st.session_state['cliente_pdv_selecionado'] = cliente_pdv_selecionado
 
             try:
                 df_prod_pdv = pd.read_sql_query("SELECT * FROM produtos", conn)
