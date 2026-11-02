@@ -1839,7 +1839,6 @@ O Senhor é meu pastor nada mim faltarar.
         # -------------------------------------------------------------
         # ABA 2: ENTRADA DE ESTOQUE (COMPRAS) COM CÁLCULO DE MARGEM
         # -------------------------------------------------------------
-        with tab_entrada_compra:
             st.markdown("### 📥 Entrada de Estoque (Compras)")
             
             try:
