@@ -815,10 +815,16 @@ TOTAL GERAL: R$ {total_geral_carrinho:,.2f}
                             carrinho_impresso = st.session_state.get('carrinho_temp_para_imprimir', [])
                             itens_html_cupom = ""
                             for item in carrinho_impresso:
+                                prod_nome = str(item.get('produto', 'Item'))
+                                qtd_val = float(item.get('quantidade', 1.0))
+                                total_val = float(item.get('valor_total', 0.0))
+                                total_fmt = f"R$ {total_val:,.2f}"
+                                
+                                itens_html_cupom += f"""
                                 <tr>
-                                    <td style="text-align: left; padding: 2px 0;">{item['produto']}</td>
-                                    <td style="text-align: center; padding: 2px 0;">{item['quantidade']}x</td>
-                                    <td style="text-align: right; padding: 2px 0;">R$ {item['valor_total']:,.2f}</td>
+                                    <td style="text-align: left; padding: 2px 0;">{prod_nome}</td>
+                                    <td style="text-align: center; padding: 2px 0;">{qtd_val}x</td>
+                                    <td style="text-align: right; padding: 2px 0;">{total_fmt}</td>
                                 </tr>
                                 """
 
