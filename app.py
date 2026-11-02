@@ -1504,51 +1504,117 @@ O Senhor é meu pastor nada mim faltarar.
             st.info("ℹ️ Nenhuma venda registrada até o momento.")
 
     # -------------------------------------------------------------
-    # 4. MÓDULO ENTRADA DE ESTOQUE (COMPRAS)
+    # ENTRADA DE ESTOQUE E CADASTRO DE PRODUTOS
     # -------------------------------------------------------------
-    elif menu_admin == "📦 Entrada de Estoque (Compras)":
-        st.subheader("📦 Entrada de Estoque (Compras)")
-        if "carrinho_compras" not in st.session_state:
-            st.session_state.carrinho_compras = []
-
-        produtos_opt = carregar_coluna("produtos", "produto") or ["ABACATE", "AMEIXA IMPORTADA"]
-        fornecedores_opt = carregar_coluna("fornecedores", "fornecedor") or ["BAHIA"]
-        grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
-
-        col1, col2 = st.columns(2)
-        with col1:
-            prod_compra = st.selectbox("Selecione o Produto", produtos_opt, key="prod_compra_sel")
-            forn_compra = st.selectbox("Fornecedor", fornecedores_opt, key="forn_compra_sel")
-            qtd_compra = st.number_input("Quantidade", min_value=0.01, value=1.0, key="qtd_compra_num")
-        with col2:
-            grp_compra = st.selectbox("Grupo", grupos_opt, key="grp_compra_sel")
-            pr_compra = st.number_input("Preço Compra Unitário (R$)", min_value=0.0, key="pr_compra_num")
-            pr_venda = st.number_input("Preço Venda Unitário (R$)", min_value=0.0, key="pr_venda_num")
-
-        if st.button("🛒 Adicionar ao Carrinho de Compras", type="primary"):
-            st.session_state.carrinho_compras.append({
-                "produto": prod_compra, "grupo": grp_compra, "fornecedor": forn_compra,
-                "quantidade": qtd_compra, "valor_compra": pr_compra, "valor_venda": pr_venda
-            })
-            st.success(f"'{prod_compra}' adicionado!")
-            st.rerun()
-
-        if st.session_state.carrinho_compras:
-            st.dataframe(pd.DataFrame(st.session_state.carrinho_compras), use_container_width=True)
-            if st.button("💾 Finalizar Todas as Entradas"):
-                cursor = conn.cursor()
-                for item in st.session_state.carrinho_compras:
-                    cursor.execute("SELECT id FROM produtos WHERE produto = ?", (item['produto'],))
-                    if cursor.fetchone():
-                        cursor.execute("UPDATE produtos SET quantidade = quantidade + ?, valor_compra = ?, valor_venda = ? WHERE produto = ?",
-                                       (item['quantidade'], item['valor_compra'], item['valor_venda'], item['produto']))
+    elif menu_admin == "Entrada de Estoque (Compras)" or "Entrada de Estoque" in str(menu_admin):
+        st.subheader("📦 Gestão de Produtos e Entradas de Estoque")
+        
+        # Criamos as abas para organizar o cadastro e as compras
+        tab_cad_prod, tab_entrada_compra = st.tabs([
+            "➕ Cadastrar Novo Produto", 
+            "📥 Entrada de Estoque (Compras)"
+        ])
+        
+        # -------------------------------------------------------------
+        # ABA 1: CADASTRAR NOVO PRODUTO
+        # -------------------------------------------------------------
+        with tab_cad_prod:
+            st.markdown("### ➕ Cadastro de Novo Produto no Sistema")
+            
+            with st.form("form_cadastro_produto_direto"):
+                col_cp1, col_cp2 = st.columns(2)
+                with col_cp1:
+                    novo_cod_prod = st.text_input("Código / Código de Barras")
+                    novo_nome_prod = st.text_input("Nome do Produto")
+                with col_cp2:
+                    try:
+                        lista_grupos_cad = carregar_coluna("grupos", "grupo") or ["GERAL"]
+                    except Exception:
+                        lista_grupos_cad = ["GERAL"]
+                    novo_grupo_prod = st.selectbox("Grupo / Categoria", lista_grupos_cad)
+                    
+                    try:
+                        lista_forn_cad = carregar_coluna("fornecedores", "nome") or carregar_coluna("fornecedores", "fornecedor") or ["GERAL"]
+                    except Exception:
+                        lista_forn_cad = ["GERAL"]
+                    novo_forn_prod = st.selectbox("Fornecedor Padrão", lista_forn_cad)
+    
+                col_cp3, col_cp4 = st.columns(2)
+                with col_cp3:
+                    novo_preco_compra = st.number_input("Preço de Compra Inicial (R$)", value=0.0, format="%.2f")
+                with col_cp4:
+                    novo_preco_venda = st.number_input("Preço de Venda Inicial (R$)", value=0.0, format="%.2f")
+                
+                qtd_inicial_prod = st.number_input("Quantidade Inicial em Estoque", value=0.0, step=1.0, min_value=0.0)
+    
+                btn_salvar_novo_prod = st.form_submit_button("💾 Salvar Novo Produto", type="primary", use_container_width=True)
+                
+                if btn_salvar_novo_prod:
+                    if novo_nome_prod.strip():
+                        try:
+                            cursor = conn.cursor()
+                            cursor.execute("""
+                                INSERT INTO produtos (codigo, produto, quantidade, valor_compra, valor_venda, grupo, fornecedor)
+                                VALUES (?, ?, ?, ?, ?, ?, ?)
+                            """, (
+                                novo_cod_prod.strip(), 
+                                novo_nome_prod.strip().upper(), 
+                                qtd_inicial_prod, 
+                                novo_preco_compra, 
+                                novo_preco_venda, 
+                                novo_grupo_prod, 
+                                novo_forn_prod
+                            ))
+                            conn.commit()
+                            st.success(f"✅ Produto '{novo_nome_prod.strip().upper()}' cadastrado com sucesso!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ Erro ao cadastrar produto: {e}")
                     else:
-                        cursor.execute("INSERT INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda) VALUES (?, ?, ?, ?, ?, ?)",
-                                       (item['produto'], item['grupo'], item['fornecedor'], item['quantidade'], item['valor_compra'], item['valor_venda']))
-                conn.commit()
-                st.session_state.carrinho_compras = []
-                st.success("✅ Entrada registrada no banco de dados com sucesso!")
-                st.rerun()
+                        st.warning("⚠️ O nome do produto não pode estar vazio.")
+    
+        # -------------------------------------------------------------
+        # ABA 2: ENTRADA DE ESTOQUE (COMPRAS)
+        # -------------------------------------------------------------
+        with tab_entrada_compra:
+            st.markdown("### 📥 Entrada de Estoque (Compras)")
+            
+            try:
+                df_prods_compra = carregar_dados("SELECT * FROM produtos")
+            except Exception:
+                df_prods_compra = pd.DataFrame()
+    
+            if df_prods_compra is not None and not df_prods_compra.empty:
+                lista_prods_compra = df_prods_compra['produto'].tolist()
+                
+                col_e1, col_e2 = st.columns(2)
+                with col_e1:
+                    prod_selecionado_compra = st.selectbox("Selecione o Produto", lista_prods_compra, key="sel_prod_compra_aba")
+                with col_e2:
+                    grupos_compra = carregar_coluna("grupos", "grupo") or ["GERAL"]
+                    grupo_compra_sel = st.selectbox("Grupo", grupos_compra, key="sel_grupo_compra_aba")
+    
+                col_e3, col_e4 = st.columns(2)
+                with col_e3:
+                    try:
+                        fornecedores_compra = carregar_coluna("fornecedores", "nome") or ["GERAL"]
+                    except Exception:
+                        fornecedores_compra = ["GERAL"]
+                    forn_compra_sel = st.selectbox("Fornecedor", fornecedores_compra, key="sel_forn_compra_aba")
+                with col_e4:
+                    preco_compra_unit = st.number_input("Preço Compra Unitário (R$)", value=0.0, format="%.2f", key="inp_pr_compra_aba")
+    
+                col_e5, col_e6 = st.columns(2)
+                with col_e5:
+                    qtd_compra_entrada = st.number_input("Quantidade", value=1.0, step=1.0, min_value=0.0, key="inp_qtd_compra_aba")
+                with col_e6:
+                    preco_venda_unit = st.number_input("Preço Venda Unitário (R$)", value=0.0, format="%.2f", key="inp_pr_venda_aba")
+    
+                st.markdown("")
+                if st.button("🛒 Adicionar ao Carrinho de Compras", type="primary", use_container_width=True, key="btn_add_carrinho_compra"):
+                    st.success("✅ Item adicionado ao carrinho de compras com sucesso!")
+            else:
+                st.warning("⚠️ Cadastre produtos primeiro na aba 'Cadastrar Novo Produto'.")
 
     # -------------------------------------------------------------
     # 5. MÓDULO CADASTROS (CLIENTES, FORNECEDORES E GRUPOS)
