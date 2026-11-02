@@ -430,6 +430,9 @@ else:
     # -------------------------------------------------------------
     elif menu_admin == "🛒 PDV – Frente de Caixa":
         try:
+            # Abre a conexão com o banco de segurança garantida
+            conn_pdv = sqlite3.connect("crm_comercio.db", timeout=30.0)
+
             col_tit_pdv, col_modo_pdv = st.columns([2, 1], gap="small")
             with col_tit_pdv:
                 st.markdown(f"### 🛒 PDV – Frente de Caixa — {nome_empresa_header} | 👤 Utilizador: {usr_exibicao}")
@@ -475,7 +478,7 @@ else:
             st.markdown("---")
 
             try:
-                df_prod_pdv = pd.read_sql_query("SELECT * FROM produtos", conn)
+                df_prod_pdv = pd.read_sql_query("SELECT * FROM produtos", conn_pdv)
                 lista_produtos_pdv = df_prod_pdv['produto'].tolist() if not df_prod_pdv.empty else []
             except Exception:
                 lista_produtos_pdv = []
@@ -637,7 +640,7 @@ else:
                             st.rerun()
                     with col_chk2:
                         if st.button("✅ Confirmar e Concluir Venda", type="primary", use_container_width=True, key="btn_confirmar_pagto_final"):
-                            cursor = conn.cursor()
+                            cursor = conn_pdv.cursor()
                             sessao_id = int(df_caixa_aberto.iloc[0]['id'])
                             data_venda = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                             vendedor_atual = usr_exibicao
@@ -674,7 +677,8 @@ else:
                                 "INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, 'VENDA', ?, ?, ?)",
                                 (sessao_id, float(total_geral_carrinho), f"Venda PDV ({detalhes_pagto}) por {vendedor_atual}", data_venda)
                             )
-                            conn.commit()
+                            conn_pdv.commit()
+                            conn_pdv.close()
                             
                             st.session_state.carrinho_pdv = []
                             st.session_state.tela_checkout_ativa = False
@@ -764,6 +768,13 @@ else:
                             })
                             st.success(f"✅ '{prod_selecionado}' adicionado!")
                             st.rerun()
+
+            # Fecha a conexão ao sair do bloco com segurança
+            try:
+                conn_pdv.close()
+            except Exception:
+                pass
+
         except Exception as err_pdv_geral:
             st.error(f"❌ Erro ao carregar o PDV: {err_pdv_geral}")
     # -------------------------------------------------------------
