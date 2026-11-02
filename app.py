@@ -537,7 +537,7 @@ else:
                 detalhes_pagto = forma_pagto
 
                 if forma_pagto == "Dinheiro":
-                    valor_recebido = st.number_input("Valor Recebido em Dinheiro (R$)", min_value=0.0, value=total_geral_carrinho, format="%.2f", key="input_val_recebido_dinheiro")
+                    valor_recebido = st.number_input("Valor Recebido em Dinheiro (R$)", min_value=0.0, value=float(total_geral_carrinho), format="%.2f", key="input_val_recebido_dinheiro")
                     troco = valor_recebido - total_geral_carrinho
                     if troco >= 0:
                         st.success(f"💵 **Troco a Devolver:** R$ {troco:,.2f}")
@@ -553,7 +553,7 @@ else:
                     st.info("💳 Pagamento via **Cartão de Débito** à vista.")
 
                 elif forma_pagto == "Fiado":
-                    # Permite escolher a data de vencimento personalizada
+                    from datetime import timedelta
                     data_venc_padrao = datetime.now().date() + timedelta(days=30)
                     data_vencimento_fiado = st.date_input(
                         "📅 Data de Vencimento do Fiado:",
@@ -563,7 +563,7 @@ else:
                     )
                     data_venc_str = data_vencimento_fiado.strftime('%d/%m/%Y')
                     detalhes_pagto = f"Fiado (Venc: {data_venc_str})"
-                    st.warning(f"⚠️ Esta venda será registrada como **Fiado** para o cliente **{cliente_pdv_selecionado}** com vencimento em **{data_venc_str}**.")
+                    st.warning(f"⚠️ Esta venda será registada como **Fiado** para o cliente **{cliente_pdv_selecionado}** com vencimento em **{data_venc_str}**.")
 
                 elif forma_pagto == "Parcelado":
                     num_parc = st.number_input("Quantidade de Parcelas Próprias:", min_value=2, max_value=24, value=2, step=1, key="num_parc_proprias")
@@ -573,11 +573,9 @@ else:
 
                 elif forma_pagto == "Pix":
                     st.markdown("### 📱 Pague com Pix (QR Code Oficial)")
-                    
                     df_chaves_db = carregar_dados("SELECT * FROM chaves_pix")
                     
                     if df_chaves_db.empty:
-                        st.info("ℹ️ Nenhuma chave cadastrada em Configurações. Usando o CNPJ padrão da empresa.")
                         lista_opcoes_pix = ["CNPJ Padrão: 19417439000142"]
                         dict_chaves = {"CNPJ Padrão: 19417439000142": {"tipo": "CNPJ", "chave": "19417439000142", "favorecido": nome_empresa_header, "cidade": "SAO LUIS"}}
                     else:
@@ -596,49 +594,26 @@ else:
                     cidade_val = str(dados_chave_atual['cidade'])
                     tipo_val = str(dados_chave_atual['tipo'])
 
-                    st.info("Aponte a câmara do telemóvel para o QR Code abaixo ou utilize a chave selecionada.")
-
                     def gerar_payload_pix(pix_key, nome_recebedor, cidade, valor_str, tipo_chave_pix):
                         if tipo_chave_pix in ["CNPJ", "CPF"]:
                             chave_tratada = ''.join(filter(str.isdigit, pix_key))
-                        elif tipo_chave_pix == "Celular":
-                            digitos = ''.join(filter(str.isdigit, pix_key))
-                            if digitos.startswith("55") and len(digitos) >= 12:
-                                chave_tratada = "+" + digitos
-                            else:
-                                chave_tratada = "+55" + digitos
                         else:
                             chave_tratada = pix_key.strip()
-
                         import unicodedata
-                        def limpar_texto(texto):
-                            nfkd = unicodedata.normalize('NFKD', texto)
-                            return "".join([c for c in nfkd if not unicodedata.combining(c)]).upper()
-
-                        nome_tratado = limpar_texto(nome_recebedor)[:25]
-                        cidade_tratada = limpar_texto(cidade)[:15]
-
-                        def montar_campo(id_campo, valor_campo):
-                            return f"{id_campo}{len(valor_campo):02d}{valor_campo}"
-
-                        gui = montar_campo("00", "br.gov.bcb.pix")
-                        chave_f = montar_campo("01", chave_tratada)
-                        merchant_account = montar_campo("26", gui + chave_f)
-
+                        nfkd = unicodedata.normalize('NFKD', nome_recebedor)
+                        nome_tratado = "".join([c for c in nfkd if not unicodedata.combining(c)]).upper()[:25]
+                        cidade_tratada = "".join([c for c in unicodedata.normalize('NFKD', cidade) if not unicodedata.combining(c)]).upper()[:15]
+                        def mc(id_c, val_c):
+                            return f"{id_c}{len(val_c):02d}{val_c}"
+                        gui = mc("00", "br.gov.bcb.pix")
+                        chave_f = mc("01", chave_tratada)
+                        merchant_account = mc("26", gui + chave_f)
                         payload = (
-                            montar_campo("00", "01") +
-                            montar_campo("01", "12") +
-                            merchant_account +
-                            montar_campo("52", "0000") +
-                            montar_campo("53", "986") +
-                            montar_campo("54", valor_str) +
-                            montar_campo("58", "BR") +
-                            montar_campo("60", nome_tratado) +
-                            montar_campo("61", cidade_tratada) +
-                            montar_campo("62", montar_campo("05", "***")) +
-                            "6304"
+                            mc("00", "01") + mc("01", "12") + merchant_account +
+                            mc("52", "0000") + mc("53", "986") + mc("54", valor_str) +
+                            mc("58", "BR") + mc("60", nome_tratado) + mc("61", cidade_tratada) +
+                            mc("62", mc("05", "***")) + "6304"
                         )
-
                         crc = 0xFFFF
                         for char in payload:
                             crc ^= (ord(char) << 8)
@@ -648,19 +623,10 @@ else:
                                 else:
                                     crc = crc << 1
                                 crc &= 0xFFFF
-
                         return payload + f"{crc:04X}"
 
                     valor_formatado = f"{total_geral_carrinho:.2f}"
-                    
-                    pix_payload = gerar_payload_pix(
-                        pix_key=pix_key_val,
-                        nome_recebedor=fav_val,
-                        cidade=cidade_val,
-                        valor_str=valor_formatado,
-                        tipo_chave_pix=tipo_val
-                    )
-                    
+                    pix_payload = gerar_payload_pix(pix_key_val, fav_val, cidade_val, valor_formatado, tipo_val)
                     qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={pix_payload}"
                     
                     col_qr_img, col_qr_info = st.columns([1, 2], gap="medium")
@@ -669,9 +635,7 @@ else:
                     with col_qr_info:
                         st.markdown(f"**Valor a Pagar:** R$ {total_geral_carrinho:,.2f}")
                         st.markdown(f"**Favorecido:** `{fav_val}`")
-                        st.markdown(f"**Chave ({tipo_val}):** `{pix_key_val}`")
                         st.text_input("Chave Pix Copia e Cola:", value=pix_payload, key="input_pix_copia_cola_detalhe")
-                        st.success("🟢 Aguardando confirmação do pagamento Pix...")
 
                 col_chk1, col_chk2 = st.columns(2)
                 with col_chk1:
@@ -688,12 +652,10 @@ else:
                         v_rec = valor_recebido if forma_pagto == "Dinheiro" else total_geral_carrinho
                         t_val = troco if (forma_pagto == "Dinheiro" and troco >= 0) else 0.0
 
-                        # Captura a data de vencimento caso seja Fiado
                         data_vencimento_fiado_val = None
                         if forma_pagto == "Fiado" and 'input_data_venc_fiado' in st.session_state:
                             data_vencimento_fiado_val = str(st.session_state.input_data_venc_fiado)
 
-                        # BUSCA OS DADOS DA EMPRESA PARA O CABEÇALHO DO CUPOM
                         try:
                             df_empresa_cupom = carregar_dados("SELECT * FROM empresa LIMIT 1")
                             if not df_empresa_cupom.empty:
@@ -709,7 +671,6 @@ else:
                             emp_cnpj = '19.417.439/0001-42'
                             emp_end = ''
 
-                        # BUSCA O CPF/CNPJ DO CLIENTE SELECIONADO
                         cli_doc_final = "Não informado"
                         if cliente_pdv_selecionado != "Cliente Balcão":
                             try:
@@ -762,7 +723,6 @@ else:
                             (sessao_id, float(total_geral_carrinho), f"Venda PDV ({detalhes_pagto}) por {vendedor_atual}", data_venda)
                         )
 
-                        # SE FOR FIADO, LANÇA AUTOMATICAMENTE NO CONTAS A RECEBER
                         if forma_pagto == "Fiado" and data_vencimento_fiado_val:
                             cursor.execute("""
                                 CREATE TABLE IF NOT EXISTS contas_receber (
@@ -781,7 +741,6 @@ else:
 
                         conn.commit()
                         
-                        # --- EXIBIÇÃO DO CUPOM NA TELA ---
                         st.markdown("---")
                         st.success("🎉 Venda concluída com sucesso!")
                         
