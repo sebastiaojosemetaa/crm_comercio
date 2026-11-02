@@ -468,7 +468,7 @@ else:
                 if not df_empresa_cupom.empty:
                     emp_nome = str(df_empresa_cupom.iloc[0].get('nome', emp_nome))
                     emp_cnpj = str(df_empresa_cupom.iloc[0].get('cnpj', emp_cnpj))
-                    emp_end = str(df_empresa_cupom.iloc[0].get('endereco', ''))
+                    emp_INCR. EST = str(df_empresa_cupom.iloc[0].get('endereco', ''))
             except Exception:
                 pass
 
