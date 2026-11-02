@@ -1836,7 +1836,12 @@ O Senhor é meu pastor nada mim faltarar.
                             st.error(f"❌ Erro ao excluir cliente: {e}")
             else:
                 st.info("ℹ️ Nenhum cliente cadastrado no momento.")
-        
+        col_e1, col_e2 = st.columns(2)
+        with col_e1:
+            prod_selecionado_compra = st.selectbox("Selecione o Produto", lista_prods_compra, key="sel_prod_compra_aba")
+        with col_e2:
+            grupos_compra = carregar_coluna("grupos", "grupo") or ["GERAL"]
+            grupo_compra_sel = st.selectbox("Grupo", grupos_compra, key="sel_grupo_compra_aba")
         # -------------------------------------------------------------
         # ABA 3: GRUPOS
         # -------------------------------------------------------------
