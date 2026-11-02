@@ -462,14 +462,19 @@ else:
             except Exception:
                 pass
 
-            # 2. Processa os itens do carrinho com segurança
+            # Processa os itens e calcula o total geral automaticamente com segurança
             carrinho_impresso = st.session_state.get('carrinho_temp_para_imprimir', [])
             
             texto_itens_cupom = ""
+            total_geral_calculado = 0.0  # Inicia a soma do total
+            
             for item in carrinho_impresso:
                 prod_nome = str(item.get('produto', 'Item'))
                 qtd_val = float(item.get('quantidade', 1.0))
                 total_val = float(item.get('valor_total', 0.0))
+                
+                total_geral_calculado += total_val  # Soma o valor de cada item ao total geral
+                
                 total_fmt = f"R$ {total_val:,.2f}"
                 texto_itens_cupom += f"- {prod_nome} | Qtd: {qtd_val}x | {total_fmt}\n"
 
@@ -489,7 +494,7 @@ ITENS DA VENDA:
 {texto_itens_cupom}
 ----------------------------------------
 FORMA DE PAGAMENTO: {detalhes_pagto}
-TOTAL GERAL: R$ {total_geral_carrinho:,.2f}
+TOTAL GERAL: R$ {total_geral_calculado:,.2f}
 ========================================
        Obrigado pela preferência!
 ========================================
