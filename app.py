@@ -1740,24 +1740,11 @@ O Senhor é meu pastor nada mim faltarar.
                 st.info("ℹ️ Nenhum cliente cadastrado no momento.")
 
         # -------------------------------------------------------------
-        # ABA 2: ENTRADA DE ESTOQUE (COMPRAS) COM CÁLCULO AUTOMÁTICO
+        # ABA 2: ENTRADA DE ESTOQUE (COMPRAS) COM CÁLCULO DIRETO
         # -------------------------------------------------------------
         with tab_entrada_compra:
             st.markdown("### 📥 Entrada de Estoque (Compras)")
             
-            # Inicializa as variáveis na sessão se não existirem
-            if 'compra_unit_val' not in st.session_state:
-                st.session_state.compra_unit_val = 0.0
-            if 'margem_perc_val' not in st.session_state:
-                st.session_state.margem_perc_val = 0.0
-            if 'venda_calc_val' not in st.session_state:
-                st.session_state.venda_calc_val = 0.0
-
-            def atualizar_calculo_venda():
-                c = st.session_state.get('inp_compra_dinamico', 0.0)
-                m = st.session_state.get('inp_margem_dinamico', 0.0)
-                st.session_state.venda_calc_val = float(c) * (1.0 + (float(m) / 100.0))
-
             try:
                 df_prods_compra = carregar_dados("SELECT * FROM produtos")
             except Exception:
@@ -1781,40 +1768,17 @@ O Senhor é meu pastor nada mim faltarar.
                         fornecedores_compra = ["GERAL"]
                     forn_compra_sel = st.selectbox("Fornecedor", fornecedores_compra, key="sel_forn_compra_aba")
                 with col_e4:
-                    # Preço de Compra com gatilho de atualização
-                    st.number_input(
-                        "Preço Compra Unitário (R$)", 
-                        value=float(st.session_state.compra_unit_val), 
-                        format="%.2f", 
-                        key="inp_compra_dinamico",
-                        on_change=atualizar_calculo_venda
-                    )
-                    st.session_state.compra_unit_val = st.session_state.inp_compra_dinamico
-
-                # Linha com Quantidade, Margem de Lucro (%) e Preço de Venda
+                    preco_compra_unit = st.number_input("Preço Compra Unitário (R$)", value=0.0, format="%.2f", key="meu_preco_compra")
+    
                 col_e5, col_e6, col_e7 = st.columns(3)
                 with col_e5:
-                    qtd_compra_entrada = st.number_input("Quantidade", value=1.0, step=1.0, min_value=0.0, key="inp_qtd_compra_aba")
+                    qtd_compra_entrada = st.number_input("Quantidade", value=1.0, step=1.0, min_value=0.0, key="minha_qtd_compra")
                 with col_e6:
-                    # Margem de Lucro com gatilho de atualização
-                    st.number_input(
-                        "Margem de Lucro (%)", 
-                        value=float(st.session_state.margem_perc_val), 
-                        format="%.2f", 
-                        key="inp_margem_dinamico",
-                        on_change=atualizar_calculo_venda
-                    )
-                    st.session_state.margem_perc_val = st.session_state.inp_margem_dinamico
-                
+                    margem_lucro_compra = st.number_input("Margem de Lucro (%)", value=0.0, format="%.2f", key="minha_margem_lucro")
                 with col_e7:
-                    # Atualiza o cálculo automaticamente antes de renderizar
-                    atualizar_calculo_venda()
-                    st.number_input(
-                        "Preço Venda Unitário (R$)", 
-                        value=float(st.session_state.venda_calc_val), 
-                        format="%.2f", 
-                        key="inp_venda_dinamico"
-                    )
+                    # O cálculo é feito matematicamente na hora
+                    venda_calculada = float(preco_compra_unit) * (1.0 + (float(margem_lucro_compra) / 100.0))
+                    preco_venda_unit = st.number_input("Preço Venda Unitário (R$)", value=float(venda_calculada), format="%.2f", key="meu_preco_venda")
     
                 st.markdown("")
                 if st.button("🛒 Adicionar ao Carrinho de Compras", type="primary", use_container_width=True, key="btn_add_carrinho_compra"):
