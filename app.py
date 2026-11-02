@@ -443,22 +443,35 @@ else:
             
             st.markdown("<br>", unsafe_allow_html=True)
             
-            st.info("💡 **Dica:** Para salvar em PDF, clique no botão abaixo e, na janela que se abrir, mude o **Destino** para **'Guardar como PDF'**.")
+            # Script JavaScript embutido para gerar e baixar o PDF diretamente do elemento do cupom
+            download_pdf_js = """
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+            <script>
+            function baixarPDF() {
+                var elemento = document.getElementById('cupom_imprimir_exclusivo');
+                var opt = {
+                    margin:       10,
+                    filename:     'cupom_venda.pdf',
+                    image:        { type: 'jpeg', quality: 0.98 },
+                    html2canvas:  { scale: 2 },
+                    jsPDF:        { unit: 'mm', format: 'a5', orientation: 'portrait' }
+                };
+                html2pdf().from(elemento).set(opt).save();
+            }
+            </script>
+            <div style="display: flex; gap: 10px; justify-content: center; margin-top: 10px;">
+                <button onclick="window.print()" style="background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">🖨️ Imprimir Cupom</button>
+                <button onclick="baixarPDF()" style="background-color: #008CBA; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">📥 Baixar PDF Direto</button>
+            </div>
+            """
+            
+            # Renderiza os botões de Impressão e Download Direto via HTML seguro
+            st.components.v1.html(download_pdf_js, height=80)
 
-            col_b_imp1, col_b_imp2, col_b_imp3 = st.columns([1, 1, 1])
-            with col_b_imp1:
-                if st.button("🖨️ Imprimir Cupom", use_container_width=True, key="btn_acao_imprimir_nativo"):
-                    js_print = "<script>window.parent.print();</script>"
-                    st.components.v1.html(js_print, height=0)
-            with col_b_imp2:
-                if st.button("📥 Gerar PDF (Imprimir)", use_container_width=True, key="btn_acao_pdf_nativo"):
-                    js_pdf = "<script>window.parent.print();</script>"
-                    st.components.v1.html(js_pdf, height=0)
-            with col_b_imp3:
-                if st.button("➕ Iniciar Nova Venda", type="primary", use_container_width=True, key="btn_nova_venda_reset"):
-                    st.session_state.exibir_cupom_tela = False
-                    st.session_state.html_cupom_atual = ""
-                    st.rerun()
+            if st.button("➕ Iniciar Nova Venda", type="primary", use_container_width=True, key="btn_nova_venda_reset"):
+                st.session_state.exibir_cupom_tela = False
+                st.session_state.html_cupom_atual = ""
+                st.rerun()
         
         else:
             # FLUXO NORMAL DO PDV
