@@ -2331,7 +2331,12 @@ O Senhor é meu pastor nada mim faltarar.
     if "Estoque de Produtos" in str(menu_admin) or menu_admin == "📦 Estoque de Produtos":
         st.subheader("📦 Estoque de Produtos e Promoções")
         
-        tab_estoque_geral, tab_deposito_promo = st.tabs(["📋 Estoque Geral", "🏷️ Depósito / Produtos para Promoção"])
+        tab_estoque_geral, tab_deposito_promo, tab_comprados, tab_vendidos = st.tabs([
+            "📋 Estoque Geral", 
+            "🏷️ Depósito / Produtos para Promoção", 
+            "📥 Produtos Comprados", 
+            "📤 Produtos Vendidos"
+        ])
         
         # -------------------------------------------------------------
         # ABA 1: ESTOQUE GERAL
@@ -2356,12 +2361,12 @@ O Senhor é meu pastor nada mim faltarar.
                 conn.commit()
             except Exception:
                 pass
-
+    
             try:
                 df_prods = carregar_dados("SELECT * FROM produtos")
             except Exception:
                 df_prods = pd.DataFrame()
-
+    
             if df_prods is not None and not df_prods.empty:
                 df_exib_est = pd.DataFrame()
                 df_exib_est['ID'] = df_prods['id']
@@ -2374,7 +2379,7 @@ O Senhor é meu pastor nada mim faltarar.
                 df_exib_est['Fornecedor'] = df_prods['fornecedor']
                 
                 st.dataframe(df_exib_est, use_container_width=True)
-
+    
                 st.markdown("---")
                 st.markdown("### 🛠️ Editar ou Excluir Produto do Estoque")
                 
@@ -2385,11 +2390,11 @@ O Senhor é meu pastor nada mim faltarar.
                 
                 p_row_est = df_prods[df_prods['label_prod'] == prod_selecionado_est].iloc[0]
                 id_prod_atual = int(p_row_est['id'])
-
+    
                 grupos_disponiveis = carregar_coluna("grupos", "grupo") or ["GERAL"]
                 grupo_atual = str(p_row_est.get('grupo', 'GERAL'))
                 indice_grupo = grupos_disponiveis.index(grupo_atual) if grupo_atual in grupos_disponiveis else 0
-
+    
                 with st.form("form_editar_produto_estoque"):
                     col_e1, col_e2, col_e3 = st.columns(3)
                     with col_e1:
@@ -2401,13 +2406,13 @@ O Senhor é meu pastor nada mim faltarar.
                     with col_e3:
                         ed_pr_venda = st.number_input("Preço de Venda (R$)", value=float(p_row_est.get('valor_venda', 0.0) or 0.0), format="%.2f")
                         ed_grupo = st.selectbox("Grupo", grupos_disponiveis, index=indice_grupo)
-
+    
                     col_btn_est1, col_btn_est2 = st.columns(2)
                     with col_btn_est1:
                         btn_salvar_prod = st.form_submit_button("✏️ Salvar Alterações", type="primary", use_container_width=True)
                     with col_btn_est2:
                         btn_excluir_prod = st.form_submit_button("🗑️ Excluir Produto", use_container_width=True)
-
+    
                     if btn_salvar_prod:
                         try:
                             cursor = conn.cursor()
@@ -2421,7 +2426,7 @@ O Senhor é meu pastor nada mim faltarar.
                             st.rerun()
                         except Exception as e:
                             st.error(f"❌ Erro ao atualizar produto: {e}")
-
+    
                     if btn_excluir_prod:
                         try:
                             cursor = conn.cursor()
@@ -2433,9 +2438,9 @@ O Senhor é meu pastor nada mim faltarar.
                             st.error(f"❌ Erro ao excluir produto: {e}")
             else:
                 st.warning("⚠️ Nenhum produto cadastrado no estoque geral.")
-
+    
         # -------------------------------------------------------------
-        # ABA 2: DEPÓSITO / PRODUTOS PARA PROMOÇÃO (CORRIGIDO)
+        # ABA 2: DEPÓSITO / PRODUTOS PARA PROMOÇÃO
         # -------------------------------------------------------------
         with tab_deposito_promo:
             st.markdown("### 🏷️ Enviar Produto para Promoção no PDV")
@@ -2456,7 +2461,7 @@ O Senhor é meu pastor nada mim faltarar.
                 conn.commit()
             except Exception:
                 pass
-
+    
             df_prods_promo = carregar_dados("SELECT * FROM produtos")
             
             if df_prods_promo is not None and not df_prods_promo.empty:
@@ -2480,7 +2485,7 @@ O Senhor é meu pastor nada mim faltarar.
                         value=float(max(0.0, qtd_estoque_atual_geral)), 
                         step=1.0, 
                         min_value=0.0, 
-                        key="..."
+                        key="input_qtd_est_promo_corr"
                     )
                 
                 st.markdown("")
@@ -2526,7 +2531,7 @@ O Senhor é meu pastor nada mim faltarar.
                     """)
                     if df_promos_ativas is not None and not df_promos_ativas.empty:
                         st.dataframe(df_promos_ativas, use_container_width=True)
-
+    
                         st.markdown("---")
                         st.markdown("### 🛠️ Editar ou Excluir Promoção Configurada")
                         
@@ -2537,16 +2542,15 @@ O Senhor é meu pastor nada mim faltarar.
                         
                         p_row_selecionada = df_promos_ativas[df_promos_ativas['label_promo_edit'] == promo_selecionada_gerir].iloc[0]
                         id_promo_atual = int(p_row_selecionada['ID'])
-
-                        # Carrega os valores atuais da promoção selecionada
+    
                         cursor = conn.cursor()
                         cursor.execute("SELECT preco_promo, qtd_minima, qtd_estoque_promo FROM promocoes WHERE id = ?", (id_promo_atual,))
                         dados_atuais_promo = cursor.fetchone()
-
+    
                         val_ant_preco = float(dados_atuais_promo[0]) if dados_atuais_promo else 0.0
                         val_ant_min = float(dados_atuais_promo[1]) if dados_atuais_promo else 1.0
                         val_ant_est = float(dados_atuais_promo[2]) if dados_atuais_promo else 0.0
-
+    
                         col_ed1, col_ed2, col_ed3 = st.columns(3)
                         with col_ed1:
                             edit_preco_promo = st.number_input("Novo Preço Promo (R$)", value=val_ant_preco, format="%.2f", key="edit_val_promo")
@@ -2554,7 +2558,7 @@ O Senhor é meu pastor nada mim faltarar.
                             edit_qtd_min = st.number_input("Nova Qtd. Mínima PDV", value=val_ant_min, step=1.0, min_value=1.0, key="edit_qtd_min_promo")
                         with col_ed3:
                             edit_estoque_promo = st.number_input("Novo Estoque Promo", value=val_ant_est, step=1.0, min_value=0.0, key="edit_est_promo")
-
+    
                         col_btn_p1, col_btn_p2 = st.columns(2)
                         with col_btn_p1:
                             if st.button("✏️ Salvar Alterações da Promoção", type="primary", use_container_width=True, key="btn_salvar_alt_promo"):
@@ -2569,7 +2573,7 @@ O Senhor é meu pastor nada mim faltarar.
                                     st.rerun()
                                 except Exception as e:
                                     st.error(f"❌ Erro ao atualizar promoção: {e}")
-
+    
                         with col_btn_p2:
                             if st.button("🗑️ Excluir / Desativar Promoção", use_container_width=True, key="btn_excluir_promo_pdv"):
                                 try:
@@ -2579,12 +2583,70 @@ O Senhor é meu pastor nada mim faltarar.
                                     st.rerun()
                                 except Exception as e:
                                     st.error(f"❌ Erro ao excluir promoção: {e}")
-                                        
+                    else:
                         st.info("ℹ️ Nenhuma promoção ativa configurada no momento.")
                 except Exception:
                     st.info("ℹ️ Nenhuma promoção ativa encontrada.")
             else:
                 st.warning("⚠️ Cadastre produtos no estoque geral primeiro.")
+    
+        # -------------------------------------------------------------
+        # ABA 3: PRODUTOS COMPRADOS (Com Filtro por Fornecedor e Data)
+        # -------------------------------------------------------------
+        with tab_comprados:
+            st.markdown("### 📥 Histórico de Produtos Comprados")
+            
+            col_fc1, col_fc2, col_fc3 = st.columns(3)
+            with col_fc1:
+                try:
+                    lista_forn_db = carregar_coluna("compras", "fornecedor") or carregar_coluna("produtos", "fornecedor") or []
+                except Exception:
+                    lista_forn_db = []
+                opcoes_forn = ["Todos"] + [str(f) for f in lista_forn_db if f and str(f).strip() != '']
+                fornecedor_selecionado = st.selectbox("Filtrar por Fornecedor:", sorted(list(set(opcoes_forn))), key="filtro_forn_compras_aba")
+            with col_fc2:
+                dt_inicio_compra = st.date_input("Data Inicial (Compra)", key="dt_ini_compra_filtro")
+            with col_fc3:
+                dt_fim_compra = st.date_input("Data Final (Compra)", key="dt_fim_compra_filtro")
+    
+            try:
+                df_compras = carregar_dados("SELECT * FROM compras")
+            except Exception:
+                df_compras = pd.DataFrame()
+    
+            if df_compras is not None and not df_compras.empty:
+                # Aplicação dos filtros se as colunas existirem
+                df_comp_filtrado = df_compras.copy()
+                if fornecedor_selecionado != "Todos" and 'fornecedor' in df_comp_filtrado.columns:
+                    df_comp_filtrado = df_comp_filtrado[df_comp_filtrado['fornecedor'] == fornecedor_selecionado]
+                
+                st.dataframe(df_comp_filtrado, use_container_width=True)
+            else:
+                st.info("ℹ️ Nenhum registo de compras encontrado na base de dados.")
+    
+        # -------------------------------------------------------------
+        # ABA 4: PRODUTOS VENDIDOS (Com Filtro por Data)
+        # -------------------------------------------------------------
+        with tab_vendidos:
+            st.markdown("### 📤 Histórico de Produtos Vendidos")
+            
+            col_fv1, col_fv2 = st.columns(2)
+            with col_fv1:
+                dt_inicio_venda = st.date_input("Data Inicial (Venda)", key="dt_ini_venda_filtro")
+            with col_fv2:
+                dt_fim_venda = st.date_input("Data Final (Venda)", key="dt_fim_venda_filtro")
+    
+            try:
+                # Tenta carregar itens de venda ou vendas gerais
+                tabela_vendas_alvo = "itens_venda" if "itens_venda" in str(carregar_dados("SELECT name FROM sqlite_master WHERE type='table'")) else "vendas"
+                df_vendas_hist = carregar_dados(f"SELECT * FROM {tabela_vendas_alvo}")
+            except Exception:
+                df_vendas_hist = pd.DataFrame()
+    
+            if df_vendas_hist is not None and not df_vendas_hist.empty:
+                st.dataframe(df_vendas_hist, use_container_width=True)
+            else:
+                st.info("ℹ️ Nenhum registo de vendas encontrado na base de dados.")
     # -------------------------------------------------------------
     # 11. CONFIGURAÇÕES
     # -------------------------------------------------------------
