@@ -1836,53 +1836,7 @@ O Senhor é meu pastor nada mim faltarar.
                             st.error(f"❌ Erro ao excluir cliente: {e}")
             else:
                 st.info("ℹ️ Nenhum cliente cadastrado no momento.")
-
-        # -------------------------------------------------------------
-        # ABA 2: ENTRADA DE ESTOQUE (COMPRAS) COM CÁLCULO DE MARGEM
-        # -------------------------------------------------------------
-            st.markdown("### 📥 Entrada de Estoque (Compras)")
-            
-            try:
-                df_prods_compra = carregar_dados("SELECT * FROM produtos")
-            except Exception:
-                df_prods_compra = pd.DataFrame()
-    
-            if df_prods_compra is not None and not df_prods_compra.empty:
-                lista_prods_compra = df_prods_compra['produto'].tolist()
-                
-                col_e1, col_e2, col_e3 = st.columns(3)
-                with col_e1:
-                    prod_selecionado_compra = st.selectbox("Selecione o Produto", lista_prods_compra, key="sel_prod_compra_aba")
-                with col_e2:
-                    grupos_compra = carregar_coluna("grupos", "grupo") or ["GERAL"]
-                    grupo_compra_sel = st.selectbox("Grupo", grupos_compra, key="sel_grupo_compra_aba")
-                with col_e3:
-                    qtd_compra_entrada = st.number_input("Quantidade", value=1.0, step=1.0, min_value=0.0, key="minha_qtd_compra")
-
-                col_e4, col_e5 = st.columns(2)
-                with col_e4:
-                    try:
-                        fornecedores_compra = carregar_coluna("fornecedores", "nome") or ["GERAL"]
-                    except Exception:
-                        fornecedores_compra = ["GERAL"]
-                    forn_compra_sel = st.selectbox("Fornecedor", fornecedores_compra, key="sel_forn_compra_aba")
-                with col_e5:
-                    preco_compra_unit = st.number_input("Preço Compra Unitário (R$)", value=0.0, format="%.2f", key="meu_preco_compra")
-
-                # Linha com Margem de Lucro e Preço de Venda Calculado
-                col_e6, col_e7 = st.columns(2)
-                with col_e6:
-                    margem_lucro_compra = st.number_input("Margem de Lucro (%)", value=0.0, format="%.2f", key="minha_margem_lucro")
-                with col_e7:
-                    venda_calculada = float(preco_compra_unit) * (1.0 + (float(margem_lucro_compra) / 100.0))
-                    preco_venda_unit = st.number_input("Preço Venda Unitário (R$)", value=float(venda_calculada), format="%.2f", key="meu_preco_venda")
-    
-                st.markdown("")
-                if st.button("🛒 Adicionar ao Carrinho de Compras", type="primary", use_container_width=True, key="btn_add_carrinho_compra"):
-                    st.success("✅ Item adicionado ao carrinho de compras com sucesso!")
-            else:
-                st.warning("⚠️ Cadastre produtos primeiro.")
-
+        
         # -------------------------------------------------------------
         # ABA 3: GRUPOS
         # -------------------------------------------------------------
