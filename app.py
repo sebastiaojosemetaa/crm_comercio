@@ -553,8 +553,17 @@ else:
                     st.info("💳 Pagamento via **Cartão de Débito** à vista.")
 
                 elif forma_pagto == "Fiado":
-                    detalhes_pagto = f"Fiado ({cliente_pdv_selecionado})"
-                    st.warning(f"⚠️ Esta venda será registada como **Fiado** para o cliente: **{cliente_pdv_selecionado}**")
+                    # Permite escolher a data de vencimento personalizada
+                    data_venc_padrao = datetime.now().date() + timedelta(days=30)
+                    data_vencimento_fiado = st.date_input(
+                        "📅 Data de Vencimento do Fiado:",
+                        value=data_venc_padrao,
+                        format="DD/MM/YYYY",
+                        key="input_data_venc_fiado"
+                    )
+                    data_venc_str = data_vencimento_fiado.strftime('%d/%m/%Y')
+                    detalhes_pagto = f"Fiado (Venc: {data_venc_str})"
+                    st.warning(f"⚠️ Esta venda será registrada como **Fiado** para o cliente **{cliente_pdv_selecionado}** com vencimento em **{data_venc_str}**.")
 
                 elif forma_pagto == "Parcelado":
                     num_parc = st.number_input("Quantidade de Parcelas Próprias:", min_value=2, max_value=24, value=2, step=1, key="num_parc_proprias")
@@ -680,7 +689,6 @@ else:
                         t_val = troco if (forma_pagto == "Dinheiro" and troco >= 0) else 0.0
                 
                         for item in st.session_state.carrinho_pdv:
-                            # 1. Registra a venda individual na tabela de vendas com o cliente selecionado
                             cursor.execute("""
                                 INSERT INTO vendas (
                                     cliente, produto, fornecedor, grupo, quantidade, 
@@ -702,14 +710,12 @@ else:
                                 vendedor_atual
                             ))
                 
-                            # 2. DÁ BAIXA AUTOMÁTICA NO ESTOQUE GERAL (tabela produtos)
                             cursor.execute("""
                                 UPDATE produtos 
                                 SET quantidade = quantidade - ? 
                                 WHERE id = ? OR UPPER(TRIM(produto)) = UPPER(TRIM(?))
                             """, (item['quantidade'], item.get('produto_id', 0), item['produto']))
                 
-                            # 3. Baixa no estoque da promoção (se o item for promocional)
                             if item.get('grupo') == "PROMOÇÃO":
                                 cursor.execute("""
                                     UPDATE promocoes 
@@ -717,7 +723,6 @@ else:
                                     WHERE produto_id = ? AND qtd_estoque_promo >= ?
                                 """, (item['quantidade'], item.get('produto_id'), item['quantidade']))
                 
-                        # Registra a movimentação no caixa
                         cursor.execute(
                             "INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, 'VENDA', ?, ?, ?)",
                             (sessao_id, float(total_geral_carrinho), f"Venda PDV ({detalhes_pagto}) por {vendedor_atual}", data_venda)
@@ -726,7 +731,7 @@ else:
                         
                         st.session_state.carrinho_pdv = []
                         st.session_state.tela_checkout_ativa = False
-                        st.success(f"🎉 Venda de R$ {total_geral_carrinho:,.2f} para **{cliente_pdv_selecionado}** concluída e estoque atualizado com sucesso!")
+                        st.success(f"🎉 Venda de R$ {total_geral_carrinho:,.2f} para **{cliente_pdv_selecionado}** ({detalhes_pagto}) concluída com sucesso!")
                         st.rerun()
 
         else:
