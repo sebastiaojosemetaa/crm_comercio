@@ -1581,61 +1581,6 @@ O Senhor é meu pastor nada mim faltarar.
         grupos_opt = carregar_coluna("grupos", "grupo") or ["GERAL"]
         unidades_opt = ["KG", "CAIXA", "UNIDADE", "METRO", "LITRO", "PACOTE", "SACO", "GRAMAS"]
 
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            prod_compra = st.selectbox("Selecione o Produto", produtos_opt, key="prod_compra_sel")
-            forn_compra = st.selectbox("Fornecedor", fornecedores_opt, key="forn_compra_sel")
-        with col2:
-            grp_compra = st.selectbox("Grupo", grupos_opt, key="grp_compra_sel")
-            unidade_medida = st.selectbox("Unidade de Medida", unidades_opt, key="unidade_medida_sel")
-        with col3:
-            qtd_compra = st.number_input("Quantidade", min_value=0.01, value=6.0, key="qtd_compra_num")
-            pr_compra = st.number_input("Preço Compra Unitário (R$)", min_value=0.0, value=90.0, format="%.2f", key="pr_compra_form")
-
-        # Inicializa o estado de cálculo de forma inteligente
-        if 'margem_perc' not in st.session_state:
-            st.session_state.margem_perc = 30.0
-        if 'preco_venda' not in st.session_state:
-            st.session_state.preco_venda = pr_compra * (1 + (st.session_state.margem_perc / 100))
-        if 'ultimo_preco_compra' not in st.session_state:
-            st.session_state.ultimo_preco_compra = pr_compra
-
-        # Se o preço de compra mudou, atualiza o preço de venda mantendo a margem
-        if pr_compra != st.session_state.ultimo_preco_compra:
-            st.session_state.ultimo_preco_compra = pr_compra
-            st.session_state.preco_venda = pr_compra * (1 + (st.session_state.margem_perc / 100))
-
-        # Funções para sincronizar os campos em tempo real
-        def atualizar_por_margem():
-            m = st.session_state.widget_margem
-            st.session_state.margem_perc = m
-            st.session_state.preco_venda = pr_compra * (1 + (m / 100))
-
-        def atualizar_por_preco():
-            v = st.session_state.widget_venda
-            st.session_state.preco_venda = v
-            if pr_compra > 0:
-                st.session_state.margem_perc = ((v - pr_compra) / pr_compra) * 100
-
-        col_m1, col_m2 = st.columns(2)
-        with col_m1:
-            st.number_input(
-                "Margem de Lucro (%)", 
-                value=float(st.session_state.margem_perc), 
-                format="%.2f", 
-                key="widget_margem",
-                on_change=atualizar_por_margem
-            )
-        with col_m2:
-            st.number_input(
-                "Preço Venda Unitário (R$)", 
-                min_value=0.0, 
-                value=float(st.session_state.preco_venda), 
-                format="%.2f", 
-                key="widget_venda",
-                on_change=atualizar_por_preco
-            )
-
         st.success(f"🟢 Preço de Venda Ativo: **R$ {st.session_state.preco_venda:,.2f}** | Margem Atual: **{st.session_state.margem_perc:,.2f}%**")
 
         st.markdown("<br>", unsafe_allow_html=True)
