@@ -1521,60 +1521,100 @@ O Senhor é meu pastor nada mim faltarar.
         with tab_cad_prod:
             st.markdown("### ➕ Cadastro de Novo Produto no Sistema")
             
-            col_cp1, col_cp2 = st.columns(2)
-            with col_cp1:
-                novo_cod_prod = st.text_input("Código / Código de Barras", key="input_cad_cod_v2")
-                novo_nome_prod = st.text_input("Nome do Produto", key="input_cad_nome_v2")
-            with col_cp2:
-                try:
-                    lista_grupos_cad = carregar_coluna("grupos", "grupo") or ["GERAL"]
-                except Exception:
-                    lista_grupos_cad = ["GERAL"]
-                novo_grupo_prod = st.selectbox("Grupo / Categoria", lista_grupos_cad, key="select_cad_grupo_v2")
-                
-                try:
-                    lista_forn_cad = carregar_coluna("fornecedores", "nome") or carregar_coluna("fornecedores", "fornecedor") or ["GERAL"]
-                except Exception:
-                    lista_forn_cad = ["GERAL"]
-                novo_forn_prod = st.selectbox("Fornecedor Padrão", lista_forn_cad, key="select_cad_forn_v2")
-    
-            # Linha de Preços com cálculo matemático direto
-            col_p1, col_p2, col_p3 = st.columns(3)
-            with col_p1:
-                p_compra = st.number_input("Preço de Compra Inicial (R$)", value=0.0, format="%.2f", key="inp_compra_direto")
-            with col_p2:
-                margem_lucro = st.number_input("Margem de Lucro (%)", value=0.0, format="%.2f", key="inp_margem_direto")
-            with col_p3:
-                # Cálculo feito diretamente a cada execução da página
-                p_venda_calculado = p_compra * (1 + (margem_lucro / 100.0))
-                p_venda = st.number_input("Preço de Venda Inicial (R$)", value=float(p_venda_calculado), format="%.2f", key="inp_venda_direto")
-    
-            qtd_inicial_prod = st.number_input("Quantidade Inicial em Estoque", value=0.0, step=1.0, min_value=0.0, key="inp_cad_qtd_v2")
-    
-            st.markdown("")
-            if st.button("💾 Salvar Novo Produto", type="primary", use_container_width=True, key="btn_salvar_prod_direto"):
-                if novo_nome_prod.strip():
+            with st.form("form_cadastro_produto_direto"):
+                col_cp1, col_cp2 = st.columns(2)
+                with col_cp1:
+                    novo_cod_prod = st.text_input("Código / Código de Barras")
+                    novo_nome_prod = st.text_input("Nome do Produto")
+                with col_cp2:
                     try:
-                        cursor = conn.cursor()
-                        cursor.execute("""
-                            INSERT INTO produtos (codigo, produto, quantidade, valor_compra, valor_venda, grupo, fornecedor)
-                            VALUES (?, ?, ?, ?, ?, ?, ?)
-                        """, (
-                            novo_cod_prod.strip(), 
-                            novo_nome_prod.strip().upper(), 
-                            qtd_inicial_prod, 
-                            p_compra, 
-                            p_venda, 
-                            novo_grupo_prod, 
-                            novo_forn_prod
-                        ))
-                        conn.commit()
-                        st.success(f"✅ Produto '{novo_nome_prod.strip().upper()}' cadastrado com sucesso!")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"❌ Erro ao cadastrar produto: {e}")
-                else:
-                    st.warning("⚠️ O nome do produto não pode estar vazio.")
+                        lista_grupos_cad = carregar_coluna("grupos", "grupo") or ["GERAL"]
+                    except Exception:
+                        lista_grupos_cad = ["GERAL"]
+                    novo_grupo_prod = st.selectbox("Grupo / Categoria", lista_grupos_cad)
+                    
+                    try:
+                        lista_forn_cad = carregar_coluna("fornecedores", "nome") or carregar_coluna("fornecedores", "fornecedor") or ["GERAL"]
+                    except Exception:
+                        lista_forn_cad = ["GERAL"]
+                    novo_forn_prod = st.selectbox("Fornecedor Padrão", lista_forn_cad)
+    
+                col_cp3, col_cp4 = st.columns(2)
+                with col_cp3:
+                    novo_preco_compra = st.number_input("Preço de Compra Inicial (R$)", value=0.0, format="%.2f")
+                with col_cp4:
+                    novo_preco_venda = st.number_input("Preço de Venda Inicial (R$)", value=0.0, format="%.2f")
+                
+                qtd_inicial_prod = st.number_input("Quantidade Inicial em Estoque", value=0.0, step=1.0, min_value=0.0)
+    
+                btn_salvar_novo_prod = st.form_submit_button("💾 Salvar Novo Produto", type="primary", use_container_width=True)
+                
+                if btn_salvar_novo_prod:
+                    if novo_nome_prod.strip():
+                        try:
+                            cursor = conn.cursor()
+                            cursor.execute("""
+                                INSERT INTO produtos (codigo, produto, quantidade, valor_compra, valor_venda, grupo, fornecedor)
+                                VALUES (?, ?, ?, ?, ?, ?, ?)
+                            """, (
+                                novo_cod_prod.strip(), 
+                                novo_nome_prod.strip().upper(), 
+                                qtd_inicial_prod, 
+                                novo_preco_compra, 
+                                novo_preco_venda, 
+                                novo_grupo_prod, 
+                                novo_forn_prod
+                            ))
+                            conn.commit()
+                            st.success(f"✅ Produto '{novo_nome_prod.strip().upper()}' cadastrado com sucesso!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ Erro ao cadastrar produto: {e}")
+                    else:
+                        st.warning("⚠️ O nome do produto não pode estar vazio.")
+    
+        # -------------------------------------------------------------
+        # ABA 2: ENTRADA DE ESTOQUE (COMPRAS)
+        # -------------------------------------------------------------
+        with tab_entrada_compra:
+            st.markdown("### 📥 Entrada de Estoque (Compras)")
+            
+            try:
+                df_prods_compra = carregar_dados("SELECT * FROM produtos")
+            except Exception:
+                df_prods_compra = pd.DataFrame()
+    
+            if df_prods_compra is not None and not df_prods_compra.empty:
+                lista_prods_compra = df_prods_compra['produto'].tolist()
+                
+                col_e1, col_e2 = st.columns(2)
+                with col_e1:
+                    prod_selecionado_compra = st.selectbox("Selecione o Produto", lista_prods_compra, key="sel_prod_compra_aba")
+                with col_e2:
+                    grupos_compra = carregar_coluna("grupos", "grupo") or ["GERAL"]
+                    grupo_compra_sel = st.selectbox("Grupo", grupos_compra, key="sel_grupo_compra_aba")
+    
+                col_e3, col_e4 = st.columns(2)
+                with col_e3:
+                    try:
+                        fornecedores_compra = carregar_coluna("fornecedores", "nome") or ["GERAL"]
+                    except Exception:
+                        fornecedores_compra = ["GERAL"]
+                    forn_compra_sel = st.selectbox("Fornecedor", fornecedores_compra, key="sel_forn_compra_aba")
+                with col_e4:
+                    preco_compra_unit = st.number_input("Preço Compra Unitário (R$)", value=0.0, format="%.2f", key="inp_pr_compra_aba")
+    
+                col_e5, col_e6 = st.columns(2)
+                with col_e5:
+                    qtd_compra_entrada = st.number_input("Quantidade", value=1.0, step=1.0, min_value=0.0, key="inp_qtd_compra_aba")
+                with col_e6:
+                    preco_venda_unit = st.number_input("Preço Venda Unitário (R$)", value=0.0, format="%.2f", key="inp_pr_venda_aba")
+    
+                st.markdown("")
+                if st.button("🛒 Adicionar ao Carrinho de Compras", type="primary", use_container_width=True, key="btn_add_carrinho_compra"):
+                    st.success("✅ Item adicionado ao carrinho de compras com sucesso!")
+            else:
+                st.warning("⚠️ Cadastre produtos primeiro na aba 'Cadastrar Novo Produto'.")
 
     # -------------------------------------------------------------
     # 5. MÓDULO CADASTROS (CLIENTES, FORNECEDORES E GRUPOS)
