@@ -502,7 +502,8 @@ ITENS DA VENDA:
 FORMA DE PAGAMENTO: {detalhes_pagto}
 TOTAL GERAL: R$ {total_geral_calculado:,.2f}
 ========================================
-       Obrigado pela preferência!
+Obrigado pela preferência volte sempre!
+O Senhor é meu pastor nada mim faltarar.
 ========================================
 """
 
