@@ -1574,7 +1574,7 @@ O Senhor é meu pastor nada mim faltarar.
                         st.warning("⚠️ O nome do produto não pode estar vazio.")
     
         # -------------------------------------------------------------
-        # ABA 2: ENTRADA DE ESTOQUE (COMPRAS)
+        # ABA 2: ENTRADA DE ESTOQUE (COMPRAS) COM MARGEM DE LUCRO
         # -------------------------------------------------------------
         with tab_entrada_compra:
             st.markdown("### 📥 Entrada de Estoque (Compras)")
@@ -1604,11 +1604,16 @@ O Senhor é meu pastor nada mim faltarar.
                 with col_e4:
                     preco_compra_unit = st.number_input("Preço Compra Unitário (R$)", value=0.0, format="%.2f", key="inp_pr_compra_aba")
     
-                col_e5, col_e6 = st.columns(2)
+                # Linha com Quantidade, Margem de Lucro (%) e Preço de Venda Calculado
+                col_e5, col_e6, col_e7 = st.columns(3)
                 with col_e5:
                     qtd_compra_entrada = st.number_input("Quantidade", value=1.0, step=1.0, min_value=0.0, key="inp_qtd_compra_aba")
                 with col_e6:
-                    preco_venda_unit = st.number_input("Preço Venda Unitário (R$)", value=0.0, format="%.2f", key="inp_pr_venda_aba")
+                    margem_lucro_compra = st.number_input("Margem de Lucro (%)", value=0.0, format="%.2f", key="inp_margem_compra_aba")
+                with col_e7:
+                    # Cálculo automático do preço de venda com base na compra e na margem
+                    preco_venda_calculado = preco_compra_unit * (1 + (margem_lucro_compra / 100.0))
+                    preco_venda_unit = st.number_input("Preço Venda Unitário (R$)", value=float(preco_venda_calculado), format="%.2f", key="inp_pr_venda_aba")
     
                 st.markdown("")
                 if st.button("🛒 Adicionar ao Carrinho de Compras", type="primary", use_container_width=True, key="btn_add_carrinho_compra"):
