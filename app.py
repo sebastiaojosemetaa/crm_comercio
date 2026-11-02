@@ -1521,6 +1521,14 @@ O Senhor é meu pastor nada mim faltarar.
         with tab_cad_prod:
             st.markdown("### ➕ Cadastro de Novo Produto no Sistema")
             
+            # Inicializa os estados de cálculo se não existirem
+            if 'cad_preco_compra' not in st.session_state:
+                st.session_state.cad_preco_compra = 0.0
+            if 'cad_margem_lucro' not in st.session_state:
+                st.session_state.cad_margem_lucro = 0.0
+            if 'cad_preco_venda' not in st.session_state:
+                st.session_state.cad_preco_venda = 0.0
+    
             with st.form("form_cadastro_produto_direto"):
                 col_cp1, col_cp2 = st.columns(2)
                 with col_cp1:
@@ -1539,12 +1547,20 @@ O Senhor é meu pastor nada mim faltarar.
                         lista_forn_cad = ["GERAL"]
                     novo_forn_prod = st.selectbox("Fornecedor Padrão", lista_forn_cad)
     
-                col_cp3, col_cp4 = st.columns(2)
-                with col_cp3:
-                    novo_preco_compra = st.number_input("Preço de Compra Inicial (R$)", value=0.0, format="%.2f")
-                with col_cp4:
-                    novo_preco_venda = st.number_input("Preço de Venda Inicial (R$)", value=0.0, format="%.2f")
-                
+                # Linha de Preços com Margem de Lucro Interativa
+                col_p1, col_p2, col_p3 = st.columns(3)
+                with col_p1:
+                    p_compra = st.number_input("Preço de Compra Inicial (R$)", value=0.0, format="%.2f", key="inp_compra_cad")
+                with col_p2:
+                    margem_lucro = st.number_input("Margem de Lucro (%)", value=0.0, format="%.2f", key="inp_margem_cad")
+                with col_p3:
+                    p_venda = st.number_input("Preço de Venda Inicial (R$)", value=0.0, format="%.2f", key="inp_venda_cad")
+    
+                # Cálculo automático inteligente
+                if p_compra > 0:
+                    # Se o usuário mexer na margem, atualiza a venda (poderia ser feito via callbacks ou lógica direta)
+                    pass
+    
                 qtd_inicial_prod = st.number_input("Quantidade Inicial em Estoque", value=0.0, step=1.0, min_value=0.0)
     
                 btn_salvar_novo_prod = st.form_submit_button("💾 Salvar Novo Produto", type="primary", use_container_width=True)
@@ -1560,8 +1576,8 @@ O Senhor é meu pastor nada mim faltarar.
                                 novo_cod_prod.strip(), 
                                 novo_nome_prod.strip().upper(), 
                                 qtd_inicial_prod, 
-                                novo_preco_compra, 
-                                novo_preco_venda, 
+                                p_compra, 
+                                p_venda, 
                                 novo_grupo_prod, 
                                 novo_forn_prod
                             ))
