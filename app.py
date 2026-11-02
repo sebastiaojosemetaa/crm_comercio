@@ -812,9 +812,9 @@ TOTAL GERAL: R$ {total_geral_carrinho:,.2f}
                             conn.commit()
                             
                             # MONTA A LISTA DE ITENS CORRETAMENTE FECHADA
+                            carrinho_impresso = st.session_state.get('carrinho_temp_para_imprimir', [])
                             itens_html_cupom = ""
-                            for item in st.session_state.carrinho_temp_para_imprimir:
-                                itens_html_cupom += f"""
+                            for item in carrinho_impresso:
                                 <tr>
                                     <td style="text-align: left; padding: 2px 0;">{item['produto']}</td>
                                     <td style="text-align: center; padding: 2px 0;">{item['quantidade']}x</td>
