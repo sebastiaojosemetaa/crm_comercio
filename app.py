@@ -448,25 +448,25 @@ else:
                 texto_itens_cupom += f"- {item['produto']} | Qtd: {item['quantidade']}x | R$ {item['valor_total']:,.2f}\n"
 
             conteudo_cupom_texto = f"""
-========================================
-       f"Empresa: {emp_nome}"
-       CNPJ: {emp_cnpj}
-       {emp_end}
-========================================
-Data: {data_venda}
-Vendedor: {vendedor_atual}
-Cliente: {cliente_pdv_selecionado}
-CPF/CNPJ: {cli_doc_final}
-----------------------------------------
-ITENS DA VENDA:
-{texto_itens_cupom}
-----------------------------------------
-FORMA DE PAGAMENTO: {detalhes_pagto}
-TOTAL GERAL: R$ {total_geral_carrinho:,.2f}
-========================================
-       Obrigado pela preferência!
-========================================
-"""
+        ========================================
+                   {emp_nome}
+               CNPJ: {emp_cnpj}
+               {emp_end}
+        ========================================
+        Data: {data_venda}
+        Vendedor: {vendedor_atual}
+        Cliente: {cliente_pdv_selecionado}
+        CPF/CNPJ: {cli_doc_final}
+        ----------------------------------------
+        ITENS DA VENDA:
+        {texto_itens_cupom}
+        ----------------------------------------
+        FORMA DE PAGAMENTO: {detalhes_pagto}
+        TOTAL GERAL: R$ {total_geral_carrinho:,.2f}
+        ========================================
+               Obrigado pela preferência!
+        ========================================
+        """
 
             # Exibe o cupom formatado em caixa de texto estilo terminal/cupom
             st.code(conteudo_cupom_texto, language=None)
