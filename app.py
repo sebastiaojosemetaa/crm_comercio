@@ -2591,7 +2591,7 @@ O Senhor é meu pastor nada mim faltarar.
                 st.warning("⚠️ Cadastre produtos no estoque geral primeiro.")
     
         # -------------------------------------------------------------
-        # ABA 3: PRODUTOS COMPRADOS (Com Filtro por Fornecedor e Data)
+        # ABA 3: PRODUTOS COMPRADOS (Com Filtro e Botão de Limpar)
         # -------------------------------------------------------------
         with tab_comprados:
             st.markdown("### 📥 Histórico de Produtos Comprados")
@@ -2615,17 +2615,27 @@ O Senhor é meu pastor nada mim faltarar.
                 df_compras = pd.DataFrame()
     
             if df_compras is not None and not df_compras.empty:
-                # Aplicação dos filtros se as colunas existirem
                 df_comp_filtrado = df_compras.copy()
                 if fornecedor_selecionado != "Todos" and 'fornecedor' in df_comp_filtrado.columns:
                     df_comp_filtrado = df_comp_filtrado[df_comp_filtrado['fornecedor'] == fornecedor_selecionado]
                 
                 st.dataframe(df_comp_filtrado, use_container_width=True)
+                
+                st.markdown("---")
+                if st.button("🗑️ Limpar Histórico de Compras", key="btn_limpar_hist_compras"):
+                    try:
+                        cursor = conn.cursor()
+                        cursor.execute("DELETE FROM compras")
+                        conn.commit()
+                        st.success("✅ Histórico de compras limpo com sucesso!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Erro ao limpar histórico de compras: {e}")
             else:
                 st.info("ℹ️ Nenhum registo de compras encontrado na base de dados.")
     
         # -------------------------------------------------------------
-        # ABA 4: PRODUTOS VENDIDOS (Com Filtro por Data)
+        # ABA 4: PRODUTOS VENDIDOS (Com Filtro e Botão de Limpar)
         # -------------------------------------------------------------
         with tab_vendidos:
             st.markdown("### 📤 Histórico de Produtos Vendidos")
@@ -2637,7 +2647,6 @@ O Senhor é meu pastor nada mim faltarar.
                 dt_fim_venda = st.date_input("Data Final (Venda)", key="dt_fim_venda_filtro")
     
             try:
-                # Tenta carregar itens de venda ou vendas gerais
                 tabela_vendas_alvo = "itens_venda" if "itens_venda" in str(carregar_dados("SELECT name FROM sqlite_master WHERE type='table'")) else "vendas"
                 df_vendas_hist = carregar_dados(f"SELECT * FROM {tabela_vendas_alvo}")
             except Exception:
@@ -2645,6 +2654,17 @@ O Senhor é meu pastor nada mim faltarar.
     
             if df_vendas_hist is not None and not df_vendas_hist.empty:
                 st.dataframe(df_vendas_hist, use_container_width=True)
+                
+                st.markdown("---")
+                if st.button("🗑️ Limpar Histórico de Vendas", key="btn_limpar_hist_vendas"):
+                    try:
+                        cursor = conn.cursor()
+                        cursor.execute(f"DELETE FROM {tabela_vendas_alvo}")
+                        conn.commit()
+                        st.success("✅ Histórico de vendas limpo com sucesso!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Erro ao limpar histórico de vendas: {e}")
             else:
                 st.info("ℹ️ Nenhum registo de vendas encontrado na base de dados.")
     # -------------------------------------------------------------
