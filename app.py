@@ -1740,25 +1740,11 @@ O Senhor é meu pastor nada mim faltarar.
                 st.info("ℹ️ Nenhum cliente cadastrado no momento.")
 
         # -------------------------------------------------------------
-        # ABA 2: ENTRADA DE ESTOQUE (COMPRAS) COM ATUALIZAÇÃO INSTANTÂNEA
+        # ABA 2: ENTRADA DE ESTOQUE (COMPRAS) COM CÁLCULO DIRETO
         # -------------------------------------------------------------
         with tab_entrada_compra:
             st.markdown("### 📥 Entrada de Estoque (Compras)")
             
-            # Função para recalcular automaticamente
-            def recalcular_venda():
-                compra = st.session_state.get('inp_pr_compra_direto', 0.0)
-                margem = st.session_state.get('inp_margem_direto', 0.0)
-                st.session_state.inp_venda_direto = float(compra) * (1.0 + (float(margem) / 100.0))
-        
-            # Inicializa os estados se não existirem
-            if 'inp_pr_compra_direto' not in st.session_state:
-                st.session_state.inp_pr_compra_direto = 0.0
-            if 'inp_margem_direto' not in st.session_state:
-                st.session_state.inp_margem_direto = 0.0
-            if 'inp_venda_direto' not in st.session_state:
-                st.session_state.inp_venda_direto = 0.0
-        
             try:
                 df_prods_compra = carregar_dados("SELECT * FROM produtos")
             except Exception:
@@ -1782,18 +1768,17 @@ O Senhor é meu pastor nada mim faltarar.
                         fornecedores_compra = ["GERAL"]
                     forn_compra_sel = st.selectbox("Fornecedor", fornecedores_compra, key="sel_forn_compra_aba")
                 with col_e4:
-                    # Preço de compra com gatilho para recalcular
-                    st.number_input("Preço Compra Unitário (R$)", format="%.2f", key="inp_pr_compra_direto", on_change=recalcular_venda)
+                    preco_compra_unit = st.number_input("Preço Compra Unitário (R$)", value=0.0, format="%.2f", key="meu_preco_compra")
         
                 col_e5, col_e6, col_e7 = st.columns(3)
                 with col_e5:
-                    qtd_compra_entrada = st.number_input("Quantidade", value=1.0, step=1.0, min_value=0.0, key="inp_qtd_compra_aba")
+                    qtd_compra_entrada = st.number_input("Quantidade", value=1.0, step=1.0, min_value=0.0, key="minha_qtd_compra")
                 with col_e6:
-                    # Margem de lucro com gatilho para recalcular instantaneamente
-                    st.number_input("Margem de Lucro (%)", format="%.2f", key="inp_margem_direto", on_change=recalcular_venda)
+                    margem_lucro_compra = minha_margem = st.number_input("Margem de Lucro (%)", value=0.0, format="%.2f", key="minha_margem_lucro")
                 with col_e7:
-                    # Preço de venda vinculado diretamente ao estado da sessão
-                    st.number_input("Preço Venda Unitário (R$)", format="%.2f", key="inp_venda_direto")
+                    # O cálculo é feito na hora assim que você aperta Enter ou clica fora dos campos acima
+                    venda_calculada = float(preco_compra_unit) * (1.0 + (float(margem_lucro_compra) / 100.0))
+                    preco_venda_unit = st.number_input("Preço Venda Unitário (R$)", value=float(venda_calculada), format="%.2f", key="meu_preco_venda")
         
                 st.markdown("")
                 if st.button("🛒 Adicionar ao Carrinho de Compras", type="primary", use_container_width=True, key="btn_add_carrinho_compra"):
