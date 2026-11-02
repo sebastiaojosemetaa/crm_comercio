@@ -1556,7 +1556,7 @@ TOTAL GERAL: R$ {total_geral_calculado:,.2f}
     elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
         st.subheader("👥 Cadastros (Clientes / Fornecedores / Grupos)")
         tab_cli, tab_forn, tab_grup = st.tabs(["👤 Clientes", "🏢 Fornecedores", "🏷️ Grupos"])
-
+    
         # -------------------------------------------------------------
         # ABA 1: CLIENTES
         # -------------------------------------------------------------
@@ -1564,63 +1564,98 @@ TOTAL GERAL: R$ {total_geral_calculado:,.2f}
             st.markdown("### 👤 Cadastro de Clientes")
             with st.form("form_cad_cli"):
                 n_cli = st.text_input("Nome do Cliente")
+                c_cli = st.text_input("CPF / CNPJ")
                 t_cli = st.text_input("Telefone")
+                
                 if st.form_submit_button("Salvar Cliente", type="primary"):
                     if n_cli.strip():
-                        salvar_cliente_completo(n_cli, t_cli, "", "", "")
-                        st.success("✅ Cliente cadastrado com sucesso!")
-                        st.rerun()
+                        try:
+                            cursor = conn.cursor()
+                            # Garante que a tabela tem a coluna cpf e insere os dados
+                            cursor.execute("""
+                                INSERT INTO clientes (nome, cpf, fone) 
+                                VALUES (?, ?, ?)
+                            """, (n_cli.strip().upper(), c_cli.strip(), t_cli.strip()))
+                            conn.commit()
+                            st.success("✅ Cliente cadastrado com sucesso!")
+                            st.rerun()
+                        except Exception as e:
+                            # Fallback caso a função antiga seja utilizada
+                            try:
+                                salvar_cliente_completo(n_cli, t_cli, c_cli, "", "")
+                                st.success("✅ Cliente cadastrado com sucesso!")
+                                st.rerun()
+                            except Exception as err:
+                                st.error(f"❌ Erro ao cadastrar cliente: {e}")
                     else:
                         st.warning("⚠️ O nome do cliente não pode estar vazio.")
-
+    
             st.markdown("---")
             st.markdown("### 📋 Clientes Cadastrados (Editar / Excluir)")
             try:
                 df_clientes = carregar_dados("SELECT * FROM clientes")
             except Exception:
                 df_clientes = pd.DataFrame()
-
+    
             if df_clientes is not None and not df_clientes.empty:
                 st.dataframe(df_clientes, use_container_width=True)
-
+    
                 # Coluna amigável para busca no selectbox
                 col_nome_cli = 'cliente' if 'cliente' in df_clientes.columns else ('nome' if 'nome' in df_clientes.columns else df_clientes.columns[1])
                 df_clientes['label_cli'] = df_clientes['id'].astype(str) + " - " + df_clientes[col_nome_cli].astype(str)
                 lista_cli_edit = df_clientes['label_cli'].tolist()
-
+    
                 cli_selecionado = st.selectbox("Selecione o Cliente para Gerenciar:", lista_cli_edit, key="select_cli_gerenciar_cad")
-
+    
                 p_row_cli = df_clientes[df_clientes['label_cli'] == cli_selecionado].iloc[0]
                 id_cli_atual = int(p_row_cli['id'])
                 nome_cli_atual = str(p_row_cli.get(col_nome_cli, ''))
+                
+                # Pega o CPF/CNPJ atual com segurança independentemente do nome da coluna
+                cpf_cli_atual = str(p_row_cli.get('cpf', p_row_cli.get('doc', '')) or '')
+                if cpf_cli_atual == 'None':
+                    cpf_cli_atual = ''
+    
                 fone_cli_atual = str(p_row_cli.get('fone', p_row_cli.get('telefone', '')) or '')
-
+                if fone_cli_atual == 'None':
+                    fone_cli_atual = ''
+    
                 with st.form("form_gerenciar_cliente_cad"):
-                    col_c1, col_c2 = st.columns(2)
+                    col_c1, col_c2, col_c3 = st.columns(3)
                     with col_c1:
                         ed_nome_cli = st.text_input("Nome do Cliente", value=nome_cli_atual)
                     with col_c2:
+                        ed_cpf_cli = st.text_input("CPF / CNPJ", value=cpf_cli_atual)
+                    with col_c3:
                         ed_fone_cli = st.text_input("Telefone", value=fone_cli_atual)
-
+    
                     col_btn_c1, col_btn_c2 = st.columns(2)
                     with col_btn_c1:
                         btn_alt_cli = st.form_submit_button("✏️ Salvar Alterações", type="primary", use_container_width=True)
                     with col_btn_c2:
                         btn_del_cli = st.form_submit_button("🗑️ Excluir Cliente", use_container_width=True)
-
+    
                     if btn_alt_cli:
                         if ed_nome_cli.strip():
                             try:
                                 cursor = conn.cursor()
-                                cursor.execute(f"UPDATE clientes SET {col_nome_cli} = ?, fone = ? WHERE id = ?", (ed_nome_cli.strip().upper(), ed_fone_cli.strip(), id_cli_atual))
+                                # Tenta atualizar incluindo a coluna cpf
+                                cursor.execute(f"UPDATE clientes SET {col_nome_cli} = ?, cpf = ?, fone = ? WHERE id = ?", (ed_nome_cli.strip().upper(), ed_cpf_cli.strip(), ed_fone_cli.strip(), id_cli_atual))
                                 conn.commit()
                                 st.success(f"✅ Cliente '{ed_nome_cli}' atualizado com sucesso!")
                                 st.rerun()
                             except Exception as e:
-                                st.error(f"❌ Erro ao atualizar cliente: {e}")
+                                # Caso a coluna se chame de outra forma no banco
+                                try:
+                                    cursor.execute(f"UPDATE clientes SET {col_nome_cli} = ?, fone = ? WHERE id = ?", (ed_nome_cli.strip().upper(), ed_fone_cli.strip(), id_cli_atual))
+                                    conn.commit()
+                                    st.success(f"✅ Cliente '{ed_nome_cli}' atualizado com sucesso!")
+                                    st.rerun()
+                                except Exception as err:
+                                    st.error(f"❌ Erro ao atualizar cliente: {e}")
                         else:
                             st.warning("⚠️ O nome não pode ser vazio.")
-
+    
                     if btn_del_cli:
                         try:
                             cursor = conn.cursor()
