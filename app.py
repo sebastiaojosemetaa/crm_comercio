@@ -1720,7 +1720,7 @@ O Senhor é meu pastor nada mim faltarar.
             st.info("ℹ️ Nenhum item adicionado ao carrinho de compras ainda.")
 
     # -------------------------------------------------------------
-    # 5. MÓDULO CADASTROS (CLIENTES, FORNECEDORES E GRUPOS)
+    # 5. MÓDULO CADASTROS (CLIENTES / FORNECEDORES / GRUPOS)
     # -------------------------------------------------------------
     elif menu_admin == "👥 Cadastros (Clientes / Fornecedores / Grupos)":
         st.subheader("👥 Cadastros (Clientes / Fornecedores / Grupos)")
@@ -1740,7 +1740,6 @@ O Senhor é meu pastor nada mim faltarar.
                     if n_cli.strip():
                         try:
                             cursor = conn.cursor()
-                            # Garante que a tabela tem a coluna cpf e insere os dados
                             cursor.execute("""
                                 INSERT INTO clientes (nome, cpf, fone) 
                                 VALUES (?, ?, ?)
@@ -1749,13 +1748,7 @@ O Senhor é meu pastor nada mim faltarar.
                             st.success("✅ Cliente cadastrado com sucesso!")
                             st.rerun()
                         except Exception as e:
-                            # Fallback caso a função antiga seja utilizada
-                            try:
-                                salvar_cliente_completo(n_cli, t_cli, c_cli, "", "")
-                                st.success("✅ Cliente cadastrado com sucesso!")
-                                st.rerun()
-                            except Exception as err:
-                                st.error(f"❌ Erro ao cadastrar cliente: {e}")
+                            st.error(f"❌ Erro ao cadastrar cliente: {e}")
                     else:
                         st.warning("⚠️ O nome do cliente não pode estar vazio.")
     
@@ -1768,8 +1761,7 @@ O Senhor é meu pastor nada mim faltarar.
     
             if df_clientes is not None and not df_clientes.empty:
                 st.dataframe(df_clientes, use_container_width=True)
-    
-                # Coluna amigável para busca no selectbox
+                
                 col_nome_cli = 'cliente' if 'cliente' in df_clientes.columns else ('nome' if 'nome' in df_clientes.columns else df_clientes.columns[1])
                 df_clientes['label_cli'] = df_clientes['id'].astype(str) + " - " + df_clientes[col_nome_cli].astype(str)
                 lista_cli_edit = df_clientes['label_cli'].tolist()
@@ -1779,24 +1771,17 @@ O Senhor é meu pastor nada mim faltarar.
                 p_row_cli = df_clientes[df_clientes['label_cli'] == cli_selecionado].iloc[0]
                 id_cli_atual = int(p_row_cli['id'])
                 nome_cli_atual = str(p_row_cli.get(col_nome_cli, ''))
-                
-                # Pega o CPF/CNPJ atual com segurança independentemente do nome da coluna
                 cpf_cli_atual = str(p_row_cli.get('cpf', p_row_cli.get('doc', '')) or '')
-                if cpf_cli_atual == 'None':
-                    cpf_cli_atual = ''
-    
                 fone_cli_atual = str(p_row_cli.get('fone', p_row_cli.get('telefone', '')) or '')
-                if fone_cli_atual == 'None':
-                    fone_cli_atual = ''
     
                 with st.form("form_gerenciar_cliente_cad"):
                     col_c1, col_c2, col_c3 = st.columns(3)
                     with col_c1:
                         ed_nome_cli = st.text_input("Nome do Cliente", value=nome_cli_atual)
                     with col_c2:
-                        ed_cpf_cli = st.text_input("CPF / CNPJ", value=cpf_cli_atual)
+                        ed_cpf_cli = st.text_input("CPF / CNPJ", value=cpf_cli_atual if cpf_cli_atual != 'None' else '')
                     with col_c3:
-                        ed_fone_cli = st.text_input("Telefone", value=fone_cli_atual)
+                        ed_fone_cli = st.text_input("Telefone", value=fone_cli_atual if fone_cli_atual != 'None' else '')
     
                     col_btn_c1, col_btn_c2 = st.columns(2)
                     with col_btn_c1:
@@ -1808,20 +1793,12 @@ O Senhor é meu pastor nada mim faltarar.
                         if ed_nome_cli.strip():
                             try:
                                 cursor = conn.cursor()
-                                # Tenta atualizar incluindo a coluna cpf
                                 cursor.execute(f"UPDATE clientes SET {col_nome_cli} = ?, cpf = ?, fone = ? WHERE id = ?", (ed_nome_cli.strip().upper(), ed_cpf_cli.strip(), ed_fone_cli.strip(), id_cli_atual))
                                 conn.commit()
-                                st.success(f"✅ Cliente '{ed_nome_cli}' atualizado com sucesso!")
+                                st.success(f"✅ Cliente atualizado com sucesso!")
                                 st.rerun()
                             except Exception as e:
-                                # Caso a coluna se chame de outra forma no banco
-                                try:
-                                    cursor.execute(f"UPDATE clientes SET {col_nome_cli} = ?, fone = ? WHERE id = ?", (ed_nome_cli.strip().upper(), ed_fone_cli.strip(), id_cli_atual))
-                                    conn.commit()
-                                    st.success(f"✅ Cliente '{ed_nome_cli}' atualizado com sucesso!")
-                                    st.rerun()
-                                except Exception as err:
-                                    st.error(f"❌ Erro ao atualizar cliente: {e}")
+                                st.error(f"❌ Erro ao atualizar cliente: {e}")
                         else:
                             st.warning("⚠️ O nome não pode ser vazio.")
     
@@ -1836,10 +1813,69 @@ O Senhor é meu pastor nada mim faltarar.
                             st.error(f"❌ Erro ao excluir cliente: {e}")
             else:
                 st.info("ℹ️ Nenhum cliente cadastrado no momento.")
-        col_e1, col_e2 = st.columns(2)
-        with col_e2:
-            grupos_compra = carregar_coluna("grupos", "grupo") or ["GERAL"]
-            grupo_compra_sel = st.selectbox("Grupo", grupos_compra, key="sel_grupo_compra_aba")
+
+        # -------------------------------------------------------------
+        # ABA 2: FORNECEDORES
+        # -------------------------------------------------------------
+        with tab_forn:
+            st.markdown("### 🏢 Cadastro de Fornecedores")
+            with st.form("form_cad_forn"):
+                n_forn = st.text_input("Nome do Fornecedor")
+                t_forn = st.text_input("Telefone do Fornecedor")
+                if st.form_submit_button("Salvar Fornecedor", type="primary"):
+                    if n_forn.strip():
+                        salvar_simples("fornecedores", "nome", n_forn.upper())
+                        st.success("✅ Fornecedor cadastrado com sucesso!")
+                        st.rerun()
+                    else:
+                        st.warning("⚠️ O nome do fornecedor não pode estar vazio.")
+
+            st.markdown("---")
+            st.markdown("### 📋 Fornecedores Cadastrados (Editar / Excluir)")
+            try:
+                df_fornecedores = carregar_dados("SELECT * FROM fornecedores")
+            except Exception:
+                df_fornecedores = pd.DataFrame()
+
+            if df_fornecedores is not None and not df_fornecedores.empty:
+                st.dataframe(df_fornecedores, use_container_width=True)
+                
+                col_fn = 'nome' if 'nome' in df_fornecedores.columns else df_fornecedores.columns[1]
+                df_fornecedores['label_forn'] = df_fornecedores['id'].astype(str) + " - " + df_fornecedores[col_fn].astype(str)
+                lista_forn_edit = df_fornecedores['label_forn'].tolist()
+
+                forn_selecionado = st.selectbox("Selecione o Fornecedor para Gerenciar:", lista_forn_edit, key="select_forn_gerenciar_cad")
+                p_row_forn = df_fornecedores[df_fornecedores['label_forn'] == forn_selecionado].iloc[0]
+                id_forn_atual = int(p_row_forn['id'])
+                nome_forn_atual = str(p_row_forn[col_fn])
+
+                with st.form("form_gerenciar_fornecedor_cad"):
+                    novo_nome_forn = st.text_input("Alterar Nome do Fornecedor", value=nome_forn_atual)
+                    col_f1, col_f2 = st.columns(2)
+                    with col_f1:
+                        btn_alt_forn = st.form_submit_button("✏️ Salvar Alterações", type="primary", use_container_width=True)
+                    with col_f2:
+                        btn_del_forn = st.form_submit_button("🗑️ Excluir Fornecedor", use_container_width=True)
+
+                    if btn_alt_forn:
+                        if novo_nome_forn.strip():
+                            cursor = conn.cursor()
+                            cursor.execute(f"UPDATE fornecedores SET {col_fn} = ? WHERE id = ?", (novo_nome_forn.strip().upper(), id_forn_atual))
+                            conn.commit()
+                            st.success("✅ Fornecedor atualizado com sucesso!")
+                            st.rerun()
+                        else:
+                            st.warning("⚠️ O nome não pode ser vazio.")
+
+                    if btn_del_forn:
+                        cursor = conn.cursor()
+                        cursor.execute("DELETE FROM fornecedores WHERE id = ?", (id_forn_atual,))
+                        conn.commit()
+                        st.success("🗑️ Fornecedor excluído com sucesso!")
+                        st.rerun()
+            else:
+                st.info("ℹ️ Nenhum fornecedor cadastrado no momento.")
+
         # -------------------------------------------------------------
         # ABA 3: GRUPOS
         # -------------------------------------------------------------
@@ -1869,14 +1905,12 @@ O Senhor é meu pastor nada mim faltarar.
                 lista_grup_edit = df_grupos['label_grup'].tolist()
 
                 grup_selecionado = st.selectbox("Selecione o Grupo para Gerenciar:", lista_grup_edit, key="select_grup_gerenciar_cad")
-
                 p_row_grup = df_grupos[df_grupos['label_grup'] == grup_selecionado].iloc[0]
                 id_grup_atual = int(p_row_grup['id'])
                 nome_grup_atual = str(p_row_grup['grupo'])
 
                 with st.form("form_gerenciar_grupo_cad"):
                     novo_nome_grupo = st.text_input("Alterar Nome do Grupo", value=nome_grup_atual)
-
                     col_g1, col_g2 = st.columns(2)
                     with col_g1:
                         btn_alt_grup = st.form_submit_button("✏️ Salvar Alterações", type="primary", use_container_width=True)
@@ -1885,26 +1919,20 @@ O Senhor é meu pastor nada mim faltarar.
 
                     if btn_alt_grup:
                         if novo_nome_grupo.strip():
-                            try:
-                                cursor = conn.cursor()
-                                cursor.execute("UPDATE grupos SET grupo = ? WHERE id = ?", (novo_nome_grupo.strip().upper(), id_grup_atual))
-                                conn.commit()
-                                st.success(f"✅ Grupo atualizado para '{novo_nome_grupo.strip().upper()}' com sucesso!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"❌ Erro ao atualizar grupo: {e}")
+                            cursor = conn.cursor()
+                            cursor.execute("UPDATE grupos SET grupo = ? WHERE id = ?", (novo_nome_grupo.strip().upper(), id_grup_atual))
+                            conn.commit()
+                            st.success("✅ Grupo atualizado com sucesso!")
+                            st.rerun()
                         else:
                             st.warning("⚠️ O nome não pode ser vazio.")
 
                     if btn_del_grup:
-                        try:
-                            cursor = conn.cursor()
-                            cursor.execute("DELETE FROM grupos WHERE id = ?", (id_grup_atual,))
-                            conn.commit()
-                            st.success("🗑️ Grupo excluído com sucesso!")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"❌ Erro ao excluir grupo: {e}")
+                        cursor = conn.cursor()
+                        cursor.execute("DELETE FROM grupos WHERE id = ?", (id_grup_atual,))
+                        conn.commit()
+                        st.success("🗑️ Grupo excluído com sucesso!")
+                        st.rerun()
             else:
                 st.info("ℹ️ Nenhum grupo cadastrado no momento.")
 
