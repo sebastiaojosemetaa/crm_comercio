@@ -439,39 +439,62 @@ else:
         # SE O CUPOM ESTIVER ATIVO NA TELA
         if st.session_state.exibir_cupom_tela:
             st.success("🎉 Venda concluída com sucesso!")
-            st.markdown(st.session_state.html_cupom_atual, unsafe_allow_html=True)
+            
+            # Monta o texto limpo do cupom para exibição e download
+            carrinho_impresso = st.session_state.get('carrinho_temp_para_imprimir', [])
+            
+            texto_itens_cupom = ""
+            for item in carrinho_impresso:
+                texto_itens_cupom += f"- {item['produto']} | Qtd: {item['quantidade']}x | R$ {item['valor_total']:,.2f}\n"
+
+            conteudo_cupom_texto = f"""
+========================================
+           {emp_nome}
+       CNPJ: {emp_cnpj}
+       {emp_end}
+========================================
+Data: {data_venda}
+Vendedor: {vendedor_atual}
+Cliente: {cliente_pdv_selecionado}
+CPF/CNPJ: {cli_doc_final}
+----------------------------------------
+ITENS DA VENDA:
+{texto_itens_cupom}
+----------------------------------------
+FORMA DE PAGAMENTO: {detalhes_pagto}
+TOTAL GERAL: R$ {total_geral_carrinho:,.2f}
+========================================
+       Obrigado pela preferência!
+========================================
+"""
+
+            # Exibe o cupom formatado em caixa de texto estilo terminal/cupom
+            st.code(conteudo_cupom_texto, language=None)
             
             st.markdown("<br>", unsafe_allow_html=True)
             
-            # Script JavaScript embutido para gerar e baixar o PDF diretamente do elemento do cupom
-            download_pdf_js = """
-            <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-            <script>
-            function baixarPDF() {
-                var elemento = document.getElementById('cupom_imprimir_exclusivo');
-                var opt = {
-                    margin:       10,
-                    filename:     'cupom_venda.pdf',
-                    image:        { type: 'jpeg', quality: 0.98 },
-                    html2canvas:  { scale: 2 },
-                    jsPDF:        { unit: 'mm', format: 'a5', orientation: 'portrait' }
-                };
-                html2pdf().from(elemento).set(opt).save();
-            }
-            </script>
-            <div style="display: flex; gap: 10px; justify-content: center; margin-top: 10px;">
-                <button onclick="window.print()" style="background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">🖨️ Imprimir Cupom</button>
-                <button onclick="baixarPDF()" style="background-color: #008CBA; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">📥 Baixar PDF Direto</button>
-            </div>
-            """
-            
-            # Renderiza os botões de Impressão e Download Direto via HTML seguro
-            st.components.v1.html(download_pdf_js, height=80)
-
-            if st.button("➕ Iniciar Nova Venda", type="primary", use_container_width=True, key="btn_nova_venda_reset"):
-                st.session_state.exibir_cupom_tela = False
-                st.session_state.html_cupom_atual = ""
-                st.rerun()
+            # Botões nativos e seguros do Streamlit
+            col_b_imp1, col_b_imp2, col_b_imp3 = st.columns([1, 1, 1])
+            with col_b_imp1:
+                if st.button("🖨️ Imprimir Cupom", use_container_width=True, key="btn_acao_imprimir_nativo"):
+                    js_print = "<script>window.parent.print();</script>"
+                    st.components.v1.html(js_print, height=0)
+            with col_b_imp2:
+                # Botão nativo do Streamlit para baixar o cupom como arquivo de texto/comprovante instantaneamente
+                st.download_button(
+                    label="📥 Baixar Comprovante (TXT)",
+                    data=conteudo_cupom_texto,
+                    file_name=f"cupom_venda_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                    mime="text/plain",
+                    use_container_width=True,
+                    key="btn_download_txt_direto"
+                )
+            with col_b_imp3:
+                if st.button("➕ Iniciar Nova Venda", type="primary", use_container_width=True, key="btn_nova_venda_reset"):
+                    st.session_state.exibir_cupom_tela = False
+                    st.session_state.html_cupom_atual = ""
+                    st.session_state.carrinho_temp_para_imprimir = []
+                    st.rerun()
         
         else:
             # FLUXO NORMAL DO PDV
