@@ -1740,22 +1740,16 @@ O Senhor é meu pastor nada mim faltarar.
                 st.info("ℹ️ Nenhum cliente cadastrado no momento.")
 
         # -------------------------------------------------------------
-        # ABA 2: ENTRADA DE ESTOQUE (COMPRAS) COM CÁLCULO DINÂMICO
+        # ABA 2: ENTRADA DE ESTOQUE (COMPRAS) COM CÁLCULO DIRETO
         # -------------------------------------------------------------
         with tab_entrada_compra:
             st.markdown("### 📥 Entrada de Estoque (Compras)")
             
-            # Inicializa o estado se não existir
-            if 'compra_unit' not in st.session_state:
-                st.session_state.compra_unit = 0.0
-            if 'margem_perc' not in st.session_state:
-                st.session_state.margem_perc = 0.0
-    
             try:
                 df_prods_compra = carregar_dados("SELECT * FROM produtos")
             except Exception:
                 df_prods_compra = pd.DataFrame()
-    
+        
             if df_prods_compra is not None and not df_prods_compra.empty:
                 lista_prods_compra = df_prods_compra['produto'].tolist()
                 
@@ -1765,7 +1759,7 @@ O Senhor é meu pastor nada mim faltarar.
                 with col_e2:
                     grupos_compra = carregar_coluna("grupos", "grupo") or ["GERAL"]
                     grupo_compra_sel = st.selectbox("Grupo", grupos_compra, key="sel_grupo_compra_aba")
-    
+        
                 col_e3, col_e4 = st.columns(2)
                 with col_e3:
                     try:
@@ -1774,24 +1768,20 @@ O Senhor é meu pastor nada mim faltarar.
                         fornecedores_compra = ["GERAL"]
                     forn_compra_sel = st.selectbox("Fornecedor", fornecedores_compra, key="sel_forn_compra_aba")
                 with col_e4:
-                    preco_compra_unit = st.number_input("Preço Compra Unitário (R$)", value=float(st.session_state.compra_unit), format="%.2f", key="inp_pr_compra_aba_sessao")
-                    if preco_compra_unit != st.session_state.compra_unit:
-                        st.session_state.compra_unit = preco_compra_unit
-                        st.rerun()
-    
+                    # 1. Campo do Preço de Compra Unitário
+                    preco_compra_unit = st.number_input("Preço Compra Unitário (R$)", value=0.0, format="%.2f", key="inp_pr_compra_direto")
+        
                 col_e5, col_e6, col_e7 = st.columns(3)
                 with col_e5:
                     qtd_compra_entrada = st.number_input("Quantidade", value=1.0, step=1.0, min_value=0.0, key="inp_qtd_compra_aba")
                 with col_e6:
-                    margem_lucro_compra = st.number_input("Margem de Lucro (%)", value=float(st.session_state.margem_perc), format="%.2f", key="inp_margem_aba_sessao")
-                    if margem_lucro_compra != st.session_state.margem_perc:
-                        st.session_state.margem_perc = margem_lucro_compra
-                        st.rerun()
+                    # 2. Campo da Margem de Lucro (%)
+                    margem_lucro_compra = st.number_input("Margem de Lucro (%)", value=0.0, format="%.2f", key="inp_margem_direto")
                 with col_e7:
-                    # Calcula o preço de venda com base nos valores da sessão
-                    venda_calculada = st.session_state.compra_unit * (1.0 + (st.session_state.margem_perc / 100.0))
-                    preco_venda_unit = st.number_input("Preço Venda Unitário (R$)", value=float(venda_calculada), format="%.2f", key="inp_pr_venda_aba_calculado")
-    
+                    # 3. Cálculo matemático direto executado instantaneamente
+                    venda_calculada = float(preco_compra_unit) * (1.0 + (float(margem_lucro_compra) / 100.0))
+                    preco_venda_unit = st.number_input("Preço Venda Unitário (R$)", value=venda_calculada, format="%.2f", key="inp_pr_venda_direto")
+        
                 st.markdown("")
                 if st.button("🛒 Adicionar ao Carrinho de Compras", type="primary", use_container_width=True, key="btn_add_carrinho_compra"):
                     st.success("✅ Item adicionado ao carrinho de compras com sucesso!")
