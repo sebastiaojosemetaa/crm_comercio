@@ -741,11 +741,12 @@ else:
 
                         conn.commit()
                         
+                        # --- EXIBIÇÃO DO CUPOM NA TELA COM BOTÕES DE IMPRESSÃO E PDF ---
                         st.markdown("---")
                         st.success("🎉 Venda concluída com sucesso!")
                         
-                        st.markdown(f"""
-                        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; border: 1px dashed #ccc; font-family: monospace; color: #000;">
+                        html_cupom = f"""
+                        <div id="cupom_venda" style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; border: 1px dashed #ccc; font-family: monospace; color: #000; max-width: 400px; margin: auto;">
                             <h3 style="text-align: center; margin: 0;">{emp_nome}</h3>
                             <p style="text-align: center; margin: 2px 0;">CNPJ: {emp_cnpj}</p>
                             <p style="text-align: center; margin: 2px 0;">{emp_end}</p>
@@ -759,7 +760,14 @@ else:
                             <hr style="border-top: 1px dashed #bbb;">
                             <p style="text-align: center; margin-bottom: 0;">Obrigado pela preferência!</p>
                         </div>
-                        """, unsafe_allow_html=True)
+                        <br>
+                        <div style="text-align: center;">
+                            <button onclick="window.print()" style="background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-right: 10px;">🖨️ Imprimir Cupom</button>
+                            <button onclick="window.print()" style="background-color: #008CBA; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">📥 Salvar em PDF / Imprimir</button>
+                        </div>
+                        """
+                        
+                        st.markdown(html_cupom, unsafe_allow_html=True)
 
                         st.session_state.carrinho_pdv = []
                         st.session_state.tela_checkout_ativa = False
