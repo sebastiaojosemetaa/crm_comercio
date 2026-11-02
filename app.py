@@ -436,16 +436,28 @@ else:
         if 'html_cupom_atual' not in st.session_state:
             st.session_state.html_cupom_atual = ""
 
-        # SE O CUPOM ESTIVER ATIVO NA TELA, MOSTRA APENAS ELE E O BOTÃO DE NOVA VENDA
+        # SE O CUPOM ESTIVER ATIVO NA TELA
         if st.session_state.exibir_cupom_tela:
             st.success("🎉 Venda concluída com sucesso!")
             st.markdown(st.session_state.html_cupom_atual, unsafe_allow_html=True)
             
             st.markdown("<br>", unsafe_allow_html=True)
-            if st.button("➕ Iniciar Nova Venda", type="primary", use_container_width=True, key="btn_nova_venda_reset"):
-                st.session_state.exibir_cupom_tela = False
-                st.session_state.html_cupom_atual = ""
-                st.rerun()
+            
+            # Botões nativos do Streamlit que abrem a janela de impressão com segurança
+            col_b_imp1, col_b_imp2, col_b_imp3 = st.columns([1, 1, 1])
+            with col_b_imp1:
+                if st.button("🖨️ Imprimir Cupom", use_container_width=True, key="btn_acao_imprimir_nativo"):
+                    js_print = "<script>window.parent.print();</script>"
+                    st.components.v1.html(js_print, height=0)
+            with col_b_imp2:
+                if st.button("📥 Salvar em PDF", use_container_width=True, key="btn_acao_pdf_nativo"):
+                    js_pdf = "<script>window.parent.print();</script>"
+                    st.components.v1.html(js_pdf, height=0)
+            with col_b_imp3:
+                if st.button("➕ Iniciar Nova Venda", type="primary", use_container_width=True, key="btn_nova_venda_reset"):
+                    st.session_state.exibir_cupom_tela = False
+                    st.session_state.html_cupom_atual = ""
+                    st.rerun()
         
         else:
             # FLUXO NORMAL DO PDV
@@ -761,9 +773,20 @@ else:
 
                             conn.commit()
                             
-                            # MONTA O HTML DO CUPOM COM OS BOTÕES JAVASCRIPT NATIVOS (QUE NÃO RECARREGAM A PÁGINA)
+                            # MONTA A LISTA DE ITENS PARA EXIBIR NO CUPOM
+                            itens_html_cupom = ""
+                            for item in st.session_state.carrinho_pdv:
+                                itens_html_cupom += f"""
+                                <tr>
+                                    <td style="text-align: left; padding: 2px 0;">{item['produto']}</td>
+                                    <td style="text-align: center; padding: 2px 0;">{item['quantidade']}x</td>
+                                    <td style="text-align: right; padding: 2px 0;">R$ {item['valor_total']:,.2f}</td>
+                                </tr>
+                                """
+
+                            # MONTA O HTML DO CUPOM COMPLETO
                             html_cupom_gerado = f"""
-                            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; border: 1px dashed #ccc; font-family: monospace; color: #000; max-width: 400px; margin: auto;">
+                            <div id="cupom_imprimir" style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; border: 1px dashed #ccc; font-family: monospace; color: #000; max-width: 400px; margin: auto;">
                                 <h3 style="text-align: center; margin: 0;">{emp_nome}</h3>
                                 <p style="text-align: center; margin: 2px 0;">CNPJ: {emp_cnpj}</p>
                                 <p style="text-align: center; margin: 2px 0;">{emp_end}</p>
@@ -772,21 +795,26 @@ else:
                                 <p><b>Cliente:</b> {cliente_pdv_selecionado}</p>
                                 <p><b>CPF/CNPJ:</b> {cli_doc_final}</p>
                                 <hr style="border-top: 1px dashed #bbb;">
+                                <table style="width: 100%; font-family: monospace; font-size: 13px; color: #000;">
+                                    <tr style="border-bottom: 1px solid #ddd;">
+                                        <th style="text-align: left;">Item</th>
+                                        <th style="text-align: center;">Qtd</th>
+                                        <th style="text-align: right;">Total</th>
+                                    </tr>
+                                    {itens_html_cupom}
+                                </table>
+                                <hr style="border-top: 1px dashed #bbb;">
                                 <p><b>FORMA DE PAGAMENTO:</b> {detalhes_pagto}</p>
-                                <p><b>TOTAL GERAL:</b> R$ {total_geral_carrinho:,.2f}</p>
+                                <p style="font-size: 15px;"><b>TOTAL GERAL: R$ {total_geral_carrinho:,.2f}</b></p>
                                 <hr style="border-top: 1px dashed #bbb;">
                                 <p style="text-align: center; margin-bottom: 0;">Obrigado pela preferência!</p>
                             </div>
-                            <br>
-                            <div style="text-align: center;">
-                                <button onclick="window.print()" style="background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-right: 10px;">🖨️ Imprimir Cupom</button>
-                                <button onclick="window.print()" style="background-color: #008CBA; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">📥 Salvar em PDF / Imprimir</button>
-                            </div>
                             """
 
-                            # Salva no estado e limpa o carrinho
+                            # Salva no estado e ativa a tela do cupom
                             st.session_state.html_cupom_atual = html_cupom_gerado
                             st.session_state.exibir_cupom_tela = True
+                            st.session_state.carrinho_temp_para_imprimir = st.session_state.carrinho_pdv.copy()
                             st.session_state.carrinho_pdv = []
                             st.session_state.tela_checkout_ativa = False
                             st.rerun()
