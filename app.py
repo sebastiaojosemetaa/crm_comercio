@@ -1005,18 +1005,21 @@ else:
 
             st.markdown("---")
             st.markdown("### 💳 Pagamento e Finalização do Carrinho Atual")
-            
+        
             forma_pagto_reg = st.selectbox(
                 "Forma de Pagamento / Condição", 
                 ["Dinheiro", "Pix", "Cartão Débito", "Cartão Crédito", "Fiado", "Parcelado"],
                 key="sel_forma_pagto_reg_venda"
             )
-
+    
             total_carrinho_atual = sum(i['valor_total'] for i in st.session_state.carrinho_cliente)
             detalhes_pagto_reg = forma_pagto_reg
             datas_vencimentos_parcelas_novas = []
             valores_parcelas_novas = []
-
+            
+            # Variável exclusiva para controlar o vencimento do fiado
+            data_vencimento_fiado_val = None
+    
             if forma_pagto_reg == "Parcelado":
                 num_parc_reg = st.number_input("Quantidade de Parcelas:", min_value=1, max_value=24, value=2, step=1, key="num_parc_reg_venda")
                 from datetime import timedelta
@@ -1031,7 +1034,7 @@ else:
                         d_p = st.date_input(f"Vencimento Parcela {p_i + 1}", value=dt_sug, key=f"dt_novo_p_{p_i}")
                     valores_parcelas_novas.append(v_p)
                     datas_vencimentos_parcelas_novas.append(str(d_p))
-
+    
                 # Auto divisão inteligente para nova venda
                 if int(num_parc_reg) > 1:
                     prim_v = valores_parcelas_novas[0]
@@ -1040,11 +1043,24 @@ else:
                     cada_rest = rest / (int(num_parc_reg) - 1)
                     for p_i in range(1, int(num_parc_reg)):
                         valores_parcelas_novas[p_i] = round(cada_rest, 2)
-
+    
                 detalhes_pagto_reg = f"Parcelado ({int(num_parc_reg)}x)"
+    
             elif forma_pagto_reg == "Fiado":
-                detalhes_pagto_reg = f"Fiado ({cliente_ped})"
-
+                from datetime import timedelta
+                data_venc_padrao = datetime.now().date() + timedelta(days=30)
+                
+                # Seletor de data interativo e editável para o Fiado
+                data_vencimento_fiado = st.date_input(
+                    "📅 Data de Vencimento do Fiado:",
+                    value=data_venc_padrao,
+                    format="DD/MM/YYYY",
+                    key="input_data_venc_fiado_reg_venda"
+                )
+                data_vencimento_fiado_val = str(data_vencimento_fiado)
+                
+                detalhes_pagto_reg = f"Fiado ({cliente_ped}) - Venc: {data_vencimento_fiado.strftime('%d/%m/%Y')}"
+    
             if st.button("🔴 Finalizar e Salvar Pedido", type="primary", use_container_width=True, key="btn_finalizar_reg_venda"):
                 try:
                     with sqlite3.connect("crm_comercio.db", timeout=30.0) as conexao_transacao:
@@ -1089,7 +1105,7 @@ else:
                             )
                         """)
                         conexao_transacao.commit()
-
+    
                         data_agora = f"{data_venda_input} " + datetime.now().strftime("%H:%M:%S")
                         
                         cursor.execute("""
@@ -1098,7 +1114,7 @@ else:
                         """, (cliente_ped, detalhes_pagto_reg, data_agora, total_carrinho_atual))
                         
                         venda_id_gerado = cursor.lastrowid
-
+    
                         for item in st.session_state.carrinho_cliente:
                             cursor.execute("""
                                 INSERT INTO vendas_itens (venda_id, produto, quantidade, valor_unitario, valor_total)
@@ -1111,16 +1127,24 @@ else:
                                 SET quantidade = quantidade - ? 
                                 WHERE UPPER(TRIM(produto)) = UPPER(TRIM(?))
                             """, (item['quantidade'], item['produto']))
-
+    
+                        # Se for Parcelado, grava as parcelas no contas a receber
                         if forma_pagto_reg == "Parcelado" and valores_parcelas_novas:
                             for idx_p, (val_p_item, dt_v_item) in enumerate(zip(valores_parcelas_novas, datas_vencimentos_parcelas_novas)):
                                 cursor.execute("""
                                     INSERT INTO contas_receber (cliente, valor, vencimento, status, descricao)
                                     VALUES (?, ?, ?, 'Pendente', ?)
                                 """, (cliente_ped, val_p_item, dt_v_item, f"Venda #{venda_id_gerado} - Parcela {idx_p+1}/{len(valores_parcelas_novas)}"))
-
+    
+                        # Se for Fiado, grava o lançamento único no contas a receber com a data escolhida
+                        elif forma_pagto_reg == "Fiado" and data_vencimento_fiado_val:
+                            cursor.execute("""
+                                INSERT INTO contas_receber (cliente, valor, vencimento, status, descricao)
+                                VALUES (?, ?, ?, 'Pendente', ?)
+                            """, (cliente_ped, total_carrinho_atual, data_vencimento_fiado_val, f"Venda #{venda_id_gerado} - Fiado"))
+    
                         conexao_transacao.commit()
-
+    
                     st.session_state.carrinho_cliente = []
                     st.success(f"✅ Venda #{venda_id_gerado} gravada com sucesso!")
                     st.rerun()
