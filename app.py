@@ -774,9 +774,9 @@ else:
 
                             conn.commit()
                             
-                            # MONTA A LISTA DE ITENS PARA EXIBIR NO CUPOM
+                            # MONTA A LISTA DE ITENS CORRETAMENTE FECHADA
                             itens_html_cupom = ""
-                            for item in st.session_state.carrinho_pdv:
+                            for item in st.session_state.carrinho_temp_para_imprimir:
                                 itens_html_cupom += f"""
                                 <tr>
                                     <td style="text-align: left; padding: 2px 0;">{item['produto']}</td>
@@ -785,12 +785,11 @@ else:
                                 </tr>
                                 """
 
-                            # MONTA O HTML DO CUPOM COM ESTILO GLOBAL DE IMPRESSÃO
+                            # MONTA O HTML DO CUPOM COM A TABELA FECHADA CORRETAMENTE
                             html_cupom_gerado = f"""
                             <style>
-                                /* Regra global para ocultar a navegação e o menu do Streamlit ao imprimir */
                                 @media print {{
-                                    header, footer, nav, aside, .stSidebar, .css-1dp5vir, [data-testid="stSidebar"] {{
+                                    header, footer, nav, aside, .stSidebar, [data-testid="stSidebar"] {{
                                         display: none !important;
                                     }}
                                     body, html {{
@@ -808,11 +807,11 @@ else:
                                 <p><b>Cliente:</b> {cliente_pdv_selecionado}</p>
                                 <p><b>CPF/CNPJ:</b> {cli_doc_final}</p>
                                 <hr style="border-top: 1px dashed #bbb;">
-                                <table style="width: 100%; font-family: monospace; font-size: 13px; color: #000;">
+                                <table style="width: 100%; font-family: monospace; font-size: 13px; color: #000; border-collapse: collapse;">
                                     <tr style="border-bottom: 1px solid #ddd;">
-                                        <th style="text-align: left;">Item</th>
-                                        <th style="text-align: center;">Qtd</th>
-                                        <th style="text-align: right;">Total</th>
+                                        <th style="text-align: left; padding-bottom: 4px;">Item</th>
+                                        <th style="text-align: center; padding-bottom: 4px;">Qtd</th>
+                                        <th style="text-align: right; padding-bottom: 4px;">Total</th>
                                     </tr>
                                     {itens_html_cupom}
                                 </table>
