@@ -443,14 +443,15 @@ else:
             
             st.markdown("<br>", unsafe_allow_html=True)
             
-            # Botões nativos do Streamlit que abrem a janela de impressão com segurança
+            st.info("💡 **Dica:** Para salvar em PDF, clique no botão abaixo e, na janela que se abrir, mude o **Destino** para **'Guardar como PDF'**.")
+
             col_b_imp1, col_b_imp2, col_b_imp3 = st.columns([1, 1, 1])
             with col_b_imp1:
                 if st.button("🖨️ Imprimir Cupom", use_container_width=True, key="btn_acao_imprimir_nativo"):
                     js_print = "<script>window.parent.print();</script>"
                     st.components.v1.html(js_print, height=0)
             with col_b_imp2:
-                if st.button("📥 Salvar em PDF", use_container_width=True, key="btn_acao_pdf_nativo"):
+                if st.button("📥 Gerar PDF (Imprimir)", use_container_width=True, key="btn_acao_pdf_nativo"):
                     js_pdf = "<script>window.parent.print();</script>"
                     st.components.v1.html(js_pdf, height=0)
             with col_b_imp3:
