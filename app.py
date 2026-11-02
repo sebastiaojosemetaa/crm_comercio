@@ -687,7 +687,39 @@ else:
                         
                         v_rec = valor_recebido if forma_pagto == "Dinheiro" else total_geral_carrinho
                         t_val = troco if (forma_pagto == "Dinheiro" and troco >= 0) else 0.0
-                
+
+                        # Captura a data de vencimento caso seja Fiado
+                        data_vencimento_fiado_val = None
+                        if forma_pagto == "Fiado" and 'input_data_venc_fiado' in st.session_state:
+                            data_vencimento_fiado_val = str(st.session_state.input_data_venc_fiado)
+
+                        # BUSCA OS DADOS DA EMPRESA PARA O CABEÇALHO DO CUPOM
+                        try:
+                            df_empresa_cupom = carregar_dados("SELECT * FROM empresa LIMIT 1")
+                            if not df_empresa_cupom.empty:
+                                emp_nome = df_empresa_cupom.iloc[0].get('nome', nome_empresa_header)
+                                emp_cnpj = df_empresa_cupom.iloc[0].get('cnpj', '19.417.439/0001-42')
+                                emp_end = df_empresa_cupom.iloc[0].get('endereco', '')
+                            else:
+                                emp_nome = nome_empresa_header
+                                emp_cnpj = '19.417.439/0001-42'
+                                emp_end = ''
+                        except Exception:
+                            emp_nome = nome_empresa_header
+                            emp_cnpj = '19.417.439/0001-42'
+                            emp_end = ''
+
+                        # BUSCA O CPF/CNPJ DO CLIENTE SELECIONADO
+                        cli_doc_final = "Não informado"
+                        if cliente_pdv_selecionado != "Cliente Balcão":
+                            try:
+                                df_cli_busca = carregar_dados(f"SELECT * FROM clientes WHERE nome = '{cliente_pdv_selecionado}' OR cliente = '{cliente_pdv_selecionado}'")
+                                if not df_cli_busca.empty:
+                                    cli_doc_final = str(df_cli_busca.iloc[0].get('cpf_cnpj') or df_cli_busca.iloc[0].get('cpf') or df_cli_busca.iloc[0].get('cnpj') or 'Não informado')
+                            except Exception:
+                                cli_doc_final = "Não informado"
+                        
+                        venda_id_gerado = None
                         for item in st.session_state.carrinho_pdv:
                             cursor.execute("""
                                 INSERT INTO vendas (
@@ -709,6 +741,8 @@ else:
                                 data_venda, 
                                 vendedor_atual
                             ))
+                            if not venda_id_gerado:
+                                venda_id_gerado = cursor.lastrowid
                 
                             cursor.execute("""
                                 UPDATE produtos 
@@ -727,8 +761,47 @@ else:
                             "INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, 'VENDA', ?, ?, ?)",
                             (sessao_id, float(total_geral_carrinho), f"Venda PDV ({detalhes_pagto}) por {vendedor_atual}", data_venda)
                         )
+
+                        # SE FOR FIADO, LANÇA AUTOMATICAMENTE NO CONTAS A RECEBER
+                        if forma_pagto == "Fiado" and data_vencimento_fiado_val:
+                            cursor.execute("""
+                                CREATE TABLE IF NOT EXISTS contas_receber (
+                                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                    cliente TEXT,
+                                    valor REAL,
+                                    vencimento TEXT,
+                                    status TEXT,
+                                    descricao TEXT
+                                )
+                            """)
+                            cursor.execute("""
+                                INSERT INTO contas_receber (cliente, valor, vencimento, status, descricao)
+                                VALUES (?, ?, ?, 'Pendente', ?)
+                            """, (cliente_pdv_selecionado, total_geral_carrinho, data_vencimento_fiado_val, f"Venda PDV #{venda_id_gerado} - Fiado"))
+
                         conn.commit()
                         
+                        # --- EXIBIÇÃO DO CUPOM NA TELA ---
+                        st.markdown("---")
+                        st.success("🎉 Venda concluída com sucesso!")
+                        
+                        st.markdown(f"""
+                        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; border: 1px dashed #ccc; font-family: monospace; color: #000;">
+                            <h3 style="text-align: center; margin: 0;">{emp_nome}</h3>
+                            <p style="text-align: center; margin: 2px 0;">CNPJ: {emp_cnpj}</p>
+                            <p style="text-align: center; margin: 2px 0;">{emp_end}</p>
+                            <hr style="border-top: 1px dashed #bbb;">
+                            <p><b>Data:</b> {data_venda} | <b>Vendedor:</b> {vendedor_atual}</p>
+                            <p><b>Cliente:</b> {cliente_pdv_selecionado}</p>
+                            <p><b>CPF/CNPJ:</b> {cli_doc_final}</p>
+                            <hr style="border-top: 1px dashed #bbb;">
+                            <p><b>FORMA DE PAGAMENTO:</b> {detalhes_pagto}</p>
+                            <p><b>TOTAL GERAL:</b> R$ {total_geral_carrinho:,.2f}</p>
+                            <hr style="border-top: 1px dashed #bbb;">
+                            <p style="text-align: center; margin-bottom: 0;">Obrigado pela preferência!</p>
+                        </div>
+                        """, unsafe_allow_html=True)
+
                         st.session_state.carrinho_pdv = []
                         st.session_state.tela_checkout_ativa = False
                         st.success(f"🎉 Venda de R$ {total_geral_carrinho:,.2f} para **{cliente_pdv_selecionado}** ({detalhes_pagto}) concluída com sucesso!")
