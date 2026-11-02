@@ -763,110 +763,113 @@ else:
 
                         st.session_state.carrinho_pdv = []
                         st.session_state.tela_checkout_ativa = False
-
         else:
-            col_bus1, col_bus2 = st.columns([1, 1], gap="medium")
-            with col_bus1:
-                codigo_barras_input = st.text_input("Código de Barras (Leitor / Digitação)", key="input_cod_barras_pdv")
-            with col_bus2:
-                prod_por_codigo = ""
-                if codigo_barras_input.strip():
-                    prod_por_codigo = obter_produto_por_codigo(codigo_barras_input.strip())
-                    if prod_por_codigo:
-                        st.success(f"🎯 Produto: **{prod_por_codigo}**")
-                    else:
-                        st.warning("⚠️ Código não encontrado.")
+            st.info("Nenhum item lançado no carrinho ainda.")
 
-                idx_padrao = 0
-                if prod_por_codigo in lista_produtos_pdv:
-                    idx_padrao = lista_produtos_pdv.index(prod_por_codigo) + 1
+        # --- SEÇÃO DE BUSCA E INCLUSÃO DE PRODUTOS (SEMPRE VISÍVEL) ---
+        st.markdown("---")
+        col_bus1, col_bus2 = st.columns([1, 1], gap="medium")
+        with col_bus1:
+            codigo_barras_input = st.text_input("Código de Barras (Leitor / Digitação)", key="input_cod_barras_pdv")
+        with col_bus2:
+            prod_por_codigo = ""
+            if codigo_barras_input.strip():
+                prod_por_codigo = obter_produto_por_codigo(codigo_barras_input.strip())
+                if prod_por_codigo:
+                    st.success(f"🎯 Produto: **{prod_por_codigo}**")
+                else:
+                    st.warning("⚠️ Código não encontrado.")
 
-                prod_selecionado = st.selectbox("Pesquisar / Selecionar Produto", [""] + lista_produtos_pdv, index=idx_padrao, key="sel_prod_pdv_alin")
+            idx_padrao = 0
+            if prod_por_codigo in lista_produtos_pdv:
+                idx_padrao = lista_produtos_pdv.index(prod_por_codigo) + 1
 
-            val_venda_sug, forn_sug, grupo_sug, cod_sug, id_prod_sug = obter_dados_produto(prod_selecionado) if prod_selecionado else (0.0, "", "", "", 0)
+            prod_selecionado = st.selectbox("Pesquisar / Selecionar Produto", [""] + lista_produtos_pdv, index=idx_padrao, key="sel_prod_pdv_alin")
 
-            df_promo_ativo = carregar_dados(f"SELECT * FROM promocoes WHERE produto_id = {id_prod_sug} AND ativo = 1 AND qtd_estoque_promo > 0")
-            
-            qtd_ja_no_carrinho = 0.0
-            if st.session_state.carrinho_pdv:
-                for item_c in st.session_state.carrinho_pdv:
-                    if item_c.get('produto_id') == id_prod_sug:
-                        qtd_ja_no_carrinho += float(item_c.get('quantidade', 0.0))
+        val_venda_sug, forn_sug, grupo_sug, cod_sug, id_prod_sug = obter_dados_produto(prod_selecionado) if prod_selecionado else (0.0, "", "", "", 0)
 
-            preco_unit_venda = val_venda_sug
-            is_promocional = False
-            qtd_minima_promo = 0.0
+        df_promo_ativo = carregar_dados(f"SELECT * FROM promocoes WHERE produto_id = {id_prod_sug} AND ativo = 1 AND qtd_estoque_promo > 0")
+        
+        qtd_ja_no_carrinho = 0.0
+        if st.session_state.carrinho_pdv:
+            for item_c in st.session_state.carrinho_pdv:
+                if item_c.get('produto_id') == id_prod_sug:
+                    qtd_ja_no_carrinho += float(item_c.get('quantidade', 0.0))
 
-            if not df_promo_ativo.empty:
-                row_p = df_promo_ativo.iloc[0]
-                preco_promo = float(row_p['preco_promo'])
-                qtd_minima_promo = float(row_p['qtd_minima'])
-                estoque_promo_restante = float(row_p['qtd_estoque_promo']) - qtd_ja_no_carrinho
-            else:
-                estoque_promo_restante = 0.0
+        preco_unit_venda = val_venda_sug
+        is_promocional = False
+        qtd_minima_promo = 0.0
 
-            if is_simples:
+        if not df_promo_ativo.empty:
+            row_p = df_promo_ativo.iloc[0]
+            preco_promo = float(row_p['preco_promo'])
+            qtd_minima_promo = float(row_p['qtd_minima'])
+            estoque_promo_restante = float(row_p['qtd_estoque_promo']) - qtd_ja_no_carrinho
+        else:
+            estoque_promo_restante = 0.0
+
+        if is_simples:
+            subtotal_item = preco_unit_venda
+            if estoque_promo_restante >= 1.0 and 1.0 >= qtd_minima_promo:
+                preco_unit_venda = preco_promo
                 subtotal_item = preco_unit_venda
-                if estoque_promo_restante >= 1.0 and 1.0 >= qtd_minima_promo:
-                    preco_unit_venda = preco_promo
-                    subtotal_item = preco_unit_venda
-                    is_promocional = True
-                    st.info(f"🏷️ **Promoção Ativa!** Preço promocional aplicado: R$ {preco_unit_venda:,.2f}")
-                elif not df_promo_ativo.empty:
-                    if estoque_promo_restante <= 0:
-                        st.warning("⚠️ Estoque da promoção esgotado! Aplicando preço normal.")
-                    else:
-                        st.info(f"ℹ️ Promoção disponível a partir de {qtd_minima_promo} un/kg (Preço normal aplicado).")
+                is_promocional = True
+                st.info(f"🏷️ **Promoção Ativa!** Preço promocional aplicado: R$ {preco_unit_venda:,.2f}")
+            elif not df_promo_ativo.empty:
+                if estoque_promo_restante <= 0:
+                    st.warning("⚠️ Estoque da promoção esgotado! Aplicando preço normal.")
+                else:
+                    st.info(f"ℹ️ Promoção disponível a partir de {qtd_minima_promo} un/kg (Preço normal aplicado).")
 
-                if st.button("➕ [ Enter ] Incluir Produto", type="primary", use_container_width=True, key="btn_inc_prod_simples"):
+            if st.button("➕ [ Enter ] Incluir Produto", type="primary", use_container_width=True, key="btn_inc_prod_simples"):
+                if not prod_selecionado:
+                    st.error("Selecione um produto.")
+                else:
+                    st.session_state.carrinho_pdv.append({
+                        "codigo": cod_sug, "produto": prod_selecionado, "quantidade": 1.0,
+                        "valor_unitario": preco_unit_venda, "valor_total": subtotal_item,
+                        "fornecedor": forn_sug, "grupo": "PROMOÇÃO" if is_promocional else grupo_sug,
+                        "produto_id": id_prod_sug
+                    })
+                    st.success(f"✅ '{prod_selecionado}' adicionado!")
+                    st.rerun()
+        else:
+            col_q1, col_q2, col_q3 = st.columns([1, 1, 2], gap="medium")
+            with col_q1:
+                qtd_venda = st.number_input("Qtd", min_value=0.01, value=1.0, step=1.0, key="qtd_prod_pdv_alin")
+            
+            with col_q2:
+                preco_calculado_final = val_venda_sug
+                if not df_promo_ativo.empty:
+                    if qtd_venda >= qtd_minima_promo and estoque_promo_restante >= qtd_venda:
+                        preco_calculado_final = preco_promo
+                        is_promocional = True
+                
+                preco_unit_venda = st.number_input("Preço Unit. (R$)", min_value=0.0, value=float(preco_calculado_final), format="%.2f")
+            
+            with col_q3:
+                subtotal_item = qtd_venda * preco_unit_venda
+                if is_promocional:
+                    st.success(f"🏷️ **Promoção Ativa!** (Estoque Promo Restante: {estoque_promo_restante} un)")
+                elif not df_promo_ativo.empty:
+                    if estoque_promo_restante <= 0 or qtd_venda > estoque_promo_restante:
+                        st.warning(f"⚠️ Estoque da promoção esgotado/insuficiente! (Restante: {max(0.0, estoque_promo_restante)} un)")
+                    else:
+                        st.info(f"ℹ️ Promoção a partir de {qtd_minima_promo} un/kg.")
+
+                st.markdown(f"**Subtotal:** R$ {subtotal_item:,.2f}")
+                if st.button("➕ [ Enter ] Incluir Produto", type="primary", use_container_width=True, key="btn_inc_prod_completo"):
                     if not prod_selecionado:
                         st.error("Selecione um produto.")
                     else:
                         st.session_state.carrinho_pdv.append({
-                            "codigo": cod_sug, "produto": prod_selecionado, "quantidade": 1.0,
+                            "codigo": cod_sug, "produto": prod_selecionado, "quantidade": qtd_venda,
                             "valor_unitario": preco_unit_venda, "valor_total": subtotal_item,
                             "fornecedor": forn_sug, "grupo": "PROMOÇÃO" if is_promocional else grupo_sug,
                             "produto_id": id_prod_sug
                         })
                         st.success(f"✅ '{prod_selecionado}' adicionado!")
                         st.rerun()
-            else:
-                col_q1, col_q2, col_q3 = st.columns([1, 1, 2], gap="medium")
-                with col_q1:
-                    qtd_venda = st.number_input("Qtd", min_value=0.01, value=1.0, step=1.0, key="qtd_prod_pdv_alin")
-                
-                with col_q2:
-                    preco_calculado_final = val_venda_sug
-                    if not df_promo_ativo.empty:
-                        if qtd_venda >= qtd_minima_promo and estoque_promo_restante >= qtd_venda:
-                            preco_calculado_final = preco_promo
-                            is_promocional = True
-                    
-                    preco_unit_venda = st.number_input("Preço Unit. (R$)", min_value=0.0, value=float(preco_calculado_final), format="%.2f")
-                
-                with col_q3:
-                    subtotal_item = qtd_venda * preco_unit_venda
-                    if is_promocional:
-                        st.success(f"🏷️ **Promoção Ativa!** (Estoque Promo Restante: {estoque_promo_restante} un)")
-                    elif not df_promo_ativo.empty:
-                        if estoque_promo_restante <= 0 or qtd_venda > estoque_promo_restante:
-                            st.warning(f"⚠️ Estoque da promoção esgotado/insuficiente! (Restante: {max(0.0, estoque_promo_restante)} un)")
-                        else:
-                            st.info(f"ℹ️ Promoção a partir de {qtd_minima_promo} un/kg.")
-
-                    st.markdown(f"**Subtotal:** R$ {subtotal_item:,.2f}")
-                    if st.button("➕ [ Enter ] Incluir Produto", type="primary", use_container_width=True, key="btn_inc_prod_completo"):
-                        if not prod_selecionado:
-                            st.error("Selecione um produto.")
-                        else:
-                            st.session_state.carrinho_pdv.append({
-                                "codigo": cod_sug, "produto": prod_selecionado, "quantidade": qtd_venda,
-                                "valor_unitario": preco_unit_venda, "valor_total": subtotal_item,
-                                "fornecedor": forn_sug, "grupo": "PROMOÇÃO" if is_promocional else grupo_sug,
-                                "produto_id": id_prod_sug
-                            })
-                            st.success(f"✅ '{prod_selecionado}' adicionado!")
-                            st.rerun()
     # -------------------------------------------------------------
     # 2. MÓDULO FECHAMENTO & FINANCEIRO
     # -------------------------------------------------------------
