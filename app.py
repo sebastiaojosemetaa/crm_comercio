@@ -2884,7 +2884,7 @@ O Senhor é meu pastor nada mim faltarar.
             st.markdown("### 📝 Dados Gerais e Limites da Empresa")
             nome_emp = st.text_input("Razão Social / Nome Fantasia", value=str(reg_emp.get('nome_empresa', 'REY DA CEBOLA')))
             cnpj_emp = st.text_input("CNPJ ou CPF", value=str(reg_emp.get('cnpj', '19417439000142')))
-            inscr. est_emp = st.text_input("INSCR. EST", value=str(reg_emp.get('inscr. est', '12.426.725-4')))
+            inscr_est_emp = st.text_input("INSCR. EST", value=str(reg_emp.get('inscr_est', '12.426.725-4')))
             tel_emp = st.text_input("Telefone de Contato", value=str(reg_emp.get('fone', '(99) 98501-6050')))
             end_emp = st.text_input("Endereço Completo", value=str(reg_emp.get('endereco', 'RUA CAIPIRA, Nº 174')))
             lim_disp = st.number_input("💻 Limite Máximo de Dispositivos Permitidos", min_value=1, max_value=50, value=int(reg_emp.get('limite_dispositivos', 1)))
