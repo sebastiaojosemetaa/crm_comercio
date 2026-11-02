@@ -440,47 +440,64 @@ else:
         if st.session_state.exibir_cupom_tela:
             st.success("🎉 Venda concluída com sucesso!")
             
-            # Monta o texto limpo do cupom para exibição e download
+            # 1. Garante que as variáveis da empresa existem com valores padrão seguros
+            emp_nome = "REY DA CEBOLA"
+            emp_cnpj = "19.417.439/0001-42"
+            emp_end = ""
+
+            try:
+                df_empresa_cupom = carregar_dados("SELECT * FROM empresa LIMIT 1")
+                if not df_empresa_cupom.empty:
+                    emp_nome = str(df_empresa_cupom.iloc[0].get('nome', emp_nome))
+                    emp_cnpj = str(df_empresa_cupom.iloc[0].get('cnpj', emp_cnpj))
+                    emp_end = str(df_empresa_cupom.iloc[0].get('endereco', ''))
+            except Exception:
+                pass
+
+            # 2. Processa os itens do carrinho com segurança
             carrinho_impresso = st.session_state.get('carrinho_temp_para_imprimir', [])
             
             texto_itens_cupom = ""
             for item in carrinho_impresso:
-                texto_itens_cupom += f"- {item['produto']} | Qtd: {item['quantidade']}x | R$ {item['valor_total']:,.2f}\n"
+                prod_nome = str(item.get('produto', 'Item'))
+                qtd_val = float(item.get('quantidade', 1.0))
+                total_val = float(item.get('valor_total', 0.0))
+                total_fmt = f"R$ {total_val:,.2f}"
+                texto_itens_cupom += f"- {prod_nome} | Qtd: {qtd_val}x | {total_fmt}\n"
 
+            # 3. Monta o texto final do cupom sem erros
             conteudo_cupom_texto = f"""
-        ========================================
-                   {emp_nome}
-               CNPJ: {emp_cnpj}
-               {emp_end}
-        ========================================
-        Data: {data_venda}
-        Vendedor: {vendedor_atual}
-        Cliente: {cliente_pdv_selecionado}
-        CPF/CNPJ: {cli_doc_final}
-        ----------------------------------------
-        ITENS DA VENDA:
-        {texto_itens_cupom}
-        ----------------------------------------
-        FORMA DE PAGAMENTO: {detalhes_pagto}
-        TOTAL GERAL: R$ {total_geral_carrinho:,.2f}
-        ========================================
-               Obrigado pela preferência!
-        ========================================
-        """
+========================================
+           {emp_nome}
+       CNPJ: {emp_cnpj}
+       {emp_end}
+========================================
+Data: {data_venda}
+Vendedor: {vendedor_atual}
+Cliente: {cliente_pdv_selecionado}
+CPF/CNPJ: {cli_doc_final}
+----------------------------------------
+ITENS DA VENDA:
+{texto_itens_cupom}
+----------------------------------------
+FORMA DE PAGAMENTO: {detalhes_pagto}
+TOTAL GERAL: R$ {total_geral_carrinho:,.2f}
+========================================
+       Obrigado pela preferência!
+========================================
+"""
 
-            # Exibe o cupom formatado em caixa de texto estilo terminal/cupom
+            # 4. Exibe o cupom e os botões
             st.code(conteudo_cupom_texto, language=None)
             
             st.markdown("<br>", unsafe_allow_html=True)
             
-            # Botões nativos e seguros do Streamlit
             col_b_imp1, col_b_imp2, col_b_imp3 = st.columns([1, 1, 1])
             with col_b_imp1:
                 if st.button("🖨️ Imprimir Cupom", use_container_width=True, key="btn_acao_imprimir_nativo"):
                     js_print = "<script>window.parent.print();</script>"
                     st.components.v1.html(js_print, height=0)
             with col_b_imp2:
-                # Botão nativo do Streamlit para baixar o cupom como arquivo de texto/comprovante instantaneamente
                 st.download_button(
                     label="📥 Baixar Comprovante (TXT)",
                     data=conteudo_cupom_texto,
