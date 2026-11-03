@@ -2889,11 +2889,11 @@ O Senhor é meu pastor nada mim faltarar.
                     except Exception as e:
                         st.error(f"❌ Erro ao limpar histórico de vendas: {e}")
 
-                # --- BOTÃO DE ESTORNO COMPLETO E SEGURO ---
+                # --- BOTÃO DE ESTORNO CIRÚRGICO (ESTORNA STOCK E CAIXA POR CÓDIGO/ID) ---
                 st.markdown("---")
                 st.markdown("### 🔄 Estornar Venda Específica por ID")
                 
-                with st.form(key="form_estorno_venda_v3"):
+                with st.form(key="form_estorno_venda_v5"):
                     id_venda_estorno = st.number_input("Digite o ID exato da venda que deseja estornar (conforme a tabela acima):", min_value=0, step=1, value=0)
                     
                     submitted = st.form_submit_button("❌ Confirmar Estorno da Venda", type="primary")
@@ -2902,49 +2902,86 @@ O Senhor é meu pastor nada mim faltarar.
                         try:
                             cursor = conn.cursor()
                             
-                            # 1. Descobre todas as tabelas existentes na base de dados
+                            # 1. Descobre as tabelas existentes
                             cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
                             tabelas_existentes = [row[0] for row in cursor.fetchall()]
                             
                             encontrou_algo = False
+                            codigo_venda_alvo = None
+                            valor_venda_alvo = None
                             
-                            # 2. Processa a tabela de itens (itens_venda ou vendas) para repor o stock
+                            # 2. Procura na tabela de itens o produto, quantidade, código e valor da venda
                             for tabela_item in ["itens_venda", "vendas"]:
                                 if tabela_item in tabelas_existentes:
                                     try:
-                                        # Procura e estorna pelo ID exato
-                                        cursor.execute(f"SELECT produto, quantidade FROM {tabela_item} WHERE id = ?", (id_venda_estorno,))
-                                        itens = cursor.fetchall()
+                                        cursor.execute(f"PRAGMA table_info({tabela_item})")
+                                        cols = [col[1] for col in cursor.fetchall()]
                                         
-                                        if itens:
+                                        # Identifica nomes das colunas de forma segura
+                                        c_id = "id" if "id" in cols else cols[0]
+                                        c_prod = "produto" if "produto" in cols else (cols[1] if len(cols) > 1 else None)
+                                        c_qtd = "quantidade" if "quantidade" in cols else (cols[4] if len(cols) > 4 else None)
+                                        c_cod = "codigo_venda" if "codigo_venda" in cols else None
+                                        c_tot = "valor_total" if "valor_total" in cols else ("total" if "total" in cols else None)
+                                        
+                                        # Seleciona os dados da venda específica
+                                        query_sel = f"SELECT {c_prod}, {c_qtd}"
+                                        if c_cod: query_sel += f", {c_cod}"
+                                        if c_tot: query_sel += f", {c_tot}"
+                                        query_sel += f" FROM {tabela_item} WHERE {c_id} = ?"
+                                        
+                                        cursor.execute(query_sel, (id_venda_estorno,))
+                                        res = cursor.fetchone()
+                                        
+                                        if res:
                                             encontrou_algo = True
-                                            for prod, qtd in itens:
-                                                if prod:
-                                                    cursor.execute("""
-                                                        UPDATE produtos 
-                                                        SET quantidade = quantidade + ? 
-                                                        WHERE UPPER(TRIM(produto)) = UPPER(TRIM(?))
-                                                    """, (float(qtd or 1.0), str(prod)))
+                                            prod_nome = res[0]
+                                            prod_qtd = res[1]
+                                            idx_extra = 2
+                                            if c_cod and len(res) > idx_extra:
+                                                codigo_venda_alvo = res[idx_extra]
+                                                idx_extra += 1
+                                            if c_tot and len(res) > idx_extra:
+                                                valor_venda_alvo = res[idx_extra]
                                             
-                                            # Apaga o registo da tabela de itens
-                                            cursor.execute(f"DELETE FROM {tabela_item} WHERE id = ?", (id_venda_estorno,))
-                                    except Exception:
-                                        pass
+                                            # Devolve ao stock
+                                            if prod_nome:
+                                                cursor.execute("""
+                                                    UPDATE produtos 
+                                                    SET quantidade = quantidade + ? 
+                                                    WHERE UPPER(TRIM(produto)) = UPPER(TRIM(?))
+                                                """, (float(prod_qtd or 1.0), str(prod_nome)))
+                                            
+                                            # Apaga o item da tabela de vendas
+                                            cursor.execute(f"DELETE FROM {tabela_item} WHERE {c_id} = ?", (id_venda_estorno,))
+                                    except Exception as e_item:
+                                        print(e_item)
 
-                            # 3. Remove obrigatoriamente do cabeçalho financeiro e caixas
-                            tabelas_financeiras = ["vendas_cabecalho", "caixa_movimentos", "movimentos_caixa", "financeiro", "caixas", "transacoes"]
-                            for tab_fin in tabelas_financeiras:
-                                if tab_fin in tabelas_existentes:
+                            # 3. Limpa o registo correspondente no cabeçalho financeiro / caixa
+                            if "vendas_cabecalho" in tabelas_existentes:
+                                try:
+                                    # Apaga por ID direto
+                                    cursor.execute("DELETE FROM vendas_cabecalho WHERE id = ?", (id_venda_estorno,))
+                                    
+                                    # Se encontrou o código da venda, apaga por ele também
+                                    if codigo_venda_alvo:
+                                        cursor.execute("DELETE FROM vendas_cabecalho WHERE codigo_venda = ? OR id_venda = ?", (codigo_venda_alvo, codigo_venda_alvo))
+                                    
+                                    # Se encontrou o valor total, remove as linhas com esse valor correspondente recente
+                                    if valor_venda_alvo:
+                                        cursor.execute("DELETE FROM vendas_cabecalho WHERE total = ? OR valor_total = ?", (valor_venda_alvo, valor_venda_alvo))
+                                        
+                                    encontrou_algo = True
+                                except Exception:
+                                    pass
+
+                            # 4. Limpeza adicional em caixas e movimentos
+                            for tab_m in ["caixa_movimentos", "movimentos_caixa", "financeiro"]:
+                                if tab_m in tabelas_existentes:
                                     try:
-                                        # Tenta apagar onde o id corresponde
-                                        cursor.execute(f"DELETE FROM {tab_fin} WHERE id = ?", (id_venda_estorno,))
-                                        encontrou_algo = True
-                                    except Exception:
-                                        pass
-                                    try:
-                                        # Tenta apagar caso exista coluna de ID alternativa
-                                        cursor.execute(f"DELETE FROM {tab_fin} WHERE venda_id = ?", (id_venda_estorno,))
-                                        encontrou_algo = True
+                                        cursor.execute(f"DELETE FROM {tab_m} WHERE id = ?", (id_venda_estorno,))
+                                        if codigo_venda_alvo:
+                                            cursor.execute(f"DELETE FROM {tab_m} WHERE codigo_venda = ?", (codigo_venda_alvo,))
                                     except Exception:
                                         pass
 
@@ -2957,7 +2994,7 @@ O Senhor é meu pastor nada mim faltarar.
                                 st.success(f"✅ Venda #{id_venda_estorno} estornada com sucesso! Stock reposto e valor retirado do caixa.")
                                 st.rerun()
                             else:
-                                st.warning(f"⚠️ Nenhum registo encontrado com o ID #{id_venda_estorno}. Verifique o número na tabela.")
+                                st.warning(f"⚠️ Nenhum registo encontrado com o ID #{id_venda_estorno}. Verifique o número na tabela acima.")
                                 
                         except Exception as e:
                             st.error(f"❌ Erro ao estornar: {e}")
