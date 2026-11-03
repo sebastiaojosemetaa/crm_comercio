@@ -754,30 +754,28 @@ O Senhor é meu pastor nada mim faltarar.
                             sessao_id = int(df_caixa_aberto.iloc[0]['id'])
                             data_venda = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                             vendedor_atual = usr_exibicao
-                            # Garante que a tabela existe
+                            # Garante que a tabela existe com as colunas corretas
                             cursor.execute("""
                                 CREATE TABLE IF NOT EXISTS vendas_cabecalho (
                                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                                     cliente TEXT,
                                     data TEXT,
                                     forma_pagamento TEXT,
-                                    total REAL,
-                                    utilizador TEXT
+                                    total REAL
                                 )
                             """)
                             
-                            # Define com segurança a forma de pagamento baseada no que foi escolhido
+                            # Define com segurança os valores
                             desc_pagamento = str(locals().get('forma_pagto', 'Dinheiro'))
                             
                             cursor.execute("""
-                                INSERT INTO vendas_cabecalho (cliente, data, forma_pagamento, total, utilizador)
-                                VALUES (?, ?, ?, ?, ?)
+                                INSERT INTO vendas_cabecalho (cliente, data, forma_pagamento, total)
+                                VALUES (?, ?, ?, ?)
                             """, (
                                 str(locals().get('cliente_pdv_selecionado', 'Cliente Balcão')), 
                                 str(data_venda), 
                                 desc_pagamento, 
-                                float(total_geral_carrinho), 
-                                str(vendedor_atual)
+                                float(total_geral_carrinho)
                             ))
                             
                             venda_id_gerado = cursor.lastrowid
