@@ -2900,8 +2900,11 @@ O Senhor é meu pastor nada mim faltarar.
                     try:
                         cursor = conn.cursor()
                         
-                        # 1. Busca os itens da venda para devolver ao stock
-                        cursor.execute("SELECT produto, quantidade FROM vendas_itens WHERE venda_id = ?", (id_venda_estorno,))
+                        # Identifica qual tabela de vendas está ativa na base de dados
+                        tabela_ativa = "itens_venda" if "itens_venda" in str(carregar_dados("SELECT name FROM sqlite_master WHERE type='table'")) else "vendas"
+                        
+                        # 1. Busca os dados da venda para devolver ao stock
+                        cursor.execute(f"SELECT produto, quantidade FROM {tabela_ativa} WHERE id = ?", (id_venda_estorno,))
                         itens_venda = cursor.fetchall()
                         
                         if itens_venda:
@@ -2911,11 +2914,16 @@ O Senhor é meu pastor nada mim faltarar.
                                     UPDATE produtos 
                                     SET quantidade = quantidade + ? 
                                     WHERE UPPER(TRIM(produto)) = UPPER(TRIM(?))
-                                """, (qtd, prod))
+                                """, (float(qtd), str(prod)))
                             
-                            # 3. Remove a venda do registo/histórico
-                            cursor.execute("DELETE FROM vendas_itens WHERE venda_id = ?", (id_venda_estorno,))
-                            cursor.execute("DELETE FROM vendas_cabecalho WHERE id = ?", (id_venda_estorno,))
+                            # 3. Remove a venda da tabela correspondente
+                            cursor.execute(f"DELETE FROM {tabela_ativa} WHERE id = ?", (id_venda_estorno,))
+                            
+                            # Tenta apagar também do cabeçalho se existir
+                            try:
+                                cursor.execute("DELETE FROM vendas_cabecalho WHERE id = ?", (id_venda_estorno,))
+                            except Exception:
+                                pass
                             
                             conn.commit()
                             st.success(f"✅ Venda #{id_venda_estorno} estornada com sucesso! Os itens regressaram ao stock.")
