@@ -1593,30 +1593,30 @@ O Senhor é meu pastor nada mim faltarar.
             qtd_compra = st.number_input("Quantidade", min_value=0.01, value=6.0, key="qtd_compra_num")
             pr_compra = st.number_input("Preço Compra Unitário (R$)", min_value=0.0, value=90.0, format="%.2f", key="pr_compra_form")
 
-        # Inicializa o estado de cálculo de forma inteligente
+        # Inicializa o estado de cálculo na sessão
         if 'margem_perc' not in st.session_state:
             st.session_state.margem_perc = 30.0
         if 'preco_venda' not in st.session_state:
-            st.session_state.preco_venda = pr_compra * (1 + (st.session_state.margem_perc / 100))
-        if 'ultimo_preco_compra' not in st.session_state:
-            st.session_state.ultimo_preco_compra = pr_compra
+            st.session_state.preco_venda = pr_compra * (1.0 + (st.session_state.margem_perc / 100.0))
+        if 'ultimo_pr_compra' not in st.session_state:
+            st.session_state.ultimo_pr_compra = pr_compra
 
-        # Se o preço de compra mudou, atualiza o preço de venda mantendo a margem
-        if pr_compra != st.session_state.ultimo_preco_compra:
-            st.session_state.ultimo_preco_compra = pr_compra
-            st.session_state.preco_venda = pr_compra * (1 + (st.session_state.margem_perc / 100))
+        # Se o preço de compra alterou, recalcula o preço de venda mantendo a margem atual
+        if pr_compra != st.session_state.ultimo_pr_compra:
+            st.session_state.ultimo_pr_compra = pr_compra
+            st.session_state.preco_venda = pr_compra * (1.0 + (st.session_state.margem_perc / 100.0))
 
-        # Funções para sincronizar os campos em tempo real
-        def atualizar_por_margem():
+        # Funções de callback seguras ligadas à sessão
+        def mudar_margem():
             m = st.session_state.widget_margem
             st.session_state.margem_perc = m
-            st.session_state.preco_venda = pr_compra * (1 + (m / 100))
+            st.session_state.preco_venda = pr_compra * (1.0 + (m / 100.0))
 
-        def atualizar_por_preco():
+        def mudar_venda():
             v = st.session_state.widget_venda
             st.session_state.preco_venda = v
             if pr_compra > 0:
-                st.session_state.margem_perc = ((v - pr_compra) / pr_compra) * 100
+                st.session_state.margem_perc = ((v - pr_compra) / pr_compra) * 100.0
 
         col_m1, col_m2 = st.columns(2)
         with col_m1:
@@ -1625,7 +1625,7 @@ O Senhor é meu pastor nada mim faltarar.
                 value=float(st.session_state.margem_perc), 
                 format="%.2f", 
                 key="widget_margem",
-                on_change=atualizar_por_margem
+                on_change=mudar_margem
             )
         with col_m2:
             st.number_input(
@@ -1634,13 +1634,16 @@ O Senhor é meu pastor nada mim faltarar.
                 value=float(st.session_state.preco_venda), 
                 format="%.2f", 
                 key="widget_venda",
-                on_change=atualizar_por_preco
+                on_change=mudar_venda
             )
 
         st.success(f"🟢 Preço de Venda Ativo: **R$ {st.session_state.preco_venda:,.2f}** | Margem Atual: **{st.session_state.margem_perc:,.2f}%**")
 
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("🛒 Adicionar ao Carrinho de Compras", type="primary", use_container_width=True):
+            if 'carrinho_compras' not in st.session_state:
+                st.session_state.carrinho_compras = []
+                
             st.session_state.carrinho_compras.append({
                 "produto": prod_compra, 
                 "grupo": grp_compra, 
@@ -1653,7 +1656,7 @@ O Senhor é meu pastor nada mim faltarar.
             st.success(f"✅ '{prod_compra}' adicionado ao carrinho!")
             st.rerun()
 
-        if st.session_state.carrinho_compras:
+        if 'carrinho_compras' in st.session_state and st.session_state.carrinho_compras:
             st.markdown("### 📋 Itens no Carrinho de Compras")
             
             for item in st.session_state.carrinho_compras:
@@ -1678,7 +1681,7 @@ O Senhor é meu pastor nada mim faltarar.
                 item_remover_idx = st.number_input("Índice do item para remover:", min_value=0, max_value=max(0, len(st.session_state.carrinho_compras)-1), step=1, key="num_idx_remover_compra")
                 if st.button("❌ Remover Item Selecionado", use_container_width=True):
                     if len(st.session_state.carrinho_compras) > 0:
-                        st.session_state.carrinho_compras.pop(item_remover_idx)
+                        st.session_state.carrinho_compras.pop(int(item_remover_idx))
                         st.success("🗑️ Item removido do carrinho!")
                         st.rerun()
             with col_del2:
