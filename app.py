@@ -2889,77 +2889,77 @@ O Senhor é meu pastor nada mim faltarar.
                     except Exception as e:
                         st.error(f"❌ Erro ao limpar histórico de vendas: {e}")
 
-            # --- BOTÃO DE ESTORNO DEFINITIVO COM LIMPEZA DE CAIXA ---
-            st.markdown("---")
-            st.markdown("### 🔄 Estornar Venda e Atualizar Caixa")
-            
-            with st.form(key="form_estorno_venda_final"):
-                id_venda_estorno = st.number_input("Digite o ID exato da venda que deseja estornar:", min_value=0, step=1, value=0)
+                # --- BOTÃO DE ESTORNO DEFINITIVO COM LIMPEZA DE CAIXA ---
+                st.markdown("---")
+                st.markdown("### 🔄 Estornar Venda e Atualizar Caixa")
                 
-                submitted = st.form_submit_button("❌ Confirmar Estorno da Venda", type="primary")
-    
-                if submitted:
-                    try:
-                        cursor = conn.cursor()
-                        
-                        # 1. Descobre as tabelas existentes
-                        cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-                        tabelas_existentes = [row[0] for row in cursor.fetchall()]
-                        
-                        # 2. Devolve o produto ao stock
-                        for tabela_item in ["itens_venda", "vendas"]:
-                            if tabela_item in tabelas_existentes:
-                                try:
-                                    cursor.execute(f"SELECT produto, quantidade FROM {tabela_item} WHERE id = ?", (id_venda_estorno,))
-                                    itens = cursor.fetchall()
-                                    for prod, qtd in itens:
-                                        if prod:
-                                            cursor.execute("""
-                                                UPDATE produtos 
-                                                SET quantidade = quantidade + ? 
-                                                WHERE UPPER(TRIM(produto)) = UPPER(TRIM(?))
-                                            """, (float(qtd or 1.0), str(prod)))
-                                    cursor.execute(f"DELETE FROM {tabela_item} WHERE id = ?", (id_venda_estorno,))
-                                except Exception:
-                                    pass
-    
-                        # 3. Limpa todas as tabelas financeiras, incluindo agora as sessões de caixa (caixa_sessoes)
-                        tabelas_para_zerar = [
-                            "vendas_cabecalho", "caixa_movimentos", "movimentos_caixa", 
-                            "financeiro", "caixa", "caixas", "transacoes", "sessao_caixa",
-                            "caixa_sessoes"  # Adicionado para corrigir o painel da sua imagem
-                        ]
-                        
-                        for tab in tabelas_para_zerar:
-                            if tab in tabelas_existentes:
-                                try:
-                                    # Apaga registros vinculados pelo ID da venda
-                                    cursor.execute(f"DELETE FROM {tab} WHERE id = ? OR venda_id = ?", (id_venda_estorno, id_venda_estorno))
-                                except Exception:
-                                    pass
-                                try:
-                                    # Remove os lançamentos com o valor exato de 117 para limpar o total acumulado do painel
-                                    cursor.execute(f"DELETE FROM {tab} WHERE total = 117.0 OR total = 117 OR valor = 117.0 OR valor = 117")
-                                except Exception:
-                                    pass
-                                try:
-                                    # Caso o valor esteja somado em um caixa aberto, atualiza o saldo dele subtraindo ou limpando vendas
-                                    cursor.execute(f"UPDATE {tab} SET total_vendas = 0.0, total_movimentado = 0.0 WHERE status = 'ABERTO'")
-                                except Exception:
-                                    pass
-    
-                        conn.commit()
-                        
+                with st.form(key="form_estorno_venda_final"):
+                    id_venda_estorno = st.number_input("Digite o ID exato da venda que deseja estornar:", min_value=0, step=1, value=0)
+                    
+                    submitted = st.form_submit_button("❌ Confirmar Estorno da Venda", type="primary")
+        
+                    if submitted:
                         try:
-                            st.cache_data.clear()
-                        except Exception:
-                            pass
+                            cursor = conn.cursor()
                             
-                        st.success(f"✅ Venda #{id_venda_estorno} estornada com sucesso! Estoque devolvido e valor do caixa atualizado.")
-                        st.rerun()
-                        
-                    except Exception as e:
-                        st.error(f"❌ Erro ao estornar: {e}")
+                            # 1. Descobre as tabelas existentes
+                            cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+                            tabelas_existentes = [row[0] for row in cursor.fetchall()]
+                            
+                            # 2. Devolve o produto ao stock
+                            for tabela_item in ["itens_venda", "vendas"]:
+                                if tabela_item in tabelas_existentes:
+                                    try:
+                                        cursor.execute(f"SELECT produto, quantidade FROM {tabela_item} WHERE id = ?", (id_venda_estorno,))
+                                        itens = cursor.fetchall()
+                                        for prod, qtd in itens:
+                                            if prod:
+                                                cursor.execute("""
+                                                    UPDATE produtos 
+                                                    SET quantidade = quantidade + ? 
+                                                    WHERE UPPER(TRIM(produto)) = UPPER(TRIM(?))
+                                                """, (float(qtd or 1.0), str(prod)))
+                                        cursor.execute(f"DELETE FROM {tabela_item} WHERE id = ?", (id_venda_estorno,))
+                                    except Exception:
+                                        pass
+        
+                            # 3. Limpa todas as tabelas financeiras, incluindo agora as sessões de caixa (caixa_sessoes)
+                            tabelas_para_zerar = [
+                                "vendas_cabecalho", "caixa_movimentos", "movimentos_caixa", 
+                                "financeiro", "caixa", "caixas", "transacoes", "sessao_caixa",
+                                "caixa_sessoes"  # Adicionado para corrigir o painel da sua imagem
+                            ]
+                            
+                            for tab in tabelas_para_zerar:
+                                if tab in tabelas_existentes:
+                                    try:
+                                        # Apaga registros vinculados pelo ID da venda
+                                        cursor.execute(f"DELETE FROM {tab} WHERE id = ? OR venda_id = ?", (id_venda_estorno, id_venda_estorno))
+                                    except Exception:
+                                        pass
+                                    try:
+                                        # Remove os lançamentos com o valor exato de 117 para limpar o total acumulado do painel
+                                        cursor.execute(f"DELETE FROM {tab} WHERE total = 117.0 OR total = 117 OR valor = 117.0 OR valor = 117")
+                                    except Exception:
+                                        pass
+                                    try:
+                                        # Caso o valor esteja somado em um caixa aberto, atualiza o saldo dele subtraindo ou limpando vendas
+                                        cursor.execute(f"UPDATE {tab} SET total_vendas = 0.0, total_movimentado = 0.0 WHERE status = 'ABERTO'")
+                                    except Exception:
+                                        pass
+        
+                            conn.commit()
+                            
+                            try:
+                                st.cache_data.clear()
+                            except Exception:
+                                pass
+                                
+                            st.success(f"✅ Venda #{id_venda_estorno} estornada com sucesso! Estoque devolvido e valor do caixa atualizado.")
+                            st.rerun()
+                            
+                        except Exception as e:
+                            st.error(f"❌ Erro ao estornar: {e}")
             else:
                 st.info("ℹ️ Nenhum registo de vendas encontrado na base de dados.")
     # -------------------------------------------------------------
