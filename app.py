@@ -1444,10 +1444,10 @@ O Senhor é meu pastor nada mim faltarar.
                     st.caption(f"➡️ Parcela {p_i+1}: **R$ {p_val_data['valor']:,.2f}** para {p_val_data['vencimento']}")
 
             st.markdown("---")
-            col_b_main1, col_b_main2 = st.columns(2)
+            col_b_main1, col_b_main2, col_b_estorno = st.columns(3)
             
             with col_b_main1:
-                if st.button("💾 Salvar Todas as Alterações da Venda", type="primary", use_container_width=True, key=f"btn_save_all_{id_venda_atual}"):
+                if st.button("💾 Salvar Alterações", type="primary", use_container_width=True, key=f"btn_save_all_{id_venda_atual}"):
                     try:
                         cursor = conn.cursor()
                         
@@ -1490,7 +1490,7 @@ O Senhor é meu pastor nada mim faltarar.
                         st.error(f"❌ Erro ao salvar: {e}")
 
             with col_b_main2:
-                if st.button("🗑️ Excluir Venda Completa", use_container_width=True, key=f"btn_del_all_{id_venda_atual}"):
+                if st.button("🗑️ Excluir Venda", use_container_width=True, key=f"btn_del_all_{id_venda_atual}"):
                     try:
                         cursor = conn.cursor()
                         cursor.execute("DELETE FROM vendas_itens WHERE venda_id = ?", (id_venda_atual,))
@@ -1501,6 +1501,32 @@ O Senhor é meu pastor nada mim faltarar.
                         st.rerun()
                     except Exception as e:
                         st.error(f"❌ Erro ao excluir: {e}")
+
+            with col_b_estorno:
+                if st.button("🔄 Estornar Venda", type="primary", use_container_width=True, key=f"btn_estornar_{id_venda_atual}"):
+                    try:
+                        cursor = conn.cursor()
+                        
+                        # Devolve as quantidades dos produtos de volta ao stock
+                        df_itens_estorno = carregar_dados(f"SELECT produto, quantidade FROM vendas_itens WHERE venda_id = {id_venda_atual}")
+                        if df_itens_estorno is not None and not df_itens_estorno.empty:
+                            for _, item_est in df_itens_estorno.iterrows():
+                                cursor.execute("""
+                                    UPDATE produtos 
+                                    SET quantidade = quantidade + ? 
+                                    WHERE UPPER(TRIM(produto)) = UPPER(TRIM(?))
+                                """, (float(item_est['quantidade']), item_est['produto']))
+
+                        # Remove os registos da venda e contas a receber associadas
+                        cursor.execute("DELETE FROM vendas_itens WHERE venda_id = ?", (id_venda_atual,))
+                        cursor.execute("DELETE FROM vendas_cabecalho WHERE id = ?", (id_venda_atual,))
+                        cursor.execute("DELETE FROM contas_receber WHERE descricao LIKE ?", (f"%Venda #{id_venda_atual}%",))
+                        
+                        conn.commit()
+                        st.success(f"🔄 Venda #{id_venda_atual} estornada com sucesso e itens devolvidos ao stock!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Erro ao estornar: {e}")
         else:
             st.info("ℹ️ Nenhuma venda registrada até o momento.")
 
