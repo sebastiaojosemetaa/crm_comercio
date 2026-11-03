@@ -1695,7 +1695,7 @@ O Senhor é meu pastor nada mim faltarar.
                 if st.button("💾 Finalizar Todas as Entradas", type="primary", use_container_width=True):
                     cursor = conn.cursor()
                     
-                    # Garante que a tabela de compras existe
+                    # 1. Garante que a tabela de compras existe
                     cursor.execute("""
                         CREATE TABLE IF NOT EXISTS compras (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1709,6 +1709,16 @@ O Senhor é meu pastor nada mim faltarar.
                             data TEXT
                         )
                     """)
+                    
+                    # 2. Verifica se a tabela antiga já existe e adiciona colunas em falta se necessário
+                    cursor.execute("PRAGMA table_info(compras)")
+                    cols_compras = [c[1] for c in cursor.fetchall()]
+                    for col_nome, col_tipo in [("unidade", "TEXT"), ("preco_venda", "REAL"), ("grupo", "TEXT"), ("fornecedor", "TEXT")]:
+                        if col_nome not in cols_compras:
+                            try:
+                                cursor.execute(f"ALTER TABLE compras ADD COLUMN {col_nome} {col_tipo}")
+                            except Exception:
+                                pass
 
                     cursor.execute("PRAGMA table_info(produtos)")
                     cols_prod = [c[1] for c in cursor.fetchall()]
@@ -1719,34 +1729,34 @@ O Senhor é meu pastor nada mim faltarar.
                     data_atual_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
                     for item in st.session_state.carrinho_compras:
-                        # 1. Insere o registo na tabela de compras para aparecer no histórico
+                        # Insere no histórico de compras com segurança
                         cursor.execute("""
                             INSERT INTO compras (produto, fornecedor, grupo, quantidade, preco_compra, preco_venda, unidade, data)
                             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                         """, (
-                            item['produto'], 
-                            item['fornecedor'], 
-                            item['grupo'], 
-                            item['quantidade'], 
-                            item['valor_compra'], 
-                            item['valor_venda'], 
-                            item['unidade'], 
+                            item.get('produto'), 
+                            item.get('fornecedor'), 
+                            item.get('grupo'), 
+                            item.get('quantidade'), 
+                            item.get('valor_compra'), 
+                            item.get('valor_venda'), 
+                            item.get('unidade', 'UNIDADE'), 
                             data_atual_str
                         ))
 
-                        # 2. Atualiza ou insere o produto no estoque geral
+                        # Atualiza ou insere o produto no estoque geral
                         cursor.execute("SELECT id FROM produtos WHERE produto = ?", (item['produto'],))
                         if cursor.fetchone():
                             cursor.execute("""
                                 UPDATE produtos 
                                 SET quantidade = quantidade + ?, valor_compra = ?, valor_venda = ?, grupo = ?, fornecedor = ?, unidade = ?
                                 WHERE produto = ?
-                            """, (item['quantidade'], item['valor_compra'], item['valor_venda'], item['grupo'], item['fornecedor'], item['unidade'], item['produto']))
+                            """, (item['quantidade'], item['valor_compra'], item['valor_venda'], item['grupo'], item['fornecedor'], item.get('unidade', 'UNIDADE'), item['produto']))
                         else:
                             cursor.execute("""
                                 INSERT INTO produtos (produto, grupo, fornecedor, quantidade, valor_compra, valor_venda, unidade) 
                                 VALUES (?, ?, ?, ?, ?, ?, ?)
-                            """, (item['produto'], item['grupo'], item['fornecedor'], item['quantidade'], item['valor_compra'], item['valor_venda'], item['unidade']))
+                            """, (item['produto'], item['grupo'], item['fornecedor'], item['quantidade'], item['valor_compra'], item['valor_venda'], item.get('unidade', 'UNIDADE')))
                     
                     conn.commit()
                     st.session_state.carrinho_compras = []
