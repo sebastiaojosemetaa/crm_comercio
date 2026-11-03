@@ -1695,13 +1695,46 @@ O Senhor é meu pastor nada mim faltarar.
                 if st.button("💾 Finalizar Todas as Entradas", type="primary", use_container_width=True):
                     cursor = conn.cursor()
                     
+                    # Garante que a tabela de compras existe
+                    cursor.execute("""
+                        CREATE TABLE IF NOT EXISTS compras (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            produto TEXT,
+                            fornecedor TEXT,
+                            grupo TEXT,
+                            quantidade REAL,
+                            preco_compra REAL,
+                            preco_venda REAL,
+                            unidade TEXT,
+                            data TEXT
+                        )
+                    """)
+
                     cursor.execute("PRAGMA table_info(produtos)")
                     cols_prod = [c[1] for c in cursor.fetchall()]
                     if "unidade" not in cols_prod:
                         try: cursor.execute("ALTER TABLE produtos ADD COLUMN unidade TEXT")
                         except Exception: pass
 
+                    data_atual_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
                     for item in st.session_state.carrinho_compras:
+                        # 1. Insere o registo na tabela de compras para aparecer no histórico
+                        cursor.execute("""
+                            INSERT INTO compras (produto, fornecedor, grupo, quantidade, preco_compra, preco_venda, unidade, data)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (
+                            item['produto'], 
+                            item['fornecedor'], 
+                            item['grupo'], 
+                            item['quantidade'], 
+                            item['valor_compra'], 
+                            item['valor_venda'], 
+                            item['unidade'], 
+                            data_atual_str
+                        ))
+
+                        # 2. Atualiza ou insere o produto no estoque geral
                         cursor.execute("SELECT id FROM produtos WHERE produto = ?", (item['produto'],))
                         if cursor.fetchone():
                             cursor.execute("""
@@ -1717,7 +1750,7 @@ O Senhor é meu pastor nada mim faltarar.
                     
                     conn.commit()
                     st.session_state.carrinho_compras = []
-                    st.success("✅ Entrada registrada no banco de dados e estoque atualizado com sucesso!")
+                    st.success("✅ Entrada registrada no banco de dados e histórico de compras atualizado!")
                     st.rerun()
         else:
             st.info("ℹ️ Nenhum item adicionado ao carrinho de compras ainda.")
