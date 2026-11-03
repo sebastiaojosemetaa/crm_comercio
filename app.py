@@ -2889,7 +2889,7 @@ O Senhor é meu pastor nada mim faltarar.
                     except Exception as e:
                         st.error(f"❌ Erro ao limpar histórico de vendas: {e}")
 
-                # --- BOTÃO DE ESTORNO COMPLETO (ESTORNA STOCK E CAIXA) ---
+                # --- BOTÃO DE ESTORNO COMPLETO E SEGURO ---
                 st.markdown("---")
                 st.markdown("### 🔄 Estornar Venda Específica por ID")
                 
@@ -2908,17 +2908,12 @@ O Senhor é meu pastor nada mim faltarar.
                             
                             encontrou_algo = False
                             
-                            # 2. Processa a tabela de itens (vendas / itens_venda) para repor o stock
+                            # 2. Processa a tabela de itens (itens_venda ou vendas) para repor o stock
                             for tabela_item in ["itens_venda", "vendas"]:
                                 if tabela_item in tabelas_existentes:
                                     try:
-                                        cursor.execute(f"PRAGMA table_info({tabela_item})")
-                                        cols_item = [col[1] for col in cursor.fetchall()]
-                                        id_col = "id" if "id" in cols_item else (cols_item[0] if cols_item else "id")
-                                        prod_col = "produto" if "produto" in cols_item else cols_item[1]
-                                        qtd_col = "quantidade" if "quantidade" in cols_item else cols_item[2]
-                                        
-                                        cursor.execute(f"SELECT {prod_col}, {qtd_col} FROM {tabela_item} WHERE {id_col} = ?", (id_venda_estorno,))
+                                        # Procura e estorna pelo ID exato
+                                        cursor.execute(f"SELECT produto, quantidade FROM {tabela_item} WHERE id = ?", (id_venda_estorno,))
                                         itens = cursor.fetchall()
                                         
                                         if itens:
@@ -2930,39 +2925,26 @@ O Senhor é meu pastor nada mim faltarar.
                                                         SET quantidade = quantidade + ? 
                                                         WHERE UPPER(TRIM(produto)) = UPPER(TRIM(?))
                                                     """, (float(qtd or 1.0), str(prod)))
-                                            cursor.execute(f"DELETE FROM {tabela_item} WHERE {id_col} = ?", (id_venda_estorno,))
+                                            
+                                            # Apaga o registo da tabela de itens
+                                            cursor.execute(f"DELETE FROM {tabela_item} WHERE id = ?", (id_venda_estorno,))
                                     except Exception:
                                         pass
 
-                            # 3. Processa o cabeçalho financeiro (vendas_cabecalho) para retirar o valor do caixa
-                            if "vendas_cabecalho" in tabelas_existentes:
-                                try:
-                                    cursor.execute("PRAGMA table_info(vendas_cabecalho)")
-                                    cols_cab = [col[1] for col in cursor.fetchall()]
-                                    
-                                    # Apaga correspondendo pelo ID em qualquer coluna compatível
-                                    for col_c in cols_cab:
-                                        try:
-                                            cursor.execute(f"DELETE FROM vendas_cabecalho WHERE {col_c} = ?", (id_venda_estorno,))
-                                            encontrou_algo = True
-                                        except Exception:
-                                            pass
-                                            
-                                    # Remove também caso o total corresponda diretamente ao valor preso no caixa (ex: 117)
-                                    for col_t in ["total", "valor_total", "valor_venda"]:
-                                        if col_t in cols_cab:
-                                            try:
-                                                cursor.execute(f"DELETE FROM vendas_cabecalho WHERE {col_t} = 117.0 OR {col_t} = 117")
-                                            except Exception:
-                                                pass
-                                except Exception:
-                                    pass
-
-                            # 4. Limpa outras tabelas de movimentos de caixa eventuais
-                            for tab_mov in ["caixa_movimentos", "movimentos_caixa", "financeiro"]:
-                                if tab_mov in tabelas_existentes:
+                            # 3. Remove obrigatoriamente do cabeçalho financeiro e caixas
+                            tabelas_financeiras = ["vendas_cabecalho", "caixa_movimentos", "movimentos_caixa", "financeiro", "caixas", "transacoes"]
+                            for tab_fin in tabelas_financeiras:
+                                if tab_fin in tabelas_existentes:
                                     try:
-                                        cursor.execute(f"DELETE FROM {tab_mov} WHERE id = ?", (id_venda_estorno,))
+                                        # Tenta apagar onde o id corresponde
+                                        cursor.execute(f"DELETE FROM {tab_fin} WHERE id = ?", (id_venda_estorno,))
+                                        encontrou_algo = True
+                                    except Exception:
+                                        pass
+                                    try:
+                                        # Tenta apagar caso exista coluna de ID alternativa
+                                        cursor.execute(f"DELETE FROM {tab_fin} WHERE venda_id = ?", (id_venda_estorno,))
+                                        encontrou_algo = True
                                     except Exception:
                                         pass
 
