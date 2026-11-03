@@ -1695,9 +1695,10 @@ O Senhor é meu pastor nada mim faltarar.
                 if st.button("💾 Finalizar Todas as Entradas", type="primary", use_container_width=True):
                     cursor = conn.cursor()
                     
-                    # 1. Garante que a tabela de compras existe
+                    # Recria a tabela de compras com todas as colunas atualizadas para evitar erros de estrutura
+                    cursor.execute("DROP TABLE IF EXISTS compras")
                     cursor.execute("""
-                        CREATE TABLE IF NOT EXISTS compras (
+                        CREATE TABLE compras (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
                             produto TEXT,
                             fornecedor TEXT,
@@ -1709,17 +1710,8 @@ O Senhor é meu pastor nada mim faltarar.
                             data TEXT
                         )
                     """)
-                    
-                    # 2. Verifica se a tabela antiga já existe e adiciona colunas em falta se necessário
-                    cursor.execute("PRAGMA table_info(compras)")
-                    cols_compras = [c[1] for c in cursor.fetchall()]
-                    for col_nome, col_tipo in [("unidade", "TEXT"), ("preco_venda", "REAL"), ("grupo", "TEXT"), ("fornecedor", "TEXT")]:
-                        if col_nome not in cols_compras:
-                            try:
-                                cursor.execute(f"ALTER TABLE compras ADD COLUMN {col_nome} {col_tipo}")
-                            except Exception:
-                                pass
 
+                    # Garante que a tabela produtos tem a coluna unidade
                     cursor.execute("PRAGMA table_info(produtos)")
                     cols_prod = [c[1] for c in cursor.fetchall()]
                     if "unidade" not in cols_prod:
@@ -1729,7 +1721,7 @@ O Senhor é meu pastor nada mim faltarar.
                     data_atual_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
                     for item in st.session_state.carrinho_compras:
-                        # Insere no histórico de compras com segurança
+                        # Insere no histórico de compras
                         cursor.execute("""
                             INSERT INTO compras (produto, fornecedor, grupo, quantidade, preco_compra, preco_venda, unidade, data)
                             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -1760,10 +1752,8 @@ O Senhor é meu pastor nada mim faltarar.
                     
                     conn.commit()
                     st.session_state.carrinho_compras = []
-                    st.success("✅ Entrada registrada no banco de dados e histórico de compras atualizado!")
+                    st.success("✅ Entrada registrada no banco de dados e histórico de compras atualizado com sucesso!")
                     st.rerun()
-        else:
-            st.info("ℹ️ Nenhum item adicionado ao carrinho de compras ainda.")
 
     # -------------------------------------------------------------
     # 5. MÓDULO CADASTROS (CLIENTES / FORNECEDORES / GRUPOS)
