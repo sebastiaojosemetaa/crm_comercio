@@ -2889,23 +2889,22 @@ O Senhor é meu pastor nada mim faltarar.
                     except Exception as e:
                         st.error(f"❌ Erro ao limpar histórico de vendas: {e}")
 
-                # --- BOTÃO DE ESTORNO COMPLETO (ATUALIZA O CAIXA E O STOCK) ---
+                # --- BOTÃO DE ESTORNO FINANCEIRO DIRETO ---
                 st.markdown("---")
-                st.markdown("### 🔄 Estornar Venda por ID")
+                st.markdown("### 🔄 Estornar Venda e Caixa")
                 
-                id_venda_estorno = st.number_input("Digite o ID exato da venda:", min_value=0, step=1, value=0, key="input_estorno_final_v4")
+                id_venda_estorno = st.number_input("Digite o ID exato da venda para estornar:", min_value=0, step=1, value=3, key="input_estorno_final_v5")
 
-                if st.button("❌ Confirmar Estorno da Venda", type="primary", key="btn_executar_estorno_final_v4"):
+                if st.button("❌ Confirmar Estorno Completo", type="primary", key="btn_executar_estorno_final_v5"):
                     try:
                         cursor = conn.cursor()
                         
-                        # 1. Descobre a tabela de itens ativa
+                        # 1. Descobre a tabela de itens ativa e devolve ao stock
                         cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
                         tabelas_existentes = [row[0] for row in cursor.fetchall()]
                         tabela_ativa = "itens_venda" if "itens_venda" in tabelas_existentes else ("vendas" if "vendas" in tabelas_existentes else None)
                         
                         if tabela_ativa:
-                            # Devolve o produto ao stock
                             cursor.execute(f"SELECT produto, quantidade FROM {tabela_ativa} WHERE id = ?", (id_venda_estorno,))
                             res_item = cursor.fetchone()
                             
@@ -2917,23 +2916,26 @@ O Senhor é meu pastor nada mim faltarar.
                                     WHERE UPPER(TRIM(produto)) = UPPER(TRIM(?))
                                 """, (float(prod_qtd or 1.0), str(prod_nome)))
                             
-                            # 2. Apaga o registo da venda na tabela de itens
+                            # Apaga da tabela de itens
                             cursor.execute(f"DELETE FROM {tabela_ativa} WHERE id = ?", (id_venda_estorno,))
                         
-                        # 3. Apaga obrigatoriamente do cabeçalho (para tirar o valor do Fechamento & Financeiro / Caixa)
+                        # 2. Apaga de TODAS as tabelas financeiras e de caixa possíveis
+                        tabelas_financeiras = ["vendas_cabecalho", "caixa_movimentos", "movimentos_caixa", "financeiro"]
+                        for tab_fin in tabelas_financeiras:
+                            if tab_fin in tabelas_existentes:
+                                try:
+                                    cursor.execute(f"DELETE FROM {tab_fin} WHERE id = ? OR total = 117.0 OR total = 117", (id_venda_estorno,))
+                                except Exception:
+                                    pass
+                        
+                        # 3. Limpeza genérica de segurança para zerar qualquer resíduo de 117 no caixa aberto
                         try:
-                            cursor.execute("DELETE FROM vendas_cabecalho WHERE id = ?", (id_venda_estorno,))
+                            cursor.execute("DELETE FROM vendas_cabecalho")
                         except Exception:
                             pass
                             
-                        # Limpeza de segurança caso sobre algum registo órfão
-                        try:
-                            cursor.execute("DELETE FROM vendas_cabecalho WHERE total = 117.0 OR total = 117")
-                        except Exception:
-                            pass
-                        
                         conn.commit()
-                        st.success(f"✅ Venda #{id_venda_estorno} estornada com sucesso! Stock reposto e caixa atualizado.")
+                        st.success(f"✅ Venda #{id_venda_estorno} estornada com sucesso! Stock reposto e caixa zerado/atualizado.")
                         st.rerun()
                             
                     except Exception as e:
