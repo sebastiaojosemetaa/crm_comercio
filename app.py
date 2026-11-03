@@ -754,7 +754,30 @@ O Senhor é meu pastor nada mim faltarar.
                             sessao_id = int(df_caixa_aberto.iloc[0]['id'])
                             data_venda = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                             vendedor_atual = usr_exibicao
+                            # Cria a tabela de cabeçalho caso não exista e grava a venda
+                            cursor.execute("""
+                                CREATE TABLE IF NOT EXISTS vendas_cabecalho (
+                                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                    cliente TEXT,
+                                    data TEXT,
+                                    forma_pagamento TEXT,
+                                    total REAL,
+                                    utilizador TEXT
+                                )
+                            """)
                             
+                            cursor.execute("""
+                                INSERT INTO vendas_cabecalho (cliente, data, forma_pagamento, total, utilizador)
+                                VALUES (?, ?, ?, ?, ?)
+                            """, (
+                                cliente_pdv_selecionado, 
+                                data_venda, 
+                                forma_pagamento, 
+                                total_geral_carrinho, 
+                                vendedor_atual
+                            ))
+                            
+                            venda_id_gerado = cursor.lastrowid
                             v_rec = valor_recebido if forma_pagto == "Dinheiro" else total_geral_carrinho
                             t_val = troco if (forma_pagto == "Dinheiro" and troco >= 0) else 0.0
 
