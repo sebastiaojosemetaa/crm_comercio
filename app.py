@@ -2898,7 +2898,7 @@ O Senhor é meu pastor nada mim faltarar.
                     try:
                         cursor = conn.cursor()
                         
-                        # 1. Busca os itens da venda (procura pelo ID exato ou busca tudo se o ID for 0 e houver registos)
+                        # 1. Procura os itens da venda pelo ID digitado ou pega o registo se houver apenas um na tabela
                         itens_venda = []
                         tabelas_busca = ["itens_venda", "vendas"]
                         
@@ -2911,8 +2911,8 @@ O Senhor é meu pastor nada mim faltarar.
                             except Exception:
                                 pass
                         
-                        # Se não encontrou pelo ID mas o ID for 0 e a tabela tiver linhas, pega os itens da primeira linha
-                        if not itens_venda and id_venda_estorno == 0:
+                        # Se não encontrou pelo ID exato, mas há um registo visível na tabela, pega os itens do registo existente
+                        if not itens_venda:
                             for t_busca in tabelas_busca:
                                 try:
                                     cursor.execute(f"SELECT produto, quantidade FROM {t_busca} LIMIT 1")
@@ -2934,12 +2934,12 @@ O Senhor é meu pastor nada mim faltarar.
                                 except Exception:
                                     pass
                             
-                            # 3. Limpa os registos das tabelas
+                            # 3. Limpa os registos das tabelas de vendas e caixa
                             for tab in ["itens_venda", "vendas", "vendas_cabecalho"]:
                                 try:
                                     cursor.execute(f"DELETE FROM {tab} WHERE id = ? OR venda_id = ?", (id_venda_estorno, id_venda_estorno))
-                                    if id_venda_estorno == 0:
-                                        cursor.execute(f"DELETE FROM {tab}") # Limpa se for o id 0 genérico
+                                    # Se o ID na tabela for 0, limpa os registos genéricos para atualizar o caixa
+                                    cursor.execute(f"DELETE FROM {tab} WHERE id = 0")
                                 except Exception:
                                     pass
                             
