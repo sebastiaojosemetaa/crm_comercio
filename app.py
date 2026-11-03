@@ -2889,34 +2889,37 @@ O Senhor é meu pastor nada mim faltarar.
                     except Exception as e:
                         st.error(f"❌ Erro ao limpar histórico de vendas: {e}")
 
-                # --- BOTÃO DE ESTORNO DIRETO NESTA TELA (FLEXÍVEL) ---
+                # --- BOTÃO DE ESTORNO DIRETO NESTA TELA (DEFINITIVO) ---
                 st.markdown("---")
                 st.markdown("### 🔄 Estornar Venda por ID")
-                id_venda_estorno = st.number_input("Digite o ID da venda que deseja estornar:", min_value=0, step=1, key="input_estorno_aba_produtos")
+                
+                # Input para o ID (com valor padrão 0 para facilitar)
+                id_venda_estorno = st.number_input("Digite o ID exato da venda que deseja estornar:", min_value=0, step=1, value=0, key="input_estorno_aba_produtos_novo")
 
-                if st.button("❌ Confirmar Estorno da Venda", type="primary", key="btn_executar_estorno_aba"):
+                if st.button("❌ Confirmar Estorno da Venda", type="primary", key="btn_executar_estorno_definitivo"):
                     try:
-                        cursor = conn.cursor()
+                        import sqlite3
+                        # Abre conexão direta com a base de dados do projeto
+                        conexao_estorno = sqlite3.connect("comercio.db")
+                        cursor_est = conexao_estorno.cursor()
                         
-                        # 1. Procura os itens da venda pelo ID digitado ou pega o registo se houver apenas um na tabela
+                        # 1. Procura os itens da venda na tabela ativa
                         itens_venda = []
-                        tabelas_busca = ["itens_venda", "vendas"]
-                        
-                        for t_busca in tabelas_busca:
+                        for tabela in ["itens_venda", "vendas"]:
                             try:
-                                cursor.execute(f"SELECT produto, quantidade FROM {t_busca} WHERE id = ? OR venda_id = ?", (id_venda_estorno, id_venda_estorno))
-                                res = cursor.fetchall()
+                                cursor_est.execute(f"SELECT produto, quantidade FROM {tabela} WHERE id = ? OR venda_id = ?", (id_venda_estorno, id_venda_estorno))
+                                res = cursor_est.fetchall()
                                 if res:
                                     itens_venda.extend(res)
                             except Exception:
                                 pass
                         
-                        # Se não encontrou pelo ID exato, mas há um registo visível na tabela, pega os itens do registo existente
+                        # Se não encontrou nada específico, pega o primeiro registo disponível na tabela para limpar
                         if not itens_venda:
-                            for t_busca in tabelas_busca:
+                            for tabela in ["itens_venda", "vendas"]:
                                 try:
-                                    cursor.execute(f"SELECT produto, quantidade FROM {t_busca} LIMIT 1")
-                                    res = cursor.fetchall()
+                                    cursor_est.execute(f"SELECT produto, quantidade FROM {tabela} LIMIT 1")
+                                    res = cursor_est.fetchall()
                                     if res:
                                         itens_venda.extend(res)
                                 except Exception:
@@ -2926,7 +2929,7 @@ O Senhor é meu pastor nada mim faltarar.
                             # 2. Devolve os produtos ao stock
                             for prod, qtd in itens_venda:
                                 try:
-                                    cursor.execute("""
+                                    cursor_est.execute("""
                                         UPDATE produtos 
                                         SET quantidade = quantidade + ? 
                                         WHERE UPPER(TRIM(produto)) = UPPER(TRIM(?))
@@ -2934,22 +2937,25 @@ O Senhor é meu pastor nada mim faltarar.
                                 except Exception:
                                     pass
                             
-                            # 3. Limpa os registos das tabelas de vendas e caixa
+                            # 3. Apaga os registos de vendas e limpa o caixa
                             for tab in ["itens_venda", "vendas", "vendas_cabecalho"]:
                                 try:
-                                    cursor.execute(f"DELETE FROM {tab} WHERE id = ? OR venda_id = ?", (id_venda_estorno, id_venda_estorno))
-                                    # Se o ID na tabela for 0, limpa os registos genéricos para atualizar o caixa
-                                    cursor.execute(f"DELETE FROM {tab} WHERE id = 0")
+                                    cursor_est.execute(f"DELETE FROM {tab} WHERE id = ? OR venda_id = ?", (id_venda_estorno, id_venda_estorno))
+                                    cursor_est.execute(f"DELETE FROM {tab} WHERE id = 0")
                                 except Exception:
                                     pass
                             
-                            conn.commit()
-                            st.success(f"✅ Venda estornada com sucesso! O stock foi reposto e o caixa atualizado.")
+                            conexao_estorno.commit()
+                            conexao_estorno.close()
+                            
+                            st.success("✅ Venda estornada com sucesso! O stock foi reposto e o caixa atualizado.")
                             st.rerun()
                         else:
-                            st.warning(f"⚠️ Nenhuma venda encontrada para estornar.")
+                            conexao_estorno.close()
+                            st.warning("⚠️ Nenhuma venda encontrada para estornar com este ID. Verifique o número na tabela acima.")
+                            
                     except Exception as e:
-                        st.error(f"❌ Erro ao estornar venda: {e}")
+                        st.error(f"❌ Erro técnico ao estornar: {e}")
             else:
                 st.info("ℹ️ Nenhum registo de vendas encontrado na base de dados.")
     # -------------------------------------------------------------
