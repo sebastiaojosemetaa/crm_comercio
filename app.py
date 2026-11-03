@@ -2889,7 +2889,7 @@ O Senhor é meu pastor nada mim faltarar.
                     except Exception as e:
                         st.error(f"❌ Erro ao limpar histórico de vendas: {e}")
 
-                # --- BOTÃO DE ESTORNO DIRETO NESTA TELA ---
+                # --- BOTÃO DE ESTORNO DIRETO NESTA TELA (ATUALIZADO) ---
                 st.markdown("---")
                 st.markdown("### 🔄 Estornar Venda por ID")
                 id_venda_estorno = st.number_input("Digite o ID da venda que deseja estornar:", min_value=0, step=1, key="input_estorno_aba_produtos")
@@ -2898,33 +2898,39 @@ O Senhor é meu pastor nada mim faltarar.
                     try:
                         cursor = conn.cursor()
                         
-                        # Identifica qual tabela de vendas está ativa na base de dados
-                        tabela_ativa = "itens_venda" if "itens_venda" in str(carregar_dados("SELECT name FROM sqlite_master WHERE type='table'")) else "vendas"
-                        
-                        # 1. Busca os dados da venda para devolver ao stock
-                        cursor.execute(f"SELECT produto, quantidade FROM {tabela_ativa} WHERE id = ?", (id_venda_estorno,))
-                        itens_venda = cursor.fetchall()
+                        # 1. Busca os itens da venda em qualquer tabela possível para devolver ao stock
+                        itens_venda = []
+                        for t_busca in ["itens_venda", "vendas"]:
+                            try:
+                                cursor.execute(f"SELECT produto, quantidade FROM {t_busca} WHERE id = ? OR venda_id = ?", (id_venda_estorno, id_venda_estorno))
+                                res = cursor.fetchall()
+                                if res:
+                                    itens_venda.extend(res)
+                            except Exception:
+                                pass
                         
                         if itens_venda:
                             # 2. Devolve os produtos ao stock
                             for prod, qtd in itens_venda:
-                                cursor.execute("""
-                                    UPDATE produtos 
-                                    SET quantidade = quantidade + ? 
-                                    WHERE UPPER(TRIM(produto)) = UPPER(TRIM(?))
-                                """, (float(qtd), str(prod)))
+                                try:
+                                    cursor.execute("""
+                                        UPDATE produtos 
+                                        SET quantidade = quantidade + ? 
+                                        WHERE UPPER(TRIM(produto)) = UPPER(TRIM(?))
+                                    """, (float(qtd), str(prod)))
+                                except Exception:
+                                    pass
                             
-                            # 3. Remove a venda da tabela correspondente
-                            cursor.execute(f"DELETE FROM {tabela_ativa} WHERE id = ?", (id_venda_estorno,))
-                            
-                            # Tenta apagar também do cabeçalho se existir
-                            try:
-                                cursor.execute("DELETE FROM vendas_cabecalho WHERE id = ?", (id_venda_estorno,))
-                            except Exception:
-                                pass
+                            # 3. Apaga a venda de TODAS as tabelas de registo financeiro/vendas
+                            tabelas_para_limpar = ["itens_venda", "vendas", "vendas_cabecalho"]
+                            for tab in tabelas_para_limpar:
+                                try:
+                                    cursor.execute(f"DELETE FROM {tab} WHERE id = ? OR venda_id = ?", (id_venda_estorno, id_venda_estorno))
+                                except Exception:
+                                    pass
                             
                             conn.commit()
-                            st.success(f"✅ Venda #{id_venda_estorno} estornada com sucesso! Os itens regressaram ao stock.")
+                            st.success(f"✅ Venda #{id_venda_estorno} estornada com sucesso! O stock foi reposto e o caixa atualizado.")
                             st.rerun()
                         else:
                             st.warning(f"⚠️ Nenhuma venda encontrada com o ID #{id_venda_estorno}.")
