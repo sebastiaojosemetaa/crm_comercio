@@ -3063,7 +3063,6 @@ O Senhor é meu pastor nada mim faltarar.
                 st.info(
                     "ℹ️ Nenhum registro de vendas encontrado."
                 )
-```
     # -------------------------------------------------------------
     # 11. CONFIGURAÇÕES
     # -------------------------------------------------------------
