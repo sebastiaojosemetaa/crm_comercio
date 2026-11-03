@@ -772,7 +772,7 @@ O Senhor é meu pastor nada mim faltarar.
                             """, (
                                 cliente_pdv_selecionado, 
                                 data_venda, 
-                                forma_pagamento, 
+                                forma_pagto,   # <-- alterado para forma_pagto
                                 total_geral_carrinho, 
                                 vendedor_atual
                             ))
