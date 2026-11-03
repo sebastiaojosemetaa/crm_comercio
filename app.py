@@ -147,6 +147,12 @@ def adequar_banco_e_migrar():
                 valor REAL, descricao TEXT, data TEXT
             )
         """)
+        # Vincula cada movimento do caixa à venda que o originou.
+        # A migração é compatível com bancos já existentes.
+        cursor.execute("PRAGMA table_info(caixa_movimentacoes)")
+        cols_mov_caixa = [col[1] for col in cursor.fetchall()]
+        if "venda_id" not in cols_mov_caixa:
+            cursor.execute("ALTER TABLE caixa_movimentacoes ADD COLUMN venda_id INTEGER")
 
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS funcionarios (
@@ -849,9 +855,21 @@ O Senhor é meu pastor nada mim faltarar.
                                         WHERE produto_id = ? AND qtd_estoque_promo >= ?
                                     """, (item['quantidade'], item.get('produto_id'), item['quantidade']))
                     
+                            # Registra o movimento com o ID da primeira linha
+                            # da venda na tabela vendas, permitindo estorno exato.
                             cursor.execute(
-                                "INSERT INTO caixa_movimentacoes (sessao_id, tipo, valor, descricao, data) VALUES (?, 'VENDA', ?, ?, ?)",
-                                (sessao_id, float(total_geral_carrinho), f"Venda PDV ({detalhes_pagto}) por {vendedor_atual}", data_venda)
+                                """
+                                INSERT INTO caixa_movimentacoes
+                                    (sessao_id, tipo, valor, descricao, data, venda_id)
+                                VALUES (?, 'VENDA', ?, ?, ?, ?)
+                                """,
+                                (
+                                    sessao_id,
+                                    float(total_geral_carrinho),
+                                    f"Venda PDV ({detalhes_pagto}) por {vendedor_atual}",
+                                    data_venda,
+                                    int(venda_id_gerado)
+                                )
                             )
 
                             if forma_pagto == "Fiado" and data_vencimento_fiado_val:
@@ -2930,134 +2948,149 @@ O Senhor é meu pastor nada mim faltarar.
                         )
 
                 # -------------------------------------------------
-                # ESTORNO DE VENDA
-                # -------------------------------------------------
+                # ESTORNO DE VENDA — estoque + caixa, sem afetar outras vendas
                 st.markdown("---")
                 st.markdown("### 🔄 Estornar Venda e Atualizar Caixa")
 
                 with st.form(key="form_estorno_venda_final"):
-
                     id_venda_estorno = st.number_input(
-                        "Digite o ID exato da venda:",
-                        min_value=1,
-                        step=1,
-                        value=1
+                        "Digite o ID da primeira linha da venda (coluna ID):",
+                        min_value=1, step=1, value=1
                     )
-
                     submitted = st.form_submit_button(
-                        "❌ Confirmar Estorno da Venda",
-                        type="primary"
+                        "❌ Confirmar Estorno da Venda", type="primary"
                     )
 
-                    if submitted:
+                if submitted:
+                    try:
+                        cursor = conn.cursor()
+                        cursor.execute("BEGIN IMMEDIATE")
 
+                        # O PDV grava os produtos vendidos individualmente em 'vendas'.
+                        # O ID digitado identifica uma linha; agrupamos as linhas
+                        # da mesma venda por cliente, data e vendedor.
+                        cursor.execute("PRAGMA table_info(vendas)")
+                        cols_vendas = [c[1] for c in cursor.fetchall()]
+                        obrigatorias = {"id", "produto", "quantidade", "cliente", "data"}
+                        if not obrigatorias.issubset(set(cols_vendas)):
+                            raise Exception("A tabela vendas não possui as colunas necessárias ao estorno.")
+
+                        cursor.execute(
+                            "SELECT id, cliente, data, vendedor FROM vendas WHERE id = ? AND tipo = 'VENDA'",
+                            (int(id_venda_estorno),)
+                        )
+                        venda_base = cursor.fetchone()
+                        if not venda_base:
+                            raise Exception("Venda não encontrada. Confira o ID na tabela de vendas.")
+
+                        _, cliente_base, data_base, vendedor_base = venda_base
+                        if "vendedor" in cols_vendas:
+                            cursor.execute(
+                                """SELECT id, produto, quantidade FROM vendas
+                                   WHERE cliente IS ? AND data IS ? AND vendedor IS ? AND tipo = 'VENDA'
+                                   ORDER BY id""",
+                                (cliente_base, data_base, vendedor_base)
+                            )
+                        else:
+                            cursor.execute(
+                                """SELECT id, produto, quantidade FROM vendas
+                                   WHERE cliente IS ? AND data IS ? AND tipo = 'VENDA'
+                                   ORDER BY id""",
+                                (cliente_base, data_base)
+                            )
+                        itens_venda = cursor.fetchall()
+                        if not itens_venda:
+                            raise Exception("Não foram encontrados os itens desta venda.")
+
+                        ids_linhas = [int(item[0]) for item in itens_venda]
+                        id_principal_venda = min(ids_linhas)
+                        total_venda = 0.0
+                        if "valor_total" in cols_vendas:
+                            cursor.execute(
+                                f"SELECT COALESCE(SUM(CAST(valor_total AS REAL)), 0) FROM vendas WHERE id IN ({','.join('?' for _ in ids_linhas)})",
+                                ids_linhas
+                            )
+                            total_venda = float(cursor.fetchone()[0] or 0)
+                        else:
+                            raise Exception("Não encontrei a coluna valor_total para conferir o valor da venda.")
+
+                        # Devolve cada item ao estoque uma única vez.
+                        for _, produto, quantidade in itens_venda:
+                            if not produto:
+                                continue
+                            cursor.execute(
+                                """UPDATE produtos
+                                   SET quantidade = COALESCE(CAST(quantidade AS REAL), 0) + ?
+                                   WHERE UPPER(TRIM(produto)) = UPPER(TRIM(?))""",
+                                (float(quantidade or 0), str(produto))
+                            )
+                            if cursor.rowcount == 0:
+                                raise Exception(f"Produto não encontrado no estoque: {produto}")
+
+                        # Remove o lançamento financeiro exato, nunca os outros movimentos.
+                        cursor.execute("PRAGMA table_info(caixa_movimentacoes)")
+                        cols_mov = [c[1] for c in cursor.fetchall()]
+                        movimento_removido = 0
+                        if "venda_id" in cols_mov:
+                            cursor.execute(
+                                "DELETE FROM caixa_movimentacoes WHERE venda_id = ? AND UPPER(TRIM(tipo)) = 'VENDA'",
+                                (id_principal_venda,)
+                            )
+                            movimento_removido = cursor.rowcount
+
+                        # Compatibilidade com vendas antigas, feitas antes do vínculo venda_id.
+                        # Só remove se houver exatamente um movimento com mesma data e valor.
+                        if movimento_removido == 0 and "venda_id" in cols_mov:
+                            cursor.execute(
+                                """SELECT id FROM caixa_movimentacoes
+                                   WHERE venda_id IS NULL
+                                     AND UPPER(TRIM(tipo)) = 'VENDA'
+                                     AND data = ? AND ABS(COALESCE(valor, 0) - ?) < 0.01
+                                     AND descricao LIKE 'Venda PDV%'""",
+                                (data_base, total_venda)
+                            )
+                            candidatos_mov = cursor.fetchall()
+                            if len(candidatos_mov) == 1:
+                                cursor.execute("DELETE FROM caixa_movimentacoes WHERE id = ?", (candidatos_mov[0][0],))
+                                movimento_removido = cursor.rowcount
+                            elif len(candidatos_mov) > 1:
+                                raise Exception("Há mais de um movimento antigo compatível com esta venda. Nenhum movimento do caixa foi apagado; é necessário identificar o lançamento correto.")
+
+                        # Cancela eventual conta a receber vinculada à venda fiada.
+                        if "contas_receber" in [r[0] for r in cursor.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]:
+                            cursor.execute("DELETE FROM contas_receber WHERE descricao LIKE ?", (f"%#{id_principal_venda}%",))
+
+                        # Exclui todas as linhas de produtos que compõem esta venda.
+                        cursor.execute(
+                            f"DELETE FROM vendas WHERE id IN ({','.join('?' for _ in ids_linhas)})",
+                            ids_linhas
+                        )
+
+                        # Remove também o detalhe do histórico, se existir.
+                        cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+                        tabelas_db = {r[0] for r in cursor.fetchall()}
+                        if "vendas_itens" in tabelas_db:
+                            cursor.execute("DELETE FROM vendas_itens WHERE venda_id = ?", (id_principal_venda,))
+                        if "vendas_cabecalho" in tabelas_db:
+                            # Cabeçalho do PDV não guarda atualmente o ID da linha de vendas;
+                            # não removemos por aproximação para não apagar outra venda.
+                            pass
+
+                        conn.commit()
                         try:
-                            cursor.execute(
-                                "BEGIN IMMEDIATE"
-                            )
+                            st.cache_data.clear()
+                        except Exception:
+                            pass
 
-                            # Verifica se a venda existe
-                            cursor.execute(
-                                f"""
-                                SELECT *
-                                FROM {tabela_vendas_alvo}
-                                WHERE id = ?
-                                """,
-                                (id_venda_estorno,)
-                            )
+                        if movimento_removido:
+                            st.success(f"✅ Venda #{id_principal_venda} estornada! Estoque devolvido e R$ {total_venda:,.2f} retirados do caixa.")
+                        else:
+                            st.warning(f"Venda #{id_principal_venda} e estoque estornados. Não foi encontrado um movimento antigo inequívoco para retirar do caixa; confira o histórico financeiro.")
+                        st.rerun()
 
-                            itens = cursor.fetchall()
-
-                            if not itens:
-                                raise Exception(
-                                    "Venda não encontrada."
-                                )
-
-                            # Descobre as colunas da tabela
-                            colunas = [
-                                desc[0]
-                                for desc in cursor.description
-                            ]
-
-                            if not all(
-                                c in colunas
-                                for c in ["produto", "quantidade"]
-                            ):
-                                raise Exception(
-                                    "A tabela não possui as colunas "
-                                    "produto e quantidade esperadas."
-                                )
-
-                            idx_produto = colunas.index("produto")
-                            idx_quantidade = colunas.index("quantidade")
-
-                            # Devolve os produtos ao estoque
-                            for item in itens:
-
-                                produto = item[idx_produto]
-                                quantidade = item[idx_quantidade]
-
-                                if produto:
-                                    cursor.execute(
-                                        """
-                                        UPDATE produtos
-                                        SET quantidade =
-                                            COALESCE(quantidade, 0) + ?
-                                        WHERE UPPER(TRIM(produto)) =
-                                              UPPER(TRIM(?))
-                                        """,
-                                        (
-                                            float(quantidade or 1),
-                                            str(produto)
-                                        )
-                                    )
-
-                                    if cursor.rowcount == 0:
-                                        raise Exception(
-                                            f"Produto não encontrado "
-                                            f"no estoque: {produto}"
-                                        )
-
-                            # ATENÇÃO:
-                            # Não apaga todas as movimentações do caixa.
-                            # A exclusão do lançamento financeiro depende
-                            # de identificar a tabela e o vínculo correto
-                            # entre a venda e o movimento.
-
-                            # Remove somente os itens da venda informada
-                            cursor.execute(
-                                f"""
-                                DELETE FROM {tabela_vendas_alvo}
-                                WHERE id = ?
-                                """,
-                                (id_venda_estorno,)
-                            )
-
-                            conn.commit()
-
-                            try:
-                                st.cache_data.clear()
-                            except Exception:
-                                pass
-
-                            st.success(
-                                f"✅ Venda #{id_venda_estorno} "
-                                "estornada e produtos devolvidos ao estoque!"
-                            )
-
-                            st.warning(
-                                "⚠️ O lançamento financeiro do caixa "
-                                "ainda precisa ser identificado e removido "
-                                "pelo vínculo correto da venda."
-                            )
-
-                            st.rerun()
-
-                        except Exception as e:
-                            conn.rollback()
-                            st.error(
-                                f"❌ Erro ao executar estorno: {e}"
-                            )
+                    except Exception as e:
+                        conn.rollback()
+                        st.error(f"❌ Erro ao executar estorno: {e}")
 
             else:
                 st.info(
