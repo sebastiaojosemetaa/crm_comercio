@@ -85,6 +85,24 @@ def adequar_banco_e_migrar():
             )
         """)
         
+        # CONFIGURACAO INICIAL DA NFC-e (nao armazena certificado nem senhas)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS config_nfce (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                uf TEXT DEFAULT 'MA',
+                ambiente TEXT DEFAULT 'Homologacao',
+                serie TEXT DEFAULT '1',
+                proximo_numero INTEGER DEFAULT 1,
+                modelo TEXT DEFAULT '65',
+                atualizado_em TEXT
+            )
+        """)
+        cursor.execute("""
+            INSERT OR IGNORE INTO config_nfce
+                (id, uf, ambiente, serie, proximo_numero, modelo)
+            VALUES (1, 'MA', 'Homologacao', '1', 1, '65')
+        """)
+
         # TABELA DE CHAVES PIX MULTIPLAS
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS chaves_pix (
@@ -3188,6 +3206,62 @@ O Senhor é meu pastor nada mim faltarar.
                 st.session_state['limite_dispositivos'] = lim_disp
                 st.success("✅ Configurações e limites salvos com sucesso!")
                 st.rerun()
+
+        # --- PREPARACAO PARA EMISSAO DE NFC-e ---
+        st.markdown("---")
+        st.markdown("### 🧾 Preparação para emissão de NFC-e (modelo 65)")
+        st.info(
+            "Esta etapa salva somente os parâmetros básicos da NFC-e. "
+            "Ela ainda não transmite vendas à SEFAZ e não substitui o cupom atual. "
+            "A emissão real será ativada depois da validação do CSC, certificado A1, "
+            "credenciamento da empresa e dados fiscais dos produtos."
+        )
+
+        df_nfce_cfg = carregar_dados("SELECT * FROM config_nfce WHERE id = 1")
+        cfg_nfce = df_nfce_cfg.iloc[0].to_dict() if not df_nfce_cfg.empty else {}
+        with st.form("form_config_nfce"):
+            col_nfce1, col_nfce2 = st.columns(2)
+            with col_nfce1:
+                uf_nfce = st.selectbox("Estado da emissão", ["MA"], index=0, disabled=True)
+                ambiente_opcoes = ["Homologacao", "Producao"]
+                ambiente_atual = str(cfg_nfce.get("ambiente", "Homologacao"))
+                ambiente_nfce = st.selectbox(
+                    "Ambiente SEFAZ",
+                    ambiente_opcoes,
+                    index=ambiente_opcoes.index(ambiente_atual) if ambiente_atual in ambiente_opcoes else 0,
+                    format_func=lambda x: "Homologação (testes)" if x == "Homologacao" else "Produção (emissão oficial)"
+                )
+            with col_nfce2:
+                serie_nfce = st.text_input("Série da NFC-e", value=str(cfg_nfce.get("serie", "1")))
+                numero_nfce = st.number_input(
+                    "Próximo número da NFC-e", min_value=1, step=1,
+                    value=max(1, int(cfg_nfce.get("proximo_numero", 1) or 1))
+                )
+            st.caption("Modelo fiscal: 65 (NFC-e). O ambiente de produção só deverá ser usado após autorização e testes.")
+            if st.form_submit_button("💾 Salvar parâmetros da NFC-e", type="primary"):
+                if not serie_nfce.strip():
+                    st.error("Informe a série da NFC-e.")
+                else:
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        UPDATE config_nfce
+                        SET uf = ?, ambiente = ?, serie = ?, proximo_numero = ?,
+                            modelo = '65', atualizado_em = ?
+                        WHERE id = 1
+                    """, (uf_nfce, ambiente_nfce, serie_nfce.strip(), int(numero_nfce), datetime.now().isoformat(timespec="seconds")))
+                    conn.commit()
+                    st.success("Parâmetros básicos da NFC-e salvos. A emissão ainda depende das credenciais e validações fiscais.")
+                    st.rerun()
+
+        st.markdown("#### 🔐 Credenciais necessárias para ativar a emissão")
+        st.markdown(
+            "Quando estiver com o contador, serão necessários: **CSC (ID e token)**, "
+            "certificado **A1 (.pfx/.p12) e senha**, credenciamento da NFC-e na SEFAZ-MA "
+            "e os dados tributários dos produtos. As credenciais não serão gravadas "
+            "nesta tabela nem colocadas diretamente no código; serão configuradas "
+            "nos Secrets do Streamlit Cloud."
+        )
+        st.warning("Ainda não emite NFC-e oficial. Não informe dados fictícios nem mude para Produção antes da liberação da SEFAZ e da conferência do contador.")
 
         # --- GESTÃO DE CHAVES PIX MÚLTIPLAS NAS CONFIGURAÇÕES ---
         st.markdown("---")
