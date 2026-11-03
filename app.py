@@ -2889,57 +2889,67 @@ O Senhor é meu pastor nada mim faltarar.
                     except Exception as e:
                         st.error(f"❌ Erro ao limpar histórico de vendas: {e}")
 
-                # --- BOTÃO DE ESTORNO E LIMPEZA TOTAL DO CAIXA ---
+                # --- BOTÃO DE ESTORNO PRECISO POR ID (NÃO AFETA OUTRAS VENDAS) ---
                 st.markdown("---")
-                st.markdown("### 🔄 Estornar Venda e Zerar Caixa")
+                st.markdown("### 🔄 Estornar Venda Específica por ID")
                 
-                id_venda_estorno = st.number_input("Digite o ID exato da venda para estornar:", min_value=0, step=1, value=3, key="input_estorno_final_v7")
+                id_venda_estorno = st.number_input("Digite o ID exato da venda que deseja estornar:", min_value=0, step=1, value=0, key="input_estorno_preciso")
 
-                if st.button("❌ Confirmar Estorno e Limpeza", type="primary", key="btn_executar_estorno_final_v7"):
+                if st.button("❌ Confirmar Estorno da Venda", type="primary", key="btn_executar_estorno_preciso"):
                     try:
                         cursor = conn.cursor()
                         
-                        # 1. Devolve o produto ao stock
+                        # 1. Descobre qual é a tabela de itens/vendas ativa
                         cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
                         tabelas_existentes = [row[0] for row in cursor.fetchall()]
                         tabela_ativa = "itens_venda" if "itens_venda" in tabelas_existentes else ("vendas" if "vendas" in tabelas_existentes else None)
                         
+                        # 2. Busca APENAS os itens da venda com o ID especificado
+                        itens_para_estornar = []
                         if tabela_ativa:
-                            cursor.execute(f"SELECT produto, quantidade FROM {tabela_ativa} WHERE id = ?", (id_venda_estorno,))
-                            res_item = cursor.fetchone()
+                            try:
+                                cursor.execute(f"SELECT produto, quantidade FROM {tabela_ativa} WHERE id = ? OR venda_id = ?", (id_venda_estorno, id_venda_estorno))
+                                itens_para_estornar = cursor.fetchall()
+                            except Exception:
+                                pass
+
+                        if itens_para_estornar:
+                            # Devolve ao stock apenas os produtos desta venda específica
+                            for prod, qtd in itens_para_estornar:
+                                if prod:
+                                    cursor.execute("""
+                                        UPDATE produtos 
+                                        SET quantidade = quantidade + ? 
+                                        WHERE UPPER(TRIM(produto)) = UPPER(TRIM(?))
+                                    """, (float(qtd or 1.0), str(prod)))
                             
-                            if res_item:
-                                prod_nome, prod_qtd = res_item
-                                cursor.execute("""
-                                    UPDATE produtos 
-                                    SET quantidade = quantidade + ? 
-                                    WHERE UPPER(TRIM(produto)) = UPPER(TRIM(?))
-                                """, (float(prod_qtd or 1.0), str(prod_nome)))
-                            
-                            cursor.execute(f"DELETE FROM {tabela_ativa} WHERE id = ?", (id_venda_estorno,))
+                            # Apaga apenas os itens desta venda específica
+                            cursor.execute(f"DELETE FROM {tabela_ativa} WHERE id = ? OR venda_id = ?", (id_venda_estorno, id_venda_estorno))
                         
-                        # 2. Apaga de todas as tabelas financeiras, cabeçalhos e movimentos de caixa
-                        tabelas_para_limpar = ["vendas_cabecalho", "caixa_movimentos", "movimentos_caixa", "financeiro", "vendas", "caixa"]
-                        for tab_fin in tabelas_para_limpar:
-                            if tab_fin in tabelas_existentes:
+                        # 3. Apaga APENAS o cabeçalho financeiro desta venda específica
+                        if "vendas_cabecalho" in tabelas_existentes:
+                            cursor.execute("DELETE FROM vendas_cabecalho WHERE id = ?", (id_venda_estorno,))
+                            
+                        # 4. Apaga movimentos de caixa associados a este ID se existirem
+                        for tab_mov in ["caixa_movimentos", "movimentos_caixa", "financeiro"]:
+                            if tab_mov in tabelas_existentes:
                                 try:
-                                    cursor.execute(f"DELETE FROM {tab_fin}")
+                                    cursor.execute(f"DELETE FROM {tab_mov} WHERE id = ? OR venda_id = ?", (id_venda_estorno, id_venda_estorno))
                                 except Exception:
                                     pass
-                        
+
                         conn.commit()
                         
-                        # 3. Limpa a cache de dados do Streamlit
+                        # Limpa a cache do Streamlit para atualizar os totais do caixa instantaneamente
                         try:
                             st.cache_data.clear()
                         except Exception:
                             pass
                             
-                        st.success("✅ Venda estornada, stock reposto e caixa totalmente limpo com sucesso!")
+                        st.success(f"✅ Venda #{id_venda_estorno} estornada com sucesso! Os itens regressaram ao stock e o valor foi deduzido do caixa.")
                         st.rerun()
-                            
                     except Exception as e:
-                        st.error(f"❌ Erro ao estornar: {e}")
+                        st.error(f"❌ Erro ao estornar venda específica: {e}")
             else:
                 st.info("ℹ️ Nenhum registo de vendas encontrado na base de dados.")
     # -------------------------------------------------------------
