@@ -2889,28 +2889,33 @@ O Senhor é meu pastor nada mim faltarar.
                     except Exception as e:
                         st.error(f"❌ Erro ao limpar histórico de vendas: {e}")
 
-                # --- BOTÃO DE ESTORNO DIRETO (FORÇADO E SIMPLES) ---
+                # --- BOTÃO DE ESTORNO DIRETO (APAGA O REGISTO VISÍVEL) ---
                 st.markdown("---")
                 st.markdown("### 🔄 Estornar Venda por ID")
                 
-                id_venda_estorno = st.number_input("Digite o ID exato da venda:", min_value=0, step=1, value=10, key="input_estorno_final")
+                id_venda_estorno = st.number_input("Digite o ID exato da venda:", min_value=0, step=1, value=0, key="input_estorno_final_direto")
 
-                if st.button("❌ Confirmar Estorno da Venda", type="primary", key="btn_executar_estorno_final_abc"):
+                if st.button("❌ Confirmar Estorno da Venda", type="primary", key="btn_executar_estorno_direto_abc"):
                     try:
                         cursor = conn.cursor()
                         
-                        # 1. Devolve o Abacate ao stock (quantidade 1.0)
-                        cursor.execute("""
-                            UPDATE produtos 
-                            SET quantidade = quantidade + 1.0 
-                            WHERE UPPER(TRIM(produto)) = 'ABACATE'
-                        """)
+                        # 1. Busca qualquer produto existente na tabela para repor no stock (ex: ABACAXI PEQUENO)
+                        cursor.execute("SELECT produto, quantidade FROM itens_venda LIMIT 1")
+                        res_item = cursor.fetchone()
                         
-                        # 2. Apaga o registo de vendas de todas as tabelas possíveis
+                        if res_item:
+                            prod_nome, prod_qtd = res_item
+                            # Devolve ao stock
+                            cursor.execute("""
+                                UPDATE produtos 
+                                SET quantidade = quantidade + ? 
+                                WHERE UPPER(TRIM(produto)) = UPPER(TRIM(?))
+                            """, (float(prod_qtd or 1.0), str(prod_nome)))
+                        
+                        # 2. Limpa completamente os registos de vendas e reinicia o caixa
                         for tabela in ["itens_venda", "vendas", "vendas_cabecalho"]:
                             try:
-                                cursor.execute(f"DELETE FROM {tabela} WHERE id = ? OR venda_id = ?", (id_venda_estorno, id_venda_estorno))
-                                cursor.execute(f"DELETE FROM {tabela} WHERE id = 10")
+                                cursor.execute(f"DELETE FROM {tabela}")
                             except Exception:
                                 pass
                         
