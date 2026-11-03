@@ -2906,27 +2906,26 @@ O Senhor é meu pastor nada mim faltarar.
                             cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
                             tabelas_existentes = [row[0] for row in cursor.fetchall()]
                             
-                            # 2. Devolve o produto ao estoque buscando por ID ou venda_id
-                            for tabela_item in ["itens_venda", "vendas"]:
-                                if tabela_item in tabelas_existentes:
-                                    try:
-                                        # Tenta buscar das duas formas para garantir que vai achar os produtos vendidos
-                                        cursor.execute(f"SELECT produto, quantidade FROM {tabela_item} WHERE id = ? OR venda_id = ? OR id_venda = ?", (id_venda_estorno, id_venda_estorno, id_venda_estorno))
-                                        itens = cursor.fetchall()
-                                        for prod, qtd in itens:
-                                            if prod:
-                                                cursor.execute("""
-                                                    UPDATE produtos 
-                                                    SET quantidade = quantidade + ? 
-                                                    WHERE UPPER(TRIM(nome)) = UPPER(TRIM(?)) OR UPPER(TRIM(produto)) = UPPER(TRIM(?))
-                                                """, (float(qtd or 1.0), str(prod), str(prod)))
-                                        
-                                        # Apaga os itens para sumir com o valor do cálculo do SUM
-                                        cursor.execute(f"DELETE FROM {tabela_item} WHERE id = ? OR venda_id = ? OR id_venda = ?", (id_venda_estorno, id_venda_estorno, id_venda_estorno))
-                                    except Exception:
-                                        pass
+                            # Determina qual é a tabela de histórico exibida na aba
+                            tabela_vendas_alvo = "itens_venda" if "itens_venda" in tabelas_existentes else "vendas"
+                            
+                            # 2. Devolve o produto ao estoque localizando pelo ID principal
+                            if tabela_vendas_alvo in tabelas_existentes:
+                                cursor.execute(f"SELECT produto, quantidade FROM {tabela_vendas_alvo} WHERE id = ?", (id_venda_estorno,))
+                                itens = cursor.fetchall()
+                                for prod, qtd in itens:
+                                    if prod:
+                                        # Ajustado para atualizar a coluna 'produto' ou 'nome' conforme sua estrutura
+                                        cursor.execute("""
+                                            UPDATE produtos 
+                                            SET quantidade = quantidade + ? 
+                                            WHERE UPPER(TRIM(produto)) = UPPER(TRIM(?)) OR UPPER(TRIM(nome)) = UPPER(TRIM(?))
+                                        """, (float(qtd or 1.0), str(prod), str(prod)))
+                                
+                                # DELETA diretamente a linha da tabela que gera os R$ 117.00 na tela
+                                cursor.execute(f"DELETE FROM {tabela_vendas_alvo} WHERE id = ?", (id_venda_estorno,))
 
-                            # 3. Limpa todas as tabelas financeiras e movimentos vinculados a esse ID de venda
+                            # 3. Limpa todas as ramificações financeiras e caixas abertos vinculados
                             tabelas_para_zerar = [
                                 "vendas_cabecalho", "caixa_movimentos", "movimentos_caixa", 
                                 "financeiro", "caixa", "caixas", "transacoes", "sessao_caixa",
@@ -2936,17 +2935,11 @@ O Senhor é meu pastor nada mim faltarar.
                             for tab in tabelas_para_zerar:
                                 if tab in tabelas_existentes:
                                     try:
-                                        # Remove das tabelas financeiras usando qualquer variação de coluna de ID de venda
-                                        cursor.execute(f"DELETE FROM {tab} WHERE id = ? OR venda_id = ? OR id_venda = ? OR codigo_venda = ?", (id_venda_estorno, id_venda_estorno, id_venda_estorno, id_venda_estorno))
+                                        cursor.execute(f"DELETE FROM {tab} WHERE id = ? OR venda_id = ? OR id_venda = ?", (id_venda_estorno, id_venda_estorno, id_venda_estorno))
                                     except Exception:
                                         pass
                                     try:
-                                        # Limpeza forçada caso o valor esteja gravado direto na linha do caixa
-                                        cursor.execute(f"DELETE FROM {tab} WHERE total = 117.0 OR total = 117 OR valor = 117.0 OR valor = 117")
-                                    except Exception:
-                                        pass
-                                    try:
-                                        # Reseta os totais acumulados da sessão ativa para recalcular do zero
+                                        # Zera os acumuladores da sessão ativa para recalcular as somas sem a venda excluída
                                         cursor.execute(f"UPDATE {tab} SET total_vendas = 0.0, total_movimentado = 0.0, total = 0.0 WHERE status = 'ABERTO'")
                                     except Exception:
                                         pass
@@ -2958,11 +2951,11 @@ O Senhor é meu pastor nada mim faltarar.
                             except Exception:
                                 pass
                                 
-                            st.success(f"✅ Venda #{id_venda_estorno} estornada com sucesso! Estoque atualizado e valor removido do caixa.")
+                            st.success(f"✅ Venda #{id_venda_estorno} estornada com sucesso! Estoque devolvido e histórico atualizado.")
                             st.rerun()
                             
                         except Exception as e:
-                            st.error(f"❌ Erro ao estornar: {e}")
+                            st.error(f"❌ Erro ao executar o estorno no banco: {e}")
             else:
                 st.info("ℹ️ Nenhum registo de vendas encontrado na base de dados.")
     # -------------------------------------------------------------
