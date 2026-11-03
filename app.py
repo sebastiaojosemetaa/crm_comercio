@@ -754,7 +754,7 @@ O Senhor é meu pastor nada mim faltarar.
                             sessao_id = int(df_caixa_aberto.iloc[0]['id'])
                             data_venda = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                             vendedor_atual = usr_exibicao
-                            # Cria a tabela de cabeçalho caso não exista e grava a venda
+                            # Garante que a tabela existe
                             cursor.execute("""
                                 CREATE TABLE IF NOT EXISTS vendas_cabecalho (
                                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -766,15 +766,18 @@ O Senhor é meu pastor nada mim faltarar.
                                 )
                             """)
                             
+                            # Define com segurança a forma de pagamento baseada no que foi escolhido
+                            desc_pagamento = str(locals().get('forma_pagto', 'Dinheiro'))
+                            
                             cursor.execute("""
                                 INSERT INTO vendas_cabecalho (cliente, data, forma_pagamento, total, utilizador)
                                 VALUES (?, ?, ?, ?, ?)
                             """, (
-                                cliente_pdv_selecionado, 
-                                data_venda, 
-                                forma_pagto,   # <-- alterado para forma_pagto
-                                total_geral_carrinho, 
-                                vendedor_atual
+                                str(locals().get('cliente_pdv_selecionado', 'Cliente Balcão')), 
+                                str(data_venda), 
+                                desc_pagamento, 
+                                float(total_geral_carrinho), 
+                                str(vendedor_atual)
                             ))
                             
                             venda_id_gerado = cursor.lastrowid
