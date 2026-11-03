@@ -2915,12 +2915,12 @@ O Senhor é meu pastor nada mim faltarar.
                                 itens = cursor.fetchall()
                                 for prod, qtd in itens:
                                     if prod:
-                                        # Ajustado para atualizar a coluna 'produto' ou 'nome' conforme sua estrutura
+                                        # Corrigido: Usando apenas a coluna 'produto' que existe na sua tabela de produtos
                                         cursor.execute("""
                                             UPDATE produtos 
                                             SET quantidade = quantidade + ? 
-                                            WHERE UPPER(TRIM(produto)) = UPPER(TRIM(?)) OR UPPER(TRIM(nome)) = UPPER(TRIM(?))
-                                        """, (float(qtd or 1.0), str(prod), str(prod)))
+                                            WHERE UPPER(TRIM(produto)) = UPPER(TRIM(?))
+                                        """, (float(qtd or 1.0), str(prod)))
                                 
                                 # DELETA diretamente a linha da tabela que gera os R$ 117.00 na tela
                                 cursor.execute(f"DELETE FROM {tabela_vendas_alvo} WHERE id = ?", (id_venda_estorno,))
