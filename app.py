@@ -2889,13 +2889,13 @@ O Senhor é meu pastor nada mim faltarar.
                     except Exception as e:
                         st.error(f"❌ Erro ao limpar histórico de vendas: {e}")
 
-                # --- BOTÃO DE ESTORNO COMPLETO COM LIMPEZA DE CACHE ---
+                # --- BOTÃO DE ESTORNO E LIMPEZA TOTAL DO CAIXA ---
                 st.markdown("---")
-                st.markdown("### 🔄 Estornar Venda e Caixa")
+                st.markdown("### 🔄 Estornar Venda e Zerar Caixa")
                 
-                id_venda_estorno = st.number_input("Digite o ID exato da venda para estornar:", min_value=0, step=1, value=3, key="input_estorno_final_v6")
+                id_venda_estorno = st.number_input("Digite o ID exato da venda para estornar:", min_value=0, step=1, value=3, key="input_estorno_final_v7")
 
-                if st.button("❌ Confirmar Estorno Completo", type="primary", key="btn_executar_estorno_final_v6"):
+                if st.button("❌ Confirmar Estorno e Limpeza", type="primary", key="btn_executar_estorno_final_v7"):
                     try:
                         cursor = conn.cursor()
                         
@@ -2918,23 +2918,24 @@ O Senhor é meu pastor nada mim faltarar.
                             
                             cursor.execute(f"DELETE FROM {tabela_ativa} WHERE id = ?", (id_venda_estorno,))
                         
-                        # 2. Apaga de todas as tabelas financeiras e de cabeçalho
-                        for tab_fin in ["vendas_cabecalho", "caixa_movimentos", "movimentos_caixa", "financeiro", "vendas"]:
+                        # 2. Apaga de todas as tabelas financeiras, cabeçalhos e movimentos de caixa
+                        tabelas_para_limpar = ["vendas_cabecalho", "caixa_movimentos", "movimentos_caixa", "financeiro", "vendas", "caixa"]
+                        for tab_fin in tabelas_para_limpar:
                             if tab_fin in tabelas_existentes:
                                 try:
-                                    cursor.execute(f"DELETE FROM {tab_fin} WHERE id = ? OR total = 117.0 OR total = 117", (id_venda_estorno,))
+                                    cursor.execute(f"DELETE FROM {tab_fin}")
                                 except Exception:
                                     pass
                         
                         conn.commit()
                         
-                        # 3. Limpa a cache de dados do Streamlit para atualizar o caixa imediatamente
+                        # 3. Limpa a cache de dados do Streamlit
                         try:
                             st.cache_data.clear()
                         except Exception:
                             pass
                             
-                        st.success(f"✅ Venda #{id_venda_estorno} estornada com sucesso! Stock reposto e caixa atualizado.")
+                        st.success("✅ Venda estornada, stock reposto e caixa totalmente limpo com sucesso!")
                         st.rerun()
                             
                     except Exception as e:
