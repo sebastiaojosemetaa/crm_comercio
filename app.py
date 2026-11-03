@@ -846,6 +846,18 @@ O Senhor é meu pastor nada mim faltarar.
                                     VALUES (?, ?, ?, 'Pendente', ?)
                                 """, (cliente_pdv_selecionado, total_geral_carrinho, data_vencimento_fiado_val, f"Venda PDV #{venda_id_gerado} - Fiado"))
 
+                            # Insere os itens da venda no histórico para permitir o estorno
+                            for item in st.session_state.get('carrinho_temp_para_imprimir', []):
+                                cursor.execute("""
+                                    INSERT INTO vendas_itens (venda_id, produto, quantidade, valor_unitario, valor_total)
+                                    VALUES (?, ?, ?, ?, ?)
+                                """, (
+                                    venda_id_gerado, 
+                                    item.get('produto'), 
+                                    float(item.get('quantidade', 1.0)), 
+                                    float(item.get('preco_unitario', 0.0)), 
+                                    float(item.get('valor_total', 0.0))
+                                ))
                             conn.commit()
                             
                             # MONTA A LISTA DE ITENS CORRETAMENTE FECHADA
