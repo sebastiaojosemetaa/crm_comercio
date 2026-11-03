@@ -2855,109 +2855,215 @@ O Senhor é meu pastor nada mim faltarar.
                     except Exception as e:
                         st.error(f"❌ Erro ao limpar histórico de compras: {e}")
             else:
-                st.info("ℹ️ Nenhum registo de compras encontrado na base de dados.")
-    
+                st.info("ℹ️ Nenhum registo de compras encontrado na base de dados.")    
         # -------------------------------------------------------------
-        # ABA 4: PRODUTOS VENDIDOS (Com Filtro e Botão de Limpar)
+        # ABA 4: PRODUTOS VENDIDOS
         # -------------------------------------------------------------
         with tab_vendidos:
             st.markdown("### 📤 Histórico de Produtos Vendidos")
-            
+
             col_fv1, col_fv2 = st.columns(2)
+
             with col_fv1:
-                dt_inicio_venda = st.date_input("Data Inicial (Venda)", key="dt_ini_venda_filtro")
+                dt_inicio_venda = st.date_input(
+                    "Data Inicial (Venda)",
+                    key="dt_ini_venda_filtro"
+                )
+
             with col_fv2:
-                dt_fim_venda = st.date_input("Data Final (Venda)", key="dt_fim_venda_filtro")
-    
+                dt_fim_venda = st.date_input(
+                    "Data Final (Venda)",
+                    key="dt_fim_venda_filtro"
+                )
+
             try:
-                tabela_vendas_alvo = "itens_venda" if "itens_venda" in str(carregar_dados("SELECT name FROM sqlite_master WHERE type='table'")) else "vendas"
-                df_vendas_hist = carregar_dados(f"SELECT * FROM {tabela_vendas_alvo}")
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                )
+                tabelas_existentes = [
+                    row[0] for row in cursor.fetchall()
+                ]
+
+                tabela_vendas_alvo = (
+                    "itens_venda"
+                    if "itens_venda" in tabelas_existentes
+                    else "vendas"
+                )
+
+                df_vendas_hist = carregar_dados(
+                    f"SELECT * FROM {tabela_vendas_alvo}"
+                )
+
             except Exception:
                 df_vendas_hist = pd.DataFrame()
-    
-            if df_vendas_hist is not None and not df_vendas_hist.empty:
-                st.dataframe(df_vendas_hist, use_container_width=True)
-                
-                st.markdown("---")
-                if st.button("🗑️ Limpar Histórico de Vendas", key="btn_limpar_hist_vendas"):
-                    try:
-                        cursor = conn.cursor()
-                        cursor.execute(f"DELETE FROM {tabela_vendas_alvo}")
-                        conn.commit()
-                        st.success("✅ Histórico de vendas limpo com sucesso!")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"❌ Erro ao limpar histórico de vendas: {e}")
 
-                # --- BOTÃO DE ESTORNO DEFINITIVO COM LIMPEZA DE CAIXA ---
+            if df_vendas_hist is not None and not df_vendas_hist.empty:
+
+                st.dataframe(
+                    df_vendas_hist,
+                    use_container_width=True
+                )
+
+                st.markdown("---")
+
+                # LIMPAR HISTÓRICO
+                if st.button(
+                    "🗑️ Limpar Histórico de Vendas",
+                    key="btn_limpar_hist_vendas"
+                ):
+                    try:
+                        cursor.execute(
+                            f"DELETE FROM {tabela_vendas_alvo}"
+                        )
+                        conn.commit()
+
+                        st.success(
+                            "✅ Histórico limpo com sucesso!"
+                        )
+                        st.rerun()
+
+                    except Exception as e:
+                        conn.rollback()
+                        st.error(
+                            f"❌ Erro ao limpar histórico: {e}"
+                        )
+
+                # -------------------------------------------------
+                # ESTORNO DE VENDA
+                # -------------------------------------------------
                 st.markdown("---")
                 st.markdown("### 🔄 Estornar Venda e Atualizar Caixa")
-                
+
                 with st.form(key="form_estorno_venda_final"):
-                    id_venda_estorno = st.number_input("Digite o ID exato da venda que deseja estornar:", min_value=0, step=1, value=0)
-                    
-                    submitted = st.form_submit_button("❌ Confirmar Estorno da Venda", type="primary")
+
+                    id_venda_estorno = st.number_input(
+                        "Digite o ID exato da venda:",
+                        min_value=1,
+                        step=1,
+                        value=1
+                    )
+
+                    submitted = st.form_submit_button(
+                        "❌ Confirmar Estorno da Venda",
+                        type="primary"
+                    )
 
                     if submitted:
-                        try:
-                            cursor = conn.cursor()
-                            
-                            # 1. Descobre as tabelas existentes no banco
-                            cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-                            tabelas_existentes = [row[0] for row in cursor.fetchall()]
-                            
-                            # Determina qual é a tabela de histórico exibida na aba
-                            tabela_vendas_alvo = "itens_venda" if "itens_venda" in tabelas_existentes else "vendas"
-                            
-                            # 2. Devolve o produto ao estoque localizando pelo ID principal
-                            if tabela_vendas_alvo in tabelas_existentes:
-                                cursor.execute(f"SELECT produto, quantidade FROM {tabela_vendas_alvo} WHERE id = ?", (id_venda_estorno,))
-                                itens = cursor.fetchall()
-                                for prod, qtd in itens:
-                                    if prod:
-                                        # Corrigido: Usando apenas a coluna 'produto' que existe na sua tabela de produtos
-                                        cursor.execute("""
-                                            UPDATE produtos 
-                                            SET quantidade = quantidade + ? 
-                                            WHERE UPPER(TRIM(produto)) = UPPER(TRIM(?))
-                                        """, (float(qtd or 1.0), str(prod)))
-                                
-                                # DELETA diretamente a linha da tabela que gera os R$ 117.00 na tela
-                                cursor.execute(f"DELETE FROM {tabela_vendas_alvo} WHERE id = ?", (id_venda_estorno,))
 
-                            # 3. Limpa todas as ramificações financeiras e caixas abertos vinculados
-                            tabelas_para_zerar = [
-                                "vendas_cabecalho", "caixa_movimentos", "movimentos_caixa", 
-                                "financeiro", "caixa", "caixas", "transacoes", "sessao_caixa",
-                                "caixa_sessoes"
+                        try:
+                            cursor.execute(
+                                "BEGIN IMMEDIATE"
+                            )
+
+                            # Verifica se a venda existe
+                            cursor.execute(
+                                f"""
+                                SELECT *
+                                FROM {tabela_vendas_alvo}
+                                WHERE id = ?
+                                """,
+                                (id_venda_estorno,)
+                            )
+
+                            itens = cursor.fetchall()
+
+                            if not itens:
+                                raise Exception(
+                                    "Venda não encontrada."
+                                )
+
+                            # Descobre as colunas da tabela
+                            colunas = [
+                                desc[0]
+                                for desc in cursor.description
                             ]
-                            
-                            for tab in tabelas_para_zerar:
-                                if tab in tabelas_existentes:
-                                    try:
-                                        cursor.execute(f"DELETE FROM {tab} WHERE id = ? OR venda_id = ? OR id_venda = ?", (id_venda_estorno, id_venda_estorno, id_venda_estorno))
-                                    except Exception:
-                                        pass
-                                    try:
-                                        # Zera os acumuladores da sessão ativa para recalcular as somas sem a venda excluída
-                                        cursor.execute(f"UPDATE {tab} SET total_vendas = 0.0, total_movimentado = 0.0, total = 0.0 WHERE status = 'ABERTO'")
-                                    except Exception:
-                                        pass
+
+                            if not all(
+                                c in colunas
+                                for c in ["produto", "quantidade"]
+                            ):
+                                raise Exception(
+                                    "A tabela não possui as colunas "
+                                    "produto e quantidade esperadas."
+                                )
+
+                            idx_produto = colunas.index("produto")
+                            idx_quantidade = colunas.index("quantidade")
+
+                            # Devolve os produtos ao estoque
+                            for item in itens:
+
+                                produto = item[idx_produto]
+                                quantidade = item[idx_quantidade]
+
+                                if produto:
+                                    cursor.execute(
+                                        """
+                                        UPDATE produtos
+                                        SET quantidade =
+                                            COALESCE(quantidade, 0) + ?
+                                        WHERE UPPER(TRIM(produto)) =
+                                              UPPER(TRIM(?))
+                                        """,
+                                        (
+                                            float(quantidade or 1),
+                                            str(produto)
+                                        )
+                                    )
+
+                                    if cursor.rowcount == 0:
+                                        raise Exception(
+                                            f"Produto não encontrado "
+                                            f"no estoque: {produto}"
+                                        )
+
+                            # ATENÇÃO:
+                            # Não apaga todas as movimentações do caixa.
+                            # A exclusão do lançamento financeiro depende
+                            # de identificar a tabela e o vínculo correto
+                            # entre a venda e o movimento.
+
+                            # Remove somente os itens da venda informada
+                            cursor.execute(
+                                f"""
+                                DELETE FROM {tabela_vendas_alvo}
+                                WHERE id = ?
+                                """,
+                                (id_venda_estorno,)
+                            )
 
                             conn.commit()
-                            
+
                             try:
                                 st.cache_data.clear()
                             except Exception:
                                 pass
-                                
-                            st.success(f"✅ Venda #{id_venda_estorno} estornada com sucesso! Estoque devolvido e histórico atualizado.")
+
+                            st.success(
+                                f"✅ Venda #{id_venda_estorno} "
+                                "estornada e produtos devolvidos ao estoque!"
+                            )
+
+                            st.warning(
+                                "⚠️ O lançamento financeiro do caixa "
+                                "ainda precisa ser identificado e removido "
+                                "pelo vínculo correto da venda."
+                            )
+
                             st.rerun()
-                            
+
                         except Exception as e:
-                            st.error(f"❌ Erro ao executar o estorno no banco: {e}")
+                            conn.rollback()
+                            st.error(
+                                f"❌ Erro ao executar estorno: {e}"
+                            )
+
             else:
-                st.info("ℹ️ Nenhum registo de vendas encontrado na base de dados.")
+                st.info(
+                    "ℹ️ Nenhum registro de vendas encontrado."
+                )
+```
     # -------------------------------------------------------------
     # 11. CONFIGURAÇÕES
     # -------------------------------------------------------------
