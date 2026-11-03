@@ -2890,6 +2890,40 @@ O Senhor é meu pastor nada mim faltarar.
                         st.rerun()
                     except Exception as e:
                         st.error(f"❌ Erro ao limpar histórico de vendas: {e}")
+
+                # --- BOTÃO DE ESTORNO DIRETO NESTA TELA ---
+                st.markdown("---")
+                st.markdown("### 🔄 Estornar Venda por ID")
+                id_venda_estorno = st.number_input("Digite o ID da venda que deseja estornar:", min_value=0, step=1, key="input_estorno_aba_produtos")
+
+                if st.button("❌ Confirmar Estorno da Venda", type="primary", key="btn_executar_estorno_aba"):
+                    try:
+                        cursor = conn.cursor()
+                        
+                        # 1. Busca os itens da venda para devolver ao stock
+                        cursor.execute("SELECT produto, quantidade FROM vendas_itens WHERE venda_id = ?", (id_venda_estorno,))
+                        itens_venda = cursor.fetchall()
+                        
+                        if itens_venda:
+                            # 2. Devolve os produtos ao stock
+                            for prod, qtd in itens_venda:
+                                cursor.execute("""
+                                    UPDATE produtos 
+                                    SET quantidade = quantidade + ? 
+                                    WHERE UPPER(TRIM(produto)) = UPPER(TRIM(?))
+                                """, (qtd, prod))
+                            
+                            # 3. Remove a venda do registo/histórico
+                            cursor.execute("DELETE FROM vendas_itens WHERE venda_id = ?", (id_venda_estorno,))
+                            cursor.execute("DELETE FROM vendas_cabecalho WHERE id = ?", (id_venda_estorno,))
+                            
+                            conn.commit()
+                            st.success(f"✅ Venda #{id_venda_estorno} estornada com sucesso! Os itens regressaram ao stock.")
+                            st.rerun()
+                        else:
+                            st.warning(f"⚠️ Nenhuma venda encontrada com o ID #{id_venda_estorno}.")
+                    except Exception as e:
+                        st.error(f"❌ Erro ao estornar venda: {e}")
             else:
                 st.info("ℹ️ Nenhum registo de vendas encontrado na base de dados.")
     # -------------------------------------------------------------
