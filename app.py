@@ -325,96 +325,42 @@ with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
             ["Teste (7 Dias)", "Mensal (30 Dias)", "Anual (365 Dias)", "Personalizado (Dias Livres)"],
             key="select_tipo_plano_dev"
         )
-        # --- BOTÃO DE EMERGÊNCIA PARA LIMPAR DISPOSITIVOS ---
-        if st.sidebar.button("🗑️ Limpar Todos os Dispositivos", type="primary"):
-            try:
-                cursor = conn.cursor()
-                cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-                for tab in [r[0] for r in cursor.fetchall()]:
-                    if any(k in tab.lower() for k in ["dispositivo", "device", "licenca", "ativacao"]):
-                        cursor.execute(f"DELETE FROM {tab}")
-                conn.commit()
-                st.session_state['dispositivo_ativado'] = False
-                st.success("✅ Dispositivos limpos! Atualize a página.")
-                st.rerun()
-            except Exception as e:
-                st.error(f"Erro: {e}")
-        dias_personalizados = 30
-        if "Personalizado" in tipo_plano:
-            dias_personalizados = st.number_input("Dias de validade:", min_value=1, max_value=730, value=15, key="dias_pers_dev")
-        
-        doc_cliente = st.text_input("CNPJ ou CPF do Cliente:", key="doc_dev_topo_doc")
-
-        limite_dev_topo = st.number_input("Limite de Dispositivos:", min_value=1, max_value=50, value=1, key="limite_dev_topo_num")
-
-        if st.button("Gerar Chave", key="btn_dev_topo_acao"):
-            if doc_cliente.strip():
-                import uuid
-                import datetime
-
-                if "Teste" in tipo_plano:
-                    dias_validade = 7
-                    sufixo_tipo = "TESTE"
-                elif "Mensal" in tipo_plano:
-                    dias_validade = 30
-                    sufixo_tipo = "MENSAL"
-                elif "Anual" in tipo_plano:
-                    dias_validade = 365
-                    sufixo_tipo = "ANUAL"
-                else:
-                    dias_validade = dias_personalizados
-                    sufixo_tipo = "CUSTOM"
-
-                doc_limpo = ''.join(filter(str.isdigit, str(doc_cliente)))
-                token_aleatorio = str(uuid.uuid4()).upper()[:6]
-                timestamp_atual = datetime.datetime.now().strftime("%d%m%Y%H%M%S")
-
-                base_hash_str = doc_limpo + "REY_CEBOLA_2026" + sufixo_tipo + str(limite_dev_topo) + str(dias_validade) + timestamp_atual + token_aleatorio
-                hash_hex = hashlib.md5(base_hash_str.encode()).hexdigest().upper()
-
-                chave_gerada = f"CRM-{sufixo_tipo}-{limite_dev_topo}DEV-{dias_validade}D-{hash_hex[:4]}-{hash_hex[4:8]}"
-                link_acesso = f"https://crmcomercio-bqofgjfpnvferb7cw4rike.streamlit.app/?chave={chave_gerada}"
-
-                st.success("Chave gerada com sucesso!")
-                st.code(chave_gerada, language="text")
-                st.code(link_acesso, language="text")
-                st.link_button("🌐 Abrir CRM com esta chave", link_acesso)
-            else:
-                st.warning("Informe o CNPJ ou CPF.")
-
+        # --- BOTÃO DE RESET TOTAL DE DISPOSITIVOS ---
         st.markdown("---")
-        st.markdown("### 🗑️ Gestão de Limites")
-        
-        # Botão visível de reset
-        if st.button("Resetar / Limpar Dispositivos", key="btn_resetar_dispositivos_dev_direto", type="primary"):
+        if st.button("🗑️ Forçar Limpeza de Dispositivos", type="primary", key="btn_forcar_limpeza_total"):
             try:
                 cursor = conn.cursor()
+                
+                # Lista todas as tabelas para encontrarmos a correta
                 cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-                tabelas_existentes = [row[0] for row in cursor.fetchall()]
+                tabelas = [row[0] for row in cursor.fetchall()]
                 
-                tabelas_alvo = [t for t in tabelas_existentes if any(termo in t.lower() for termo in ["dispositivo", "device", "licenca", "ativacao"])]
-                
-                if tabelas_alvo:
-                    for tab in tabelas_alvo:
+                tabelas_limpas = []
+                for tab in tabelas:
+                    # Apaga dados de qualquer tabela ligada a dispositivos, ativação ou licenças
+                    if any(k in tab.lower() for k in ["dispositivo", "device", "licenca", "ativacao", "token"]):
                         cursor.execute(f"DELETE FROM {tab}")
-                    conn.commit()
-                    
-                    try:
-                        st.cache_data.clear()
-                    except Exception:
-                        pass
-                        
-                    st.session_state['dispositivo_ativado'] = False
-                    st.success("✅ Dispositivos limpos! O limite foi reposto.")
-                    st.rerun()
+                        tabelas_limpas.append(tab)
+                
+                conn.commit()
+                
+                # Limpa a cache e o estado da sessão
+                try:
+                    st.cache_data.clear()
+                except Exception:
+                    pass
+                
+                st.session_state['dispositivo_ativado'] = False
+                
+                if tabelas_limpas:
+                    st.success(f"✅ Sucesso! Tabelas limpas: {', '.join(tabelas_limpas)}. Atualize a página.")
                 else:
-                    # Se não encontrar tabela específica, limpa dados da sessão atual
-                    st.session_state['dispositivo_ativado'] = False
-                    st.success("✅ Estado de dispositivo limpo com sucesso!")
-                    st.rerun()
+                    st.warning("⚠️ Nenhuma tabela específica de dispositivos detetada. Verifique se o nome é diferente.")
+                
+                st.rerun()
+                
             except Exception as e:
-                st.error(f"❌ Erro: {e}")
-
+                st.error(f"❌ Erro ao limpar: {e}")
 st.sidebar.title("🔑 Acesso ao Sistema")
 st.sidebar.radio("Selecione o Perfil:", ["🔒 Administração / Vendedor"], key="perfil_principal_radio")
 st.sidebar.markdown("---")
