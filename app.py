@@ -3236,6 +3236,35 @@ O Senhor é meu pastor nada mim faltarar.
                     f"❌ Limite atingido! O limite máximo de "
                     f"{limite_permitido} dispositivo(s) já foi alcançado."
                 )
+                # --- BOTÃO DIRETO DE RESET DE DISPOSITIVOS ---
+                st.markdown("---")
+                if st.button("🗑️ Limpar / Resetar Dispositivos Autorizados", type="primary"):
+                    try:
+                        cursor = conn.cursor()
+                        cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+                        tabelas_existentes = [row[0] for row in cursor.fetchall()]
+                        
+                        tabelas_alvo = [t for t in tabelas_existentes if any(termo in t.lower() for termo in ["dispositivo", "device", "licenca", "ativacao"])]
+                        
+                        if tabelas_alvo:
+                            for tab in tabelas_alvo:
+                                cursor.execute(f"DELETE FROM {tab}")
+                            conn.commit()
+                            
+                            try:
+                                st.cache_data.clear()
+                            except Exception:
+                                pass
+                                
+                            st.session_state['dispositivo_ativado'] = False
+                            st.success("✅ Dispositivos limpos com sucesso! O sistema está livre para novas ativações.")
+                            st.rerun()
+                        else:
+                            st.session_state['dispositivo_ativado'] = False
+                            st.success("✅ Estado limpo com sucesso!")
+                            st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Erro ao limpar: {e}")
             else:
                 st.warning(
                     "⚠️ Insira a chave de ativação para liberar este dispositivo."
