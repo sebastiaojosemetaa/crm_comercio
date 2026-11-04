@@ -328,7 +328,13 @@ with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
     )
 
     if senha_dev == "13142715":
+st.sidebar.markdown("---")
 
+st.sidebar.button(
+    "🗑️ RESETAR / LIMPAR DISPOSITIVOS",
+    key="teste_botao_reset",
+    use_container_width=True
+)
         tipo_plano = st.selectbox(
             "Tipo de Chave:",
             [
