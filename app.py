@@ -313,62 +313,75 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# -------------------------------------------------------------
-# PAINEL LATERAL (DEV) — GERADOR DE CHAVES E GESTÃO
-# -------------------------------------------------------------
-with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
-    senha_dev = st.text_input("Senha Mestre Dev", type="password", key="pwd_dev_topo")
 
-    if senha_dev == "13142715":
-        tipo_plano = st.selectbox(
-            "Tipo de Chave:",
-            ["Teste (7 Dias)", "Mensal (30 Dias)", "Anual (365 Dias)", "Personalizado (Dias Livres)"],
-            key="select_tipo_plano_dev"
-        )
-        # --- BOTÃO DE RESET TOTAL DE DISPOSITIVOS ---
-        st.markdown("---")
-        if st.button("🗑️ Forçar Limpeza de Dispositivos", type="primary", key="btn_forcar_limpeza_total"):
-            try:
-                cursor = conn.cursor()
-                
-                # Lista todas as tabelas para encontrarmos a correta
-                cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-                tabelas = [row[0] for row in cursor.fetchall()]
-                
-                tabelas_limpas = []
-                for tab in tabelas:
-                    # Apaga dados de qualquer tabela ligada a dispositivos, ativação ou licenças
-                    if any(k in tab.lower() for k in ["dispositivo", "device", "licenca", "ativacao", "token"]):
-                        cursor.execute(f"DELETE FROM {tab}")
-                        tabelas_limpas.append(tab)
-                
-                conn.commit()
-                
-                # Limpa a cache e o estado da sessão
-                try:
-                    st.cache_data.clear()
-                except Exception:
-                    pass
-                
-                st.session_state['dispositivo_ativado'] = False
-                
-                if tabelas_limpas:
-                    st.success(f"✅ Sucesso! Tabelas limpas: {', '.join(tabelas_limpas)}. Atualize a página.")
-                else:
-                    st.warning("⚠️ Nenhuma tabela específica de dispositivos detetada. Verifique se o nome é diferente.")
-                
-                st.rerun()
-                
-            except Exception as e:
-                st.error(f"❌ Erro ao limpar: {e}")
-st.sidebar.title("🔑 Acesso ao Sistema")
-st.sidebar.radio("Selecione o Perfil:", ["🔒 Administração / Vendedor"], key="perfil_principal_radio")
-st.sidebar.markdown("---")
-if st.session_state.get('dispositivo_ativado', False):
-    st.sidebar.success("🟢 Dispositivo Ativado")
-else:
-    st.sidebar.error("🔴 Dispositivo Não Ativado")
-st.sidebar.markdown("---")
+# --- BOTÕES LADO A LADO ---
+col_gerar, col_reset = st.columns(2)
+
+with col_gerar:
+    botao_gerar = st.button(
+        "🔑 Gerar Chave",
+        key="btn_dev_topo_acao",
+        use_container_width=True
+    )
+
+with col_reset:
+    botao_reset = st.button(
+        "🗑️ Resetar",
+        key="btn_reset_dispositivos",
+        use_container_width=True
+    )
+
+# --- GERAÇÃO DA CHAVE ---
+if botao_gerar:
+    # Coloque aqui o código atual que gera sua chave
+    pass
+
+# --- SOLICITAÇÃO DE RESET ---
+if botao_reset:
+    st.session_state["confirmar_reset_dispositivos"] = True
+
+# --- CONFIRMAÇÃO DO RESET ---
+if st.session_state.get("confirmar_reset_dispositivos", False):
+
+    st.warning(
+        "Atenção! Isso desautorizará todos os dispositivos "
+        "registrados, mas preservará os dados da empresa."
+    )
+
+    confirmar = st.button(
+        "⚠️ CONFIRMAR LIMPEZA",
+        key="btn_confirmar_reset_dispositivos"
+    )
+
+    cancelar = st.button(
+        "Cancelar",
+        key="btn_cancelar_reset_dispositivos"
+    )
+
+    if confirmar:
+        try:
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                UPDATE empresas_dispositivos
+                SET ativado = 0
+            """)
+
+            conn.commit()
+
+            st.session_state["dispositivo_ativado"] = False
+            st.session_state["confirmar_reset_dispositivos"] = False
+
+            st.success("Dispositivos desautorizados com sucesso!")
+            st.rerun()
+
+        except Exception as e:
+            conn.rollback()
+            st.error(f"Erro ao limpar dispositivos: {e}")
+
+    if cancelar:
+        st.session_state["confirmar_reset_dispositivos"] = False
+        st.rerun()
 
 # ==========================================
 # ECRÃ DE LOGIN OU INTERFACE PRINCIPAL
