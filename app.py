@@ -325,7 +325,20 @@ with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
             ["Teste (7 Dias)", "Mensal (30 Dias)", "Anual (365 Dias)", "Personalizado (Dias Livres)"],
             key="select_tipo_plano_dev"
         )
-        
+        # --- BOTÃO DE EMERGÊNCIA PARA LIMPAR DISPOSITIVOS ---
+        if st.sidebar.button("🗑️ Limpar Todos os Dispositivos", type="primary"):
+            try:
+                cursor = conn.cursor()
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+                for tab in [r[0] for r in cursor.fetchall()]:
+                    if any(k in tab.lower() for k in ["dispositivo", "device", "licenca", "ativacao"]):
+                        cursor.execute(f"DELETE FROM {tab}")
+                conn.commit()
+                st.session_state['dispositivo_ativado'] = False
+                st.success("✅ Dispositivos limpos! Atualize a página.")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Erro: {e}")
         dias_personalizados = 30
         if "Personalizado" in tipo_plano:
             dias_personalizados = st.number_input("Dias de validade:", min_value=1, max_value=730, value=15, key="dias_pers_dev")
