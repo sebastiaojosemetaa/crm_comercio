@@ -377,7 +377,7 @@ with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
 
         with col_gerar:
             botao_gerar = st.button(
-                "🔑 Gerar Chave",
+                
                 key="btn_dev_topo_acao",
                 use_container_width=True
             )
