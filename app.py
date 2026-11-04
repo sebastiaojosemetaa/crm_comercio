@@ -3135,7 +3135,7 @@ O Senhor é meu pastor nada mim faltarar.
 
                     sucesso = False
                     dias_validade = 0
-                    limite_extraido = 0
+                    limite_extraido = 1
 
                     for sufixo, dias in [("TESTE", 7), ("MENSAL", 30), ("ANUAL", 365)]:
                         for lim_test in range(1, 20):
@@ -3155,7 +3155,7 @@ O Senhor é meu pastor nada mim faltarar.
                         cursor = conn.cursor()
                         cursor.execute("""
                             UPDATE empresas_dispositivos 
-                            SET ativado = 0, dias_licenca = ?, limite_dispositivos = ? 
+                            SET ativado = 1, dias_licenca = ?, limite_dispositivos = ? 
                             WHERE device_id = ?
                         """, (dias_validade, limite_extraido, device_id))
                         conn.commit()
