@@ -3128,6 +3128,7 @@ O Senhor é meu pastor nada mim faltarar.
                 st.info(
                     "ℹ️ Nenhum registro de vendas encontrado."
                 )
+
     # -------------------------------------------------------------
     # 11. CONFIGURAÇÕES
     # -------------------------------------------------------------
@@ -3135,214 +3136,284 @@ O Senhor é meu pastor nada mim faltarar.
         st.subheader("🏢 Configurações e Dados da Empresa")
 
         st.markdown("### 🔑 Ativação e Limite de Dispositivos")
-        
-        df_devs_count = carregar_dados("SELECT COUNT(*) as total FROM empresas_dispositivos WHERE ativado = 1")
-        total_ativados = int(df_devs_count.iloc[0]['total']) if not df_devs_count.empty else 0
-        
-        limite_permitido = int(reg_emp.get('limite_dispositivos', 1))
-        st.info(f"📊 **Status de Licença de Dispositivos:** {total_ativados} de {limite_permitido} dispositivo(s) autorizados.")
+
+        df_devs_count = carregar_dados("""
+            SELECT COUNT(*) AS total
+            FROM empresas_dispositivos
+            WHERE ativado = 1
+        """)
+        total_ativados = (
+            int(df_devs_count.iloc[0]["total"])
+            if not df_devs_count.empty else 0
+        )
+
+        limite_permitido = max(
+            1, int(reg_emp.get("limite_dispositivos", 2) or 2)
+        )
+
+        st.info(
+            f"📊 **Status de Licença de Dispositivos:** "
+            f"{total_ativados} de {limite_permitido} dispositivo(s) autorizados."
+        )
 
         if dispositivo_esta_ativado:
-            dias_val = st.session_state.get('dias_licenca', 30)
-            st.success(f"✅ Este dispositivo está **ATIVADO**! Licença válida por {dias_val} dias.")
-            if st.button("🔄 Inserir Nova Chave / Renovar"):
-                cursor = conn.cursor()
-                cursor.execute("UPDATE empresas_dispositivos SET ativado = 0 WHERE device_id = ?", (device_id,))
-                conn.commit()
-                st.session_state['dispositivo_ativado'] = False
-                st.rerun()
+            dias_val = st.session_state.get(
+                "dias_licenca",
+                reg_emp.get("dias_licenca", 30)
+            )
+            st.success(
+                f"✅ Este dispositivo está **ATIVADO**! "
+                f"Licença válida por {dias_val} dias."
+            )
+            st.markdown("#### 🔄 Renovação da licença")
+
         else:
             if total_ativados >= limite_permitido:
-                st.error(f"❌ Limite atingido! O limite máximo de {limite_permitido} dispositivo(s) já foi alcançado. Para ligar mais aparelhos, gere uma chave com um limite maior.")
+                st.error(
+                    f"❌ Limite atingido! O limite máximo de "
+                    f"{limite_permitido} dispositivo(s) já foi alcançado."
+                )
             else:
-                st.warning("⚠️ Insira a chave de ativação para liberar este dispositivo.")
-                doc_atual = str(reg_emp.get('cnpj', '19417439000142'))
-                st.info(f"Empresa Atual (CNPJ/CPF): `{doc_atual}`")
+                st.warning(
+                    "⚠️ Insira a chave de ativação para liberar este dispositivo."
+                )
 
-                chave_digitada = st.text_input("Chave de Ativação:", key="input_chave_ativacao_config")
+        # O campo de chave permanece disponível para renovar
+        # sem desativar o aparelho antes da validação.
+        pode_inserir_chave = (
+            dispositivo_esta_ativado
+            or total_ativados < limite_permitido
+        )
 
-                if st.button("🔓 Ativar Este Dispositivo", type="primary", key="btn_ativar_dispositivo_config"):
-                    apenas_digitos = ''.join(filter(str.isdigit, str(doc_atual)))
-                    chave_limpa = str(chave_digitada).strip().upper()
+        if pode_inserir_chave:
+            doc_atual = str(reg_emp.get("cnpj", "19417439000142"))
+            st.info(f"Empresa Atual (CNPJ/CPF): `{doc_atual}`")
 
-                    sucesso = False
-                    dias_validade = 0
-                    limite_extraido = 1
+            chave_digitada = st.text_input(
+                "Chave de Ativação:",
+                key="input_chave_ativacao_config"
+            )
 
-                    for sufixo, dias in [("TESTE", 7), ("MENSAL", 30), ("ANUAL", 365)]:
-                        for lim_test in range(1, 20):
-                            base_hash_str = apenas_digitos + "REY_CEBOLA_2026" + sufixo + str(lim_test)
-                            hash_hex = hashlib.md5(base_hash_str.encode()).hexdigest().upper()
-                            chave_esperada = f"CRM-{sufixo}-{lim_test}D-{hash_hex[:4]}-{hash_hex[4:8]}"
+            texto_botao = (
+                "🔄 Inserir Nova Chave / Renovar"
+                if dispositivo_esta_ativado
+                else "🔓 Ativar Este Dispositivo"
+            )
 
-                            if chave_limpa == chave_esperada:
-                                sucesso = True
-                                dias_validade = dias
-                                limite_extraido = lim_test
-                                break
-                        if sucesso:
+            if st.button(
+                texto_botao,
+                type="primary",
+                key="btn_ativar_dispositivo_config"
+            ):
+                apenas_digitos = "".join(
+                    filter(str.isdigit, str(doc_atual))
+                )
+                chave_limpa = str(chave_digitada).strip().upper()
+
+                sucesso = False
+                dias_validade = 0
+                limite_extraido = 1
+
+                for sufixo, dias in [
+                    ("TESTE", 7),
+                    ("MENSAL", 30),
+                    ("ANUAL", 365)
+                ]:
+                    for lim_test in range(1, 20):
+                        base_hash_str = (
+                            apenas_digitos
+                            + "REY_CEBOLA_2026"
+                            + sufixo
+                            + str(lim_test)
+                        )
+
+                        hash_hex = hashlib.md5(
+                            base_hash_str.encode()
+                        ).hexdigest().upper()
+
+                        chave_esperada = (
+                            f"CRM-{sufixo}-{lim_test}D-"
+                            f"{hash_hex[:4]}-{hash_hex[4:8]}"
+                        )
+
+                        if chave_limpa == chave_esperada:
+                            sucesso = True
+                            dias_validade = dias
+                            limite_extraido = lim_test
                             break
 
                     if sucesso:
-                        cursor = conn.cursor()
-                        cursor.execute("""
-                            UPDATE empresas_dispositivos 
-                            SET ativado = 1, dias_licenca = ?, limite_dispositivos = ? 
-                            WHERE device_id = ?
-                        """, (dias_validade, limite_extraido, device_id))
-                        conn.commit()
+                        break
 
-                        st.session_state['dispositivo_ativado'] = True
-                        st.session_state['dias_licenca'] = dias_validade
-                        st.session_state['limite_dispositivos'] = limite_extraido
-                        st.success(f"🎉 Dispositivo ativado com sucesso! Validade: {dias_validade} dias (Limite: {limite_extraido} disp.).")
-                        st.rerun()
+                if sucesso:
+                    cursor = conn.cursor()
+
+                    # Na renovação, mantém o limite que já estava salvo.
+                    # Só uma alteração feita nas configurações da empresa
+                    # poderá aumentar a quantidade de dispositivos.
+                    if dispositivo_esta_ativado:
+                        limite_final = limite_permitido
                     else:
-                        st.error("❌ Chave inválida para este CNPJ/CPF ou limite de dispositivos incorreto.")
+                        limite_final = limite_extraido
+
+                    cursor.execute("""
+                        UPDATE empresas_dispositivos
+                        SET ativado = 1,
+                            dias_licenca = ?,
+                            limite_dispositivos = ?
+                        WHERE device_id = ?
+                    """, (
+                        dias_validade,
+                        limite_final,
+                        device_id
+                    ))
+
+                    conn.commit()
+
+                    st.session_state["dispositivo_ativado"] = True
+                    st.session_state["dias_licenca"] = dias_validade
+                    st.session_state["limite_dispositivos"] = limite_final
+
+                    st.success(
+                        f"🎉 Licença renovada/ativada com sucesso! "
+                        f"Validade: {dias_validade} dias. "
+                        f"Limite mantido: {limite_final} dispositivo(s)."
+                    )
+                    st.rerun()
+
+                else:
+                    st.error(
+                        "❌ Chave inválida para este CNPJ/CPF "
+                        "ou limite de dispositivos incorreto."
+                    )
 
         st.markdown("---")
+
         with st.form("form_cfg_emp"):
             st.markdown("### 📝 Dados Gerais e Limites da Empresa")
-            nome_emp = st.text_input("Razão Social / Nome Fantasia", value=str(reg_emp.get('nome_empresa', 'REY DA CEBOLA')))
-            cnpj_emp = st.text_input("CNPJ ou CPF", value=str(reg_emp.get('cnpj', '19417439000142')))
-            inscr_est_emp = st.text_input("INSCR. EST", value=str(reg_emp.get('inscr_est', '12.426.725-4')))
-            tel_emp = st.text_input("Telefone de Contato", value=str(reg_emp.get('fone', '(99) 98501-6050')))
-            end_emp = st.text_input("Endereço Completo", value=str(reg_emp.get('endereco', 'RUA CAIPIRA, Nº 174')))
 
-            # O limite e o prazo são configurações gerais da empresa: devem ser
-            # iguais em todos os registros de dispositivos, não apenas neste aparelho.
-            df_ativos_cfg = carregar_dados("SELECT COUNT(*) AS total FROM empresas_dispositivos WHERE ativado = 1")
-            qtd_ativos_cfg = int(df_ativos_cfg.iloc[0]['total']) if not df_ativos_cfg.empty else 0
-            limite_atual_cfg = max(2, qtd_ativos_cfg, int(reg_emp.get('limite_dispositivos', 2) or 2))
-            dias_atual_cfg = max(1, int(reg_emp.get('dias_licenca', 30) or 30))
+            nome_emp = st.text_input(
+                "Razão Social / Nome Fantasia",
+                value=str(reg_emp.get("nome_empresa", "REY DA CEBOLA"))
+            )
+            cnpj_emp = st.text_input(
+                "CNPJ ou CPF",
+                value=str(reg_emp.get("cnpj", "19417439000142"))
+            )
+            inscr_est_emp = st.text_input(
+                "INSCR. EST",
+                value=str(reg_emp.get("inscr_est", "12.426.725-4"))
+            )
+            tel_emp = st.text_input(
+                "Telefone de Contato",
+                value=str(reg_emp.get("fone", "(99) 98501-6050"))
+            )
+            end_emp = st.text_input(
+                "Endereço Completo",
+                value=str(reg_emp.get("endereco", "RUA CAIPIRA, Nº 174"))
+            )
+
+            df_ativos_cfg = carregar_dados("""
+                SELECT COUNT(*) AS total
+                FROM empresas_dispositivos
+                WHERE ativado = 1
+            """)
+
+            qtd_ativos_cfg = (
+                int(df_ativos_cfg.iloc[0]["total"])
+                if not df_ativos_cfg.empty else 0
+            )
+
+            limite_atual_cfg = max(
+                1,
+                qtd_ativos_cfg,
+                int(reg_emp.get("limite_dispositivos", 2) or 2)
+            )
+
+            dias_atual_cfg = max(
+                1, int(reg_emp.get("dias_licenca", 30) or 30)
+            )
 
             lim_disp = st.number_input(
                 "💻 Limite Máximo de Dispositivos Permitidos",
-                min_value=max(1, qtd_ativos_cfg), max_value=50, value=min(50, limite_atual_cfg),
-                help="Esse limite será aplicado a todos os aparelhos cadastrados da empresa."
-            )
-            dias_cfg = st.number_input(
-                "📅 Duração da licença (dias)", min_value=1, max_value=3650,
-                value=min(3650, dias_atual_cfg), step=1,
-                help="Esse prazo será atualizado nos registros de todos os aparelhos."
+                min_value=max(1, qtd_ativos_cfg),
+                max_value=50,
+                value=min(50, limite_atual_cfg),
+                help=(
+                    "O limite só será aumentado quando você alterar "
+                    "este número e salvar as configurações."
+                )
             )
 
-            if st.form_submit_button("💾 Salvar Configurações", type="primary"):
+            dias_cfg = st.number_input(
+                "📅 Duração da licença (dias)",
+                min_value=1,
+                max_value=3650,
+                value=min(3650, dias_atual_cfg),
+                step=1
+            )
+
+            if st.form_submit_button(
+                "💾 Salvar Configurações",
+                type="primary"
+            ):
                 cursor = conn.cursor()
+
+                # Atualiza os dados gerais de todos os aparelhos,
+                # sem alterar o campo ativado.
                 cursor.execute("""
                     UPDATE empresas_dispositivos
-                    SET nome_empresa = ?, cnpj = ?, fone = ?, endereco = ?,
-                        dias_licenca = ?, limite_dispositivos = ?
-                """, (nome_emp, cnpj_emp, tel_emp, end_emp, int(dias_cfg), int(lim_disp)))
+                    SET nome_empresa = ?,
+                        cnpj = ?,
+                        ie = ?,
+                        fone = ?,
+                        endereco = ?,
+                        dias_licenca = ?,
+                        limite_dispositivos = ?
+                """, (
+                    nome_emp,
+                    cnpj_emp,
+                    inscr_est_emp,
+                    tel_emp,
+                    end_emp,
+                    int(dias_cfg),
+                    int(lim_disp)
+                ))
+
+                # Garante que o aparelho atual tenha um registro.
                 cursor.execute("""
-                    UPDATE empresas_dispositivos
-                    SET nome_empresa = ?, cnpj = ?, fone = ?, endereco = ?,
-                        dias_licenca = ?, limite_dispositivos = ?
+                    SELECT COUNT(*)
+                    FROM empresas_dispositivos
                     WHERE device_id = ?
-                """, (nome_emp, cnpj_emp, tel_emp, end_emp, int(dias_cfg), int(lim_disp), device_id))
-                if cursor.rowcount == 0:
+                """, (device_id,))
+
+                registro_existe = cursor.fetchone()[0] > 0
+
+                if not registro_existe:
                     cursor.execute("""
                         INSERT INTO empresas_dispositivos
-                            (device_id, nome_empresa, cnpj, fone, endereco, ativado, dias_licenca, limite_dispositivos)
-                        VALUES (?, ?, ?, ?, ?, 0, ?, ?)
-                    """, (device_id, nome_emp, cnpj_emp, tel_emp, end_emp, int(dias_cfg), int(lim_disp)))
+                            (device_id, nome_empresa, cnpj, ie,
+                             fone, endereco, ativado,
+                             dias_licenca, limite_dispositivos)
+                        VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)
+                    """, (
+                        device_id,
+                        nome_emp,
+                        cnpj_emp,
+                        inscr_est_emp,
+                        tel_emp,
+                        end_emp,
+                        int(dias_cfg),
+                        int(lim_disp)
+                    ))
+
                 conn.commit()
-                st.session_state['limite_dispositivos'] = int(lim_disp)
-                st.session_state['dias_licenca'] = int(dias_cfg)
-                st.success("✅ Configurações da empresa atualizadas para todos os aparelhos. As ativações existentes foram preservadas.")
+
+                st.session_state["limite_dispositivos"] = int(lim_disp)
+                st.session_state["dias_licenca"] = int(dias_cfg)
+
+                st.success(
+                    "✅ Configurações atualizadas! "
+                    "As ativações existentes foram preservadas."
+                )
                 st.rerun()
-
-        # --- PREPARACAO PARA EMISSAO DE NFC-e ---
-        st.markdown("---")
-        st.markdown("### 🧾 Preparação para emissão de NFC-e (modelo 65)")
-        st.info(
-            "Esta etapa salva somente os parâmetros básicos da NFC-e. "
-            "Ela ainda não transmite vendas à SEFAZ e não substitui o cupom atual. "
-            "A emissão real será ativada depois da validação do CSC, certificado A1, "
-            "credenciamento da empresa e dados fiscais dos produtos."
-        )
-
-        df_nfce_cfg = carregar_dados("SELECT * FROM config_nfce WHERE id = 1")
-        cfg_nfce = df_nfce_cfg.iloc[0].to_dict() if not df_nfce_cfg.empty else {}
-        with st.form("form_config_nfce"):
-            col_nfce1, col_nfce2 = st.columns(2)
-            with col_nfce1:
-                uf_nfce = st.selectbox("Estado da emissão", ["MA"], index=0, disabled=True)
-                ambiente_opcoes = ["Homologacao"]
-                ambiente_atual = str(cfg_nfce.get("ambiente", "Homologacao"))
-                ambiente_nfce = st.selectbox(
-                    "Ambiente SEFAZ",
-                    ambiente_opcoes,
-                    index=ambiente_opcoes.index(ambiente_atual) if ambiente_atual in ambiente_opcoes else 0,
-                )
-            with col_nfce2:
-                serie_nfce = st.text_input("Série da NFC-e", value=str(cfg_nfce.get("serie", "1")))
-                numero_nfce = st.number_input(
-                    "Próximo número da NFC-e", min_value=1, step=1,
-                    value=max(1, int(cfg_nfce.get("proximo_numero", 1) or 1))
-                )
-            st.caption("Modelo fiscal: 65 (NFC-e). O ambiente de produção só deverá ser usado após autorização e testes.")
-            if st.form_submit_button("💾 Salvar parâmetros da NFC-e", type="primary"):
-                if not serie_nfce.strip():
-                    st.error("Informe a série da NFC-e.")
-                else:
-                    cursor = conn.cursor()
-                    cursor.execute("""
-                        UPDATE config_nfce
-                        SET uf = ?, ambiente = ?, serie = ?, proximo_numero = ?,
-                            modelo = '65', atualizado_em = ?
-                        WHERE id = 1
-                    """, (uf_nfce, ambiente_nfce, serie_nfce.strip(), int(numero_nfce), datetime.now().isoformat(timespec="seconds")))
-                    conn.commit()
-                    st.success("Parâmetros básicos da NFC-e salvos. A emissão ainda depende das credenciais e validações fiscais.")
-                    st.rerun()
-
-        st.markdown("#### 🔐 Credenciais necessárias para ativar a emissão")
-        st.markdown(
-            "Quando estiver com o contador, serão necessários: **CSC (ID e token)**, "
-            "certificado **A1 (.pfx/.p12) e senha**, credenciamento da NFC-e na SEFAZ-MA "
-            "e os dados tributários dos produtos. As credenciais não serão gravadas "
-            "nesta tabela nem colocadas diretamente no código; serão configuradas "
-            "nos Secrets do Streamlit Cloud."
-        )
-        st.warning("Ainda não emite NFC-e oficial. Não informe dados fictícios nem mude para Produção antes da liberação da SEFAZ e da conferência do contador.")
-
-        # --- GESTÃO DE CHAVES PIX MÚLTIPLAS NAS CONFIGURAÇÕES ---
-        st.markdown("---")
-        st.markdown("### 💳 Gestão de Chaves Pix")
-        
-        with st.form("form_cad_chave_pix"):
-            col_cp1, col_cp2 = st.columns(2)
-            with col_cp1:
-                tipo_chave = st.selectbox("Tipo de Chave", ["CNPJ", "CPF", "Celular", "E-mail", "Chave Aleatória"])
-                valor_chave = st.text_input("Valor da Chave (ex: seu e-mail, celular ou CNPJ)")
-            with col_cp2:
-                favorecido_chave = st.text_input("Nome do Favorecido", value=nome_empresa_header)
-                cidade_chave = st.text_input("Cidade", value="SAO LUIS")
-            
-            if st.form_submit_button("➕ Cadastrar Nova Chave Pix", type="primary"):
-                if valor_chave.strip():
-                    cursor = conn.cursor()
-                    cursor.execute("""
-                        INSERT INTO chaves_pix (tipo, chave, favorecido, cidade)
-                        VALUES (?, ?, ?, ?)
-                    """, (tipo_chave, valor_chave.strip(), favorecido_chave.strip(), cidade_chave.strip()))
-                    conn.commit()
-                    st.success("✅ Chave Pix cadastrada com sucesso!")
-                    st.rerun()
-                else:
-                    st.error("Preencha o valor da chave Pix.")
-
-        df_chaves_cadastradas = carregar_dados("SELECT * FROM chaves_pix")
-        if not df_chaves_cadastradas.empty:
-            st.markdown("#### 📋 Chaves Pix Já Cadastradas")
-            st.dataframe(df_chaves_cadastradas, use_container_width=True)
-            
-            id_para_excluir = st.number_input("ID da Chave para Excluir (opcional):", min_value=0, step=1)
-            if st.button("🗑️ Excluir Chave Selecionada"):
-                if id_para_excluir > 0:
-                    cursor = conn.cursor()
-                    cursor.execute("DELETE FROM chaves_pix WHERE id = ?", (int(id_para_excluir),))
-                    conn.commit()
-                    st.success(f"Chave ID {id_para_excluir} excluída com sucesso!")
-                    st.rerun()
