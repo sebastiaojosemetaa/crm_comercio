@@ -1,18 +1,4 @@
-import streamlit as st
-import streamlit.components.v1 as components
-import sqlite3
-import pandas as pd
-import base64
-from datetime import datetime, date, timedelta
-from reportlab.lib.pagesizes import letter
-from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-import io
-import datetime as dt
-import hashlib
-import uuid
-import string
+
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="CRM Comércio - REY DA CEBOLA", layout="wide", page_icon="🛍️")
@@ -376,7 +362,7 @@ with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
         col_gerar, col_reset = st.columns(2)
 
         with col_gerar:
-            
+            botao_gerar = st.button(
                 "🔑 Gerar Chave",
                 key="btn_dev_topo_acao",
                 use_container_width=True
