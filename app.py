@@ -242,10 +242,24 @@ if 'carrinho_compras' not in st.session_state:
 df_emp_dev = carregar_dados(f"SELECT * FROM empresas_dispositivos WHERE device_id = '{device_id}'")
 if df_emp_dev.empty:
     cursor = conn.cursor()
+    # Um aparelho novo herda as configurações gerais já salvas pela empresa.
     cursor.execute("""
-        INSERT OR IGNORE INTO empresas_dispositivos (device_id, nome_empresa, cnpj, ie, fone, endereco, ativado, dias_licenca, limite_dispositivos)
-        VALUES (?, 'REY DA CEBOLA', '19417439000142', '', '(99) 98501-6050', 'RUA CAIPIRA, Nº 174', 0, 30, 1)
-    """, (device_id,))
+        SELECT nome_empresa, cnpj, ie, fone, endereco, dias_licenca, limite_dispositivos
+        FROM empresas_dispositivos ORDER BY id LIMIT 1
+    """)
+    cfg_empresa_existente = cursor.fetchone()
+    if cfg_empresa_existente:
+        nome_cfg, cnpj_cfg, ie_cfg, fone_cfg, endereco_cfg, dias_cfg_iniciais, limite_cfg_inicial = cfg_empresa_existente
+    else:
+        nome_cfg, cnpj_cfg, ie_cfg, fone_cfg, endereco_cfg, dias_cfg_iniciais, limite_cfg_inicial = (
+            'REY DA CEBOLA', '19417439000142', '', '(99) 98501-6050', 'RUA CAIPIRA, Nº 174', 30, 2
+        )
+    cursor.execute("""
+        INSERT OR IGNORE INTO empresas_dispositivos
+            (device_id, nome_empresa, cnpj, ie, fone, endereco, ativado, dias_licenca, limite_dispositivos)
+        VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)
+    """, (device_id, nome_cfg, cnpj_cfg, ie_cfg, fone_cfg, endereco_cfg,
+          int(dias_cfg_iniciais or 30), int(limite_cfg_inicial or 2)))
     conn.commit()
     df_emp_dev = carregar_dados(f"SELECT * FROM empresas_dispositivos WHERE device_id = '{device_id}'")
 
@@ -3194,17 +3208,48 @@ O Senhor é meu pastor nada mim faltarar.
             inscr_est_emp = st.text_input("INSCR. EST", value=str(reg_emp.get('inscr_est', '12.426.725-4')))
             tel_emp = st.text_input("Telefone de Contato", value=str(reg_emp.get('fone', '(99) 98501-6050')))
             end_emp = st.text_input("Endereço Completo", value=str(reg_emp.get('endereco', 'RUA CAIPIRA, Nº 174')))
-            lim_disp = st.number_input("💻 Limite Máximo de Dispositivos Permitidos", min_value=1, max_value=50, value=int(reg_emp.get('limite_dispositivos', 1)))
-            
+
+            # O limite e o prazo são configurações gerais da empresa: devem ser
+            # iguais em todos os registros de dispositivos, não apenas neste aparelho.
+            df_ativos_cfg = carregar_dados("SELECT COUNT(*) AS total FROM empresas_dispositivos WHERE ativado = 1")
+            qtd_ativos_cfg = int(df_ativos_cfg.iloc[0]['total']) if not df_ativos_cfg.empty else 0
+            limite_atual_cfg = max(2, qtd_ativos_cfg, int(reg_emp.get('limite_dispositivos', 2) or 2))
+            dias_atual_cfg = max(1, int(reg_emp.get('dias_licenca', 30) or 30))
+
+            lim_disp = st.number_input(
+                "💻 Limite Máximo de Dispositivos Permitidos",
+                min_value=max(1, qtd_ativos_cfg), max_value=50, value=min(50, limite_atual_cfg),
+                help="Esse limite será aplicado a todos os aparelhos cadastrados da empresa."
+            )
+            dias_cfg = st.number_input(
+                "📅 Duração da licença (dias)", min_value=1, max_value=3650,
+                value=min(3650, dias_atual_cfg), step=1,
+                help="Esse prazo será atualizado nos registros de todos os aparelhos."
+            )
+
             if st.form_submit_button("💾 Salvar Configurações", type="primary"):
                 cursor = conn.cursor()
                 cursor.execute("""
-                    INSERT OR REPLACE INTO empresas_dispositivos (device_id, nome_empresa, cnpj, fone, endereco, ativado, dias_licenca, limite_dispositivos)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, (device_id, nome_emp, cnpj_emp, tel_emp, end_emp, 1 if st.session_state.get('dispositivo_ativado') else 0, st.session_state.get('dias_licenca', 30), lim_disp))
+                    UPDATE empresas_dispositivos
+                    SET nome_empresa = ?, cnpj = ?, fone = ?, endereco = ?,
+                        dias_licenca = ?, limite_dispositivos = ?
+                """, (nome_emp, cnpj_emp, tel_emp, end_emp, int(dias_cfg), int(lim_disp)))
+                cursor.execute("""
+                    UPDATE empresas_dispositivos
+                    SET nome_empresa = ?, cnpj = ?, fone = ?, endereco = ?,
+                        dias_licenca = ?, limite_dispositivos = ?
+                    WHERE device_id = ?
+                """, (nome_emp, cnpj_emp, tel_emp, end_emp, int(dias_cfg), int(lim_disp), device_id))
+                if cursor.rowcount == 0:
+                    cursor.execute("""
+                        INSERT INTO empresas_dispositivos
+                            (device_id, nome_empresa, cnpj, fone, endereco, ativado, dias_licenca, limite_dispositivos)
+                        VALUES (?, ?, ?, ?, ?, 0, ?, ?)
+                    """, (device_id, nome_emp, cnpj_emp, tel_emp, end_emp, int(dias_cfg), int(lim_disp)))
                 conn.commit()
-                st.session_state['limite_dispositivos'] = lim_disp
-                st.success("✅ Configurações e limites salvos com sucesso!")
+                st.session_state['limite_dispositivos'] = int(lim_disp)
+                st.session_state['dias_licenca'] = int(dias_cfg)
+                st.success("✅ Configurações da empresa atualizadas para todos os aparelhos. As ativações existentes foram preservadas.")
                 st.rerun()
 
         # --- PREPARACAO PARA EMISSAO DE NFC-e ---
