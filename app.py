@@ -314,74 +314,256 @@ st.markdown("""
 
 
 
-# --- BOTÕES LADO A LADO ---
-col_gerar, col_reset = st.columns(2)
 
-with col_gerar:
-    botao_gerar = st.button(
-        "🔑 Gerar Chave",
-        key="btn_dev_topo_acao",
-        use_container_width=True
+# -------------------------------------------------------------
+# PAINEL LATERAL (DEV) — GERADOR DE CHAVES E GESTÃO
+# -------------------------------------------------------------
+with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
+
+    senha_dev = st.text_input(
+        "Senha Mestre Dev",
+        type="password",
+        key="pwd_dev_topo"
     )
 
-with col_reset:
-    botao_reset = st.button(
-        "🗑️ Resetar",
-        key="btn_reset_dispositivos",
-        use_container_width=True
-    )
+    if senha_dev == "13142715":
 
-# --- GERAÇÃO DA CHAVE ---
-if botao_gerar:
-    # Coloque aqui o código atual que gera sua chave
-    pass
+        tipo_plano = st.selectbox(
+            "Tipo de Chave:",
+            [
+                "Teste (7 Dias)",
+                "Mensal (30 Dias)",
+                "Anual (365 Dias)",
+                "Personalizado (Dias Livres)"
+            ],
+            key="select_tipo_plano_dev"
+        )
 
-# --- SOLICITAÇÃO DE RESET ---
-if botao_reset:
-    st.session_state["confirmar_reset_dispositivos"] = True
+        # Dias personalizados
+        dias_personalizados = 30
 
-# --- CONFIRMAÇÃO DO RESET ---
-if st.session_state.get("confirmar_reset_dispositivos", False):
+        if "Personalizado" in tipo_plano:
+            dias_personalizados = st.number_input(
+                "Digite a quantidade de dias de validade:",
+                min_value=1,
+                max_value=730,
+                value=15,
+                key="dias_pers_dev"
+            )
 
-    st.warning(
-        "Atenção! Isso desautorizará todos os dispositivos "
-        "registrados, mas preservará os dados da empresa."
-    )
+        doc_cliente = st.text_input(
+            "CNPJ ou CPF do Cliente:",
+            key="doc_dev_topo_doc"
+        )
 
-    confirmar = st.button(
-        "⚠️ CONFIRMAR LIMPEZA",
-        key="btn_confirmar_reset_dispositivos"
-    )
+        limite_dev_topo = st.number_input(
+            "Limite de Dispositivos:",
+            min_value=1,
+            max_value=50,
+            value=1,
+            key="limite_dev_topo_num"
+        )
 
-    cancelar = st.button(
-        "Cancelar",
-        key="btn_cancelar_reset_dispositivos"
-    )
+        st.markdown("---")
 
-    if confirmar:
-        try:
-            cursor = conn.cursor()
+        # -----------------------------------------------------
+        # BOTÕES LADO A LADO
+        # -----------------------------------------------------
+        col_gerar, col_reset = st.columns(2)
 
-            cursor.execute("""
-                UPDATE empresas_dispositivos
-                SET ativado = 0
-            """)
+        with col_gerar:
+            botao_gerar = st.button(
+                "🔑 Gerar Chave",
+                key="btn_dev_topo_acao",
+                use_container_width=True
+            )
 
-            conn.commit()
+        with col_reset:
+            botao_reset = st.button(
+                "🗑️ Resetar",
+                key="btn_reset_dispositivos",
+                use_container_width=True
+            )
 
-            st.session_state["dispositivo_ativado"] = False
-            st.session_state["confirmar_reset_dispositivos"] = False
+        # -----------------------------------------------------
+        # GERAR CHAVE
+        # -----------------------------------------------------
+        if botao_gerar:
 
-            st.success("Dispositivos desautorizados com sucesso!")
-            st.rerun()
+            if doc_cliente.strip():
 
-        except Exception as e:
-            conn.rollback()
-            st.error(f"Erro ao limpar dispositivos: {e}")
+                import uuid
+                import datetime
 
-    if cancelar:
-        st.session_state["confirmar_reset_dispositivos"] = False
-        st.rerun()
+                if "Teste" in tipo_plano:
+                    dias_validade = 7
+                    sufixo_tipo = "TESTE"
+
+                elif "Mensal" in tipo_plano:
+                    dias_validade = 30
+                    sufixo_tipo = "MENSAL"
+
+                elif "Anual" in tipo_plano:
+                    dias_validade = 365
+                    sufixo_tipo = "ANUAL"
+
+                else:
+                    dias_validade = int(dias_personalizados)
+                    sufixo_tipo = "CUSTOM"
+
+                doc_limpo = ''.join(
+                    filter(str.isdigit, str(doc_cliente))
+                )
+
+                token_aleatorio = str(uuid.uuid4()).upper()[:6]
+
+                timestamp_atual = datetime.datetime.now().strftime(
+                    "%d%m%Y%H%M%S"
+                )
+
+                base_hash_str = (
+                    doc_limpo
+                    + "REY_CEBOLA_2026"
+                    + sufixo_tipo
+                    + str(limite_dev_topo)
+                    + str(dias_validade)
+                    + timestamp_atual
+                    + token_aleatorio
+                )
+
+                hash_hex = hashlib.md5(
+                    base_hash_str.encode()
+                ).hexdigest().upper()
+
+                chave_gerada = (
+                    f"CRM-{sufixo_tipo}-{limite_dev_topo}DEV-"
+                    f"{dias_validade}D-{hash_hex[:4]}-{hash_hex[4:8]}"
+                )
+
+                link_acesso = (
+                    "https://crmcomercio-bqofgjfpnvferb7cw4rike.streamlit.app/"
+                    f"?chave={chave_gerada}"
+                )
+
+                st.success("✅ Chave gerada com sucesso!")
+
+                st.write("**CHAVE DE ATIVAÇÃO:**")
+                st.code(chave_gerada, language="text")
+
+                st.write("**LINK DE ACESSO AO SISTEMA:**")
+                st.code(link_acesso, language="text")
+
+                st.link_button(
+                    "🌐 Abrir CRM com esta chave",
+                    link_acesso
+                )
+
+                data_exp = (
+                    datetime.date.today()
+                    + datetime.timedelta(days=dias_validade)
+                )
+
+                st.success(
+                    f"Plano: {tipo_plano} ({dias_validade} dias) | "
+                    f"Limite: {limite_dev_topo} dispositivo(s) | "
+                    f"Expira em: {data_exp.strftime('%d/%m/%Y')}"
+                )
+
+            else:
+                st.warning("Informe o CNPJ ou CPF do cliente.")
+
+        # -----------------------------------------------------
+        # SOLICITAR RESET
+        # -----------------------------------------------------
+        if botao_reset:
+            st.session_state["confirmar_reset_dispositivos"] = True
+
+        # -----------------------------------------------------
+        # CONFIRMAR OU CANCELAR RESET
+        # -----------------------------------------------------
+        if st.session_state.get(
+            "confirmar_reset_dispositivos", False
+        ):
+
+            st.warning(
+                "⚠️ ATENÇÃO: todos os dispositivos cadastrados "
+                "serão desautorizados. Os dados das empresas "
+                "e os demais registros serão preservados."
+            )
+
+            col_sim, col_nao = st.columns(2)
+
+            with col_sim:
+                confirmar_reset = st.button(
+                    "✅ CONFIRMAR",
+                    key="btn_confirmar_reset",
+                    use_container_width=True
+                )
+
+            with col_nao:
+                cancelar_reset = st.button(
+                    "❌ CANCELAR",
+                    key="btn_cancelar_reset",
+                    use_container_width=True
+                )
+
+            if confirmar_reset:
+                try:
+                    cursor = conn.cursor()
+
+                    cursor.execute("""
+                        UPDATE empresas_dispositivos
+                        SET ativado = 0
+                    """)
+
+                    conn.commit()
+
+                    st.session_state["dispositivo_ativado"] = False
+                    st.session_state[
+                        "confirmar_reset_dispositivos"
+                    ] = False
+
+                    st.success(
+                        "✅ Todos os dispositivos foram desautorizados!"
+                    )
+
+                    st.rerun()
+
+                except Exception as e:
+                    conn.rollback()
+                    st.error(f"Erro ao limpar dispositivos: {e}")
+
+            if cancelar_reset:
+                st.session_state[
+                    "confirmar_reset_dispositivos"
+                ] = False
+
+                st.rerun()
+
+    else:
+        if senha_dev:
+            st.error("Senha de desenvolvedor incorreta.")
+
+
+# -------------------------------------------------------------
+# ACESSO AO SISTEMA
+# -------------------------------------------------------------
+st.sidebar.title("🔑 Acesso ao Sistema")
+
+st.sidebar.radio(
+    "Selecione o Perfil:",
+    ["🔒 Administração / Vendedor"],
+    key="perfil_principal_radio"
+)
+
+st.sidebar.markdown("---")
+
+if st.session_state.get('dispositivo_ativado', False):
+    st.sidebar.success("🟢 Dispositivo Ativado")
+else:
+    st.sidebar.error("🔴 Dispositivo Não Ativado")
+
+st.sidebar.markdown("---")
 
 # ==========================================
 # ECRÃ DE LOGIN OU INTERFACE PRINCIPAL
