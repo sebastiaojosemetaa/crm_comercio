@@ -313,17 +313,24 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# --- PAINEL LATERAL (DEV) — GERADOR DE CHAVES ---
+# -------------------------------------------------------------
+# PAINEL LATERAL (DEV) — GERADOR DE CHAVES
+# -------------------------------------------------------------
 with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
     senha_dev = st.text_input("Senha Mestre Dev", type="password", key="pwd_dev_topo")
 
     if senha_dev == "13142715":
         tipo_plano = st.selectbox(
             "Tipo de Chave:",
-            ["Teste (7 Dias)", "Mensal (30 Dias)", "Anual (365 Dias)"],
+            ["Teste (7 Dias)", "Mensal (30 Dias)", "Anual (365 Dias)", "Personalizado (Dias Livres)"],
             key="select_tipo_plano_dev"
         )
-
+        
+        # Se for personalizado, permite escolher os dias exatos
+        dias_personalizados = 30
+        if "Personalizado" in tipo_plano:
+            dias_personalizados = st.number_input("Digite a quantidade de dias de validade:", min_value=1, max_value=730, value=15, key="dias_pers_dev")
+        
         doc_cliente = st.text_input(
             "CNPJ ou CPF do Cliente:",
             key="doc_dev_topo_doc"
@@ -339,30 +346,46 @@ with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
 
         if st.button("Gerar Chave", key="btn_dev_topo_acao"):
             if doc_cliente.strip():
+                import uuid
+                import datetime
 
-                sufixo_tipo = (
-                    "TESTE" if "Teste" in tipo_plano
-                    else "MENSAL" if "Mensal" in tipo_plano
-                    else "ANUAL"
-                )
+                # Define os dias com base no plano selecionado
+                if "Teste" in tipo_plano:
+                    dias_validade = 7
+                    sufixo_tipo = "TESTE"
+                elif "Mensal" in tipo_plano:
+                    dias_validade = 30
+                    sufixo_tipo = "MENSAL"
+                elif "Anual" in tipo_plano:
+                    dias_validade = 365
+                    sufixo_tipo = "ANUAL"
+                else:
+                    dias_validade = dias_personalizados
+                    sufixo_tipo = "CUSTOM"
 
-                doc_limpo = ''.join(
-                    filter(str.isdigit, str(doc_cliente))
-                )
+                doc_limpo = ''.join(filter(str.isdigit, str(doc_cliente)))
+
+                # ADICIONAMOS UM UUID/TIMESTAMP ÚNICO: Garante que NUNCA sai igual à anterior
+                token_aleatorio = str(uuid.uuid4()).upper()[:6]
+                timestamp_atual = datetime.datetime.now().strftime("%d%m%Y%H%M%S")
 
                 base_hash_str = (
                     doc_limpo
                     + "REY_CEBOLA_2026"
                     + sufixo_tipo
                     + str(limite_dev_topo)
+                    + str(dias_validade)
+                    + timestamp_atual
+                    + token_aleatorio
                 )
 
                 hash_hex = hashlib.md5(
                     base_hash_str.encode()
                 ).hexdigest().upper()
 
+                # Estrutura limpa da chave contendo o limite de dispositivos e dias de validade
                 chave_gerada = (
-                    f"CRM-{sufixo_tipo}-{limite_dev_topo}D-"
+                    f"CRM-{sufixo_tipo}-{limite_dev_topo}DEV-{dias_validade}D-"
                     f"{hash_hex[:4]}-{hash_hex[4:8]}"
                 )
 
@@ -385,9 +408,11 @@ with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
                     link_acesso
                 )
 
+                data_exp = datetime.date.today() + datetime.timedelta(days=dias_validade)
                 st.success(
-                    f"Plano: {tipo_plano} | "
-                    f"Limite: {limite_dev_topo} dispositivo(s)"
+                    f"Plano: {tipo_plano} ({dias_validade} dias) | "
+                    f"Limite: {limite_dev_topo} dispositivo(s) | "
+                    f"Expira em: {data_exp.strftime('%d/%m/%Y')}"
                 )
 
             else:
