@@ -314,7 +314,7 @@ st.markdown("""
 
 
 # -------------------------------------------------------------
-# PAINEL LATERAL (DEV) — GERADOR DE CHAVES
+# PAINEL LATERAL (DEV) — GERADOR DE CHAVES E GESTÃO
 # -------------------------------------------------------------
 with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
     senha_dev = st.text_input("Senha Mestre Dev", type="password", key="pwd_dev_topo")
@@ -326,30 +326,19 @@ with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
             key="select_tipo_plano_dev"
         )
         
-        # Se for personalizado, permite escolher os dias exatos
         dias_personalizados = 30
         if "Personalizado" in tipo_plano:
-            dias_personalizados = st.number_input("Digite a quantidade de dias de validade:", min_value=1, max_value=730, value=15, key="dias_pers_dev")
+            dias_personalizados = st.number_input("Dias de validade:", min_value=1, max_value=730, value=15, key="dias_pers_dev")
         
-        doc_cliente = st.text_input(
-            "CNPJ ou CPF do Cliente:",
-            key="doc_dev_topo_doc"
-        )
+        doc_cliente = st.text_input("CNPJ ou CPF do Cliente:", key="doc_dev_topo_doc")
 
-        limite_dev_topo = st.number_input(
-            "Limite de Dispositivos:",
-            min_value=1,
-            max_value=50,
-            value=1,
-            key="limite_dev_topo_num"
-        )
+        limite_dev_topo = st.number_input("Limite de Dispositivos:", min_value=1, max_value=50, value=1, key="limite_dev_topo_num")
 
         if st.button("Gerar Chave", key="btn_dev_topo_acao"):
             if doc_cliente.strip():
                 import uuid
                 import datetime
 
-                # Define os dias com base no plano selecionado
                 if "Teste" in tipo_plano:
                     dias_validade = 7
                     sufixo_tipo = "TESTE"
@@ -364,62 +353,27 @@ with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
                     sufixo_tipo = "CUSTOM"
 
                 doc_limpo = ''.join(filter(str.isdigit, str(doc_cliente)))
-
-                # Garante que a chave gerada seja sempre única
                 token_aleatorio = str(uuid.uuid4()).upper()[:6]
                 timestamp_atual = datetime.datetime.now().strftime("%d%m%Y%H%M%S")
 
-                base_hash_str = (
-                    doc_limpo
-                    + "REY_CEBOLA_2026"
-                    + sufixo_tipo
-                    + str(limite_dev_topo)
-                    + str(dias_validade)
-                    + timestamp_atual
-                    + token_aleatorio
-                )
+                base_hash_str = doc_limpo + "REY_CEBOLA_2026" + sufixo_tipo + str(limite_dev_topo) + str(dias_validade) + timestamp_atual + token_aleatorio
+                hash_hex = hashlib.md5(base_hash_str.encode()).hexdigest().upper()
 
-                hash_hex = hashlib.md5(
-                    base_hash_str.encode()
-                ).hexdigest().upper()
-
-                chave_gerada = (
-                    f"CRM-{sufixo_tipo}-{limite_dev_topo}DEV-{dias_validade}D-"
-                    f"{hash_hex[:4]}-{hash_hex[4:8]}"
-                )
-
-                link_acesso = (
-                    "https://crmcomercio-bqofgjfpnvferb7cw4rike.streamlit.app/"
-                    f"?chave={chave_gerada}"
-                )
+                chave_gerada = f"CRM-{sufixo_tipo}-{limite_dev_topo}DEV-{dias_validade}D-{hash_hex[:4]}-{hash_hex[4:8]}"
+                link_acesso = f"https://crmcomercio-bqofgjfpnvferb7cw4rike.streamlit.app/?chave={chave_gerada}"
 
                 st.success("Chave gerada com sucesso!")
-
-                st.write("**CHAVE DE ATIVAÇÃO:**")
                 st.code(chave_gerada, language="text")
-
-                st.write("**LINK DE ACESSO AO SISTEMA:**")
                 st.code(link_acesso, language="text")
-
-                st.link_button(
-                    "🌐 Abrir CRM com esta chave",
-                    link_acesso
-                )
-
-                data_exp = datetime.date.today() + datetime.timedelta(days=dias_validade)
-                st.success(
-                    f"Plano: {tipo_plano} ({dias_validade} dias) | "
-                    f"Limite: {limite_dev_topo} dispositivo(s) | "
-                    f"Expira em: {data_exp.strftime('%d/%m/%Y')}"
-                )
-
+                st.link_button("🌐 Abrir CRM com esta chave", link_acesso)
             else:
-                st.warning("Informe o CNPJ ou CPF do cliente.")
+                st.warning("Informe o CNPJ ou CPF.")
 
-        # --- BOTÃO PARA LIMPAR / RESETAR DISPOSITIVOS REGISTRADOS ---
         st.markdown("---")
-        st.markdown("### 🗑️ Gestão de Licenças")
-        if st.button("Resetar / Limpar Dispositivos", key="btn_resetar_dispositivos_dev", type="secondary"):
+        st.markdown("### 🗑️ Gestão de Limites")
+        
+        # Botão visível de reset
+        if st.button("Resetar / Limpar Dispositivos", key="btn_resetar_dispositivos_dev_direto", type="primary"):
             try:
                 cursor = conn.cursor()
                 cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
@@ -438,29 +392,23 @@ with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
                         pass
                         
                     st.session_state['dispositivo_ativado'] = False
-                    st.success("✅ Dispositivos limpos com sucesso! Pronto para novos testes.")
+                    st.success("✅ Dispositivos limpos! O limite foi reposto.")
                     st.rerun()
                 else:
-                    st.warning("⚠️ Nenhuma tabela de dispositivos encontrada.")
-                    
+                    # Se não encontrar tabela específica, limpa dados da sessão atual
+                    st.session_state['dispositivo_ativado'] = False
+                    st.success("✅ Estado de dispositivo limpo com sucesso!")
+                    st.rerun()
             except Exception as e:
-                st.error(f"❌ Erro ao limpar dispositivos: {e}")
+                st.error(f"❌ Erro: {e}")
 
 st.sidebar.title("🔑 Acesso ao Sistema")
-
-st.sidebar.radio(
-    "Selecione o Perfil:",
-    ["🔒 Administração / Vendedor"],
-    key="perfil_principal_radio"
-)
-
+st.sidebar.radio("Selecione o Perfil:", ["🔒 Administração / Vendedor"], key="perfil_principal_radio")
 st.sidebar.markdown("---")
-
 if st.session_state.get('dispositivo_ativado', False):
     st.sidebar.success("🟢 Dispositivo Ativado")
 else:
     st.sidebar.error("🔴 Dispositivo Não Ativado")
-
 st.sidebar.markdown("---")
 
 # ==========================================
