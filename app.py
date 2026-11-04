@@ -315,6 +315,7 @@ st.markdown("""
 
 
 
+
 # -------------------------------------------------------------
 # PAINEL LATERAL (DEV) — GERADOR DE CHAVES E GESTÃO
 # -------------------------------------------------------------
@@ -339,7 +340,6 @@ with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
             key="select_tipo_plano_dev"
         )
 
-        # Dias personalizados
         dias_personalizados = 30
 
         if "Personalizado" in tipo_plano:
@@ -366,28 +366,27 @@ with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
 
         st.markdown("---")
 
-        
-# -----------------------------------------------------
-# BOTÕES LADO A LADO
-# -----------------------------------------------------
-col_gerar, col_reset = st.columns(2)
+        # -----------------------------------------------------
+        # BOTÕES LADO A LADO
+        # -----------------------------------------------------
+        col_gerar, col_reset = st.columns(2)
 
-with col_gerar:
-    botao_gerar = st.button(
-        "🔑 Gerar Chave",
-        key="btn_dev_topo_acao",
-        use_container_width=True
-    )
+        with col_gerar:
+            botao_gerar = st.button(
+                "🔑 Gerar Chave",
+                key="btn_dev_topo_acao",
+                use_container_width=True
+            )
 
-with col_reset:
-    botao_reset = st.button(
-        "🗑️ Limpar Dispositivos",
-        key="btn_reset_dispositivos",
-        use_container_width=True
-    )
+        with col_reset:
+            botao_reset = st.button(
+                "🗑️ Resetar",
+                key="btn_reset_dispositivos",
+                use_container_width=True
+            )
 
-if botao_reset:
-    st.session_state["confirmar_reset_dispositivos"] = True
+        if botao_reset:
+            st.session_state["confirmar_reset_dispositivos"] = True
 
         # -----------------------------------------------------
         # GERAR CHAVE
@@ -477,12 +476,6 @@ if botao_reset:
                 st.warning("Informe o CNPJ ou CPF do cliente.")
 
         # -----------------------------------------------------
-        # SOLICITAR RESET
-        # -----------------------------------------------------
-        if botao_reset:
-            st.session_state["confirmar_reset_dispositivos"] = True
-
-        # -----------------------------------------------------
         # CONFIRMAR OU CANCELAR RESET
         # -----------------------------------------------------
         if st.session_state.get(
@@ -490,9 +483,8 @@ if botao_reset:
         ):
 
             st.warning(
-                "⚠️ ATENÇÃO: todos os dispositivos cadastrados "
-                "serão desautorizados. Os dados das empresas "
-                "e os demais registros serão preservados."
+                "⚠️ Todos os dispositivos cadastrados serão "
+                "desautorizados. Os dados das empresas serão preservados."
             )
 
             col_sim, col_nao = st.columns(2)
@@ -527,9 +519,7 @@ if botao_reset:
                         "confirmar_reset_dispositivos"
                     ] = False
 
-                    st.success(
-                        "✅ Todos os dispositivos foram desautorizados!"
-                    )
+                    st.success("✅ Dispositivos desautorizados!")
 
                     st.rerun()
 
@@ -548,6 +538,26 @@ if botao_reset:
         if senha_dev:
             st.error("Senha de desenvolvedor incorreta.")
 
+
+# -------------------------------------------------------------
+# ACESSO AO SISTEMA
+# -------------------------------------------------------------
+st.sidebar.title("🔑 Acesso ao Sistema")
+
+st.sidebar.radio(
+    "Selecione o Perfil:",
+    ["🔒 Administração / Vendedor"],
+    key="perfil_principal_radio"
+)
+
+st.sidebar.markdown("---")
+
+if st.session_state.get('dispositivo_ativado', False):
+    st.sidebar.success("🟢 Dispositivo Ativado")
+else:
+    st.sidebar.error("🔴 Dispositivo Não Ativado")
+
+st.sidebar.markdown("---")
 
 # -------------------------------------------------------------
 # ACESSO AO SISTEMA
