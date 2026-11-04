@@ -312,40 +312,102 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+
 # --- PAINEL LATERAL (DEV) — GERADOR DE CHAVES ---
 with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
     senha_dev = st.text_input("Senha Mestre Dev", type="password", key="pwd_dev_topo")
+
     if senha_dev == "13142715":
-        tipo_plano = st.selectbox("Tipo de Chave:", ["Teste (7 Dias)", "Mensal (30 Dias)", "Anual (365 Dias)"], key="select_tipo_plano_dev")
-        doc_cliente = st.text_input("CNPJ ou CPF do Cliente:", key="doc_dev_topo_doc")
-        limite_dev_topo = st.number_input("Limite de Dispositivos:", min_value=1, max_value=50, value=1, key="limite_dev_topo_num")
-        
+        tipo_plano = st.selectbox(
+            "Tipo de Chave:",
+            ["Teste (7 Dias)", "Mensal (30 Dias)", "Anual (365 Dias)"],
+            key="select_tipo_plano_dev"
+        )
+
+        doc_cliente = st.text_input(
+            "CNPJ ou CPF do Cliente:",
+            key="doc_dev_topo_doc"
+        )
+
+        limite_dev_topo = st.number_input(
+            "Limite de Dispositivos:",
+            min_value=1,
+            max_value=50,
+            value=1,
+            key="limite_dev_topo_num"
+        )
+
         if st.button("Gerar Chave", key="btn_dev_topo_acao"):
             if doc_cliente.strip():
-                sufixo_tipo = "TESTE" if "Teste" in tipo_plano else ("MENSAL" if "Mensal" in tipo_plano else "ANUAL")
-                doc_limpo = ''.join(filter(str.isdigit, str(doc_cliente)))
-                
-                cursor = conn.cursor()
-                cursor.execute("""
-                    UPDATE empresas_dispositivos 
-                    SET limite_dispositivos = ? 
-                    WHERE REPLACE(REPLACE(REPLACE(cnpj, '.', ''), '/', ''), '-', '') = ?
-                """, (limite_dev_topo, doc_limpo))
-                conn.commit()
 
-                base_hash_str = doc_limpo + "REY_CEBOLA_2026" + sufixo_tipo + str(limite_dev_topo)
-                hash_hex = hashlib.md5(base_hash_str.encode()).hexdigest().upper()
-                st.code(f"CRM-{sufixo_tipo}-{limite_dev_topo}D-{hash_hex[:4]}-{hash_hex[4:8]}", language="text")
-                st.success(f"Chave gerada! Limite definido: {limite_dev_topo} dispositivo(s).")
+                sufixo_tipo = (
+                    "TESTE" if "Teste" in tipo_plano
+                    else "MENSAL" if "Mensal" in tipo_plano
+                    else "ANUAL"
+                )
+
+                doc_limpo = ''.join(
+                    filter(str.isdigit, str(doc_cliente))
+                )
+
+                base_hash_str = (
+                    doc_limpo
+                    + "REY_CEBOLA_2026"
+                    + sufixo_tipo
+                    + str(limite_dev_topo)
+                )
+
+                hash_hex = hashlib.md5(
+                    base_hash_str.encode()
+                ).hexdigest().upper()
+
+                chave_gerada = (
+                    f"CRM-{sufixo_tipo}-{limite_dev_topo}D-"
+                    f"{hash_hex[:4]}-{hash_hex[4:8]}"
+                )
+
+                # Link de acesso com a chave
+                link_acesso = (
+                    "https://crmcomercio-bqofgjfpnvferb7cw4rike.streamlit.app/"
+                    f"?chave={chave_gerada}"
+                )
+
+                st.success("Chave gerada com sucesso!")
+
+                st.write("**CHAVE DE ATIVAÇÃO:**")
+                st.code(chave_gerada, language="text")
+
+                st.write("**LINK DE ACESSO AO SISTEMA:**")
+                st.code(link_acesso, language="text")
+
+                st.link_button(
+                    "🌐 Abrir CRM com esta chave",
+                    link_acesso
+                )
+
+                st.success(
+                    f"Plano: {tipo_plano} | "
+                    f"Limite: {limite_dev_topo} dispositivo(s)"
+                )
+
+            else:
+                st.warning("Informe o CNPJ ou CPF do cliente.")
 
 st.sidebar.title("🔑 Acesso ao Sistema")
-st.sidebar.radio("Selecione o Perfil:", ["🔒 Administração / Vendedor"], key="perfil_principal_radio")
+
+st.sidebar.radio(
+    "Selecione o Perfil:",
+    ["🔒 Administração / Vendedor"],
+    key="perfil_principal_radio"
+)
+
 st.sidebar.markdown("---")
 
 if st.session_state.get('dispositivo_ativado', False):
     st.sidebar.success("🟢 Dispositivo Ativado")
 else:
     st.sidebar.error("🔴 Dispositivo Não Ativado")
+
 st.sidebar.markdown("---")
 
 # ==========================================
