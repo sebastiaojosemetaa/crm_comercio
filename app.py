@@ -316,6 +316,7 @@ st.markdown("""
 
 
 
+
 # -------------------------------------------------------------
 # PAINEL LATERAL (DEV) — GERADOR DE CHAVES E GESTÃO
 # -------------------------------------------------------------
@@ -328,13 +329,17 @@ with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
     )
 
     if senha_dev == "13142715":
-    st.sidebar.markdown("---")
-    
-    st.sidebar.button(
-        "🗑️ RESETAR / LIMPAR DISPOSITIVOS",
-        key="teste_botao_reset",
-        use_container_width=True
-    )
+
+        # BOTÃO DE TESTE DO RESET
+        st.markdown("---")
+
+        st.button(
+            "🗑️ RESETAR / LIMPAR DISPOSITIVOS",
+            key="teste_botao_reset",
+            use_container_width=True
+        )
+
+        # CONTINUAÇÃO DO GERADOR DE CHAVES
         tipo_plano = st.selectbox(
             "Tipo de Chave:",
             [
