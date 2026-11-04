@@ -325,7 +325,41 @@ with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
             ["Teste (7 Dias)", "Mensal (30 Dias)", "Anual (365 Dias)", "Personalizado (Dias Livres)"],
             key="select_tipo_plano_dev"
         )
-        
+        # --- BOTÃO PARA LIMPAR / RESETAR DISPOSITIVOS REGISTRADOS ---
+        st.markdown("---")
+        st.markdown("### 🗑️ Gestão de Licenças")
+        if st.button("Resetar / Limpar Dispositivos Autorizados", key="btn_resetar_dispositivos_dev", type="secondary"):
+            try:
+                cursor = conn.cursor()
+                
+                # Procura todas as tabelas na base de dados
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+                tabelas_existentes = [row[0] for row in cursor.fetchall()]
+                
+                # Filtra tabelas que contenham nomes relacionados a dispositivos ou licenças
+                tabelas_alvo = [t for t in tabelas_existentes if any(termo in t.lower() for termo in ["dispositivo", "device", "licenca", "ativacao"])]
+                
+                if tabelas_alvo:
+                    for tab in tabelas_alvo:
+                        cursor.execute(f"DELETE FROM {tab}")
+                    conn.commit()
+                    
+                    # Limpa a cache para atualizar o estado de ativação imediatamente
+                    try:
+                        st.cache_data.clear()
+                    except Exception:
+                        pass
+                        
+                    # Reseta o estado na sessão atual
+                    st.session_state['dispositivo_ativado'] = False
+                    
+                    st.success("✅ Todos os dispositivos registados foram limpos com sucesso! O sistema está pronto para novas ativações.")
+                    st.rerun()
+                else:
+                    st.warning("⚠️ Nenhuma tabela de dispositivos encontrada na base de dados.")
+                    
+            except Exception as e:
+                st.error(f"❌ Erro ao limpar dispositivos: {e}")
         # Se for personalizado, permite escolher os dias exatos
         dias_personalizados = 30
         if "Personalizado" in tipo_plano:
