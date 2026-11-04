@@ -486,6 +486,51 @@ with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
             else:
                 st.warning("Informe o CNPJ ou CPF do cliente.")
 
+# -------------------------------------------------------------
+# PAINEL LATERAL — RESETAR DISPOSITIVOS AUTORIZADOS
+# -------------------------------------------------------------
+with st.sidebar.expander("🗑️ Resetar / Limpar Dispositivos"):
+
+    senha_reset = st.text_input(
+        "Senha de Desenvolvedor:",
+        type="password",
+        key="senha_reset_dev"
+    )
+
+    if senha_reset == "13142715":
+
+        st.warning(
+            "Esta operação desautorizará todos os dispositivos cadastrados."
+        )
+
+        if st.button(
+            "🗑️ CONFIRMAR LIMPEZA DOS DISPOSITIVOS",
+            key="btn_reset_definitivo",
+            use_container_width=True
+        ):
+            try:
+                cursor = conn.cursor()
+
+                cursor.execute("""
+                    UPDATE empresas_dispositivos
+                    SET ativado = 0
+                """)
+
+                conn.commit()
+
+                st.session_state["dispositivo_ativado"] = False
+
+                st.success("Dispositivos desautorizados com sucesso!")
+
+                st.rerun()
+
+            except Exception as e:
+                conn.rollback()
+                st.error(f"Erro ao limpar dispositivos: {e}")
+
+    elif senha_reset:
+        st.error("Senha incorreta.")
+
         # -----------------------------------------------------
         # CONFIRMAR OU CANCELAR RESET
         # -----------------------------------------------------
