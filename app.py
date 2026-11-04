@@ -366,24 +366,28 @@ with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
 
         st.markdown("---")
 
-        # -----------------------------------------------------
-        # BOTÕES LADO A LADO
-        # -----------------------------------------------------
-        col_gerar, col_reset = st.columns(2)
+        
+# -----------------------------------------------------
+# BOTÕES LADO A LADO
+# -----------------------------------------------------
+col_gerar, col_reset = st.columns(2)
 
-        with col_gerar:
-            botao_gerar = st.button(
-                "🔑 Gerar Chave",
-                key="btn_dev_topo_acao",
-                use_container_width=True
-            )
+with col_gerar:
+    botao_gerar = st.button(
+        "🔑 Gerar Chave",
+        key="btn_dev_topo_acao",
+        use_container_width=True
+    )
 
-        with col_reset:
-            botao_reset = st.button(
-                "🗑️ Resetar",
-                key="btn_reset_dispositivos",
-                use_container_width=True
-            )
+with col_reset:
+    botao_reset = st.button(
+        "🗑️ Limpar Dispositivos",
+        key="btn_reset_dispositivos",
+        use_container_width=True
+    )
+
+if botao_reset:
+    st.session_state["confirmar_reset_dispositivos"] = True
 
         # -----------------------------------------------------
         # GERAR CHAVE
