@@ -3104,10 +3104,10 @@ O Senhor é meu pastor nada mim faltarar.
 
         st.markdown("### 🔑 Ativação e Limite de Dispositivos")
         
-        df_devs_count = carregar_dados("SELECT COUNT(*) as total FROM empresas_dispositivos WHERE ativado = 1")
+        df_devs_count = carregar_dados("SELECT COUNT(*) as total FROM empresas_dispositivos WHERE ativado = 0")
         total_ativados = int(df_devs_count.iloc[0]['total']) if not df_devs_count.empty else 0
         
-        limite_permitido = int(reg_emp.get('limite_dispositivos', 1))
+        limite_permitido = int(reg_emp.get('limite_dispositivos', 0))
         st.info(f"📊 **Status de Licença de Dispositivos:** {total_ativados} de {limite_permitido} dispositivo(s) autorizados.")
 
         if dispositivo_esta_ativado:
