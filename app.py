@@ -325,41 +325,7 @@ with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
             ["Teste (7 Dias)", "Mensal (30 Dias)", "Anual (365 Dias)", "Personalizado (Dias Livres)"],
             key="select_tipo_plano_dev"
         )
-        # --- BOTÃO PARA LIMPAR / RESETAR DISPOSITIVOS REGISTRADOS ---
-        st.markdown("---")
-        st.markdown("### 🗑️ Gestão de Licenças")
-        if st.button("Resetar / Limpar Dispositivos Autorizados", key="btn_resetar_dispositivos_dev", type="secondary"):
-            try:
-                cursor = conn.cursor()
-                
-                # Procura todas as tabelas na base de dados
-                cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-                tabelas_existentes = [row[0] for row in cursor.fetchall()]
-                
-                # Filtra tabelas que contenham nomes relacionados a dispositivos ou licenças
-                tabelas_alvo = [t for t in tabelas_existentes if any(termo in t.lower() for termo in ["dispositivo", "device", "licenca", "ativacao"])]
-                
-                if tabelas_alvo:
-                    for tab in tabelas_alvo:
-                        cursor.execute(f"DELETE FROM {tab}")
-                    conn.commit()
-                    
-                    # Limpa a cache para atualizar o estado de ativação imediatamente
-                    try:
-                        st.cache_data.clear()
-                    except Exception:
-                        pass
-                        
-                    # Reseta o estado na sessão atual
-                    st.session_state['dispositivo_ativado'] = False
-                    
-                    st.success("✅ Todos os dispositivos registados foram limpos com sucesso! O sistema está pronto para novas ativações.")
-                    st.rerun()
-                else:
-                    st.warning("⚠️ Nenhuma tabela de dispositivos encontrada na base de dados.")
-                    
-            except Exception as e:
-                st.error(f"❌ Erro ao limpar dispositivos: {e}")
+        
         # Se for personalizado, permite escolher os dias exatos
         dias_personalizados = 30
         if "Personalizado" in tipo_plano:
@@ -399,7 +365,7 @@ with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
 
                 doc_limpo = ''.join(filter(str.isdigit, str(doc_cliente)))
 
-                # ADICIONAMOS UM UUID/TIMESTAMP ÚNICO: Garante que NUNCA sai igual à anterior
+                # Garante que a chave gerada seja sempre única
                 token_aleatorio = str(uuid.uuid4()).upper()[:6]
                 timestamp_atual = datetime.datetime.now().strftime("%d%m%Y%H%M%S")
 
@@ -417,13 +383,11 @@ with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
                     base_hash_str.encode()
                 ).hexdigest().upper()
 
-                # Estrutura limpa da chave contendo o limite de dispositivos e dias de validade
                 chave_gerada = (
                     f"CRM-{sufixo_tipo}-{limite_dev_topo}DEV-{dias_validade}D-"
                     f"{hash_hex[:4]}-{hash_hex[4:8]}"
                 )
 
-                # Link de acesso com a chave
                 link_acesso = (
                     "https://crmcomercio-bqofgjfpnvferb7cw4rike.streamlit.app/"
                     f"?chave={chave_gerada}"
@@ -451,6 +415,36 @@ with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
 
             else:
                 st.warning("Informe o CNPJ ou CPF do cliente.")
+
+        # --- BOTÃO PARA LIMPAR / RESETAR DISPOSITIVOS REGISTRADOS ---
+        st.markdown("---")
+        st.markdown("### 🗑️ Gestão de Licenças")
+        if st.button("Resetar / Limpar Dispositivos", key="btn_resetar_dispositivos_dev", type="secondary"):
+            try:
+                cursor = conn.cursor()
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+                tabelas_existentes = [row[0] for row in cursor.fetchall()]
+                
+                tabelas_alvo = [t for t in tabelas_existentes if any(termo in t.lower() for termo in ["dispositivo", "device", "licenca", "ativacao"])]
+                
+                if tabelas_alvo:
+                    for tab in tabelas_alvo:
+                        cursor.execute(f"DELETE FROM {tab}")
+                    conn.commit()
+                    
+                    try:
+                        st.cache_data.clear()
+                    except Exception:
+                        pass
+                        
+                    st.session_state['dispositivo_ativado'] = False
+                    st.success("✅ Dispositivos limpos com sucesso! Pronto para novos testes.")
+                    st.rerun()
+                else:
+                    st.warning("⚠️ Nenhuma tabela de dispositivos encontrada.")
+                    
+            except Exception as e:
+                st.error(f"❌ Erro ao limpar dispositivos: {e}")
 
 st.sidebar.title("🔑 Acesso ao Sistema")
 
