@@ -3520,12 +3520,13 @@ O Senhor é meu pastor nada mim faltarar.
             col_nfce1, col_nfce2 = st.columns(2)
             with col_nfce1:
                 uf_nfce = st.selectbox("Estado da emissão", ["MA"], index=0, disabled=True)
-                ambiente_opcoes = ["Homologacao"]
+                ambiente_opcoes = ["Homologacao", "Producao"]
                 ambiente_atual = str(cfg_nfce.get("ambiente", "Homologacao"))
                 ambiente_nfce = st.selectbox(
                     "Ambiente SEFAZ",
                     ambiente_opcoes,
                     index=ambiente_opcoes.index(ambiente_atual) if ambiente_atual in ambiente_opcoes else 0,
+                    format_func=lambda x: "Homologação (testes)" if x == "Homologacao" else "Produção (emissão oficial)"
                 )
             with col_nfce2:
                 serie_nfce = st.text_input("Série da NFC-e", value=str(cfg_nfce.get("serie", "1")))
@@ -3557,4 +3558,5 @@ O Senhor é meu pastor nada mim faltarar.
             "nesta tabela nem colocadas diretamente no código; serão configuradas "
             "nos Secrets do Streamlit Cloud."
         )
-        st.warning("Ainda não emite NFC-e oficial. Não informe dados fictícios nem mude para Produção antes da liberação da SEFAZ e da conferência do contador.")          
+        st.warning("Ainda não emite NFC-e oficial. Não informe dados fictícios nem mude para Produção antes da liberação da SEFAZ e da conferência do contador.")
+          
