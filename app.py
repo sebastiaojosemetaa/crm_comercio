@@ -3504,3 +3504,97 @@ O Senhor é meu pastor nada mim faltarar.
                     conn.commit()
                     st.success(f"Chave ID {id_para_excluir} excluída com sucesso!")
                     st.rerun()
+# --- PREPARACAO PARA EMISSAO DE NFC-e ---
+        st.markdown("---")
+        st.markdown("### 🧾 Preparação para emissão de NFC-e (modelo 65)")
+        st.info(
+            "Esta etapa salva somente os parâmetros básicos da NFC-e. "
+            "Ela ainda não transmite vendas à SEFAZ e não substitui o cupom atual. "
+            "A emissão real será ativada depois da validação do CSC, certificado A1, "
+            "credenciamento da empresa e dados fiscais dos produtos."
+        )
+
+        df_nfce_cfg = carregar_dados("SELECT * FROM config_nfce WHERE id = 1")
+        cfg_nfce = df_nfce_cfg.iloc[0].to_dict() if not df_nfce_cfg.empty else {}
+        with st.form("form_config_nfce"):
+            col_nfce1, col_nfce2 = st.columns(2)
+            with col_nfce1:
+                uf_nfce = st.selectbox("Estado da emissão", ["MA"], index=0, disabled=True)
+                ambiente_opcoes = ["Homologacao"]
+                ambiente_atual = str(cfg_nfce.get("ambiente", "Homologacao"))
+                ambiente_nfce = st.selectbox(
+                    "Ambiente SEFAZ",
+                    ambiente_opcoes,
+                    index=ambiente_opcoes.index(ambiente_atual) if ambiente_atual in ambiente_opcoes else 0,
+                )
+            with col_nfce2:
+                serie_nfce = st.text_input("Série da NFC-e", value=str(cfg_nfce.get("serie", "1")))
+                numero_nfce = st.number_input(
+                    "Próximo número da NFC-e", min_value=1, step=1,
+                    value=max(1, int(cfg_nfce.get("proximo_numero", 1) or 1))
+                )
+            st.caption("Modelo fiscal: 65 (NFC-e). O ambiente de produção só deverá ser usado após autorização e testes.")
+            if st.form_submit_button("💾 Salvar parâmetros da NFC-e", type="primary"):
+                if not serie_nfce.strip():
+                    st.error("Informe a série da NFC-e.")
+                else:
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        UPDATE config_nfce
+                        SET uf = ?, ambiente = ?, serie = ?, proximo_numero = ?,
+                            modelo = '65', atualizado_em = ?
+                        WHERE id = 1
+                    """, (uf_nfce, ambiente_nfce, serie_nfce.strip(), int(numero_nfce), datetime.now().isoformat(timespec="seconds")))
+                    conn.commit()
+                    st.success("Parâmetros básicos da NFC-e salvos. A emissão ainda depende das credenciais e validações fiscais.")
+                    st.rerun()
+
+        st.markdown("#### 🔐 Credenciais necessárias para ativar a emissão")
+        st.markdown(
+            "Quando estiver com o contador, serão necessários: **CSC (ID e token)**, "
+            "certificado **A1 (.pfx/.p12) e senha**, credenciamento da NFC-e na SEFAZ-MA "
+            "e os dados tributários dos produtos. As credenciais não serão gravadas "
+            "nesta tabela nem colocadas diretamente no código; serão configuradas "
+            "nos Secrets do Streamlit Cloud."
+        )
+        st.warning("Ainda não emite NFC-e oficial. Não informe dados fictícios nem mude para Produção antes da liberação da SEFAZ e da conferência do contador.")
+
+        # --- GESTÃO DE CHAVES PIX MÚLTIPLAS NAS CONFIGURAÇÕES ---
+        st.markdown("---")
+        st.markdown("### 💳 Gestão de Chaves Pix")
+        
+        with st.form("form_cad_chave_pix"):
+            col_cp1, col_cp2 = st.columns(2)
+            with col_cp1:
+                tipo_chave = st.selectbox("Tipo de Chave", ["CNPJ", "CPF", "Celular", "E-mail", "Chave Aleatória"])
+                valor_chave = st.text_input("Valor da Chave (ex: seu e-mail, celular ou CNPJ)")
+            with col_cp2:
+                favorecido_chave = st.text_input("Nome do Favorecido", value=nome_empresa_header)
+                cidade_chave = st.text_input("Cidade", value="SAO LUIS")
+            
+            if st.form_submit_button("➕ Cadastrar Nova Chave Pix", type="primary"):
+                if valor_chave.strip():
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        INSERT INTO chaves_pix (tipo, chave, favorecido, cidade)
+                        VALUES (?, ?, ?, ?)
+                    """, (tipo_chave, valor_chave.strip(), favorecido_chave.strip(), cidade_chave.strip()))
+                    conn.commit()
+                    st.success("✅ Chave Pix cadastrada com sucesso!")
+                    st.rerun()
+                else:
+                    st.error("Preencha o valor da chave Pix.")
+
+        df_chaves_cadastradas = carregar_dados("SELECT * FROM chaves_pix")
+        if not df_chaves_cadastradas.empty:
+            st.markdown("#### 📋 Chaves Pix Já Cadastradas")
+            st.dataframe(df_chaves_cadastradas, use_container_width=True)
+            
+            id_para_excluir = st.number_input("ID da Chave para Excluir (opcional):", min_value=0, step=1)
+            if st.button("🗑️ Excluir Chave Selecionada"):
+                if id_para_excluir > 0:
+                    cursor = conn.cursor()
+                    cursor.execute("DELETE FROM chaves_pix WHERE id = ?", (int(id_para_excluir),))
+                    conn.commit()
+                    st.success(f"Chave ID {id_para_excluir} excluída com sucesso!")
+                    st.rerun()
