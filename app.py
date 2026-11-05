@@ -97,6 +97,24 @@ def adequar_banco_e_migrar():
             )
         """)
 
+        # Configuração básica da NFC-e; segredos (A1/CSC) não ficam no banco.
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS config_nfce (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                uf TEXT DEFAULT 'MA',
+                ambiente TEXT DEFAULT 'Homologacao',
+                serie TEXT DEFAULT '1',
+                proximo_numero INTEGER DEFAULT 1,
+                modelo TEXT DEFAULT '65',
+                atualizado_em TEXT
+            )
+        """)
+        cursor.execute("""
+            INSERT OR IGNORE INTO config_nfce
+                (id, uf, ambiente, serie, proximo_numero, modelo)
+            VALUES (1, 'MA', 'Homologacao', '1', 1, '65')
+        """)
+
         cursor.execute("PRAGMA table_info(empresas_dispositivos)")
         cols_emp = [col[1] for col in cursor.fetchall()]
         if "ativado" not in cols_emp:
@@ -719,8 +737,18 @@ else:
         if 'html_cupom_atual' not in st.session_state:
             st.session_state.html_cupom_atual = ""
 
-        # SE O CUPOM ESTIVER ATIVO NA TELA
-        if st.session_state.exibir_cupom_tela:
+        # Confirma a venda sem imprimir comprovante, quando essa opção foi escolhida.
+        if st.session_state.get("venda_concluida_sem_cupom", False):
+            st.success("✅ Venda concluída e registrada com sucesso. Nenhum cupom foi impresso.")
+            if st.button("➕ Iniciar Nova Venda", type="primary", use_container_width=True, key="btn_nova_venda_sem_cupom"):
+                st.session_state.venda_concluida_sem_cupom = False
+                st.session_state.exibir_cupom_tela = False
+                st.session_state.html_cupom_atual = ""
+                st.session_state.carrinho_temp_para_imprimir = []
+                st.rerun()
+
+        # SE O CUPOM NÃO FISCAL ESTIVER ATIVO NA TELA
+        elif st.session_state.exibir_cupom_tela:
             st.success("🎉 Venda concluída com sucesso!")
             
             from datetime import datetime
@@ -770,6 +798,7 @@ else:
             # 3. Monta o texto final do cupom
             conteudo_cupom_texto = f"""
 ========================================
+              CUPOM NÃO FISCAL
            {emp_nome}
        CNPJ: {emp_cnpj}
        INCR. EST: {emp_end}
@@ -920,6 +949,22 @@ O Senhor é meu pastor nada mim faltarar.
                         key="radio_forma_pagto_checkout"
                     )
 
+                    st.markdown("#### 🧾 Como deseja documentar esta venda?")
+                    tipo_documento_pdv = st.radio(
+                        "Escolha uma opção:",
+                        ["Cupom não fiscal", "Não imprimir cupom", "NFC-e fiscal"],
+                        index=0,
+                        key="radio_tipo_documento_pdv",
+                        help="O cupom não fiscal é apenas comprovante comercial. A NFC-e só poderá ser liberada depois da integração e autorização da SEFAZ."
+                    )
+                    if tipo_documento_pdv == "NFC-e fiscal":
+                        st.warning(
+                            "A emissão de NFC-e ainda não está habilitada neste sistema. "
+                            "Faltam integração de transmissão, certificado A1, CSC, credenciamento "
+                            "na SEFAZ-MA e configuração tributária dos produtos. "
+                            "Escolha uma das outras opções para concluir esta venda."
+                        )
+
                     valor_recebido = 0.0
                     troco = 0.0
                     detalhes_pagto = forma_pagto
@@ -1031,7 +1076,13 @@ O Senhor é meu pastor nada mim faltarar.
                             st.session_state.tela_checkout_ativa = False
                             st.rerun()
                     with col_chk2:
-                        if st.button("✅ Confirmar e Concluir Venda", type="primary", use_container_width=True, key="btn_confirmar_pagto_final"):
+                        if st.button(
+                            "✅ Confirmar e Concluir Venda",
+                            type="primary",
+                            use_container_width=True,
+                            key="btn_confirmar_pagto_final",
+                            disabled=(tipo_documento_pdv == "NFC-e fiscal")
+                        ):
                             cursor = conn.cursor()
                             sessao_id = int(df_caixa_aberto.iloc[0]['id'])
                             data_venda = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -1043,21 +1094,31 @@ O Senhor é meu pastor nada mim faltarar.
                                     cliente TEXT,
                                     data TEXT,
                                     forma_pagamento TEXT,
-                                    total REAL
+                                    total REAL,
+                                    tipo_documento TEXT DEFAULT 'Cupom não fiscal'
                                 )
                             """)
+                            cursor.execute("PRAGMA table_info(vendas_cabecalho)")
+                            colunas_cabecalho = [col[1] for col in cursor.fetchall()]
+                            if "tipo_documento" not in colunas_cabecalho:
+                                cursor.execute(
+                                    "ALTER TABLE vendas_cabecalho ADD COLUMN tipo_documento TEXT DEFAULT 'Cupom não fiscal'"
+                                )
+
                             
                             # Define com segurança os valores
                             desc_pagamento = str(locals().get('forma_pagto', 'Dinheiro'))
                             
                             cursor.execute("""
-                                INSERT INTO vendas_cabecalho (cliente, data, forma_pagamento, total)
-                                VALUES (?, ?, ?, ?)
+                                INSERT INTO vendas_cabecalho
+                                    (cliente, data, forma_pagamento, total, tipo_documento)
+                                VALUES (?, ?, ?, ?, ?)
                             """, (
-                                str(locals().get('cliente_pdv_selecionado', 'Cliente Balcão')), 
-                                str(data_venda), 
-                                desc_pagamento, 
-                                float(total_geral_carrinho)
+                                str(locals().get('cliente_pdv_selecionado', 'Cliente Balcão')),
+                                str(data_venda),
+                                desc_pagamento,
+                                float(total_geral_carrinho),
+                                tipo_documento_pdv
                             ))
                             
                             venda_id_gerado = cursor.lastrowid
@@ -1209,6 +1270,7 @@ O Senhor é meu pastor nada mim faltarar.
                             </style>
 
                             <div id="cupom_imprimir_exclusivo" style="background-color: #ffffff; padding: 20px; border-radius: 5px; border: 1px dashed #ccc; font-family: monospace; color: #000; max-width: 400px; margin: auto;">
+                                <h3 style="text-align: center; margin: 0;">CUPOM NÃO FISCAL</h3>
                                 <h3 style="text-align: center; margin: 0;">{emp_nome}</h3>
                                 <p style="text-align: center; margin: 2px 0;">CNPJ: {emp_cnpj}</p>
                                 <p style="text-align: center; margin: 2px 0;">{emp_end}</p>
@@ -1233,14 +1295,15 @@ O Senhor é meu pastor nada mim faltarar.
                             </div>
                             """
 
-                            # Salva no estado e ativa a tela do cupom
+                            # Guarda a opção escolhida para esta venda.
                             st.session_state.html_cupom_atual = html_cupom_gerado
-                            st.session_state.exibir_cupom_tela = True
+                            st.session_state.tipo_documento_venda = tipo_documento_pdv
+                            st.session_state.exibir_cupom_tela = (tipo_documento_pdv == "Cupom não fiscal")
+                            st.session_state.venda_concluida_sem_cupom = (tipo_documento_pdv == "Não imprimir cupom")
                             st.session_state.carrinho_temp_para_imprimir = st.session_state.carrinho_pdv.copy()
                             st.session_state.carrinho_pdv = []
                             st.session_state.tela_checkout_ativa = False
                             st.rerun()
-
             else:
                 st.info("Nenhum item lançado no carrinho ainda.")
 
