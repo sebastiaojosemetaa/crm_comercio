@@ -280,80 +280,297 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- PAINEL LATERAL (DEV) — GERADOR DE CHAVES ---
-with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
-    senha_dev = st.text_input("Senha Mestre Dev", type="password", key="pwd_dev_topo")
-    if senha_dev == "13142715":
-        tipo_plano = st.selectbox("Tipo de Chave:", ["Teste (7 Dias)", "Mensal (30 Dias)", "Anual (365 Dias)"], key="select_tipo_plano_dev")
-        doc_cliente = st.text_input("CNPJ ou CPF do Cliente:", key="doc_dev_topo_doc")
-        limite_dev_topo = st.number_input("Limite de Dispositivos:", min_value=1, max_value=50, value=1, key="limite_dev_topo_num")
-        
-        if st.button("Gerar Chave", key="btn_dev_topo_acao"):
-            if doc_cliente.strip():
-                sufixo_tipo = "TESTE" if "Teste" in tipo_plano else ("MENSAL" if "Mensal" in tipo_plano else "ANUAL")
-                doc_limpo = ''.join(filter(str.isdigit, str(doc_cliente)))
-                
-                cursor = conn.cursor()
-                cursor.execute("""
-                    UPDATE empresas_dispositivos 
-                    SET limite_dispositivos = ? 
-                    WHERE REPLACE(REPLACE(REPLACE(cnpj, '.', ''), '/', ''), '-', '') = ?
-                """, (limite_dev_topo, doc_limpo))
-                conn.commit()
 
-                base_hash_str = doc_limpo + "REY_CEBOLA_2026" + sufixo_tipo + str(limite_dev_topo)
-                hash_hex = hashlib.md5(base_hash_str.encode()).hexdigest().upper()
-                st.code(f"CRM-{sufixo_tipo}-{limite_dev_topo}D-{hash_hex[:4]}-{hash_hex[4:8]}", language="text")
-                st.success(f"Chave gerada! Limite definido: {limite_dev_topo} dispositivo(s).")
+# --- PAINEL LATERAL (DEV) — GERADOR DE CHAVES E RESET ---
+with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
+
+    senha_dev = st.text_input(
+        "Senha Mestre Dev",
+        type="password",
+        key="pwd_dev_topo"
+    )
+
+    if senha_dev == "13142715":
+
+        st.success("Acesso de desenvolvedor liberado!")
+
+        st.markdown("### 🔑 Gerar Chave de Ativação")
+
+        tipo_plano = st.selectbox(
+            "Tipo de Chave:",
+            ["Teste (7 Dias)", "Mensal (30 Dias)", "Anual (365 Dias)"],
+            key="select_tipo_plano_dev"
+        )
+
+        doc_cliente = st.text_input(
+            "CNPJ ou CPF do Cliente:",
+            key="doc_dev_topo_doc"
+        )
+
+        limite_dev_topo = st.number_input(
+            "Limite de Dispositivos:",
+            min_value=1,
+            max_value=50,
+            value=1,
+            key="limite_dev_topo_num"
+        )
+
+        if st.button("Gerar Chave", key="btn_dev_topo_acao"):
+
+            if doc_cliente.strip():
+
+                sufixo_tipo = (
+                    "TESTE" if "Teste" in tipo_plano
+                    else ("MENSAL" if "Mensal" in tipo_plano else "ANUAL")
+                )
+
+                doc_limpo = ''.join(
+                    filter(str.isdigit, str(doc_cliente))
+                )
+
+                try:
+                    cursor = conn.cursor()
+
+                    cursor.execute("""
+                        UPDATE empresas_dispositivos
+                        SET limite_dispositivos = ?
+                        WHERE REPLACE(
+                            REPLACE(
+                                REPLACE(cnpj, '.', ''),
+                            '/', ''),
+                        '-', '') = ?
+                    """, (limite_dev_topo, doc_limpo))
+
+                    conn.commit()
+                    cursor.close()
+
+                    base_hash_str = (
+                        doc_limpo
+                        + "REY_CEBOLA_2026"
+                        + sufixo_tipo
+                        + str(limite_dev_topo)
+                    )
+
+                    hash_hex = hashlib.md5(
+                        base_hash_str.encode()
+                    ).hexdigest().upper()
+
+                    chave_gerada = (
+                        f"CRM-{sufixo_tipo}-{limite_dev_topo}D-"
+                        f"{hash_hex[:4]}-{hash_hex[4:8]}"
+                    )
+
+                    st.code(chave_gerada, language="text")
+
+                    st.success(
+                        f"Chave gerada! Limite definido: "
+                        f"{limite_dev_topo} dispositivo(s)."
+                    )
+
+                except Exception as e:
+                    conn.rollback()
+                    st.error(f"Erro ao gerar chave: {e}")
+
+            else:
+                st.warning("Informe o CNPJ ou CPF do cliente.")
+
+        # ------------------------------------------
+        # RESETAR DISPOSITIVOS
+        # ------------------------------------------
+
+        st.markdown("---")
+        st.markdown("### 🗑️ Resetar Dispositivos")
+
+        st.warning(
+            "ATENÇÃO: Esta operação desativará TODOS os dispositivos "
+            "registrados na tabela empresas_dispositivos, de todas as empresas."
+        )
+
+        if st.button(
+            "🗑️ RESETAR DISPOSITIVOS",
+            key="btn_reset_dispositivos"
+        ):
+            st.session_state["confirmar_reset_dispositivos"] = True
+
+        if st.session_state.get("confirmar_reset_dispositivos", False):
+
+            confirmar_reset = st.checkbox(
+                "Confirmo que desejo desativar todos os dispositivos.",
+                key="check_confirmar_reset"
+            )
+
+            col_reset1, col_reset2 = st.columns(2)
+
+            with col_reset1:
+                if st.button(
+                    "CONFIRMAR RESET",
+                    key="btn_confirmar_reset"
+                ):
+
+                    if confirmar_reset:
+                        try:
+                            cursor = conn.cursor()
+
+                            cursor.execute("""
+                                UPDATE empresas_dispositivos
+                                SET ativado = 0
+                            """)
+
+                            conn.commit()
+                            cursor.close()
+
+                            st.session_state["dispositivo_ativado"] = False
+                            st.session_state["confirmar_reset_dispositivos"] = False
+
+                            st.success(
+                                "Todos os dispositivos foram desativados."
+                            )
+
+                            st.rerun()
+
+                        except Exception as e:
+                            conn.rollback()
+                            st.error(f"Erro ao resetar dispositivos: {e}")
+
+                    else:
+                        st.warning(
+                            "Marque a confirmação antes de continuar."
+                        )
+
+            with col_reset2:
+                if st.button(
+                    "CANCELAR",
+                    key="btn_cancelar_reset"
+                ):
+                    st.session_state["confirmar_reset_dispositivos"] = False
+                    st.rerun()
+
+    elif senha_dev:
+        st.error("Senha de desenvolvedor incorreta.")
+
+
+# ==========================================
+# ACESSO AO SISTEMA
+# ==========================================
 
 st.sidebar.title("🔑 Acesso ao Sistema")
-st.sidebar.radio("Selecione o Perfil:", ["🔒 Administração / Vendedor"], key="perfil_principal_radio")
+
+st.sidebar.radio(
+    "Selecione o Perfil:",
+    ["🔒 Administração / Vendedor"],
+    key="perfil_principal_radio"
+)
+
 st.sidebar.markdown("---")
 
 if st.session_state.get('dispositivo_ativado', False):
     st.sidebar.success("🟢 Dispositivo Ativado")
 else:
     st.sidebar.error("🔴 Dispositivo Não Ativado")
+
 st.sidebar.markdown("---")
+
 
 # ==========================================
 # ECRÃ DE LOGIN OU INTERFACE PRINCIPAL
 # ==========================================
+
 if not st.session_state['autenticado']:
+
     st.markdown("## 🔐 Autenticação do Sistema")
+
     with st.form("form_login_sistema"):
-        usuario_input = st.text_input("Usuário / Login", key="login_usuario").strip().lower()
-        senha_input = st.text_input("Senha", type="password", key="login_senha")
-        btn_entrar = st.form_submit_button("🟢 Entrar no Sistema", type="primary", use_container_width=True)
-        
+
+        usuario_input = st.text_input(
+            "Usuário / Login",
+            key="login_usuario"
+        ).strip().lower()
+
+        senha_input = st.text_input(
+            "Senha",
+            type="password",
+            key="login_senha"
+        )
+
+        btn_entrar = st.form_submit_button(
+            "🟢 Entrar no Sistema",
+            type="primary",
+            use_container_width=True
+        )
+
         if btn_entrar:
-            if (usuario_input == "administrador" and senha_input == "admin") or (usuario_input == "admin" and senha_input == "123456"):
+
+            if (
+                (usuario_input == "administrador" and senha_input == "admin")
+                or
+                (usuario_input == "admin" and senha_input == "123456")
+            ):
+
                 st.session_state['autenticado'] = True
                 st.session_state['usuario_logado'] = "administrador"
                 st.session_state['login_efetuado'] = "administrador"
                 st.session_state['cargo_logado'] = "Administrador"
+
                 st.session_state['permissoes_usuario'] = {
-                    "pdv": 1, "financeiro": 1, "registrar_venda": 1, "compras": 1,
-                    "cadastros": 1, "rh": 1, "usuarios": 1, "backup": 1,
-                    "contas_receber": 1, "estoque": 1, "configuracoes": 1
+                    "pdv": 1,
+                    "financeiro": 1,
+                    "registrar_venda": 1,
+                    "compras": 1,
+                    "cadastros": 1,
+                    "rh": 1,
+                    "usuarios": 1,
+                    "backup": 1,
+                    "contas_receber": 1,
+                    "estoque": 1,
+                    "configuracoes": 1
                 }
+
                 st.success("Login efetuado com sucesso!")
                 st.rerun()
+
             else:
+
                 try:
                     cursor = conn.cursor()
-                    cursor.execute("SELECT id, usuario, login, senha, cargo, perm_pdv, perm_financeiro, perm_registrar_venda, perm_compras, perm_cadastros, perm_rh, perm_usuarios, perm_backup, perm_contas_receber, perm_estoque, perm_configuracoes FROM usuarios WHERE LOWER(TRIM(login)) = ? AND senha = ?", (usuario_input, senha_input))
+
+                    cursor.execute("""
+                        SELECT
+                            id, usuario, login, senha, cargo,
+                            perm_pdv, perm_financeiro,
+                            perm_registrar_venda, perm_compras,
+                            perm_cadastros, perm_rh,
+                            perm_usuarios, perm_backup,
+                            perm_contas_receber, perm_estoque,
+                            perm_configuracoes
+                        FROM usuarios
+                        WHERE LOWER(TRIM(login)) = ?
+                        AND senha = ?
+                    """, (usuario_input, senha_input))
+
                     user_row = cursor.fetchone()
                     cursor.close()
+
                     if user_row:
+
                         st.session_state['autenticado'] = True
-                        st.session_state['login_efetuado'] = str(user_row[2] if user_row[2] else usuario_input)
-                        st.session_state['usuario_logado'] = str(user_row[1] if user_row[1] else usuario_input)
-                        st.session_state['cargo_logado'] = str(user_row[4] if user_row[4] else "Funcionário")
-                        
+
+                        st.session_state['login_efetuado'] = str(
+                            user_row[2] if user_row[2] else usuario_input
+                        )
+
+                        st.session_state['usuario_logado'] = str(
+                            user_row[1] if user_row[1] else usuario_input
+                        )
+
+                        st.session_state['cargo_logado'] = str(
+                            user_row[4] if user_row[4] else "Funcionário"
+                        )
+
                         def safe_int(val):
-                            try: return int(val) if val is not None else 0
-                            except: return 0
+                            try:
+                                return int(val) if val is not None else 0
+                            except:
+                                return 0
 
                         st.session_state['permissoes_usuario'] = {
                             "pdv": safe_int(user_row[5]),
@@ -368,70 +585,129 @@ if not st.session_state['autenticado']:
                             "estoque": safe_int(user_row[14]),
                             "configuracoes": safe_int(user_row[15])
                         }
+
                         st.success("Login efetuado com sucesso!")
                         st.rerun()
+
                     else:
-                        st.error("❌ Usuário ou senha incorretos. Verifique os dados.")
+                        st.error(
+                            "❌ Usuário ou senha incorretos. "
+                            "Verifique os dados."
+                        )
+
                 except Exception as e:
                     st.error(f"Erro ao autenticar: {e}")
 
+
 else:
+
     # --- INTERFACE PRINCIPAL APÓS O LOGIN ---
-    usr_exibicao = str(st.session_state.get('usuario_logado') or "Utilizador")
-    login_atual = str(st.session_state.get('login_efetuado') or '').lower()
-    
+
+    usr_exibicao = str(
+        st.session_state.get('usuario_logado') or "Utilizador"
+    )
+
+    login_atual = str(
+        st.session_state.get('login_efetuado') or ''
+    ).lower()
+
     st.sidebar.write(f"👤 **Utilizador:** `{usr_exibicao}`")
-    
+
     if st.sidebar.button("🚪 Sair do Sistema"):
+
         st.session_state['autenticado'] = False
         st.session_state['usuario_logado'] = ""
         st.session_state['login_efetuado'] = ""
         st.session_state['cargo_logado'] = ""
         st.session_state['permissoes_usuario'] = {}
+
         st.rerun()
 
-    # VERIFICAÇÃO DE MESTRE OU PERMISSÕES PERSONALIZADAS
-    is_admin_master = (login_atual == "administrador" or st.session_state.get('cargo_logado') == "Administrador")
+    # ==========================================
+    # VERIFICAÇÃO DE MESTRE OU PERMISSÕES
+    # ==========================================
+
+    is_admin_master = (
+        login_atual == "administrador"
+        or st.session_state.get('cargo_logado') == "Administrador"
+    )
+
     perms = st.session_state.get('permissoes_usuario', {})
 
     opcoes_menu_disponiveis = []
-    
+
     if is_admin_master or perms.get("pdv", 1) == 1:
         opcoes_menu_disponiveis.append("🛒 PDV — Frente de Caixa")
+
     if is_admin_master or perms.get("financeiro", 0) == 1:
         opcoes_menu_disponiveis.append("📊 Fechamento & Financeiro")
+
     if is_admin_master or perms.get("registrar_venda", 1) == 1:
         opcoes_menu_disponiveis.append("🛒 Registrar Venda")
+
     if is_admin_master or perms.get("compras", 0) == 1:
         opcoes_menu_disponiveis.append("📦 Entrada de Estoque (Compras)")
+
     if is_admin_master or perms.get("cadastros", 1) == 1:
-        opcoes_menu_disponiveis.append("👥 Cadastros (Clientes / Fornecedores / Grupos)")
+        opcoes_menu_disponiveis.append(
+            "👥 Cadastros (Clientes / Fornecedores / Grupos)"
+        )
+
     if is_admin_master or perms.get("rh", 0) == 1:
-        opcoes_menu_disponiveis.append("👥 Gestão de Recursos Humanos (RH)")
+        opcoes_menu_disponiveis.append(
+            "👥 Gestão de Recursos Humanos (RH)"
+        )
+
     if is_admin_master or perms.get("usuarios", 0) == 1:
-        opcoes_menu_disponiveis.append("🔐 Gestão de Utilizadores e Logins")
+        opcoes_menu_disponiveis.append(
+            "🔐 Gestão de Utilizadores e Logins"
+        )
+
     if is_admin_master or perms.get("backup", 0) == 1:
         opcoes_menu_disponiveis.append("💾 Backup e Restauração")
+
     if is_admin_master or perms.get("contas_receber", 1) == 1:
         opcoes_menu_disponiveis.append("💸 Contas a Receber")
+
     if is_admin_master or perms.get("estoque", 1) == 1:
         opcoes_menu_disponiveis.append("📦 Estoque de Produtos")
+
     if is_admin_master or perms.get("configuracoes", 0) == 1:
         opcoes_menu_disponiveis.append("🏢 Configurações da Empresa")
 
     if not opcoes_menu_disponiveis:
         opcoes_menu_disponiveis = ["🛒 PDV — Frente de Caixa"]
 
-    menu_admin = st.sidebar.radio("Navegação", opcoes_menu_disponiveis, key="radio_menu_admin_opcoes")
+    menu_admin = st.sidebar.radio(
+        "Navegação",
+        opcoes_menu_disponiveis,
+        key="radio_menu_admin_opcoes"
+    )
 
-    # --- TRAVA DE SEGURANÇA DE LICENÇA POR DISPOSITIVO ---
-    df_check_ativado = carregar_dados(f"SELECT ativado FROM empresas_dispositivos WHERE device_id = '{device_id}'")
-    status_disp_real = int(df_check_ativado.iloc[0]['ativado']) if not df_check_ativado.empty else 0
+    # ==========================================
+    # TRAVA DE SEGURANÇA DE LICENÇA POR DISPOSITIVO
+    # ==========================================
+
+    df_check_ativado = carregar_dados(
+        f"SELECT ativado FROM empresas_dispositivos "
+        f"WHERE device_id = '{device_id}'"
+    )
+
+    status_disp_real = (
+        int(df_check_ativado.iloc[0]['ativado'])
+        if not df_check_ativado.empty
+        else 0
+    )
 
     if status_disp_real == 0 and menu_admin != "🏢 Configurações da Empresa":
-        st.error("🚫 **ACESSO BLOQUEADO:** Este dispositivo não está ativado na licença. Vá em **Configurações da Empresa** para inserir a chave de ativação.")
-        st.stop()
 
+        st.error(
+            "🚫 **ACESSO BLOQUEADO:** Este dispositivo não está ativado "
+            "na licença. Vá em **Configurações da Empresa** para inserir "
+            "a chave de ativação."
+        )
+
+        st.stop()
     # -------------------------------------------------------------
     # 1. MÓDULO PDV — FRENTE DE CAIXA
     # -------------------------------------------------------------
