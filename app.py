@@ -298,7 +298,7 @@ with st.sidebar.expander("⚙️ Gerador de Chaves (Dev)"):
 
         tipo_plano = st.selectbox(
             "Tipo de Chave:",
-            ["Teste (7 Dias)", "Mensal (30 Dias)", "Anual (365 Dias)"],
+            ["Teste (1 Dias)", "Teste (7 Dias)", "Mensal (30 Dias)", "Anual (365 Dias)"],
             key="select_tipo_plano_dev"
         )
 
