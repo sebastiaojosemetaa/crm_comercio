@@ -3572,29 +3572,3 @@ O Senhor é meu pastor nada mim faltarar.
                 favorecido_chave = st.text_input("Nome do Favorecido", value=nome_empresa_header)
                 cidade_chave = st.text_input("Cidade", value="SAO LUIS")
             
-            if st.form_submit_button("➕ Cadastrar Nova Chave Pix", type="primary"):
-                if valor_chave.strip():
-                    cursor = conn.cursor()
-                    cursor.execute("""
-                        INSERT INTO chaves_pix (tipo, chave, favorecido, cidade)
-                        VALUES (?, ?, ?, ?)
-                    """, (tipo_chave, valor_chave.strip(), favorecido_chave.strip(), cidade_chave.strip()))
-                    conn.commit()
-                    st.success("✅ Chave Pix cadastrada com sucesso!")
-                    st.rerun()
-                else:
-                    st.error("Preencha o valor da chave Pix.")
-
-        df_chaves_cadastradas = carregar_dados("SELECT * FROM chaves_pix")
-        if not df_chaves_cadastradas.empty:
-            st.markdown("#### 📋 Chaves Pix Já Cadastradas")
-            st.dataframe(df_chaves_cadastradas, use_container_width=True)
-            
-            id_para_excluir = st.number_input("ID da Chave para Excluir (opcional):", min_value=0, step=1)
-            if st.button("🗑️ Excluir Chave Selecionada"):
-                if id_para_excluir > 0:
-                    cursor = conn.cursor()
-                    cursor.execute("DELETE FROM chaves_pix WHERE id = ?", (int(id_para_excluir),))
-                    conn.commit()
-                    st.success(f"Chave ID {id_para_excluir} excluída com sucesso!")
-                    st.rerun()
