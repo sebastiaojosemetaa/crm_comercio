@@ -95,6 +95,9 @@ DOCUMENTO_ALENCARSOFT = "95451161100"
 empresa_doc = ""
 empresa_config = {}
 banco_empresa = "crm_comercio.db"
+if not empresas_config:
+    st.error("Configure as empresas nos Secrets do CRM principal.")
+    st.stop()
 if empresas_config:
     caminhos = []
     senhas = []
@@ -150,8 +153,8 @@ if empresas_config:
         st.rerun()
 
 # A lista em Secrets usa os mesmos documentos do cadastro de empresas.
-configuracao_piloto = st.secrets.get("crm_piloto", {})
-documentos_backup_automatico = configuracao_piloto.get("empresas_backup_automatico", ["95451161100"])
+configuracao_backup_producao = st.secrets.get("crm_producao", {})
+documentos_backup_automatico = configuracao_backup_producao.get("empresas_backup_automatico", [])
 if not isinstance(documentos_backup_automatico, list):
     documentos_backup_automatico = []
 empresas_backup_automatico = {
@@ -279,12 +282,12 @@ def get_connection():
     conexao.execute("PRAGMA synchronous = NORMAL")
     return conexao
 
-def conectar_supabase_piloto():
+def conectar_supabase_producao():
     try:
         import psycopg
     except ImportError as erro:
         raise ValueError("Adicione psycopg[binary]>=3.2,<4 ao requirements.txt e publique novamente.") from erro
-    configuracao = st.secrets.get("crm_piloto", {})
+    configuracao = st.secrets.get("crm_producao", {})
     url = str(configuracao.get("database_url", "")).strip()
     senha_separada = configuracao.get("password")
     if senha_separada is not None:
@@ -292,7 +295,7 @@ def conectar_supabase_piloto():
         url = url.replace("[YOUR-PASSWORD]", "")
 
     if not url.startswith(("postgresql://", "postgres://")):
-        raise ValueError("Configure database_url no bloco crm_piloto dos Secrets.")
+        raise ValueError("Configure database_url no bloco crm_producao dos Secrets.")
     if "[YOUR-PASSWORD]" in url or "COLE_A_" in url:
         raise ValueError("A conexão ainda contém um texto de exemplo. Substitua [YOUR-PASSWORD] pela senha do banco nos Secrets.")
     try:
@@ -317,7 +320,7 @@ def conectar_supabase_piloto():
         elif "circuit breaker" in texto or "too many authentication" in texto:
             mensagem = "O Supabase suspendeu temporariamente as tentativas após falhas de autenticação. Confira a senha e aguarde alguns minutos antes de testar."
         elif "tenant or user not found" in texto:
-            mensagem = "O Supabase não reconheceu o usuário ou projeto. Copie novamente a URI de Session pooler do projeto do piloto."
+            mensagem = "O Supabase não reconheceu o usuário ou projeto. Copie novamente a URI de Session pooler do projeto de produção."
         elif erro.sqlstate == "28P01" or "password authentication failed" in texto:
             mensagem = "O Supabase recusou a senha do banco. Confira a senha e substitua @ por %40 apenas dentro da senha na URI."
         elif any(trecho in texto for trecho in ["resolve", "translate host", "name or service not known"]):
@@ -355,14 +358,14 @@ def validar_backup_piloto(dados, documento):
 
 def gravar_backup_piloto(dados, documento, nome_arquivo):
     validar_backup_piloto(dados, documento)
-    with conectar_supabase_piloto() as remoto:
+    with conectar_supabase_producao() as remoto:
         registro = remoto.execute(
-            """INSERT INTO crm_piloto.backups_sqlite (empresa, nome_arquivo, conteudo)
+            """INSERT INTO crm_producao.backups_sqlite (empresa, nome_arquivo, conteudo)
                VALUES (%s, %s, %s) RETURNING id""",
             (documento, os.path.basename(nome_arquivo), dados),
         ).fetchone()[0]
         recuperado = bytes(remoto.execute(
-            "SELECT conteudo FROM crm_piloto.backups_sqlite WHERE id=%s AND empresa=%s",
+            "SELECT conteudo FROM crm_producao.backups_sqlite WHERE id=%s AND empresa=%s",
             (registro, documento),
         ).fetchone()[0])
         if recuperado != dados:
@@ -2366,33 +2369,33 @@ if (
                 nome_cadastrado = st.session_state.pop("empresa_cadastrada_ok", None)
                 if nome_cadastrado:
                     st.success(f"{nome_cadastrado} cadastrada. Já pode gerar a chave.")
-                with st.expander("Piloto de backup no Supabase"):
-                    st.caption("Envie o backup da empresa de teste e baixe a cópia recuperada para conferir os dados.")
+                with st.expander("Backups de produção no Supabase"):
+                    st.caption("Selecione a empresa para enviar ou baixar uma cópia do banco.")
                     empresas_piloto = {
                         doc: e for doc, e in empresas_config.items()
                         if "senha_hash" in e or doc in empresas_backup_automatico
                     }
                     if not empresas_piloto:
-                        st.info("Cadastre uma empresa de teste pelo painel para usar o piloto.")
+                        st.info("Habilite uma empresa para usar os backups no Supabase.")
                     else:
                         doc_piloto = st.selectbox(
-                            "Empresa do piloto", list(empresas_piloto),
+                            "Empresa do backup", list(empresas_piloto),
                             format_func=lambda doc: f"{empresas_piloto[doc]['nome']} · {doc}",
                             key="empresa_backup_piloto",
                         )
                         if st.button("Testar conexão com Supabase", key="testar_supabase_piloto"):
                             try:
-                                with conectar_supabase_piloto() as remoto:
-                                    tabela = remoto.execute("SELECT to_regclass('crm_piloto.backups_sqlite')").fetchone()[0]
+                                with conectar_supabase_producao() as remoto:
+                                    tabela = remoto.execute("SELECT to_regclass('crm_producao.backups_sqlite')").fetchone()[0]
                                 if tabela:
-                                    st.success("Conexão confirmada. A tabela do piloto está disponível.")
+                                    st.success("Conexão confirmada. A tabela de produção está disponível.")
                                 else:
-                                    st.error("Conexão confirmada, mas a tabela do piloto precisa ser criada.")
+                                    st.error("Conexão confirmada, mas a tabela de produção precisa ser criada.")
                             except ValueError as erro:
                                 st.error(str(erro))
                             except Exception:
                                 st.error("Não foi possível conectar. Confira a URI, a senha e o projeto nos Secrets.")
-                        arquivo_piloto = st.file_uploader("Backup da empresa de teste (.db)", type=["db"], key="backup_supabase_piloto")
+                        arquivo_piloto = st.file_uploader("Backup da empresa (.db)", type=["db"], key="backup_supabase_piloto")
                         if st.button("Enviar backup e conferir recuperação", key="enviar_supabase_piloto", disabled=arquivo_piloto is None):
                             try:
                                 dados = arquivo_piloto.getvalue()
@@ -2401,12 +2404,12 @@ if (
                             except ValueError as erro:
                                 st.error(str(erro))
                             except Exception:
-                                st.error("Falha ao enviar ou conferir o backup. Confira a conexão e a tabela do piloto.")
+                                st.error("Falha ao enviar ou conferir o backup. Confira a conexão e a tabela de produção.")
                         if st.button("Recuperar último backup do Supabase", key="recuperar_supabase_piloto"):
                             try:
-                                with conectar_supabase_piloto() as remoto:
+                                with conectar_supabase_producao() as remoto:
                                     registro = remoto.execute(
-                                        """SELECT nome_arquivo, conteudo FROM crm_piloto.backups_sqlite
+                                        """SELECT nome_arquivo, conteudo FROM crm_producao.backups_sqlite
                                            WHERE empresa=%s ORDER BY id DESC LIMIT 1""", (doc_piloto,),
                                     ).fetchone()
                                 if registro:
@@ -2423,7 +2426,7 @@ if (
                             except ValueError as erro:
                                 st.error(str(erro))
                             except Exception:
-                                st.error("Não foi possível recuperar o backup do piloto.")
+                                st.error("Não foi possível recuperar o backup de produção.")
                 documento_destino = st.selectbox(
                     "Empresa que receberá a chave",
                     list(empresas_config),
@@ -3726,7 +3729,7 @@ O Senhor é meu pastor nada mim faltarar.
         if aviso_backup is True:
             st.success("Caixa fechado. Backup automático gravado e conferido no Supabase.")
         elif aviso_backup is False:
-            st.warning("Caixa fechado. O backup automático falhou. Você pode enviar uma cópia pelo painel do piloto.")
+            st.warning("Caixa fechado. O backup automático falhou. Você pode enviar uma cópia pelo painel de backups.")
 
         aba_caixa_atual, aba_historico_caixas = st.tabs(["🟢 Caixa Atual & Operação", "📚 Histórico de Caixas Fechados"])
 
