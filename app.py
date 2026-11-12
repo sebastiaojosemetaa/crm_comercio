@@ -2430,6 +2430,58 @@ if (
                                 st.error(str(erro))
                             except Exception:
                                 st.error("Falha ao enviar ou conferir o backup. Confira a conexão e a tabela de produção.")
+                        if st.button("Carregar histórico de backups", key="carregar_historico_backup"):
+                            st.session_state.pop("historico_backup", None)
+                            try:
+                                with conectar_supabase_producao() as remoto:
+                                    linhas = remoto.execute(
+                                        """SELECT id, nome_arquivo, criado_em, octet_length(conteudo)
+                                           FROM crm_producao.backups_sqlite WHERE empresa=%s
+                                           ORDER BY criado_em DESC, id DESC""", (doc_piloto,),
+                                    ).fetchall()
+                                st.session_state["historico_backup"] = (doc_piloto, linhas)
+                            except (ValueError, OSError) as erro:
+                                st.error(str(erro))
+                            except Exception:
+                                st.error("Não foi possível carregar o histórico de backups.")
+                        documento_historico, linhas = st.session_state.get("historico_backup", (None, []))
+                        if documento_historico == doc_piloto:
+                            if not linhas:
+                                st.info("Ainda não há backups para esta empresa.")
+                            else:
+                                horario_brasilia = dt.timezone(timedelta(hours=-3))
+                                opcoes = {
+                                    numero: (
+                                        f"{criado.astimezone(horario_brasilia):%d/%m/%Y %H:%M:%S} · "
+                                        f"{nome} · {tamanho / 1024:.1f} KB · nº {numero}"
+                                    )
+                                    for numero, nome, criado, tamanho in linhas
+                                }
+                                backup_id = st.selectbox(
+                                    "Cópia do histórico (horário de Brasília)", list(opcoes),
+                                    format_func=opcoes.__getitem__, key=f"historico_backup_{doc_piloto}",
+                                )
+                                if st.button("Preparar download da cópia escolhida", key="preparar_backup_historico"):
+                                    try:
+                                        with conectar_supabase_producao() as remoto:
+                                            copia = remoto.execute(
+                                                """SELECT conteudo FROM crm_producao.backups_sqlite
+                                                   WHERE empresa=%s AND id=%s""", (doc_piloto, backup_id),
+                                            ).fetchone()
+                                        if copia is None:
+                                            st.info("A cópia selecionada não está mais disponível.")
+                                        else:
+                                            dados = bytes(copia[0])
+                                            validar_backup_piloto(dados, doc_piloto)
+                                            st.download_button(
+                                                "Baixar cópia escolhida", data=dados,
+                                                file_name=f"backup_{doc_piloto}_{backup_id}.db",
+                                                mime="application/octet-stream", key="baixar_backup_historico",
+                                            )
+                                    except ValueError as erro:
+                                        st.error(str(erro))
+                                    except Exception:
+                                        st.error("Não foi possível recuperar a cópia escolhida.")
                         if st.button("Recuperar último backup do Supabase", key="recuperar_supabase_piloto"):
                             try:
                                 with conectar_supabase_producao() as remoto:
