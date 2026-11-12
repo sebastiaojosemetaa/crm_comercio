@@ -2371,6 +2371,18 @@ if (
                     st.success(f"{nome_cadastrado} cadastrada. Já pode gerar a chave.")
                 with st.expander("Backups de produção no Supabase"):
                     st.caption("Selecione a empresa para enviar ou baixar uma cópia do banco.")
+                    if st.button("Testar conexão com Supabase", key="testar_supabase_piloto"):
+                        try:
+                            with conectar_supabase_producao() as remoto:
+                                tabela = remoto.execute("SELECT to_regclass('crm_producao.backups_sqlite')").fetchone()[0]
+                            if tabela:
+                                st.success("Conexão confirmada. A tabela de produção está disponível.")
+                            else:
+                                st.error("Conexão confirmada, mas a tabela de produção precisa ser criada.")
+                        except ValueError as erro:
+                            st.error(str(erro))
+                        except Exception:
+                            st.error("Não foi possível conectar. Confira a URI, a senha e o projeto nos Secrets.")
                     empresas_piloto = {
                         doc: e for doc, e in empresas_config.items()
                         if "senha_hash" in e or doc in empresas_backup_automatico
@@ -2383,18 +2395,6 @@ if (
                             format_func=lambda doc: f"{empresas_piloto[doc]['nome']} · {doc}",
                             key="empresa_backup_piloto",
                         )
-                        if st.button("Testar conexão com Supabase", key="testar_supabase_piloto"):
-                            try:
-                                with conectar_supabase_producao() as remoto:
-                                    tabela = remoto.execute("SELECT to_regclass('crm_producao.backups_sqlite')").fetchone()[0]
-                                if tabela:
-                                    st.success("Conexão confirmada. A tabela de produção está disponível.")
-                                else:
-                                    st.error("Conexão confirmada, mas a tabela de produção precisa ser criada.")
-                            except ValueError as erro:
-                                st.error(str(erro))
-                            except Exception:
-                                st.error("Não foi possível conectar. Confira a URI, a senha e o projeto nos Secrets.")
                         arquivo_piloto = st.file_uploader("Backup da empresa (.db)", type=["db"], key="backup_supabase_piloto")
                         if st.button("Enviar backup e conferir recuperação", key="enviar_supabase_piloto", disabled=arquivo_piloto is None):
                             try:
