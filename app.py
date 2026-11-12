@@ -284,6 +284,21 @@ def get_connection():
     conexao.execute("PRAGMA synchronous = NORMAL")
     return conexao
 
+def consultar_ultimo_fechamento_backup(configuracao, documento):
+    caminho = Path(configuracao["banco"]).resolve()
+    with closing(sqlite3.connect(caminho.as_uri() + "?mode=ro", uri=True, timeout=2)) as banco:
+        if banco.execute("SELECT documento FROM crm_empresa WHERE id = 1").fetchone() != (documento,):
+            raise ValueError("Banco não vinculado à empresa.")
+        colunas = {linha[1] for linha in banco.execute("PRAGMA table_info(caixa_sessoes)")}
+        if not colunas:
+            return None
+        coluna_status = "status_backup" if "status_backup" in colunas else "NULL"
+        return banco.execute(
+            f"""SELECT id, {coluna_status} FROM caixa_sessoes
+                WHERE status = 'FECHADO' ORDER BY data_fechamento DESC, id DESC LIMIT 1"""
+        ).fetchone()
+
+
 def conectar_supabase_producao():
     try:
         import psycopg
@@ -1222,7 +1237,7 @@ def garantir_auditoria_operacoes(conexao):
         'vendas': {'estornado_em': 'TEXT', 'estornado_por': 'TEXT', 'autorizado_por': 'TEXT', 'motivo_estorno': 'TEXT'},
         'vendas_cabecalho': {'status': "TEXT DEFAULT 'Concluído'", 'estornado_em': 'TEXT', 'estornado_por': 'TEXT', 'autorizado_por': 'TEXT', 'motivo_estorno': 'TEXT'},
         'caixa_movimentacoes': {'estornado': 'INTEGER DEFAULT 0'},
-        'caixa_sessoes': {'fechado_por': 'TEXT', 'fechamento_autorizado_por': 'TEXT'},
+        'caixa_sessoes': {'fechado_por': 'TEXT', 'fechamento_autorizado_por': 'TEXT', 'status_backup': 'TEXT'},
     }
     for tabela, novas in migracoes.items():
         existentes = {r[1] for r in conexao.execute(f'PRAGMA table_info({tabela})')}
@@ -2352,6 +2367,30 @@ div[data-baseweb="select"] span, div[data-baseweb="select"] input { color: @text
 .stApp [data-testid="stSidebar"] button[data-testid="stBaseButton-primary"] * {
     color: @texto_botoes@ !important; -webkit-text-fill-color: @texto_botoes@ !important;
 }
+@media (min-width: 769px) {
+    .stApp [data-testid="stSidebar"][aria-expanded="true"] {
+        width: 330px !important; min-width: 310px !important; max-width: 40vw !important;
+    }
+}
+.stApp [data-testid="stSidebar"] [data-testid="stSidebarContent"] {
+    padding-inline: .65rem !important;
+}
+.stApp [data-testid="stSidebar"] button[kind="secondary"],
+.stApp [data-testid="stSidebar"] button[kind="secondary"] *,
+.stApp [data-testid="stSidebar"] [data-testid="stDownloadButton"] button,
+.stApp [data-testid="stSidebar"] [data-testid="stDownloadButton"] button * {
+    color: #102840 !important; -webkit-text-fill-color: #102840 !important;
+}
+.stApp [data-testid="stSidebar"] button[kind="secondary"],
+.stApp [data-testid="stSidebar"] [data-testid="stDownloadButton"] button {
+    background: #c4d4e4 !important;
+}
+.stApp [data-testid="stSidebar"] details > summary {
+    background: #24466b !important; color: #f2f6fa !important;
+}
+.stApp [data-testid="stSidebar"] details > summary * {
+    color: #f2f6fa !important; -webkit-text-fill-color: #f2f6fa !important;
+}
 @media (max-width: 768px) { .stApp .block-container { padding-top: 4.4rem !important; } }
 @media print {
     .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"] { background: white !important; }
@@ -2410,6 +2449,7 @@ if (
                             st.error("Não foi possível conectar. Confira a URI, a senha e o projeto nos Secrets.")
                     if st.button("Consultar situação dos backups", key="consultar_situacao_backups"):
                         documentos = (DOCUMENTO_ALENCARSOFT, "40179189000146", "19417439000142")
+                        ultimos = None
                         try:
                             with conectar_supabase_producao() as remoto:
                                 ultimos = dict(remoto.execute(
@@ -2421,20 +2461,36 @@ if (
                             st.error(str(erro))
                         except Exception:
                             st.error("Não foi possível consultar a situação dos backups no Supabase.")
-                        else:
-                            brasilia = dt.timezone(timedelta(hours=-3))
-                            resumo = []
-                            for doc, nome in zip(documentos, ("ALENCARSOFT", "AGROSSUL", "REY DA CEBOLA")):
-                                ultima_copia = ultimos.get(doc)
-                                resumo.append({
-                                    "Empresa": nome,
-                                    "Backup automático": "Habilitado" if doc in empresas_backup_automatico else "Desativado",
-                                    "Última cópia (Brasília)": (
-                                        ultima_copia.astimezone(brasilia).strftime("%d/%m/%Y %H:%M:%S")
-                                        if ultima_copia else "Nenhuma cópia"
-                                    ),
-                                })
-                            st.dataframe(resumo, hide_index=True)
+                        brasilia = dt.timezone(timedelta(hours=-3))
+                        resumo = []
+                        for doc, nome in zip(documentos, ("ALENCARSOFT", "AGROSSUL", "REY DA CEBOLA")):
+                            ultima_copia = ultimos.get(doc) if ultimos is not None else None
+                            numero_caixa = "—"
+                            situacao = "Sem fechamento"
+                            try:
+                                fechamento = consultar_ultimo_fechamento_backup(empresas_config[doc], doc)
+                                if fechamento:
+                                    numero_caixa, status_backup = fechamento
+                                    situacao = status_backup or "Ainda não confirmado"
+                            except (KeyError, ValueError, sqlite3.Error):
+                                situacao = "Caixa indisponível"
+                            resumo.append({
+                                "Empresa": nome,
+                                "Último caixa fechado": str(numero_caixa),
+                                "Backup do fechamento": situacao,
+                                "Backup automático": "Habilitado" if doc in empresas_backup_automatico else "Desativado",
+                                "Última cópia (Brasília)": (
+                                    ultima_copia.astimezone(brasilia).strftime("%d/%m/%Y %H:%M:%S")
+                                    if ultima_copia else ("Consulta indisponível" if ultimos is None else "Nenhuma cópia")
+                                ),
+                            })
+                        for empresa in resumo:
+                            with st.container(border=True):
+                                st.markdown(f"**{empresa['Empresa']}**")
+                                st.write(f"Último caixa fechado: {empresa['Último caixa fechado']}")
+                                st.markdown(f"Backup do fechamento: **{empresa['Backup do fechamento']}**")
+                                st.write(f"Backup automático: {empresa['Backup automático']}")
+                                st.write(f"Última cópia (Brasília): {empresa['Última cópia (Brasília)']}")
                     empresas_piloto = {
                         doc: e for doc, e in empresas_config.items()
                         if "senha_hash" in e or doc in empresas_backup_automatico
@@ -3129,7 +3185,6 @@ O Senhor é meu pastor nada mim faltarar.
             .stApp:has(.pdv-identidade) [data-testid="collapsedControl"]{display:flex!important;visibility:visible!important;z-index:1000001;background:#e0eafa;border-radius:7px}
             .stApp:has(.pdv-identidade) [data-testid="stMainBlockContainer"],
             .stApp:has(.pdv-identidade) .block-container{max-width:100%!important;width:100%!important;padding:3rem 1rem .75rem!important;box-sizing:border-box}
-            .stApp:has(.pdv-identidade) [data-testid="stSidebar"]{min-width:0!important}
             .pdv-identidade{flex-wrap:wrap;row-gap:5px}
             .pdv-identidade span{font-size:clamp(13px,1.35vw,20px)}
             .stApp:has(.pdv-identidade) .st-key-pdv_grade{height:clamp(260px,49vh,540px)!important}
@@ -3148,12 +3203,12 @@ O Senhor é meu pastor nada mim faltarar.
               .stApp:has(.pdv-identidade) .st-key-pdv_grade [data-testid="stColumn"]{flex:1 1 45%!important;width:45%!important;min-width:0!important}
               .pdv-foto{height:85px}.pdv-foto img{height:80px}.pdv-total{font-size:22px}
             }
-            .stApp:has(.pdv-identidade) [data-testid="stSidebar"]{background:linear-gradient(#103b6c,#092949)!important;min-width:195px;max-width:215px}
+            .stApp:has(.pdv-identidade) [data-testid="stSidebar"]{background:linear-gradient(#103b6c,#092949)!important}
             .stApp:has(.pdv-identidade) [data-testid="stVerticalBlock"]{gap:.45rem}
             .pdv-identidade{display:flex;align-items:center;gap:18px;background:linear-gradient(105deg,#07366a,#061e40);color:white;padding:17px 20px;border-radius:8px;margin-bottom:8px;font-size:clamp(15px,1.7vw,23px);font-weight:800}
             .pdv-identidade strong{color:#ffe42c}.pdv-identidade small{margin-left:auto;font-size:13px;color:white}
             .pdv-faixa{background:linear-gradient(90deg,#07417d,#092c52);padding:12px;color:white;border-radius:8px 8px 0 0;font-size:23px;font-weight:800}
-            .pdv-foto{height:100px;display:flex;align-items:center;justify-content:center;background:white;border:1px solid #d3dfed;border-radius:9px 9px 0 0;overflow:hidden}
+            .pdv-foto{height:100px;display:flex;align-items:center;justify-content:center;background:#e0e8f0;border:1px solid #d3dfed;border-radius:9px 9px 0 0;overflow:hidden}
             .pdv-foto img{width:100%;height:96px;object-fit:contain}.pdv-foto span{font-size:66px}
             .pdv-total{background:#082f5b;color:white;border-radius:9px;padding:14px;font-size:27px;font-weight:800;display:flex;justify-content:space-between}.pdv-total strong{color:#ffe72c}
             .pdv-subtotal{background:#dfebfa;padding:10px 14px;color:#092b51;font-weight:700;display:flex;justify-content:space-between}
@@ -3161,7 +3216,7 @@ O Senhor é meu pastor nada mim faltarar.
             .stApp:has(.pdv-identidade) .st-key-pdv_carrinho,
             .stApp:has(.pdv-identidade) .st-key-pdv_carrinho [data-testid="stVerticalBlockBorderWrapper"],
             .stApp:has(.pdv-identidade) .st-key-pdv_carrinho [data-testid="stVerticalBlock"]{
-                background:#fff!important;border-color:#d5deeb!important;border-radius:0!important;gap:0!important}
+                background:#e0e8f0!important;border-color:#d5deeb!important;border-radius:0!important;gap:0!important}
             .stApp:has(.pdv-identidade) .st-key-pdv_carrinho{padding:0!important;border:1px solid #c3d4e9!important;border-top:0!important;border-radius:0 0 8px 8px!important}
             .stApp:has(.pdv-identidade) .st-key-pdv_cabecalho_carrinho,
             .stApp:has(.pdv-identidade) .st-key-pdv_cabecalho_carrinho [data-testid="stVerticalBlock"]{background:#e6ebf2!important}
@@ -3171,7 +3226,7 @@ O Senhor é meu pastor nada mim faltarar.
                 border-bottom:1px solid #c9d5e5!important;border-radius:0!important;padding:0!important;
                 background-image:linear-gradient(to right,transparent calc(30.137% - 1px),#c9d5e5 calc(30.137% - 1px),#c9d5e5 30.137%,transparent 30.137%,transparent calc(57.534% - 1px),#c9d5e5 calc(57.534% - 1px),#c9d5e5 57.534%,transparent 57.534%,transparent calc(75.342% - 1px),#c9d5e5 calc(75.342% - 1px),#c9d5e5 75.342%,transparent 75.342%,transparent calc(93.151% - 1px),#c9d5e5 calc(93.151% - 1px),#c9d5e5 93.151%,transparent 93.151%)!important}
             .stApp:has(.pdv-identidade) .st-key-pdv_cabecalho_carrinho{background-color:#e6ebf2!important}
-            .stApp:has(.pdv-identidade) [class*="st-key-pdv_linha_carrinho_"]{background-color:white!important}
+            .stApp:has(.pdv-identidade) [class*="st-key-pdv_linha_carrinho_"]{background-color:#e0e8f0!important}
             .stApp:has(.pdv-identidade) .st-key-pdv_cabecalho_carrinho [data-testid="stVerticalBlock"],
             .stApp:has(.pdv-identidade) [class*="st-key-pdv_linha_carrinho_"] [data-testid="stVerticalBlock"]{background:transparent!important}
             .stApp:has(.pdv-identidade) .st-key-pdv_cabecalho_carrinho [data-testid="stHorizontalBlock"],
@@ -3857,6 +3912,8 @@ O Senhor é meu pastor nada mim faltarar.
     elif menu_admin == "📊 Fechamento & Financeiro":
         st.subheader(f"📊 Fechamento & Financeiro — {nome_empresa_header} | 👤 Utilizador: {usr_exibicao}")
         
+        if st.session_state.pop("aviso_status_backup", False):
+            st.warning("O resultado do envio não pôde ser registrado no painel de backups.")
         aviso_backup = st.session_state.pop("aviso_backup_fechamento", None)
         if aviso_backup is True:
             st.success("Caixa fechado. Backup automático gravado e conferido no Supabase.")
@@ -3918,13 +3975,14 @@ O Senhor é meu pastor nada mim faltarar.
                             UPDATE caixa_sessoes
                             SET data_fechamento = ?,
                                 saldo_final = ?,
-                                status = 'FECHADO', fechado_por = ?, fechamento_autorizado_por = ?
+                                status = 'FECHADO', fechado_por = ?, fechamento_autorizado_por = ?, status_backup = ?
                             WHERE id = ? AND status = 'ABERTO' 
                         """, (
                             datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                             saldo_final,
                             usr_exibicao,
                             admin_fechamento,
+                            None if empresa_doc in empresas_backup_automatico else "Desativado no fechamento",
                             sessao_id
                         ))
 
@@ -3940,6 +3998,15 @@ O Senhor é meu pastor nada mim faltarar.
                                 st.session_state["aviso_backup_fechamento"] = True
                             except Exception:
                                 st.session_state["aviso_backup_fechamento"] = False
+                            resultado = "Gravado" if st.session_state["aviso_backup_fechamento"] else "Falhou"
+                            try:
+                                with conn:
+                                    conn.execute(
+                                        "UPDATE caixa_sessoes SET status_backup = ? WHERE id = ? AND status = 'FECHADO'",
+                                        (resultado, sessao_id),
+                                    )
+                            except sqlite3.Error:
+                                st.session_state["aviso_status_backup"] = True
                         else:
                             st.success("Caixa fechado com sucesso!")
                         st.rerun()
