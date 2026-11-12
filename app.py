@@ -1,3 +1,5 @@
+from contextlib import closing
+from pathlib import Path
 import streamlit as st
 import streamlit.components.v1 as components
 import sqlite3
@@ -444,6 +446,29 @@ def restaurar_backup_sqlite(conexao, dados, preservar_copia):
                     origem.execute("CREATE TABLE IF NOT EXISTS chaves_licenca_usadas (identificador TEXT PRIMARY KEY)")
                     origem.executemany("INSERT OR IGNORE INTO chaves_licenca_usadas VALUES (?)", usadas)
                 origem.execute("PRAGMA query_only = ON")
+            # Os vínculos e limites de licença pertencem à instalação atual.
+            colunas_dispositivos = (
+                "device_id, nome_empresa, cnpj, ie, fone, endereco, "
+                "ativado, dias_licenca, limite_dispositivos, licenca_expira_em"
+            )
+            dispositivos = conexao.execute(
+                f"SELECT {colunas_dispositivos} FROM empresas_dispositivos"
+            ).fetchall()
+            origem.execute("PRAGMA query_only = OFF")
+            with origem:
+                colunas_origem = {r[1] for r in origem.execute("PRAGMA table_info(empresas_dispositivos)")}
+                for coluna, tipo in (
+                    ("dias_licenca", "INTEGER DEFAULT 30"),
+                    ("limite_dispositivos", "INTEGER DEFAULT 1"),
+                    ("licenca_expira_em", "TEXT"),
+                ):
+                    if coluna not in colunas_origem:
+                        origem.execute(f"ALTER TABLE empresas_dispositivos ADD COLUMN {coluna} {tipo}")
+                origem.execute("DELETE FROM empresas_dispositivos")
+                origem.executemany(
+                    f"INSERT INTO empresas_dispositivos ({colunas_dispositivos}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    dispositivos,
+                )
             # Guarda a cópia de segurança ANTES de alterar o banco atual.
             seguranca = gerar_backup_sqlite(conexao)
             preservar_copia(seguranca)
@@ -2433,6 +2458,34 @@ if (
                     format_func=lambda doc: f"{empresas_config[doc]['nome']} · {doc}",
                     key="empresa_destino_licenca",
                 )
+                with st.expander("Liberar vaga de um dispositivo"):
+                    st.caption("Selecione acima a empresa e escolha apenas o aparelho que deixou de usar.")
+                    caminho_destino = Path(empresas_config[documento_destino]["banco"]).resolve()
+                    try:
+                        with closing(sqlite3.connect(caminho_destino.as_uri() + "?mode=rw", uri=True)) as destino:
+                            vinculo = destino.execute("SELECT documento FROM crm_empresa WHERE id = 1").fetchone()
+                            if vinculo != (documento_destino,):
+                                raise ValueError("Banco não vinculado à empresa selecionada.")
+                            ativos = destino.execute(
+                                "SELECT device_id FROM empresas_dispositivos WHERE ativado = 1 ORDER BY device_id"
+                            ).fetchall()
+                            aparelho = st.selectbox(
+                                "Identificador do aparelho a desativar", [linha[0] for linha in ativos],
+                                index=None, key=f"liberar_aparelho_{documento_destino}",
+                            )
+                            if st.button("Desativar aparelho selecionado", disabled=aparelho is None,
+                                         key=f"desativar_aparelho_{documento_destino}"):
+                                with destino:
+                                    alterado = destino.execute(
+                                        "UPDATE empresas_dispositivos SET ativado = 0 WHERE device_id = ? AND ativado = 1",
+                                        (aparelho,),
+                                    ).rowcount
+                                if alterado:
+                                    st.success("Vaga liberada. Gere uma chave para ativar o aparelho atual.")
+                                else:
+                                    st.info("Este aparelho já está desativado.")
+                    except (sqlite3.Error, ValueError):
+                        st.info("Abra a empresa no CRM para inicializar seu banco antes de gerenciar aparelhos.")
                 planos = {"TESTE": "Teste (7 dias)", "MENSAL": "Mensal (30 dias)", "ANUAL": "Anual (365 dias)"}
                 plano = st.selectbox("Plano", list(planos), format_func=planos.get, key="plano_destino_licenca")
                 limite = st.number_input("Limite de dispositivos", min_value=1, max_value=50, value=1, key="limite_destino_licenca")
