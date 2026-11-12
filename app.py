@@ -2408,6 +2408,33 @@ if (
                             st.error(str(erro))
                         except Exception:
                             st.error("Não foi possível conectar. Confira a URI, a senha e o projeto nos Secrets.")
+                    if st.button("Consultar situação dos backups", key="consultar_situacao_backups"):
+                        documentos = (DOCUMENTO_ALENCARSOFT, "40179189000146", "19417439000142")
+                        try:
+                            with conectar_supabase_producao() as remoto:
+                                ultimos = dict(remoto.execute(
+                                    """SELECT empresa, MAX(criado_em) FROM crm_producao.backups_sqlite
+                                       WHERE empresa IN (%s, %s, %s) GROUP BY empresa""",
+                                    documentos,
+                                ).fetchall())
+                        except ValueError as erro:
+                            st.error(str(erro))
+                        except Exception:
+                            st.error("Não foi possível consultar a situação dos backups no Supabase.")
+                        else:
+                            brasilia = dt.timezone(timedelta(hours=-3))
+                            resumo = []
+                            for doc, nome in zip(documentos, ("ALENCARSOFT", "AGROSSUL", "REY DA CEBOLA")):
+                                ultima_copia = ultimos.get(doc)
+                                resumo.append({
+                                    "Empresa": nome,
+                                    "Backup automático": "Habilitado" if doc in empresas_backup_automatico else "Desativado",
+                                    "Última cópia (Brasília)": (
+                                        ultima_copia.astimezone(brasilia).strftime("%d/%m/%Y %H:%M:%S")
+                                        if ultima_copia else "Nenhuma cópia"
+                                    ),
+                                })
+                            st.dataframe(resumo, hide_index=True)
                     empresas_piloto = {
                         doc: e for doc, e in empresas_config.items()
                         if "senha_hash" in e or doc in empresas_backup_automatico
