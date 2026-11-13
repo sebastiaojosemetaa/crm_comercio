@@ -840,8 +840,17 @@ def moeda_historico_venda(valor):
 
 
 def gerar_pdf_vendas_periodo(empresa, filtros, resumo, total_valido, total_estornado, linhas):
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+
+    pdfmetrics.registerFont(TTFont("Vera", "Vera.ttf"))
+    pdfmetrics.registerFont(TTFont("Vera-Bold", "VeraBd.ttf"))
+    pdfmetrics.registerFontFamily("Vera", normal="Vera", bold="Vera-Bold")
     arquivo = io.BytesIO()
     estilos = getSampleStyleSheet()
+    estilos["BodyText"].fontName = "Vera"
+    estilos["Heading2"].fontName = "Vera-Bold"
+    estilos["Title"].fontName = "Vera-Bold"
     doc = SimpleDocTemplate(arquivo, pagesize=letter, leftMargin=48, rightMargin=48,
                             topMargin=48, bottomMargin=48, title="Relatório de vendas por período")
     conteudo = [
@@ -866,7 +875,8 @@ def gerar_pdf_vendas_periodo(empresa, filtros, resumo, total_valido, total_estor
     tabela.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#10325a')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTNAME', (0, 0), (-1, -1), 'Vera'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Vera-Bold'),
         ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.HexColor('#eef3f8'), colors.white]),
@@ -883,8 +893,17 @@ def gerar_pdf_vendas_periodo(empresa, filtros, resumo, total_valido, total_estor
 
 def gerar_pdf_estoque(empresa, produtos, filtros, reposicao=False):
     titulo = "Lista de reposição" if reposicao else "Relatório de estoque"
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+
+    pdfmetrics.registerFont(TTFont("Vera", "Vera.ttf"))
+    pdfmetrics.registerFont(TTFont("Vera-Bold", "VeraBd.ttf"))
+    pdfmetrics.registerFontFamily("Vera", normal="Vera", bold="Vera-Bold")
     arquivo = io.BytesIO()
     estilos = getSampleStyleSheet()
+    estilos["BodyText"].fontName = "Vera"
+    estilos["Heading2"].fontName = "Vera-Bold"
+    estilos["Title"].fontName = "Vera-Bold"
     doc = SimpleDocTemplate(arquivo, pagesize=letter, leftMargin=48, rightMargin=48,
                             topMargin=48, bottomMargin=48, title=titulo)
     conteudo = [
@@ -906,7 +925,8 @@ def gerar_pdf_estoque(empresa, produtos, filtros, reposicao=False):
         tabela.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#10325a')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTNAME', (0, 0), (-1, -1), 'Vera'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Vera-Bold'),
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
             ('ALIGN', (2, 1), (-1, -1), 'RIGHT'),
             ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.HexColor('#eef3f8'), colors.white]),
@@ -953,14 +973,22 @@ def gerar_pdf_estoque(empresa, produtos, filtros, reposicao=False):
                 f"{saldo:,.3f}".replace(",", "_").replace(".", ",").replace("_", "."),
                 situacao, moeda_historico_venda(preco),
             ])
-        conteudo.append(quadro_estoque(linhas, [184, 86, 62, 82, 90]))
+        conteudo.append(quadro_estoque(linhas, [169, 86, 62, 82, 105]))
     doc.build(conteudo)
     return arquivo.getvalue()
 
 
 def gerar_pdf_compras_periodo(empresa, periodo, fornecedor, produto, itens, resumo):
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+
+    pdfmetrics.registerFont(TTFont("Vera", "Vera.ttf"))
+    pdfmetrics.registerFont(TTFont("Vera-Bold", "VeraBd.ttf"))
     arquivo = io.BytesIO()
     estilos = getSampleStyleSheet()
+    estilos["BodyText"].fontName = "Vera"
+    estilos["Heading2"].fontName = "Vera-Bold"
+    estilos["Title"].fontName = "Vera-Bold"
     doc = SimpleDocTemplate(arquivo, pagesize=letter, leftMargin=48, rightMargin=48,
                             topMargin=48, bottomMargin=48, title="Relatório de compras por período")
 
@@ -975,7 +1003,8 @@ def gerar_pdf_compras_periodo(empresa, periodo, fornecedor, produto, itens, resu
         tabela.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#10325a')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTNAME', (0, 0), (-1, -1), 'Vera'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Vera-Bold'),
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
             ('ALIGN', (-2, 1), (-1, -1), 'RIGHT'),
             ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.HexColor('#eef3f8'), colors.white]),
@@ -1012,7 +1041,7 @@ def gerar_pdf_compras_periodo(empresa, periodo, fornecedor, produto, itens, resu
         quantidade = f"{qtd:.3f}".replace(".", ",") if pd.notna(qtd) else "Não informada"
         linhas.append([texto(f"{data} / {nome}"), texto(item), texto(f"{quantidade} {unidade}"),
                        valor_pdf(custo), valor_pdf(total)])
-    conteudo.extend([tabela_pdf(linhas, [130, 120, 88, 83, 83]), Spacer(1, 10),
+    conteudo.extend([tabela_pdf(linhas, [130, 110, 88, 93, 83]), Spacer(1, 10),
         texto("Os totais representam os custos registrados nas compras do período. Pagamentos são conferidos no caixa.")])
     doc.build(conteudo)
     return arquivo.getvalue()
