@@ -284,6 +284,25 @@ def get_connection():
     conexao.execute("PRAGMA synchronous = NORMAL")
     return conexao
 
+def consultar_licenca_empresa(configuracao, documento, agora):
+    caminho = Path(configuracao["banco"]).resolve()
+    if not caminho.exists():
+        return False
+    with closing(sqlite3.connect(caminho.as_uri() + "?mode=ro", uri=True, timeout=2)) as banco:
+        if banco.execute("SELECT documento FROM crm_empresa WHERE id = 1").fetchone() != (documento,):
+            raise ValueError("Banco não vinculado à empresa.")
+        colunas = {linha[1] for linha in banco.execute("PRAGMA table_info(empresas_dispositivos)")}
+        if not colunas:
+            return False
+        vencimento = "licenca_expira_em" if "licenca_expira_em" in colunas else "NULL"
+        return any(
+            not expira_em or expira_em > agora
+            for expira_em, in banco.execute(
+                f"SELECT {vencimento} FROM empresas_dispositivos WHERE ativado = 1"
+            )
+        )
+
+
 def consultar_ultimo_fechamento_backup(configuracao, documento):
     caminho = Path(configuracao["banco"]).resolve()
     with closing(sqlite3.connect(caminho.as_uri() + "?mode=ro", uri=True, timeout=2)) as banco:
@@ -2496,14 +2515,14 @@ if (
                         except Exception:
                             st.error("Não foi possível conectar. Confira a URI, a senha e o projeto nos Secrets.")
                     if st.button("Consultar situação dos backups", key="consultar_situacao_backups"):
-                        documentos = (DOCUMENTO_ALENCARSOFT, "40179189000146", "19417439000142")
+                        documentos = list(empresas_config)
                         ultimos = None
                         try:
                             with conectar_supabase_producao() as remoto:
                                 ultimos = dict(remoto.execute(
                                     """SELECT empresa, MAX(criado_em) FROM crm_producao.backups_sqlite
-                                       WHERE empresa IN (%s, %s, %s) GROUP BY empresa""",
-                                    documentos,
+                                       WHERE empresa = ANY(%s) GROUP BY empresa""",
+                                    (documentos,),
                                 ).fetchall())
                         except ValueError as erro:
                             st.error(str(erro))
@@ -2511,7 +2530,13 @@ if (
                             st.error("Não foi possível consultar a situação dos backups no Supabase.")
                         brasilia = dt.timezone(timedelta(hours=-3))
                         resumo = []
-                        for doc, nome in zip(documentos, ("ALENCARSOFT", "AGROSSUL", "REY DA CEBOLA")):
+                        for doc in documentos:
+                            configuracao = empresas_config[doc]
+                            nome = configuracao["nome"]
+                            try:
+                                ativa = consultar_licenca_empresa(configuracao, doc, agora_licenca)
+                            except (ValueError, sqlite3.Error):
+                                ativa = None
                             ultima_copia = ultimos.get(doc) if ultimos is not None else None
                             numero_caixa = "—"
                             situacao = "Sem fechamento"
@@ -2524,6 +2549,7 @@ if (
                                 situacao = "Caixa indisponível"
                             resumo.append({
                                 "Empresa": nome,
+                                "Licença": ativa,
                                 "Último caixa fechado": str(numero_caixa),
                                 "Backup do fechamento": situacao,
                                 "Backup automático": "Habilitado" if doc in empresas_backup_automatico else "Desativado",
@@ -2532,6 +2558,13 @@ if (
                                     if ultima_copia else ("Consulta indisponível" if ultimos is None else "Nenhuma cópia")
                                 ),
                             })
+                        ativas = sum(empresa["Licença"] is True for empresa in resumo)
+                        inativas = sum(empresa["Licença"] is False for empresa in resumo)
+                        st.markdown(f"**Empresas ativas: {ativas} · Inativas: {inativas}**")
+                        st.caption("Ativa: empresa com pelo menos um dispositivo ativado e sem vencimento atingido.")
+                        indisponiveis = len(resumo) - ativas - inativas
+                        if indisponiveis:
+                            st.caption(f"Licença indisponível para consulta: {indisponiveis}")
                         for empresa in resumo:
                             with st.container(border=True):
                                 st.markdown(f"**{empresa['Empresa']}**")
