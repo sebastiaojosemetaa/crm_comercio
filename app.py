@@ -636,10 +636,19 @@ def adequar_banco_e_migrar():
             if coluna not in cols_produtos:
                 cursor.execute(f"ALTER TABLE produtos ADD COLUMN {coluna} {tipo}")
 
-        cursor.execute("CREATE TABLE IF NOT EXISTS clientes (id INTEGER PRIMARY KEY AUTOINCREMENT, cliente TEXT)")
-        for col in ["cliente", "nome", "cpf", "doc", "endereco", "email", "fone", "telefone", "cidade", "senha"]:
-            try: cursor.execute(f"ALTER TABLE clientes ADD COLUMN {col} TEXT")
-            except Exception: pass
+        for tabela, campo_nome, campos in (
+            ("clientes", "cliente", ("nome", "cpf", "doc", "endereco", "email", "fone", "telefone", "cidade", "senha")),
+            ("fornecedores", "fornecedor", ("cpf", "fone")),
+            ("grupos", "grupo", ()),
+        ):
+            cursor.execute(
+                f"CREATE TABLE IF NOT EXISTS {tabela} "
+                f"(id INTEGER PRIMARY KEY AUTOINCREMENT, {campo_nome} TEXT)"
+            )
+            colunas = {linha[1] for linha in cursor.execute(f"PRAGMA table_info({tabela})")}
+            for coluna in campos:
+                if coluna not in colunas:
+                    cursor.execute(f"ALTER TABLE {tabela} ADD COLUMN {coluna} TEXT")
 
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS vendas (
@@ -4927,14 +4936,6 @@ O Senhor é meu pastor nada mim faltarar.
         st.subheader("👥 Cadastros (Clientes / Fornecedores / Grupos)")
         tab_cli, tab_forn, tab_grup = st.tabs(["👤 Clientes", "🏢 Fornecedores", "🏷️ Grupos"])
     
-        # Compatibilidade com os cadastros antigos; as listas nunca exibem senhas.
-        for tabela_contato in ['clientes','fornecedores']:
-            colunas_contato = {r[1] for r in conn.execute(f'PRAGMA table_info({tabela_contato})')}
-            for coluna_contato in ['cpf','fone']:
-                if coluna_contato not in colunas_contato:
-                    conn.execute(f'ALTER TABLE {tabela_contato} ADD COLUMN {coluna_contato} TEXT')
-        conn.commit()
-
         def primeiro_dado_contato(linha, colunas):
             for coluna in colunas:
                 valor = linha.get(coluna)
