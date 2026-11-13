@@ -1142,7 +1142,16 @@ def gerar_pdf_fechamento_caixa(conexao, registro, nome_empresa):
     def texto(valor):
         return html.escape(str(valor)) if pd.notna(valor) and str(valor).strip() else "Não informado"
 
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+
+    pdfmetrics.registerFont(TTFont("Vera", "Vera.ttf"))
+    pdfmetrics.registerFont(TTFont("Vera-Bold", "VeraBd.ttf"))
+    pdfmetrics.registerFontFamily("Vera", normal="Vera", bold="Vera-Bold")
     estilos = getSampleStyleSheet()
+    estilos["BodyText"].fontName = "Vera"
+    estilos["Heading2"].fontName = "Vera-Bold"
+    estilos["Title"].fontName = "Vera-Bold"
     estilo_nota = ParagraphStyle('NotaCaixa', parent=estilos['BodyText'],
                                 textColor=colors.HexColor('#485a70'), fontSize=9, leading=13)
     arquivo = io.BytesIO()
@@ -1154,7 +1163,8 @@ def gerar_pdf_fechamento_caixa(conexao, registro, nome_empresa):
         quadro.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#10325a')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTNAME', (0, 0), (-1, -1), 'Vera'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Vera-Bold'),
             ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
             ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.HexColor('#eef3f8'), colors.white]),
             ('TOPPADDING', (0, 0), (-1, -1), 8),
