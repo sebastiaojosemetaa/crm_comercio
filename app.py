@@ -2565,9 +2565,15 @@ if (
                         indisponiveis = len(resumo) - ativas - inativas
                         if indisponiveis:
                             st.caption(f"Licença indisponível para consulta: {indisponiveis}")
+                        status_licenca = {
+                            True: "Licença ativa",
+                            False: "Licença inativa",
+                            None: "Licença indisponível para consulta",
+                        }
                         for empresa in resumo:
                             with st.container(border=True):
                                 st.markdown(f"**{empresa['Empresa']}**")
+                                st.write(status_licenca[empresa["Licença"]])
                                 st.write(f"Último caixa fechado: {empresa['Último caixa fechado']}")
                                 st.markdown(f"Backup do fechamento: **{empresa['Backup do fechamento']}**")
                                 st.write(f"Backup automático: {empresa['Backup automático']}")
