@@ -4,3 +4,4 @@ reportlab
 fpdf
 fpdf2
 psycopg[binary]>=3.2,<4
+cryptography
