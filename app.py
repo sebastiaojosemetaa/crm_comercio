@@ -34,6 +34,68 @@ import tempfile
 import os
 import time
 
+
+def consultar_status_nfce_ma(a1, senha):
+    import http.client
+    import ssl
+    from xml.etree import ElementTree as ET
+    from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat
+    from cryptography.hazmat.primitives.serialization.pkcs12 import load_key_and_certificates
+
+    chave, certificado, cadeia = load_key_and_certificates(a1, senha.encode() if senha else None)
+    if chave is None or certificado is None:
+        raise ValueError("Certificado A1 incompleto.")
+
+    contexto = ssl.create_default_context()
+    with tempfile.TemporaryDirectory() as pasta:
+        pem = Path(pasta) / "a1.pem"
+        pem.touch(mode=0o600)
+        pem.write_bytes(
+            chave.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption())
+            + certificado.public_bytes(Encoding.PEM)
+            + b"".join(item.public_bytes(Encoding.PEM) for item in (cadeia or ()))
+        )
+        contexto.load_cert_chain(pem)
+
+    namespace = "http://www.portalfiscal.inf.br/nfe"
+    servico = f"{namespace}/wsdl/NFeStatusServico4"
+    corpo = f"""<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
+      <soap:Body><nfeDadosMsg xmlns="{servico}">
+        <consStatServ xmlns="{namespace}" versao="4.00">
+          <tpAmb>2</tpAmb><cUF>21</cUF><xServ>STATUS</xServ>
+        </consStatServ>
+      </nfeDadosMsg></soap:Body>
+    </soap:Envelope>"""
+    with closing(http.client.HTTPSConnection(
+        "nfce-homologacao.svrs.rs.gov.br", timeout=15, context=contexto
+    )) as conexao:
+        conexao.request(
+            "POST", "/ws/NfeStatusServico/NFeStatusServico4.asmx", corpo.encode(),
+            {"Content-Type": f'application/soap+xml; charset=utf-8; action="{servico}/nfeStatusServicoNF"'},
+        )
+        resposta = conexao.getresponse()
+        if resposta.status != 200:
+            return "error", f"A SEFAZ retornou HTTP {resposta.status}."
+        dados = resposta.read(65537)
+
+    if len(dados) > 65536 or b"<!DOCTYPE" in dados.upper():
+        return "error", "A resposta da SEFAZ excedeu o limite ou tem formato inválido."
+    try:
+        retorno = ET.fromstring(dados).find(f".//{{{namespace}}}retConsStatServ")
+    except ET.ParseError:
+        retorno = None
+    if retorno is None or retorno.findtext(f"{{{namespace}}}tpAmb") != "2":
+        return "error", "A SEFAZ não retornou um status válido de homologação."
+    codigo = retorno.findtext(f"{{{namespace}}}cStat", "")
+    mensagens = {
+        "107": ("success", "107 · Serviço da SEFAZ em operação."),
+        "108": ("warning", "108 · Serviço temporariamente indisponível."),
+        "109": ("warning", "109 · Serviço indisponível, sem previsão de retorno."),
+    }
+    if codigo in mensagens:
+        return mensagens[codigo]
+    return "error", f"Status inesperado da SEFAZ ({codigo if re.fullmatch(r'[0-9]{3}', codigo) else 'sem código'})."
+
 # Cada empresa cadastrada na configuração do servidor usa um banco próprio.
 try:
     empresas_config = st.secrets.get("empresas", {})
@@ -629,6 +691,10 @@ def adequar_banco_e_migrar():
                 (id, uf, ambiente, serie, proximo_numero, modelo)
             VALUES (1, 'MA', 'Homologacao', '1', 1, '65')
         """)
+
+        colunas_nfce = {linha[1] for linha in cursor.execute("PRAGMA table_info(config_nfce)")}
+        if "inscricao_estadual" not in colunas_nfce:
+            cursor.execute("ALTER TABLE config_nfce ADD COLUMN inscricao_estadual TEXT")
 
         cursor.execute("PRAGMA table_info(empresas_dispositivos)")
         cols_emp = [col[1] for col in cursor.fetchall()]
@@ -6643,6 +6709,12 @@ O Senhor é meu pastor nada mim faltarar.
         df_nfce_cfg = carregar_dados("SELECT * FROM config_nfce WHERE id = 1")
         cfg_nfce = df_nfce_cfg.iloc[0].to_dict() if not df_nfce_cfg.empty else {}
         with st.form("form_config_nfce"):
+            st.caption(f"Documento da empresa: {empresa_doc or doc_empresa_padrao}")
+            inscricao_salva = cfg_nfce.get("inscricao_estadual")
+            inscricao_nfce = st.text_input(
+                "Inscrição estadual do emitente",
+                value=str(inscricao_salva) if pd.notna(inscricao_salva) else "",
+            )
             col_nfce1, col_nfce2 = st.columns(2)
             with col_nfce1:
                 uf_nfce = st.selectbox("Estado da emissão", ["MA"], index=0, disabled=True)
@@ -6669,20 +6741,88 @@ O Senhor é meu pastor nada mim faltarar.
                     cursor.execute("""
                         UPDATE config_nfce
                         SET uf = ?, ambiente = ?, serie = ?, proximo_numero = ?,
-                            modelo = '65', atualizado_em = ?
+                            modelo = '65', inscricao_estadual = ?, atualizado_em = ?
                         WHERE id = 1
-                    """, (uf_nfce, ambiente_nfce, serie_nfce.strip(), int(numero_nfce), datetime.now().isoformat(timespec="seconds")))
+                    """, (uf_nfce, ambiente_nfce, serie_nfce.strip(), int(numero_nfce), inscricao_nfce.strip(), datetime.now().isoformat(timespec="seconds")))
                     conn.commit()
                     st.success("Parâmetros básicos da NFC-e salvos. A emissão ainda depende das credenciais e validações fiscais.")
                     st.rerun()
 
-        st.markdown("#### 🔐 Credenciais necessárias para ativar a emissão")
-        st.markdown(
-            "Quando estiver com o contador, serão necessários: **CSC (ID e token)**, "
-            "certificado **A1 (.pfx/.p12) e senha**, credenciamento da NFC-e na SEFAZ-MA "
-            "e os dados tributários dos produtos. As credenciais não serão gravadas "
-            "nesta tabela nem colocadas diretamente no código; serão configuradas "
-            "nos Secrets do Streamlit Cloud."
-        )
-        st.warning("Ainda não emite NFC-e oficial. Não informe dados fictícios nem mude para Produção antes da liberação da SEFAZ e da conferência do contador.")
-          
+        st.markdown("#### 🔐 Credenciais da NFC-e")
+        st.info("Cadastro de credenciais. A transmissão à SEFAZ ainda está pendente.")
+        if is_admin_master and empresa_doc:
+            try:
+                from cryptography.fernet import Fernet
+                from cryptography.hazmat.primitives.serialization.pkcs12 import load_key_and_certificates
+                cofre_nfce = Fernet(st.secrets.get("nfce", {}).get("chave_criptografia", ""))
+            except (ImportError, FileNotFoundError, ValueError, TypeError):
+                st.warning("Configure a biblioteca cryptography e a chave de criptografia da NFC-e no servidor.")
+            else:
+                ambiente_credencial = cfg_nfce.get("ambiente", "Homologacao")
+                st.caption("Ambiente dos parâmetros salvos: " + str(ambiente_credencial))
+                with st.form("credenciais_nfce", clear_on_submit=True):
+                    a1 = st.file_uploader("Certificado A1 (até 1 MB)", type=["pfx", "p12"])
+                    senha_a1 = st.text_input("Senha do certificado", type="password")
+                    id_csc = st.text_input("ID do CSC")
+                    token_csc = st.text_input("Token do CSC", type="password")
+                    if st.form_submit_button("Salvar credenciais da NFC-e"):
+                        if not a1 or a1.size > 1024 * 1024 or not id_csc.strip() or not token_csc.strip():
+                            st.error("Selecione o A1 de até 1 MB e preencha o ID e o token do CSC.")
+                        else:
+                            dados_a1 = a1.getvalue()
+                            try:
+                                chave_a1, cert_a1, _ = load_key_and_certificates(
+                                    dados_a1, senha_a1.encode() if senha_a1 else None
+                                )
+                            except ValueError:
+                                chave_a1 = cert_a1 = None
+                            if chave_a1 is None or cert_a1 is None:
+                                st.error("Certificado A1 inválido ou senha incorreta.")
+                            else:
+                                pacote = cofre_nfce.encrypt(json.dumps({
+                                    "empresa": empresa_doc, "ambiente": ambiente_credencial,
+                                    "a1": base64.b64encode(dados_a1).decode("ascii"),
+                                    "senha": senha_a1, "id_csc": id_csc.strip(),
+                                    "token_csc": token_csc.strip(),
+                                }).encode())
+                                with conn:
+                                    conn.execute("""
+                                        CREATE TABLE IF NOT EXISTS credenciais_nfce (
+                                            ambiente TEXT PRIMARY KEY, pacote BLOB NOT NULL
+                                        )
+                                    """)
+                                    conn.execute("""
+                                        INSERT INTO credenciais_nfce VALUES (?, ?)
+                                        ON CONFLICT(ambiente) DO UPDATE SET pacote = excluded.pacote
+                                    """, (ambiente_credencial, pacote))
+                                st.success("Credenciais criptografadas e salvas.")
+                st.caption("Consulta de status da SEFAZ-MA em homologação. Nenhuma nota é emitida.")
+                if st.button("Consultar status da SEFAZ", disabled=ambiente_credencial != "Homologacao"):
+                    from cryptography.fernet import InvalidToken
+                    from http.client import HTTPException
+
+                    try:
+                        tabela = conn.execute(
+                            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'credenciais_nfce'"
+                        ).fetchone()
+                        linha = conn.execute(
+                            "SELECT pacote FROM credenciais_nfce WHERE ambiente = ?", ("Homologacao",)
+                        ).fetchone() if tabela else None
+                        credencial = json.loads(cofre_nfce.decrypt(linha[0])) if linha else {}
+                        if (credencial.get("empresa") != empresa_doc
+                                or credencial.get("ambiente") != "Homologacao"):
+                            st.warning("Salve as credenciais de homologação desta empresa para consultar.")
+                        else:
+                            with st.spinner("Consultando a SEFAZ em homologação..."):
+                                nivel, mensagem = consultar_status_nfce_ma(
+                                    base64.b64decode(credencial["a1"], validate=True), credencial["senha"]
+                                )
+                            {"success": st.success, "warning": st.warning, "error": st.error}[nivel](mensagem)
+                    except (InvalidToken, KeyError, ValueError, TypeError):
+                        st.error("Não foi possível ler o certificado A1 de homologação. Confira as credenciais salvas.")
+                    except (OSError, HTTPException):
+                        st.error("Falha na conexão com a SEFAZ. Confira o certificado e tente novamente.")
+                    except sqlite3.Error:
+                        st.error("Não foi possível consultar as credenciais no banco de dados.")
+        else:
+            st.caption("Cadastro disponível ao administrador principal da empresa.")
