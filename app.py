@@ -243,6 +243,8 @@ if empresas_config:
     empresa_config = empresas_config[empresa_doc]
     banco_empresa = os.path.realpath(empresa_config["banco"])
     st.sidebar.caption(empresa_config["nome"])
+    plano_empresa = planos_comerciais.get(empresa_doc, "Simples")
+    st.sidebar.caption(f"**Plano: {plano_empresa}**")
     if st.sidebar.button("Trocar empresa"):
         st.session_state.clear()
         st.session_state["_trocando_empresa"] = True
@@ -6749,8 +6751,7 @@ O Senhor é meu pastor nada mim faltarar.
                     st.success(f"Chave ID {id_para_excluir} excluída com sucesso!")
                     st.rerun()
 # --- PREPARACAO PARA EMISSAO DE NFC-e ---
-        plano_fiscal = planos_comerciais.get(empresa_doc, "Simples")
-        if plano_fiscal == "Pro" and is_admin_master:
+        if plano_empresa == "Pro" and is_admin_master:
             st.markdown("---")
             st.markdown("### 🧾 Preparação para emissão de NFC-e (modelo 65)")
             st.info(
