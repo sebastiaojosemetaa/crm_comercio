@@ -96,6 +96,46 @@ def consultar_status_nfce_ma(a1, senha):
         return mensagens[codigo]
     return "error", f"Status inesperado da SEFAZ ({codigo if re.fullmatch(r'[0-9]{3}', codigo) else 'sem código'})."
 
+def gerar_payload_pix(chave, nome, cidade, valor, tipo):
+    from binascii import crc_hqx
+
+    def campo(tag, texto):
+        if len(texto) > 99:
+            raise ValueError("A chave Pix é longa demais para o QR Code estático.")
+        return f"{tag}{len(texto):02d}{texto}"
+
+    def texto_br_code(texto, limite):
+        ascii_texto = unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode()
+        return " ".join(re.sub(r"[^ -~]", " ", ascii_texto).upper().split())[:limite].rstrip()
+
+    chave = chave.strip()
+    if tipo in ("CPF", "CNPJ"):
+        chave = re.sub(r"[^0-9]", "", chave)
+        if len(chave) != {"CPF": 11, "CNPJ": 14}[tipo]:
+            raise ValueError("Confira o CPF ou CNPJ da chave Pix cadastrada.")
+    elif tipo == "Celular":
+        digitos = re.sub(r"[^0-9]", "", chave)
+        if not chave.startswith("+") and len(digitos) in (10, 11):
+            digitos = "55" + digitos
+        chave = "+" + digitos
+        if not re.fullmatch(r"\+[1-9][0-9]{7,14}", chave):
+            raise ValueError("Confira o telefone da chave Pix, incluindo DDD e código do país.")
+    nome = texto_br_code(nome, 25)
+    cidade = texto_br_code(cidade, 15)
+    if not nome or not cidade or not re.fullmatch(r"[!-~]+", chave):
+        raise ValueError("Confira a chave Pix, o favorecido e a cidade no cadastro.")
+    if not re.fullmatch(r"[0-9]{1,10}\.[0-9]{2}", valor) or valor == "0.00":
+        raise ValueError("O valor da venda está fora do formato aceito pelo Pix.")
+
+    conta = campo("26", campo("00", "br.gov.bcb.pix") + campo("01", chave))
+    payload = (
+        campo("00", "01") + conta + campo("52", "0000") + campo("53", "986")
+        + campo("54", valor) + campo("58", "BR") + campo("59", nome)
+        + campo("60", cidade) + campo("62", campo("05", "***")) + "6304"
+    )
+    return f"{payload}{crc_hqx(payload.encode('ascii'), 0xFFFF):04X}"
+
+
 # Cada empresa cadastrada na configuração do servidor usa um banco próprio.
 try:
     empresas_config = st.secrets.get("empresas", {})
@@ -3768,7 +3808,7 @@ O Senhor é meu pastor nada mim faltarar.
                             st.dataframe(pd.DataFrame(parcelas_pdv).rename(columns={'numero': 'Parcela', 'valor': 'Valor (R$)', 'vencimento': 'Vencimento'}), hide_index=True, use_container_width=True)
 
                         elif forma_pagto == "Pix":
-                            st.markdown("### 📱 Pague com Pix (QR Code Oficial)")
+                            st.markdown("### 📱 Pague com Pix")
                             df_chaves_db = carregar_dados("SELECT * FROM chaves_pix")
                         
                             if df_chaves_db.empty and empresa_doc:
@@ -3793,48 +3833,30 @@ O Senhor é meu pastor nada mim faltarar.
                             cidade_val = str(dados_chave_atual['cidade'])
                             tipo_val = str(dados_chave_atual['tipo'])
 
-                            def gerar_payload_pix(pix_key, nome_recebedor, cidade, valor_str, tipo_chave_pix):
-                                if tipo_chave_pix in ["CNPJ", "CPF"]:
-                                    chave_tratada = ''.join(filter(str.isdigit, pix_key))
-                                else:
-                                    chave_tratada = pix_key.strip()
-                                import unicodedata
-                                nfkd = unicodedata.normalize('NFKD', nome_recebedor)
-                                nome_tratado = "".join([c for c in nfkd if not unicodedata.combining(c)]).upper()[:25]
-                                cidade_tratada = "".join([c for c in unicodedata.normalize('NFKD', cidade) if not unicodedata.combining(c)]).upper()[:15]
-                                def mc(id_c, val_c):
-                                    return f"{id_c}{len(val_c):02d}{val_c}"
-                                gui = mc("00", "br.gov.bcb.pix")
-                                chave_f = mc("01", chave_tratada)
-                                merchant_account = mc("26", gui + chave_f)
-                                payload = (
-                                    mc("00", "01") + mc("01", "12") + merchant_account +
-                                    mc("52", "0000") + mc("53", "986") + mc("54", valor_str) +
-                                    mc("58", "BR") + mc("60", nome_tratado) + mc("61", cidade_tratada) +
-                                    mc("62", mc("05", "***")) + "6304"
+                            try:
+                                pix_payload = gerar_payload_pix(
+                                    pix_key_val, fav_val, cidade_val, f"{total_geral_carrinho:.2f}", tipo_val
                                 )
-                                crc = 0xFFFF
-                                for char in payload:
-                                    crc ^= (ord(char) << 8)
-                                    for _ in range(8):
-                                        if crc & 0x8000:
-                                            crc = (crc << 1) ^ 0x1021
-                                        else:
-                                            crc = crc << 1
-                                        crc &= 0xFFFF
-                                return payload + f"{crc:04X}"
+                                import qrcode
+                                qr = qrcode.QRCode(border=4)
+                                qr.add_data(pix_payload)
+                                arquivo_qr = io.BytesIO()
+                                qr.make_image(fill_color="black", back_color="white").save(arquivo_qr, format="PNG")
+                            except ImportError:
+                                st.error("Adicione qrcode ao requirements.txt para gerar o Pix.")
+                                st.stop()
+                            except ValueError as erro:
+                                st.error(str(erro))
+                                st.stop()
 
-                            valor_formatado = f"{total_geral_carrinho:.2f}"
-                            pix_payload = gerar_payload_pix(pix_key_val, fav_val, cidade_val, valor_formatado, tipo_val)
-                            qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={pix_payload}"
-                        
                             col_qr_img, col_qr_info = st.columns([1, 2], gap="medium")
                             with col_qr_img:
-                                st.image(qr_url, width=190, caption="Escaneie o QR Code")
+                                st.image(arquivo_qr.getvalue(), width=240, caption="Escaneie o QR Code")
                             with col_qr_info:
                                 st.markdown(f"**Valor a Pagar:** R$ {total_geral_carrinho:,.2f}")
                                 st.markdown(f"**Favorecido:** `{fav_val}`")
-                                st.text_input("Chave Pix Copia e Cola:", value=pix_payload, key="input_pix_copia_cola_detalhe")
+                                st.caption("Pix Copia e Cola")
+                                st.code(pix_payload, language=None)
 
                         col_chk1, col_chk2 = st.columns(2)
                         with col_chk1:
