@@ -1666,8 +1666,8 @@ def montar_parcelas_pdv(total, quantidade, primeiro_vencimento):
     import calendar
     quantidade = int(quantidade)
     centavos = int((Decimal(str(total)) * 100).quantize(Decimal('1'), rounding=ROUND_HALF_UP))
-    if not 2 <= quantidade <= 24 or centavos < quantidade:
-        raise ValueError('Informe de 2 a 24 parcelas, com valor mínimo de R$ 0,01 por parcela.')
+    if not 1 <= quantidade <= 24 or centavos < quantidade:
+        raise ValueError('Informe de 1 a 24 parcelas, com valor mínimo de R$ 0,01 por parcela.')
     if isinstance(primeiro_vencimento, datetime):
         primeiro_vencimento = primeiro_vencimento.date()
     if not isinstance(primeiro_vencimento, date):
@@ -1682,6 +1682,85 @@ def montar_parcelas_pdv(total, quantidade, primeiro_vencimento):
         parcelas.append({'numero': indice + 1, 'valor': (base + (sobra if indice == quantidade - 1 else 0)) / 100,
                          'vencimento': date(ano, mes, dia).isoformat()})
     return parcelas
+
+
+def validar_parcelas_editadas(linhas, total):
+    from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+
+    parcelas = []
+    soma = Decimal("0")
+    try:
+        for numero, linha in enumerate(linhas, 1):
+            valor = Decimal(str(linha["valor"]))
+            if not valor.is_finite() or valor <= 0 or valor != valor.quantize(Decimal("0.01")):
+                raise ValueError("Informe valores positivos com até duas casas decimais.")
+            vencimento = date.fromisoformat(str(linha["vencimento"]))
+            soma += valor
+            parcelas.append(dict(numero=numero, valor=float(valor), vencimento=vencimento.isoformat()))
+    except (InvalidOperation, TypeError):
+        raise ValueError("Preencha o valor e a data de cada parcela.") from None
+    if soma != Decimal(str(total)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP):
+        raise ValueError("A soma das parcelas deve ser igual ao total da venda.")
+    return parcelas
+
+
+def gerar_carne_pdf(empresa, cliente, venda_id, modalidade, parcelas):
+    from reportlab.lib.pagesizes import A4
+    from reportlab.pdfgen import canvas
+    from reportlab.pdfbase.pdfmetrics import stringWidth
+
+    saida = io.BytesIO()
+    pdf = canvas.Canvas(saida, pagesize=A4)
+    largura, altura = A4
+    margem = 28
+    meio = largura / 2
+    largura_via = meio - margem - 9
+
+    def caixa(x, y, largura_campo, titulo, valor):
+        pdf.roundRect(x, y, largura_campo, 31, 4)
+        pdf.setFont("Helvetica", 7)
+        pdf.drawString(x + 6, y + 21, titulo)
+        pdf.setFont("Helvetica-Bold", 10)
+        valor = str(valor)
+        while stringWidth(valor, "Helvetica-Bold", 10) > largura_campo - 12:
+            valor = valor[:-2].rstrip() + "…"
+        pdf.drawString(x + 6, y + 7, valor)
+
+    for indice, parcela in enumerate(parcelas):
+        if indice and indice % 3 == 0:
+            pdf.showPage()
+        topo = altura - margem - (indice % 3) * 255
+        pdf.setStrokeColor(colors.HexColor("#1C4871"))
+        pdf.setFillColor(colors.HexColor("#163650"))
+        pdf.setDash(3, 3)
+        pdf.line(meio, topo, meio, topo - 232)
+        pdf.line(margem, topo - 241, largura - margem, topo - 241)
+        pdf.setDash()
+        valor = f"R$ {parcela['valor']:,.2f}".replace(",", "_").replace(".", ",").replace("_", ".")
+        data_formatada = date.fromisoformat(parcela["vencimento"]).strftime("%d/%m/%Y")
+        for x, via in ((margem, "VIA DO CLIENTE"), (meio + 9, "VIA DA LOJA")):
+            metade = (largura_via - 6) / 2
+            caixa(x, topo - 34, largura_via, f"CARNÊ · {modalidade.upper()} · {via}", empresa)
+            caixa(x, topo - 72, largura_via, "NOME DO CLIENTE", cliente)
+            caixa(x, topo - 110, metade, "Nº DO CARNÊ / VENDA", venda_id)
+            caixa(x + metade + 6, topo - 110, metade, "VENCIMENTO", data_formatada)
+            caixa(x, topo - 148, metade, "Nº DA PARCELA", f"{parcela['numero']}/{len(parcelas)}")
+            caixa(x + metade + 6, topo - 148, metade, "VALOR DA PARCELA", valor)
+            caixa(x, topo - 186, metade, "JUROS", "")
+            caixa(x + metade + 6, topo - 186, metade, "VALOR PAGO", "")
+            pdf.line(x + 15, topo - 213, x + largura_via - 15, topo - 213)
+            pdf.setFont("Helvetica", 8)
+            pdf.drawCentredString(x + largura_via / 2, topo - 226, "Recebido por / assinatura")
+    pdf.save()
+    return saida.getvalue()
+
+
+def mostrar_download_carne_pdv():
+    carne = st.session_state.get("carne_venda_pdv")
+    if carne:
+        venda_id, dados_pdf = carne
+        st.download_button("Baixar carnê (PDF)", dados_pdf,
+                           file_name=f"carne-venda-{venda_id}.pdf", mime="application/pdf")
 
 
 def criar_parcelas_pdv(conexao, venda_id, cliente, parcelas, data_venda, operador, autorizador=None):
@@ -3311,7 +3390,9 @@ else:
         # Confirma a venda sem imprimir comprovante, quando essa opção foi escolhida.
         if st.session_state.get("venda_concluida_sem_cupom", False):
             st.success("✅ Venda concluída e registrada com sucesso. Nenhum cupom foi impresso.")
+            mostrar_download_carne_pdv()
             if st.button("➕ Iniciar Nova Venda", type="primary", use_container_width=True, key="btn_nova_venda_sem_cupom"):
+                st.session_state.pop("carne_venda_pdv", None)
                 st.session_state.venda_concluida_sem_cupom = False
                 st.session_state.exibir_cupom_tela = False
                 st.session_state.html_cupom_atual = ""
@@ -3321,6 +3402,7 @@ else:
         # SE O CUPOM NÃO FISCAL ESTIVER ATIVO NA TELA
         elif st.session_state.exibir_cupom_tela:
             st.success("🎉 Venda concluída com sucesso!")
+            mostrar_download_carne_pdv()
             
             from datetime import datetime
             data_venda = st.session_state.get('data_venda_final', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
@@ -3416,6 +3498,7 @@ O Senhor é meu pastor nada mim faltarar.
                 )
             with col_b_imp3:
                 if st.button("➕ Iniciar Nova Venda", type="primary", use_container_width=True, key="btn_nova_venda_reset"):
+                    st.session_state.pop("carne_venda_pdv", None)
                     st.session_state.exibir_cupom_tela = False
                     st.session_state.html_cupom_atual = ""
                     st.session_state.carrinho_temp_para_imprimir = []
@@ -3785,27 +3868,39 @@ O Senhor é meu pastor nada mim faltarar.
                         elif forma_pagto == "Cartão Débito":
                             st.info("💳 Pagamento via **Cartão de Débito** à vista.")
 
-                        elif forma_pagto == "Fiado":
-                            from datetime import timedelta
-                            data_venc_padrao = datetime.now().date() + timedelta(days=30)
-                            data_vencimento_fiado = st.date_input(
-                                "📅 Data de Vencimento do Fiado:",
-                                value=data_venc_padrao,
-                                format="DD/MM/YYYY",
-                                key="input_data_venc_fiado"
+                        elif forma_pagto in ("Fiado", "Parcelado"):
+                            minimo = 1 if forma_pagto == "Fiado" else 2
+                            num_parc = st.number_input(
+                                "Quantidade de parcelas", min_value=minimo, max_value=24,
+                                value=minimo, step=1, key=f"quantidade_pdv_{forma_pagto}",
                             )
-                            data_venc_str = data_vencimento_fiado.strftime('%d/%m/%Y')
-                            detalhes_pagto = f"Fiado (Venc: {data_venc_str})"
-                            st.warning(f"⚠️ Esta venda será registada como **Fiado** para o cliente **{cliente_pdv_selecionado}** com vencimento em **{data_venc_str}**.")
-
-                        elif forma_pagto == "Parcelado":
-                            num_parc = st.number_input("Quantidade de Parcelas Próprias:", min_value=2, max_value=24, value=2, step=1, key="num_parc_proprias")
-                            valor_parc = total_geral_carrinho / num_parc
-                            detalhes_pagto = f"Parcelado ({num_parc}x de R$ {valor_parc:,.2f})"
-                            primeiro_vencimento_parcelado = st.date_input("Vencimento da primeira parcela", value=date.today() + dt.timedelta(days=30), format="DD/MM/YYYY", key="vencimento_primeira_parcela_pdv")
-                            parcelas_pdv = montar_parcelas_pdv(total_geral_carrinho, num_parc, primeiro_vencimento_parcelado)
-                            st.caption("Parcelas mensais; diferenças de centavos ficam na última parcela.")
-                            st.dataframe(pd.DataFrame(parcelas_pdv).rename(columns={'numero': 'Parcela', 'valor': 'Valor (R$)', 'vencimento': 'Vencimento'}), hide_index=True, use_container_width=True)
+                            primeiro_vencimento = st.date_input(
+                                "Vencimento inicial sugerido", value=date.today() + dt.timedelta(days=30),
+                                format="DD/MM/YYYY", key=f"primeiro_vencimento_pdv_{forma_pagto}",
+                            )
+                            detalhes_pagto = f"{forma_pagto} ({num_parc}x)"
+                            try:
+                                sugestao = montar_parcelas_pdv(total_geral_carrinho, num_parc, primeiro_vencimento)
+                                tabela = pd.DataFrame(sugestao)
+                                tabela["vencimento"] = tabela["vencimento"].map(date.fromisoformat)
+                                st.caption("Edite os valores e vencimentos. A soma deve fechar com o total da venda.")
+                                editada = st.data_editor(
+                                    tabela, hide_index=True, num_rows="fixed", disabled=["numero"],
+                                    key=f"parcelas_{forma_pagto}_{num_parc}_{primeiro_vencimento}_{total_geral_carrinho:.2f}",
+                                    column_config={
+                                        "numero": "Parcela",
+                                        "valor": st.column_config.NumberColumn(
+                                            "Valor (R$)", min_value=0.01, step=0.01, format="%.2f", required=True
+                                        ),
+                                        "vencimento": st.column_config.DateColumn(
+                                            "Vencimento", format="DD/MM/YYYY", required=True
+                                        ),
+                                    },
+                                )
+                                parcelas_pdv = validar_parcelas_editadas(editada.to_dict("records"), total_geral_carrinho)
+                            except ValueError as erro:
+                                parcelas_pdv = []
+                                st.warning(str(erro))
 
                         elif forma_pagto == "Pix":
                             st.markdown("### 📱 Pague com Pix")
@@ -3870,6 +3965,7 @@ O Senhor é meu pastor nada mim faltarar.
                                 use_container_width=True,
                                 key="btn_confirmar_pagto_final",
                                 disabled=(tipo_documento_pdv == "NFC-e fiscal" or
+                                          (forma_pagto in ("Fiado", "Parcelado") and not parcelas_pdv) or
                                           (forma_pagto == "Dinheiro" and round(troco, 2) < 0))
                             ):
                                 try:
@@ -3921,10 +4017,6 @@ O Senhor é meu pastor nada mim faltarar.
                                     venda_id_gerado = cursor.lastrowid
                                     v_rec = valor_recebido if forma_pagto == "Dinheiro" else (0.0 if forma_pagto in {"Fiado", "Parcelado"} else total_geral_carrinho)
                                     t_val = troco if (forma_pagto == "Dinheiro" and troco >= 0) else 0.0
-    
-                                    data_vencimento_fiado_val = None
-                                    if forma_pagto == "Fiado" and 'input_data_venc_fiado' in st.session_state:
-                                        data_vencimento_fiado_val = str(st.session_state.input_data_venc_fiado)
     
                                     # BUSCA OS DADOS DA EMPRESA COM SEGURANÇA
                                     try:
@@ -4009,26 +4101,15 @@ O Senhor é meu pastor nada mim faltarar.
                                         )
                                     )
     
-                                    if forma_pagto == "Fiado" and data_vencimento_fiado_val:
-                                        cursor.execute("""
-                                            CREATE TABLE IF NOT EXISTS contas_receber (
-                                                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                                cliente TEXT,
-                                                valor REAL,
-                                                vencimento TEXT,
-                                                status TEXT,
-                                                descricao TEXT
-                                            )
-                                        """)
-                                        cursor.execute("""
-                                            INSERT INTO contas_receber (cliente, valor, vencimento, status, descricao)
-                                            VALUES (?, ?, ?, 'Pendente', ?)
-                                        """, (cliente_pdv_selecionado, total_geral_carrinho, data_vencimento_fiado_val, f"Venda PDV #{venda_id_gerado} - Fiado"))
-    
-                                    if forma_pagto == "Parcelado":
+                                    carne_pdv = None
+                                    if forma_pagto in ("Fiado", "Parcelado"):
                                         criar_parcelas_pdv(conn, venda_id_gerado, cliente_pdv_selecionado,
                                                            parcelas_pdv, data_venda, usr_exibicao)
-    
+                                        carne_pdv = (venda_id_gerado, gerar_carne_pdf(
+                                            emp_nome, cliente_pdv_selecionado, venda_id_gerado,
+                                            forma_pagto, parcelas_pdv,
+                                        ))
+
                                     # Insere os itens da venda no histórico para permitir o estorno
                                     for item in st.session_state.carrinho_pdv:
                                         cursor.execute("""
@@ -4110,6 +4191,7 @@ O Senhor é meu pastor nada mim faltarar.
                                 """
 
                                 # Guarda a opção escolhida para esta venda.
+                                st.session_state.carne_venda_pdv = carne_pdv
                                 st.session_state.detalhes_pagto = detalhes_pagto
                                 st.session_state.forma_pagto_venda = forma_pagto
                                 st.session_state.valor_recebido_venda = v_rec
