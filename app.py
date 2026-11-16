@@ -1726,6 +1726,7 @@ def gerar_carne_pdf(empresa, cliente, venda_id, modalidade, parcelas):
             valor = valor[:-2].rstrip() + "…"
         pdf.drawString(x + 6, y + 7, valor)
 
+    total_parcelas = max(parcela.get("parcelas_total", len(parcelas)) for parcela in parcelas)
     for indice, parcela in enumerate(parcelas):
         if indice and indice % 3 == 0:
             pdf.showPage()
@@ -1744,10 +1745,12 @@ def gerar_carne_pdf(empresa, cliente, venda_id, modalidade, parcelas):
             caixa(x, topo - 72, largura_via, "NOME DO CLIENTE", cliente)
             caixa(x, topo - 110, metade, "Nº DO CARNÊ / VENDA", venda_id)
             caixa(x + metade + 6, topo - 110, metade, "VENCIMENTO", data_formatada)
-            caixa(x, topo - 148, metade, "Nº DA PARCELA", f"{parcela['numero']}/{len(parcelas)}")
+            caixa(x, topo - 148, metade, "Nº DA PARCELA", f"{parcela['numero']}/{total_parcelas}")
             caixa(x + metade + 6, topo - 148, metade, "VALOR DA PARCELA", valor)
             caixa(x, topo - 186, metade, "JUROS", "")
-            caixa(x + metade + 6, topo - 186, metade, "VALOR PAGO", "")
+            recebido = parcela.get("valor_pago", 0)
+            pago = f"R$ {recebido:.2f}".replace(".", ",") if recebido else ""
+            caixa(x + metade + 6, topo - 186, metade, "VALOR PAGO", pago)
             pdf.line(x + 15, topo - 213, x + largura_via - 15, topo - 213)
             pdf.setFont("Helvetica", 8)
             pdf.drawCentredString(x + largura_via / 2, topo - 226, "Recebido por / assinatura")
@@ -5917,6 +5920,47 @@ O Senhor é meu pastor nada mim faltarar.
                             cliente_filtro, situacao_filtro, periodo_pdf_contas),
                         file_name="contas_a_receber.pdf", mime="application/pdf",
                         key="baixar_pdf_contas_receber")
+
+                    if {"origem_venda", "venda_id", "parcela_numero", "parcelas_total"}.issubset(df_contas.columns):
+                        vinculadas = df_lista_contas.loc[
+                            df_lista_contas["origem_venda"].eq("PDV") & df_lista_contas["venda_id"].notna()
+                        ]
+                        vendas_carne = {int(linha.venda_id): linha.cliente for linha in vinculadas.itertuples()}
+                        if vendas_carne:
+                            st.markdown("### Carnê do cliente")
+                            venda_carne = st.selectbox(
+                                "Venda para baixar o carnê", sorted(vendas_carne, reverse=True),
+                                index=None, placeholder="Selecione a venda",
+                                format_func=lambda id_venda: f"Venda PDV #{id_venda} · {vendas_carne[id_venda]}",
+                                key="selecionar_venda_carne_cr",
+                            )
+                            if venda_carne is not None:
+                                venda = conn.execute(
+                                    "SELECT forma_pagamento FROM vendas_cabecalho WHERE id = ?", (venda_carne,)
+                                ).fetchone()
+                                modalidade = str(venda[0]).split()[0] if venda and venda[0] else ""
+                                parcelas_venda = df_contas.loc[
+                                    df_contas["origem_venda"].eq("PDV") & df_contas["venda_id"].eq(venda_carne)
+                                ].sort_values("parcela_numero")
+                                datas = pd.to_datetime(parcelas_venda["vencimento"], errors="coerce")
+                                if modalidade not in ("Fiado", "Parcelado") or datas.isna().any() or parcelas_venda["parcela_numero"].isna().any():
+                                    st.warning("Confira os dados da venda e os vencimentos das parcelas.")
+                                else:
+                                    parcelas_carne = [
+                                        dict(numero=int(linha.parcela_numero), valor=linha.valor,
+                                             vencimento=datas.loc[linha.Index].date().isoformat(),
+                                             parcelas_total=int(linha.parcelas_total or len(parcelas_venda))
+                                             if pd.notna(linha.parcelas_total) else len(parcelas_venda),
+                                             valor_pago=linha.valor_pago)
+                                        for linha in parcelas_venda.itertuples()
+                                    ]
+                                    st.download_button(
+                                        "Baixar carnê do cliente (PDF)",
+                                        gerar_carne_pdf(nome_empresa_header, vendas_carne[venda_carne],
+                                                        venda_carne, modalidade, parcelas_carne),
+                                        file_name=f"carne-venda-{venda_carne}.pdf",
+                                        mime="application/pdf", key="baixar_carne_cr",
+                                    )
 
                 if not df_lista_contas.empty:
                     st.markdown("### ⚙️ Gerenciar Conta / Registrar Haver ou Pagamento")
