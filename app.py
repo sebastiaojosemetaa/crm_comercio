@@ -498,6 +498,16 @@ def validar_midia_suporte(tipo, dados):
         raise ValueError(f"O arquivo ultrapassa o limite de {limite // (1024 * 1024)} MB.")
 
 
+PREFIXO_VIDEOCHAMADA = "Convite de videochamada: "
+
+
+def link_videochamada_suporte(texto):
+    link = texto.strip()
+    if re.fullmatch(r"https://meet\.google\.com/[a-z]{3}-[a-z]{4}-[a-z]{3}/?", link):
+        return link.rstrip("/")
+    return None
+
+
 def exibir_suporte_crm(documento_sessao, nome_empresa, central, empresas):
     st.header("💬 Suporte")
     documento = documento_sessao
@@ -550,7 +560,14 @@ def exibir_suporte_crm(documento_sessao, nome_empresa, central, empresas):
                 with st.chat_message("assistant" if origem == "suporte" else "user"):
                     horario = enviada_em.astimezone(dt.timezone(timedelta(hours=-3)))
                     st.caption(f"{autor} · {horario:%d/%m/%Y às %H:%M} (Brasília)")
-                    st.text(mensagem)
+                    convite = None
+                    if origem == "suporte" and mensagem.startswith(PREFIXO_VIDEOCHAMADA):
+                        convite = link_videochamada_suporte(mensagem[len(PREFIXO_VIDEOCHAMADA):])
+                    if convite:
+                        st.text("A ALENCARSOFT convidou você para uma videochamada.")
+                        st.link_button("Entrar na videochamada", convite)
+                    else:
+                        st.text(mensagem)
                     if midia_tipo and st.toggle("Mostrar mídia", key=f"suporte_midia_{mensagem_id}"):
                         midia = remoto.execute("""
                             SELECT midia_dados FROM crm_suporte.mensagens
@@ -562,6 +579,23 @@ def exibir_suporte_crm(documento_sessao, nome_empresa, central, empresas):
                             elif midia_tipo == "video/mp4":
                                 st.video(bytes(midia[0]), format=midia_tipo)
             origem_envio = "suporte" if central else "empresa"
+            if central:
+                with st.expander("Convidar para videochamada"):
+                    st.caption("Crie uma reunião no Google Meet e cole o link da reunião abaixo.")
+                    st.link_button("Abrir Google Meet", "https://meet.google.com/")
+                    with st.form(f"suporte_form_videochamada_{documento}"):
+                        link_informado = st.text_input("Link da reunião")
+                        if st.form_submit_button("Enviar convite"):
+                            convite = link_videochamada_suporte(link_informado)
+                            if convite is None:
+                                st.warning("Cole o link da reunião no formato https://meet.google.com/abc-defg-hij.")
+                            else:
+                                remoto.execute("""
+                                    INSERT INTO crm_suporte.mensagens (empresa_documento, origem, mensagem)
+                                    VALUES (%s, %s, %s)
+                                """, (documento, origem_envio, PREFIXO_VIDEOCHAMADA + convite))
+                                remoto.commit()
+                                st.rerun()
             with st.expander("Enviar áudio ou vídeo"):
                 with st.form(f"suporte_form_midia_{documento}", clear_on_submit=True):
                     audio = st.audio_input("Gravar áudio (até 3 MB)")
