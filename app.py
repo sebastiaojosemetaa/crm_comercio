@@ -1704,7 +1704,24 @@ def validar_parcelas_editadas(linhas, total):
     return parcelas
 
 
-def gerar_carne_pdf(empresa, cliente, venda_id, modalidade, parcelas):
+def chave_pix_carne(conexao):
+    for chave in conexao.execute("""
+        SELECT chave, favorecido, cidade, tipo FROM chaves_pix
+        ORDER BY COALESCE(padrao, 0) DESC, id
+    """):
+        chave = tuple(str(campo or "") for campo in chave)
+        try:
+            gerar_payload_pix(*chave[:3], "1.00", chave[3])
+        except ValueError:
+            continue
+        return chave
+    return None
+
+
+def gerar_carne_pdf(empresa, cliente, venda_id, modalidade, parcelas, pix=None):
+    from reportlab.graphics import renderPDF
+    from reportlab.graphics.barcode.qr import QrCodeWidget
+    from reportlab.graphics.shapes import Drawing, Rect
     from reportlab.lib.pagesizes import A4
     from reportlab.pdfgen import canvas
     from reportlab.pdfbase.pdfmetrics import stringWidth
@@ -1712,7 +1729,7 @@ def gerar_carne_pdf(empresa, cliente, venda_id, modalidade, parcelas):
     saida = io.BytesIO()
     pdf = canvas.Canvas(saida, pagesize=A4)
     largura, altura = A4
-    margem = 28
+    margem = 43
     meio = largura / 2
     largura_via = meio - margem - 9
 
@@ -1739,18 +1756,42 @@ def gerar_carne_pdf(empresa, cliente, venda_id, modalidade, parcelas):
         pdf.setDash()
         valor = f"R$ {parcela['valor']:,.2f}".replace(",", "_").replace(".", ",").replace("_", ".")
         data_formatada = date.fromisoformat(parcela["vencimento"]).strftime("%d/%m/%Y")
+        recebido = parcela.get("valor_pago", 0)
+        saldo = round(parcela["valor"] - recebido, 2)
+        pago = f"R$ {recebido:.2f}".replace(".", ",") if recebido else ""
+        qr = None
+        if pix and saldo > 0:
+            try:
+                payload = gerar_payload_pix(*pix[:3], f"{saldo:.2f}", pix[3])
+            except ValueError:
+                pass
+            else:
+                tamanho = 94
+                simbolo = QrCodeWidget(payload, barWidth=tamanho, barHeight=tamanho, barBorder=4)
+                qr = Drawing(tamanho, tamanho)
+                qr.add(Rect(0, 0, tamanho, tamanho, fillColor=colors.white, strokeColor=None))
+                qr.add(simbolo)
         for x, via in ((margem, "VIA DO CLIENTE"), (meio + 9, "VIA DA LOJA")):
-            metade = (largura_via - 6) / 2
+            largura_dados = largura_via - 101 if qr else largura_via
+            metade = (largura_dados - 6) / 2
             caixa(x, topo - 34, largura_via, f"CARNÊ · {modalidade.upper()} · {via}", empresa)
-            caixa(x, topo - 72, largura_via, "NOME DO CLIENTE", cliente)
-            caixa(x, topo - 110, metade, "Nº DO CARNÊ / VENDA", venda_id)
+            caixa(x, topo - 72, largura_dados, "NOME DO CLIENTE", cliente)
+            caixa(x, topo - 110, metade, "Nº DA VENDA", venda_id)
             caixa(x + metade + 6, topo - 110, metade, "VENCIMENTO", data_formatada)
-            caixa(x, topo - 148, metade, "Nº DA PARCELA", f"{parcela['numero']}/{total_parcelas}")
-            caixa(x + metade + 6, topo - 148, metade, "VALOR DA PARCELA", valor)
+            caixa(x, topo - 148, metade, "PARCELA", f"{parcela['numero']}/{total_parcelas}")
+            caixa(x + metade + 6, topo - 148, metade, "VALOR", valor)
+            metade = (largura_via - 6) / 2
             caixa(x, topo - 186, metade, "JUROS", "")
-            recebido = parcela.get("valor_pago", 0)
-            pago = f"R$ {recebido:.2f}".replace(".", ",") if recebido else ""
             caixa(x + metade + 6, topo - 186, metade, "VALOR PAGO", pago)
+            if qr:
+                pos_qr = x + largura_via - tamanho
+                renderPDF.draw(qr, pdf, pos_qr, topo - 136)
+                pdf.setFont("Helvetica", 7)
+                pix_valor = f"R$ {saldo:.2f}".replace(".", ",")
+                pdf.drawCentredString(pos_qr + tamanho / 2, topo - 145, f"Pix · {pix_valor}")
+            elif saldo <= 0:
+                pdf.setFont("Helvetica", 8)
+                pdf.drawString(x + 6, topo - 198, "Parcela quitada")
             pdf.line(x + 15, topo - 213, x + largura_via - 15, topo - 213)
             pdf.setFont("Helvetica", 8)
             pdf.drawCentredString(x + largura_via / 2, topo - 226, "Recebido por / assinatura")
@@ -4110,7 +4151,7 @@ O Senhor é meu pastor nada mim faltarar.
                                                            parcelas_pdv, data_venda, usr_exibicao)
                                         carne_pdv = (venda_id_gerado, gerar_carne_pdf(
                                             emp_nome, cliente_pdv_selecionado, venda_id_gerado,
-                                            forma_pagto, parcelas_pdv,
+                                            forma_pagto, parcelas_pdv, pix=chave_pix_carne(conn),
                                         ))
 
                                     # Insere os itens da venda no histórico para permitir o estorno
@@ -5957,7 +5998,7 @@ O Senhor é meu pastor nada mim faltarar.
                                     st.download_button(
                                         "Baixar carnê do cliente (PDF)",
                                         gerar_carne_pdf(nome_empresa_header, vendas_carne[venda_carne],
-                                                        venda_carne, modalidade, parcelas_carne),
+                                                        venda_carne, modalidade, parcelas_carne, pix=chave_pix_carne(conn)),
                                         file_name=f"carne-venda-{venda_carne}.pdf",
                                         mime="application/pdf", key="baixar_carne_cr",
                                     )
