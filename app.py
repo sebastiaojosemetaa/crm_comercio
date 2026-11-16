@@ -459,11 +459,14 @@ def pendencias_suporte(remoto):
     return dict(remoto.execute("""
         SELECT empresa_documento, COUNT(*)
         FROM crm_suporte.mensagens AS mensagem
-        WHERE origem = 'empresa' AND id > COALESCE((
+        WHERE origem = 'empresa' AND id > GREATEST(COALESCE((
+            SELECT ultimo_id FROM crm_suporte.leituras
+            WHERE empresa_documento = mensagem.empresa_documento
+        ), 0), COALESCE((
             SELECT MAX(resposta.id) FROM crm_suporte.mensagens AS resposta
             WHERE resposta.empresa_documento = mensagem.empresa_documento
               AND resposta.origem = 'suporte'
-        ), 0)
+        ), 0))
         GROUP BY empresa_documento
     """).fetchall())
 
@@ -479,7 +482,7 @@ def exibir_alerta_suporte(empresas):
     nomes = [f"{empresas[doc]['nome']} ({total})"
              for doc, total in pendencias.items() if doc in empresas and doc != DOCUMENTO_ALENCARSOFT]
     if nomes:
-        st.warning("Suporte · aguardando resposta: " + ", ".join(sorted(nomes)))
+        st.warning("Suporte · mensagens não lidas: " + ", ".join(sorted(nomes)))
 
 
 def validar_midia_suporte(tipo, dados):
@@ -513,7 +516,7 @@ def exibir_suporte_crm(documento_sessao, nome_empresa, central, empresas):
                 documento = st.selectbox(
                     "Empresa", clientes, index=None, placeholder="Selecione uma conversa",
                     format_func=lambda doc: (
-                        f"🔔 {empresas[doc]['nome']} · {doc} ({pendencias[doc]} aguardando)"
+                        f"🔔 {empresas[doc]['nome']} · {doc} ({pendencias[doc]} não lidas)"
                         if doc in pendencias else f"{empresas[doc]['nome']} · {doc}"
                     ),
                     key="suporte_empresa_central",
@@ -529,6 +532,17 @@ def exibir_suporte_crm(documento_sessao, nome_empresa, central, empresas):
                 SELECT id, origem, mensagem, enviada_em, midia_tipo FROM crm_suporte.mensagens
                 WHERE empresa_documento = %s ORDER BY id DESC LIMIT 100
             """, (documento,)).fetchall()
+            if central and pendencias.get(documento):
+                ultimo_exibido = max((linha[0] for linha in mensagens if linha[1] == "empresa"), default=0)
+                if ultimo_exibido:
+                    remoto.execute("""
+                        INSERT INTO crm_suporte.leituras AS leitura (empresa_documento, ultimo_id)
+                        VALUES (%s, %s)
+                        ON CONFLICT (empresa_documento) DO UPDATE
+                        SET ultimo_id = GREATEST(leitura.ultimo_id, EXCLUDED.ultimo_id)
+                    """, (documento, ultimo_exibido))
+                    remoto.commit()
+                    st.rerun()
             if not mensagens:
                 st.info("Nenhuma mensagem nesta conversa.")
             for mensagem_id, origem, mensagem, enviada_em, midia_tipo in reversed(mensagens):
