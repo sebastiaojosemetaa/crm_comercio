@@ -455,6 +455,57 @@ def consultar_ultimo_fechamento_backup(configuracao, documento):
         ).fetchone()
 
 
+def exibir_suporte_crm(documento_sessao, nome_empresa, central, empresas):
+    st.header("💬 Suporte")
+    documento = documento_sessao
+    try:
+        with conectar_supabase_producao() as remoto:
+            if central:
+                ultimas = dict(remoto.execute("""
+                    SELECT empresa_documento, MAX(id) FROM crm_suporte.mensagens
+                    GROUP BY empresa_documento
+                """).fetchall())
+                clientes = sorted(
+                    (doc for doc in empresas if doc != DOCUMENTO_ALENCARSOFT),
+                    key=lambda doc: (-ultimas.get(doc, 0), empresas[doc]["nome"].casefold()),
+                )
+                documento = st.selectbox(
+                    "Empresa", clientes, index=None, placeholder="Selecione uma conversa",
+                    format_func=lambda doc: empresas[doc]["nome"] + " · " + doc,
+                    key="suporte_empresa_central",
+                )
+                if documento not in clientes:
+                    return
+                st.caption(empresas[documento]["nome"])
+            else:
+                st.caption(f"Conversa de {nome_empresa} com a ALENCARSOFT")
+
+            st.button("Atualizar conversa", key="suporte_atualizar")
+            mensagens = remoto.execute("""
+                SELECT origem, mensagem, enviada_em FROM crm_suporte.mensagens
+                WHERE empresa_documento = %s ORDER BY id DESC LIMIT 100
+            """, (documento,)).fetchall()
+            if not mensagens:
+                st.info("Nenhuma mensagem nesta conversa.")
+            for origem, mensagem, enviada_em in reversed(mensagens):
+                autor = "ALENCARSOFT" if origem == "suporte" else "Empresa"
+                with st.chat_message("assistant" if origem == "suporte" else "user"):
+                    horario = enviada_em.astimezone(dt.timezone(timedelta(hours=-3)))
+                    st.caption(f"{autor} · {horario:%d/%m/%Y às %H:%M} (Brasília)")
+                    st.text(mensagem)
+            mensagem = st.chat_input("Digite sua mensagem", max_chars=3000,
+                                      key=f"suporte_mensagem_{documento}")
+            if mensagem and mensagem.strip():
+                remoto.execute("""
+                    INSERT INTO crm_suporte.mensagens (empresa_documento, origem, mensagem)
+                    VALUES (%s, %s, %s)
+                """, (documento, "suporte" if central else "empresa", mensagem.strip()))
+                remoto.commit()
+                st.rerun()
+    except Exception:
+        st.error("O suporte está indisponível. Tente novamente ou confira a configuração do Supabase.")
+
+
 def conectar_supabase_producao():
     try:
         import psycopg
@@ -3401,6 +3452,9 @@ else:
     if not opcoes_menu_disponiveis:
         opcoes_menu_disponiveis = ["🛒 PDV — Frente de Caixa"]
 
+    if empresa_doc and (empresa_doc != DOCUMENTO_ALENCARSOFT or login_atual == "administrador"):
+        opcoes_menu_disponiveis.append("💬 Suporte")
+
     menu_admin = st.sidebar.radio(
         "Navegação",
         opcoes_menu_disponiveis,
@@ -3412,6 +3466,14 @@ else:
     # ==========================================
     # TRAVA DE SEGURANÇA DE LICENÇA POR DISPOSITIVO
     # ==========================================
+
+    if menu_admin == "💬 Suporte":
+        if empresa_doc and (empresa_doc != DOCUMENTO_ALENCARSOFT or login_atual == "administrador"):
+            exibir_suporte_crm(
+                empresa_doc, empresa_config["nome"],
+                empresa_doc == DOCUMENTO_ALENCARSOFT, empresas_config,
+            )
+        st.stop()
 
     if not dispositivo_esta_ativado and menu_admin != "🏢 Configurações da Empresa":
         if licenca_vencida:
