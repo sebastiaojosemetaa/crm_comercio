@@ -482,6 +482,19 @@ def exibir_alerta_suporte(empresas):
         st.warning("Suporte · aguardando resposta: " + ", ".join(sorted(nomes)))
 
 
+def validar_midia_suporte(tipo, dados):
+    if tipo == "audio/wav":
+        limite = 3 * 1024 * 1024
+        valido = dados[:4] == b"RIFF" and dados[8:12] == b"WAVE"
+    else:
+        limite = 15 * 1024 * 1024
+        valido = tipo == "video/mp4" and dados[4:8] == b"ftyp"
+    if not valido:
+        raise ValueError("Grave o áudio pelo CRM ou selecione um arquivo MP4 válido.")
+    if len(dados) > limite:
+        raise ValueError(f"O arquivo ultrapassa o limite de {limite // (1024 * 1024)} MB.")
+
+
 def exibir_suporte_crm(documento_sessao, nome_empresa, central, empresas):
     st.header("💬 Suporte")
     documento = documento_sessao
@@ -513,24 +526,58 @@ def exibir_suporte_crm(documento_sessao, nome_empresa, central, empresas):
 
             st.button("Atualizar conversa", key="suporte_atualizar")
             mensagens = remoto.execute("""
-                SELECT origem, mensagem, enviada_em FROM crm_suporte.mensagens
+                SELECT id, origem, mensagem, enviada_em, midia_tipo FROM crm_suporte.mensagens
                 WHERE empresa_documento = %s ORDER BY id DESC LIMIT 100
             """, (documento,)).fetchall()
             if not mensagens:
                 st.info("Nenhuma mensagem nesta conversa.")
-            for origem, mensagem, enviada_em in reversed(mensagens):
+            for mensagem_id, origem, mensagem, enviada_em, midia_tipo in reversed(mensagens):
                 autor = "ALENCARSOFT" if origem == "suporte" else "Empresa"
                 with st.chat_message("assistant" if origem == "suporte" else "user"):
                     horario = enviada_em.astimezone(dt.timezone(timedelta(hours=-3)))
                     st.caption(f"{autor} · {horario:%d/%m/%Y às %H:%M} (Brasília)")
                     st.text(mensagem)
+                    if midia_tipo and st.toggle("Mostrar mídia", key=f"suporte_midia_{mensagem_id}"):
+                        midia = remoto.execute("""
+                            SELECT midia_dados FROM crm_suporte.mensagens
+                            WHERE empresa_documento = %s AND id = %s
+                        """, (documento, mensagem_id)).fetchone()
+                        if midia and midia[0]:
+                            if midia_tipo == "audio/wav":
+                                st.audio(bytes(midia[0]), format=midia_tipo)
+                            elif midia_tipo == "video/mp4":
+                                st.video(bytes(midia[0]), format=midia_tipo)
+            origem_envio = "suporte" if central else "empresa"
+            with st.expander("Enviar áudio ou vídeo"):
+                with st.form(f"suporte_form_midia_{documento}", clear_on_submit=True):
+                    audio = st.audio_input("Gravar áudio (até 3 MB)")
+                    video = st.file_uploader("Anexar vídeo MP4 (até 15 MB)", type=["mp4"])
+                    if st.form_submit_button("Enviar mídia"):
+                        if bool(audio) == bool(video):
+                            st.warning("Grave um áudio ou selecione um vídeo por envio.")
+                        else:
+                            tipo = "audio/wav" if audio else "video/mp4"
+                            dados = (audio or video).getvalue()
+                            try:
+                                validar_midia_suporte(tipo, dados)
+                            except ValueError as erro:
+                                st.warning(str(erro))
+                            else:
+                                remoto.execute("""
+                                    INSERT INTO crm_suporte.mensagens
+                                        (empresa_documento, origem, mensagem, midia_tipo, midia_dados)
+                                    VALUES (%s, %s, %s, %s, %s)
+                                """, (documento, origem_envio,
+                                      "Mensagem de áudio" if audio else "Vídeo anexado", tipo, dados))
+                                remoto.commit()
+                                st.rerun()
             mensagem = st.chat_input("Digite sua mensagem", max_chars=3000,
                                       key=f"suporte_mensagem_{documento}")
             if mensagem and mensagem.strip():
                 remoto.execute("""
                     INSERT INTO crm_suporte.mensagens (empresa_documento, origem, mensagem)
                     VALUES (%s, %s, %s)
-                """, (documento, "suporte" if central else "empresa", mensagem.strip()))
+                """, (documento, origem_envio, mensagem.strip()))
                 remoto.commit()
                 st.rerun()
     except Exception:
