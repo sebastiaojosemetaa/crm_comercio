@@ -455,6 +455,33 @@ def consultar_ultimo_fechamento_backup(configuracao, documento):
         ).fetchone()
 
 
+def pendencias_suporte(remoto):
+    return dict(remoto.execute("""
+        SELECT empresa_documento, COUNT(*)
+        FROM crm_suporte.mensagens AS mensagem
+        WHERE origem = 'empresa' AND id > COALESCE((
+            SELECT MAX(resposta.id) FROM crm_suporte.mensagens AS resposta
+            WHERE resposta.empresa_documento = mensagem.empresa_documento
+              AND resposta.origem = 'suporte'
+        ), 0)
+        GROUP BY empresa_documento
+    """).fetchall())
+
+
+@st.fragment(run_every="20s")
+def exibir_alerta_suporte(empresas):
+    try:
+        with conectar_supabase_producao() as remoto:
+            pendencias = pendencias_suporte(remoto)
+    except Exception:
+        st.caption("Avisos de suporte temporariamente indisponíveis.")
+        return
+    nomes = [f"{empresas[doc]['nome']} ({total})"
+             for doc, total in pendencias.items() if doc in empresas and doc != DOCUMENTO_ALENCARSOFT]
+    if nomes:
+        st.warning("Suporte · aguardando resposta: " + ", ".join(sorted(nomes)))
+
+
 def exibir_suporte_crm(documento_sessao, nome_empresa, central, empresas):
     st.header("💬 Suporte")
     documento = documento_sessao
@@ -465,13 +492,17 @@ def exibir_suporte_crm(documento_sessao, nome_empresa, central, empresas):
                     SELECT empresa_documento, MAX(id) FROM crm_suporte.mensagens
                     GROUP BY empresa_documento
                 """).fetchall())
+                pendencias = pendencias_suporte(remoto)
                 clientes = sorted(
                     (doc for doc in empresas if doc != DOCUMENTO_ALENCARSOFT),
-                    key=lambda doc: (-ultimas.get(doc, 0), empresas[doc]["nome"].casefold()),
+                    key=lambda doc: (not pendencias.get(doc), -ultimas.get(doc, 0), empresas[doc]["nome"].casefold()),
                 )
                 documento = st.selectbox(
                     "Empresa", clientes, index=None, placeholder="Selecione uma conversa",
-                    format_func=lambda doc: empresas[doc]["nome"] + " · " + doc,
+                    format_func=lambda doc: (
+                        f"🔔 {empresas[doc]['nome']} · {doc} ({pendencias[doc]} aguardando)"
+                        if doc in pendencias else f"{empresas[doc]['nome']} · {doc}"
+                    ),
                     key="suporte_empresa_central",
                 )
                 if documento not in clientes:
@@ -3454,6 +3485,10 @@ else:
 
     if empresa_doc and (empresa_doc != DOCUMENTO_ALENCARSOFT or login_atual == "administrador"):
         opcoes_menu_disponiveis.append("💬 Suporte")
+
+    if empresa_doc == DOCUMENTO_ALENCARSOFT and login_atual == "administrador":
+        with st.sidebar:
+            exibir_alerta_suporte(empresas_config)
 
     menu_admin = st.sidebar.radio(
         "Navegação",
