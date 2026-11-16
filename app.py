@@ -1729,30 +1729,30 @@ def gerar_carne_pdf(empresa, cliente, venda_id, modalidade, parcelas, pix=None):
     saida = io.BytesIO()
     pdf = canvas.Canvas(saida, pagesize=A4)
     largura, altura = A4
-    margem = 43
+    margem = 48
     meio = largura / 2
     largura_via = meio - margem - 9
 
     def caixa(x, y, largura_campo, titulo, valor):
-        pdf.roundRect(x, y, largura_campo, 31, 4)
+        pdf.roundRect(x, y, largura_campo, 25, 4)
         pdf.setFont("Helvetica", 7)
-        pdf.drawString(x + 6, y + 21, titulo)
+        pdf.drawString(x + 6, y + 17, titulo)
         pdf.setFont("Helvetica-Bold", 10)
         valor = str(valor)
         while stringWidth(valor, "Helvetica-Bold", 10) > largura_campo - 12:
             valor = valor[:-2].rstrip() + "…"
-        pdf.drawString(x + 6, y + 7, valor)
+        pdf.drawString(x + 6, y + 5, valor)
 
     total_parcelas = max(parcela.get("parcelas_total", len(parcelas)) for parcela in parcelas)
     for indice, parcela in enumerate(parcelas):
-        if indice and indice % 3 == 0:
+        if indice and indice % 4 == 0:
             pdf.showPage()
-        topo = altura - margem - (indice % 3) * 255
+        topo = altura - 23 - (indice % 4) * 198
         pdf.setStrokeColor(colors.HexColor("#1C4871"))
         pdf.setFillColor(colors.HexColor("#163650"))
         pdf.setDash(3, 3)
-        pdf.line(meio, topo, meio, topo - 232)
-        pdf.line(margem, topo - 241, largura - margem, topo - 241)
+        pdf.line(meio, topo, meio, topo - 187)
+        pdf.line(margem, topo - 193, largura - margem, topo - 193)
         pdf.setDash()
         valor = f"R$ {parcela['valor']:,.2f}".replace(",", "_").replace(".", ",").replace("_", ".")
         data_formatada = date.fromisoformat(parcela["vencimento"]).strftime("%d/%m/%Y")
@@ -1774,27 +1774,27 @@ def gerar_carne_pdf(empresa, cliente, venda_id, modalidade, parcelas, pix=None):
         for x, via in ((margem, "VIA DO CLIENTE"), (meio + 9, "VIA DA LOJA")):
             largura_dados = largura_via - 101 if qr else largura_via
             metade = (largura_dados - 6) / 2
-            caixa(x, topo - 34, largura_via, f"CARNÊ · {modalidade.upper()} · {via}", empresa)
-            caixa(x, topo - 72, largura_dados, "NOME DO CLIENTE", cliente)
-            caixa(x, topo - 110, metade, "Nº DA VENDA", venda_id)
-            caixa(x + metade + 6, topo - 110, metade, "VENCIMENTO", data_formatada)
-            caixa(x, topo - 148, metade, "PARCELA", f"{parcela['numero']}/{total_parcelas}")
-            caixa(x + metade + 6, topo - 148, metade, "VALOR", valor)
+            caixa(x, topo - 28, largura_via, f"CARNÊ · {modalidade.upper()} · {via}", empresa)
+            caixa(x, topo - 58, largura_dados, "NOME DO CLIENTE", cliente)
+            caixa(x, topo - 88, metade, "Nº DA VENDA", venda_id)
+            caixa(x + metade + 6, topo - 88, metade, "VENCIMENTO", data_formatada)
+            caixa(x, topo - 118, metade, "PARCELA", f"{parcela['numero']}/{total_parcelas}")
+            caixa(x + metade + 6, topo - 118, metade, "VALOR", valor)
             metade = (largura_via - 6) / 2
-            caixa(x, topo - 186, metade, "JUROS", "")
-            caixa(x + metade + 6, topo - 186, metade, "VALOR PAGO", pago)
+            caixa(x, topo - 160, metade, "JUROS", "")
+            caixa(x + metade + 6, topo - 160, metade, "VALOR PAGO", pago)
             if qr:
                 pos_qr = x + largura_via - tamanho
-                renderPDF.draw(qr, pdf, pos_qr, topo - 136)
+                renderPDF.draw(qr, pdf, pos_qr, topo - 125)
                 pdf.setFont("Helvetica", 7)
                 pix_valor = f"R$ {saldo:.2f}".replace(".", ",")
-                pdf.drawCentredString(pos_qr + tamanho / 2, topo - 145, f"Pix · {pix_valor}")
+                pdf.drawCentredString(pos_qr + tamanho / 2, topo - 132, f"Pix · {pix_valor}")
             elif saldo <= 0:
                 pdf.setFont("Helvetica", 8)
-                pdf.drawString(x + 6, topo - 198, "Parcela quitada")
-            pdf.line(x + 15, topo - 213, x + largura_via - 15, topo - 213)
+                pdf.drawString(x + 6, topo - 170, "Parcela quitada")
+            pdf.line(x + 15, topo - 173, x + largura_via - 15, topo - 173)
             pdf.setFont("Helvetica", 8)
-            pdf.drawCentredString(x + largura_via / 2, topo - 226, "Recebido por / assinatura")
+            pdf.drawCentredString(x + largura_via / 2, topo - 185, "Recebido por / assinatura")
     pdf.save()
     return saida.getvalue()
 
