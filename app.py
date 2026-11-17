@@ -2485,10 +2485,21 @@ nome_empresa_header = str(
     reg_emp.get('nome_empresa', nome_empresa_padrao)
 )
 
+def interpretar_vencimento_licenca(valor):
+    try:
+        vencimento = datetime.fromisoformat(valor)
+    except (TypeError, ValueError):
+        return None
+    if vencimento.tzinfo is None:
+        vencimento = vencimento.replace(tzinfo=dt.timezone.utc)
+    return vencimento
+
+
 dispositivo_registrado = reg_emp.get("ativado", 0) == 1
-licenca_expira_em = reg_emp.get("licenca_expira_em")
-agora_licenca = datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
-licenca_vencida = bool(dispositivo_registrado and licenca_expira_em and licenca_expira_em <= agora_licenca)
+licenca_expira_em = interpretar_vencimento_licenca(reg_emp.get("licenca_expira_em"))
+instante_licenca = datetime.now(dt.timezone.utc)
+agora_licenca = instante_licenca.isoformat(timespec="seconds")
+licenca_vencida = licenca_expira_em is not None and licenca_expira_em <= instante_licenca
 dispositivo_esta_ativado = dispositivo_registrado and not licenca_vencida
 
 if dispositivo_registrado:
@@ -3355,7 +3366,7 @@ st.sidebar.markdown("---")
 if st.session_state.get('dispositivo_ativado', False):
     st.sidebar.success("🟢 Dispositivo Ativado")
 else:
-    st.sidebar.error("🔴 Dispositivo Não Ativado")
+    st.sidebar.error("🔴 Licença expirada" if licenca_vencida else "🔴 Dispositivo Não Ativado")
 
 st.sidebar.markdown("---")
 
@@ -6993,13 +7004,17 @@ O Senhor é meu pastor nada mim faltarar.
         if dispositivo_esta_ativado:
             dias_val = st.session_state.get('dias_licenca', 30)
             if licenca_expira_em:
-                vencimento = datetime.fromisoformat(licenca_expira_em).astimezone(dt.timezone(timedelta(hours=-3)))
+                vencimento = licenca_expira_em.astimezone(dt.timezone(timedelta(hours=-3)))
                 st.success(f"✅ Dispositivo ativado até {vencimento:%d/%m/%Y às %H:%M} (horário de Brasília).")
             else:
                 st.success(f"✅ Ativação anterior sem data de vencimento registrada. Plano informado: {dias_val} dias.")
             st.caption("Você pode inserir uma nova chave para renovar. O identificador deste aparelho será mantido.")
         elif licenca_vencida:
-            st.warning("⚠️ A licença deste aparelho venceu.")
+            vencimento = licenca_expira_em.astimezone(dt.timezone(timedelta(hours=-3)))
+            st.warning(f"⚠️ A licença deste aparelho expirou em {vencimento:%d/%m/%Y às %H:%M} "
+                       "(horário de Brasília). Insira uma nova chave para renovar.")
+        elif licenca_expira_em:
+            st.warning("⚠️ Este aparelho está desativado. Confira a ativação com o administrador.")
         else:
             st.warning("⚠️ Este aparelho ainda não está ativado.")
 
