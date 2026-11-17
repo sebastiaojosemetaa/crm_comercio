@@ -7019,6 +7019,19 @@ O Senhor é meu pastor nada mim faltarar.
             st.warning("⚠️ Este aparelho ainda não está ativado.")
 
         st.info(f"Empresa atual (CNPJ/CPF): `{doc_atual}`")
+        if is_admin_master:
+            with st.expander("Diagnóstico da ativação"):
+                st.write("Identificador do aparelho (final):", device_id[-8:])
+                st.write("Ativação registrada:", "Sim" if dispositivo_registrado else "Não")
+                data_bruta = reg_emp.get("licenca_expira_em")
+                if licenca_expira_em is not None:
+                    data_br = licenca_expira_em.astimezone(dt.timezone(timedelta(hours=-3)))
+                    st.write("Vencimento no banco (Brasília):", data_br.strftime("%d/%m/%Y às %H:%M"))
+                elif data_bruta:
+                    st.write("Vencimento no banco: data em formato inválido.")
+                else:
+                    st.write("Vencimento no banco: sem data registrada.")
+
         chave_digitada = st.text_input("Chave de Ativação / Renovação:", key="input_chave_ativacao_config")
 
         alterar_limite = dispositivo_registrado and st.checkbox(
