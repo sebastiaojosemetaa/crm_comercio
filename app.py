@@ -1,4 +1,4 @@
-from contextlib import closing
+from contextlib import closing, contextmanager
 from pathlib import Path
 import streamlit as st
 import streamlit.components.v1 as components
@@ -728,6 +728,70 @@ def copiar_banco_sqlite(origem, destino):
         if time.monotonic() > limite:
             raise TimeoutError("O banco está ocupado. Feche as outras sessões e tente novamente.")
     origem.backup(destino, pages=256, progress=progresso, sleep=0.1)
+
+
+def estado_licenca_local(banco):
+    banco.execute("CREATE TABLE IF NOT EXISTS chaves_licenca_usadas (identificador TEXT PRIMARY KEY)")
+    return {
+        "aparelhos": banco.execute("""
+            SELECT device_id, ativado, dias_licenca, limite_dispositivos, licenca_expira_em
+            FROM empresas_dispositivos
+            WHERE ativado = 1 OR licenca_expira_em IS NOT NULL
+            ORDER BY device_id
+        """).fetchall(),
+        "usadas": [linha[0] for linha in banco.execute(
+            "SELECT identificador FROM chaves_licenca_usadas ORDER BY identificador"
+        )],
+    }
+
+
+def aplicar_estado_licenca_local(banco, documento, estado):
+    with banco:
+        banco.execute("BEGIN IMMEDIATE")
+        banco.execute("UPDATE empresas_dispositivos SET ativado = 0, licenca_expira_em = NULL")
+        banco.executemany("""
+            INSERT INTO empresas_dispositivos
+                (device_id, cnpj, ativado, dias_licenca, limite_dispositivos, licenca_expira_em)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(device_id) DO UPDATE SET ativado = excluded.ativado,
+                dias_licenca = excluded.dias_licenca, limite_dispositivos = excluded.limite_dispositivos,
+                licenca_expira_em = excluded.licenca_expira_em
+        """, [(aparelho, documento, ativo, dias, limite, validade)
+              for aparelho, ativo, dias, limite, validade in estado["aparelhos"]])
+        banco.execute("CREATE TABLE IF NOT EXISTS chaves_licenca_usadas (identificador TEXT PRIMARY KEY)")
+        banco.execute("DELETE FROM chaves_licenca_usadas")
+        banco.executemany("INSERT INTO chaves_licenca_usadas VALUES (?)",
+                          [(chave,) for chave in estado["usadas"]])
+
+
+@contextmanager
+def transacao_licenca_persistente(banco, documento, gravar=False):
+    if not documento or not configuracao_backup_producao.get("licencas_persistentes", False):
+        yield
+        return
+    from psycopg.types.json import Jsonb
+
+    with conectar_supabase_producao() as remoto:
+        remoto.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
+                       ("crm-licenca:" + documento,))
+        linha = remoto.execute("""
+            SELECT estado FROM crm_producao.estado_licencas WHERE empresa = %s
+        """, (documento,)).fetchone()
+        with banco:
+            local = estado_licenca_local(banco)
+        if linha is None:
+            remoto.execute("""
+                INSERT INTO crm_producao.estado_licencas (empresa, estado) VALUES (%s, %s)
+            """, (documento, Jsonb(local)))
+        elif json.dumps(local, sort_keys=True) != json.dumps(linha[0], sort_keys=True):
+            aplicar_estado_licenca_local(banco, documento, linha[0])
+        yield
+        if gravar:
+            with banco:
+                estado = estado_licenca_local(banco)
+            remoto.execute("""
+                UPDATE crm_producao.estado_licencas SET estado = %s WHERE empresa = %s
+            """, (Jsonb(estado), documento))
 
 
 def gerar_backup_sqlite(conexao):
@@ -2461,6 +2525,14 @@ if not device_id:
 if 'carrinho_compras' not in st.session_state:
     st.session_state.carrinho_compras = []
 
+if empresa_doc and configuracao_backup_producao.get("licencas_persistentes", False):
+    try:
+        with transacao_licenca_persistente(conn, empresa_doc):
+            pass
+    except Exception:
+        st.error("Não foi possível consultar as licenças no Supabase. Tente novamente em instantes.")
+        st.stop()
+
 df_emp_dev = carregar_dados(
     f"SELECT * FROM empresas_dispositivos WHERE device_id = '{device_id}'"
 )
@@ -2481,9 +2553,7 @@ if df_emp_dev.empty:
 
 reg_emp = df_emp_dev.iloc[0] if not df_emp_dev.empty else {}
 
-nome_empresa_header = str(
-    reg_emp.get('nome_empresa', nome_empresa_padrao)
-)
+nome_empresa_header = str(reg_emp.get("nome_empresa") or nome_empresa_padrao)
 
 def interpretar_vencimento_licenca(valor):
     try:
@@ -3159,6 +3229,8 @@ if (
                             vinculo = destino.execute("SELECT documento FROM crm_empresa WHERE id = 1").fetchone()
                             if vinculo != (documento_destino,):
                                 raise ValueError("Banco não vinculado à empresa selecionada.")
+                            with transacao_licenca_persistente(destino, documento_destino):
+                                pass
                             ativos = destino.execute(
                                 "SELECT device_id FROM empresas_dispositivos WHERE ativado = 1 ORDER BY device_id"
                             ).fetchall()
@@ -3168,7 +3240,7 @@ if (
                             )
                             if st.button("Desativar aparelho selecionado", disabled=aparelho is None,
                                          key=f"desativar_aparelho_{documento_destino}"):
-                                with destino:
+                                with transacao_licenca_persistente(destino, documento_destino, gravar=True), destino:
                                     alterado = destino.execute(
                                         "UPDATE empresas_dispositivos SET ativado = 0 WHERE device_id = ? AND ativado = 1",
                                         (aparelho,),
@@ -3177,8 +3249,8 @@ if (
                                     st.success("Vaga liberada. Gere uma chave para ativar o aparelho atual.")
                                 else:
                                     st.info("Este aparelho já está desativado.")
-                    except (sqlite3.Error, ValueError):
-                        st.info("Abra a empresa no CRM para inicializar seu banco antes de gerenciar aparelhos.")
+                    except Exception:
+                        st.warning("Não foi possível gerenciar os aparelhos. Confira o banco da empresa e a conexão.")
                 planos = {"TESTE": "Teste (7 dias)", "MENSAL": "Mensal (30 dias)", "ANUAL": "Anual (365 dias)"}
                 plano = st.selectbox("Plano", list(planos), format_func=planos.get, key="plano_destino_licenca")
                 limite = st.number_input("Limite de dispositivos", min_value=1, max_value=50, value=1, key="limite_destino_licenca")
@@ -3309,15 +3381,8 @@ elif not empresa_doc:
 
                         if confirmar_reset:
                             try:
-                                cursor = conn.cursor()
-
-                                cursor.execute("""
-                                    UPDATE empresas_dispositivos
-                                    SET ativado = 0
-                                """)
-
-                                conn.commit()
-                                cursor.close()
+                                with transacao_licenca_persistente(conn, empresa_doc, gravar=True), conn:
+                                    conn.execute("UPDATE empresas_dispositivos SET ativado = 0")
 
                                 st.session_state["dispositivo_ativado"] = False
                                 st.session_state["confirmar_reset_dispositivos"] = False
@@ -7041,9 +7106,12 @@ O Senhor é meu pastor nada mim faltarar.
             chave_limpa = str(chave_digitada).strip().upper()
             if empresa_doc:
                 try:
-                    aplicar_chave_unica(conn, empresa_doc, device_id, chave_limpa, alterar_limite, empresa_config)
+                    with transacao_licenca_persistente(conn, empresa_doc, gravar=True):
+                        aplicar_chave_unica(conn, empresa_doc, device_id, chave_limpa, alterar_limite, empresa_config)
                 except ValueError as erro:
                     st.error(str(erro))
+                except Exception:
+                    st.error("Não foi possível confirmar a ativação no Supabase. Recarregue antes de tentar novamente.")
                 else:
                     st.rerun()
             else:
@@ -7103,19 +7171,24 @@ O Senhor é meu pastor nada mim faltarar.
             lim_disp = st.number_input("💻 Limite Máximo de Dispositivos Permitidos", min_value=1, max_value=50, value=int(reg_emp.get('limite_dispositivos', 1)))
             
             if st.form_submit_button("💾 Salvar Configurações", type="primary"):
-                cursor = conn.cursor()
-                cursor.execute("""
-                    UPDATE empresas_dispositivos
-                    SET nome_empresa = ?, cnpj = ?, fone = ?, endereco = ?,
-                        limite_dispositivos = ?
-                    WHERE device_id = ?
-                """, (nome_emp, cnpj_emp, tel_emp, end_emp, int(lim_disp), device_id))
-                # Mantém o limite atualizado para todos os aparelhos da mesma empresa.
-                cursor.execute("""
-                    UPDATE empresas_dispositivos SET limite_dispositivos = ?
-                    WHERE REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(cnpj,''),'.',''),'/',''),'-',''),' ','') = ?
-                """, (int(lim_disp), normalizar_documento(cnpj_emp)))
-                conn.commit()
+                try:
+                    with transacao_licenca_persistente(conn, empresa_doc, gravar=True):
+                        cursor = conn.cursor()
+                        cursor.execute("""
+                            UPDATE empresas_dispositivos
+                            SET nome_empresa = ?, cnpj = ?, fone = ?, endereco = ?,
+                                limite_dispositivos = ?
+                            WHERE device_id = ?
+                        """, (nome_emp, cnpj_emp, tel_emp, end_emp, int(lim_disp), device_id))
+                        # Mantém o limite atualizado para todos os aparelhos da mesma empresa.
+                        cursor.execute("""
+                            UPDATE empresas_dispositivos SET limite_dispositivos = ?
+                            WHERE REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(cnpj,''),'.',''),'/',''),'-',''),' ','') = ?
+                        """, (int(lim_disp), normalizar_documento(cnpj_emp)))
+                        conn.commit()
+                except Exception:
+                    st.error("Não foi possível confirmar as configurações. Recarregue e confira os dados.")
+                    st.stop()
                 st.session_state['limite_dispositivos'] = lim_disp
                 st.success("✅ Configurações e limites salvos com sucesso!")
                 st.rerun()
