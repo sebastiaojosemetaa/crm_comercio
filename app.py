@@ -3,6 +3,7 @@ from pathlib import Path
 import streamlit as st
 import streamlit.components.v1 as components
 import sqlite3
+from crm_sync import sincronizar
 import pandas as pd
 import base64
 from datetime import datetime, date, timedelta
@@ -3719,6 +3720,46 @@ else:
                 mime="application/octet-stream",
                 key="download_backup_seguranca",
             )
+
+    configuracao_sync = st.secrets.get("sincronizacao", {})
+    sync_ativa = (
+        configuracao_sync.get("habilitada", False)
+        and empresa_doc == str(configuracao_sync.get("empresa", ""))
+    )
+    if sync_ativa:
+        @st.fragment(run_every="20s")
+        def painel_sincronizacao():
+            st.caption("Sincronização da empresa")
+            if st.button("Sincronizar agora", key="sincronizar_empresa_agora"):
+                st.session_state.pop("_sync_tentativa", None)
+            agora_sync = time.monotonic()
+            if agora_sync - st.session_state.get("_sync_tentativa", -100) >= 15:
+                st.session_state["_sync_tentativa"] = agora_sync
+                try:
+                    resultado_sync = sincronizar(
+                        banco_empresa, empresa_doc, conectar_supabase_producao,
+                        pode_iniciar=configuracao_sync.get("origem_inicial") == "windows",
+                    )
+                except Exception:
+                    resultado_sync = (
+                        "offline",
+                        "Sincronização pendente. Confira a internet e a conexão com Supabase.",
+                    )
+                st.session_state["_sync_resultado"] = resultado_sync
+                if resultado_sync[0] == "recebido":
+                    st.rerun()
+            status_sync, mensagem_sync = st.session_state.get(
+                "_sync_resultado", ("aguardando", "Aguardando sincronização.")
+            )
+            if status_sync == "conflito":
+                st.warning(mensagem_sync)
+            elif status_sync == "offline":
+                st.info(mensagem_sync)
+            else:
+                st.caption(mensagem_sync)
+
+        with st.sidebar:
+            painel_sincronizacao()
 
     perms = st.session_state.get('permissoes_usuario', {})
 
