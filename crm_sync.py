@@ -104,7 +104,7 @@ def aplicar(conexao, documento):
         raise ValueError("A cópia recebida contém vínculos inconsistentes. Confira o backup.")
 
 
-def sincronizar(caminho, empresa, conectar, pode_iniciar=False):
+def sincronizar(caminho, empresa, conectar, pode_iniciar=False, receber_inicial=False):
     with closing(sqlite3.connect(caminho, timeout=5)) as local:
         local.execute("PRAGMA foreign_keys=ON")
         local.execute("""CREATE TABLE IF NOT EXISTS crm_sync_estado (
@@ -143,16 +143,16 @@ def sincronizar(caminho, empresa, conectar, pode_iniciar=False):
                 versao, hash_remoto, conteudo = registro
                 if hash_local == hash_remoto:
                     resultado = ("ok", f"Dados sincronizados. Versão {versao}.")
-                elif base is None:
+                elif base is None and (not receber_inicial or pode_iniciar):
                     local.rollback()
-                    return "conflito", "As bases iniciais diferem. Restaure a mesma base nas duas instalações."
+                    return "inicial_diferente", "As bases iniciais diferem. Receba a base inicial publicada pelo Windows."
                 elif hash_remoto == base:
                     remoto.execute("""UPDATE crm_producao.sincronizacao_empresas
                         SET versao=versao+1, hash_dados=%s, conteudo=%s, atualizado_em=now()
                         WHERE empresa=%s""", (hash_local, empacotar(atual), empresa))
                     hash_remoto = hash_local
                     resultado = ("enviado", f"Alterações enviadas. Versão {versao + 1}.")
-                elif hash_local == base:
+                elif hash_local == base or (base is None and receber_inicial and not pode_iniciar):
                     documento = desempacotar(conteudo, empresa)
                     if impressao(documento) != hash_remoto:
                         raise ValueError("Falha na conferência da cópia recebida.")

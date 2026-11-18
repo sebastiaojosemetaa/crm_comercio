@@ -3751,12 +3751,32 @@ else:
             status_sync, mensagem_sync = st.session_state.get(
                 "_sync_resultado", ("aguardando", "Aguardando sincronização.")
             )
-            if status_sync == "conflito":
+            if status_sync in {"conflito", "inicial_diferente"}:
                 st.warning(mensagem_sync)
             elif status_sync == "offline":
                 st.info(mensagem_sync)
             else:
                 st.caption(mensagem_sync)
+
+            if (
+                status_sync == "inicial_diferente"
+                and is_admin_master
+                and configuracao_sync.get("origem_inicial") == "navegador"
+            ):
+                st.caption("O recebimento inicial substitui os dados operacionais do navegador pela base do Windows.")
+                if st.button("Receber base inicial do Windows", key="receber_base_windows"):
+                    try:
+                        st.session_state["_backup_antes_restauracao"] = gerar_backup_sqlite(conn)
+                        resultado = sincronizar(
+                            banco_empresa, empresa_doc, conectar_supabase_producao,
+                            receber_inicial=True,
+                        )
+                    except Exception:
+                        st.error("Não foi possível receber a base inicial. Confira a conexão e os logs do aplicativo.")
+                    else:
+                        st.session_state["_sync_resultado"] = resultado
+                        st.session_state["_sync_tentativa"] = time.monotonic()
+                        st.rerun()
 
         with st.sidebar:
             painel_sincronizacao()
