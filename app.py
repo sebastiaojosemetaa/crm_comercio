@@ -7220,7 +7220,12 @@ O Senhor é meu pastor nada mim faltarar.
                             return categoria
                     return texto or 'Não informado'
 
-                datas_hist = pd.to_datetime(df_vendas_hist['data'], errors='coerce')
+                datas_originais = df_vendas_hist["data"].astype("string").str.strip()
+                formato_iso = datas_originais.str.match(r"^\d{4}-\d{2}-\d{2}", na=False)
+                datas_hist = pd.to_datetime(datas_originais.where(formato_iso), format="mixed", errors="coerce")
+                datas_legadas = pd.to_datetime(datas_originais.where(~formato_iso), format="mixed",
+                                               dayfirst=True, errors="coerce")
+                datas_hist = datas_hist.fillna(datas_legadas)
                 df_vendas_hist['categoria_pagamento'] = df_vendas_hist['forma_pagamento'].apply(categoria_pagamento_historico)
                 df_vendas_hist['estornada_tela'] = df_vendas_hist.get('status',pd.Series('',index=df_vendas_hist.index)).fillna('').astype(str).str.casefold().eq('estornada')
                 with st.container(border=True):
