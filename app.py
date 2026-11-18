@@ -1891,6 +1891,36 @@ def garantir_contas_pagar(conexao):
         centavos INTEGER NOT NULL CHECK (centavos > 0), forma TEXT NOT NULL,
         data TEXT NOT NULL, operador TEXT NOT NULL
     )""")
+    conexao.execute("""CREATE TABLE IF NOT EXISTS estornos_pagamentos_contas (
+        operacao TEXT PRIMARY KEY REFERENCES pagamentos_contas(operacao),
+        data TEXT NOT NULL, motivo TEXT NOT NULL, autorizado_por TEXT NOT NULL
+    )""")
+
+
+def estornar_pagamento_conta(conexao, operacao, motivo, login, senha):
+    with conexao:
+        conexao.execute("BEGIN IMMEDIATE")
+        autorizado = validar_administrador(conexao, login, senha)
+        if not motivo.strip():
+            raise ValueError("Informe o motivo do estorno.")
+        pagamento = conexao.execute("""SELECT p.conta_id, p.centavos, p.forma, p.data, c.beneficiario
+            FROM pagamentos_contas p JOIN contas_pagar c ON c.id=p.conta_id
+            LEFT JOIN estornos_pagamentos_contas e ON e.operacao=p.operacao
+            WHERE p.operacao=? AND e.operacao IS NULL""", (operacao,)).fetchone()
+        if not pagamento:
+            raise ValueError("Pagamento indisponível para estorno.")
+        conta, valor, forma, data, beneficiario = pagamento
+        if forma == "Dinheiro da gaveta":
+            movimentos = conexao.execute("""SELECT m.id, c.status
+                FROM caixa_movimentacoes m LEFT JOIN caixa_sessoes c ON c.id=m.sessao_id
+                WHERE m.tipo='SAIDA' AND m.forma_pagamento='Dinheiro'
+                  AND m.descricao=? AND m.data=? AND m.valor=? AND COALESCE(m.estornado,0)=0""",
+                (f"Conta a pagar #{conta} · {beneficiario}", data, valor / 100)).fetchall()
+            if len(movimentos) != 1 or movimentos[0][1] != "ABERTO":
+                raise ValueError("O estorno exige uma saída identificada no caixa original ainda aberto.")
+            conexao.execute("UPDATE caixa_movimentacoes SET estornado=1 WHERE id=?", (movimentos[0][0],))
+        conexao.execute("INSERT INTO estornos_pagamentos_contas VALUES (?, ?, ?, ?)",
+                        (operacao, datetime.now().isoformat(timespec="seconds"), motivo.strip(), autorizado))
 
 
 def centavos_conta(valor):
@@ -1922,7 +1952,7 @@ def editar_conta_pagar(conexao, conta_id, total, vencimento, total_anterior, ven
     with conexao:
         conexao.execute("BEGIN IMMEDIATE")
         conta = conexao.execute("""SELECT c.centavos, c.vencimento,
-            COALESCE((SELECT SUM(p.centavos) FROM pagamentos_contas p WHERE p.conta_id=c.id), 0)
+            COALESCE((SELECT SUM(p.centavos) FROM pagamentos_contas p WHERE p.conta_id=c.id AND p.operacao NOT IN (SELECT operacao FROM estornos_pagamentos_contas)), 0)
             FROM contas_pagar c WHERE c.id=?""", (conta_id,)).fetchone()
         if not conta or conta[:2] != (total_anterior, vencimento_anterior):
             raise ValueError("A parcela mudou. Selecione-a novamente antes de salvar.")
@@ -1940,7 +1970,7 @@ def baixar_conta_pagar(conexao, conta_id, valor, forma, operador, operacao):
         if conexao.execute("SELECT 1 FROM pagamentos_contas WHERE operacao=?", (operacao,)).fetchone():
             return
         conta = conexao.execute("""SELECT beneficiario, centavos -
-            COALESCE((SELECT SUM(p.centavos) FROM pagamentos_contas p WHERE p.conta_id=c.id), 0)
+            COALESCE((SELECT SUM(p.centavos) FROM pagamentos_contas p WHERE p.conta_id=c.id AND p.operacao NOT IN (SELECT operacao FROM estornos_pagamentos_contas)), 0)
             FROM contas_pagar c WHERE id=?""", (conta_id,)).fetchone()
         if not conta or not 0 < valor <= conta[1]:
             raise ValueError("O pagamento deve ser maior que zero e respeitar o saldo atual da conta.")
@@ -6108,6 +6138,7 @@ O Senhor é meu pastor nada mim faltarar.
             c.descricao AS Descrição, c.vencimento AS Vencimento, c.centavos AS Total,
             COALESCE(SUM(p.centavos), 0) AS Pago
             FROM contas_pagar c LEFT JOIN pagamentos_contas p ON p.conta_id=c.id
+            AND p.operacao NOT IN (SELECT operacao FROM estornos_pagamentos_contas)
             GROUP BY c.id ORDER BY c.vencimento, c.id""", conn)
         contas["Saldo"] = contas["Total"] - contas["Pago"]
         contas["Situação"] = [
@@ -6151,7 +6182,10 @@ O Senhor é meu pastor nada mim faltarar.
             conta_id = st.selectbox("Conta para pagar", pendentes.index.tolist(),
                                     format_func=lambda i: f"#{i} · {pendentes.at[i, 'Beneficiário']} · {pendentes.at[i, 'Descrição']}")
             saldo = int(pendentes.at[conta_id, "Saldo"])
-            chave_operacao = f"pagamento_conta_{empresa_doc}_{conta_id}_{saldo}"
+            quantidade_baixas = conn.execute(
+                "SELECT COUNT(*) FROM pagamentos_contas WHERE conta_id=?", (conta_id,)
+            ).fetchone()[0]
+            chave_operacao = f"pagamento_conta_{empresa_doc}_{conta_id}_{saldo}_{quantidade_baixas}"
             if chave_operacao not in st.session_state:
                 st.session_state[chave_operacao] = uuid.uuid4().hex
             with st.form(f"formulario_{chave_operacao}"):
@@ -6168,10 +6202,37 @@ O Senhor é meu pastor nada mim faltarar.
                         st.error(str(erro))
         with st.expander("Histórico de pagamentos"):
             historico = pd.read_sql_query("""SELECT p.conta_id AS Conta, c.beneficiario AS Beneficiário,
-                p.data AS Data, p.centavos / 100.0 AS 'Valor (R$)', p.forma AS Forma, p.operador AS Operador
+                p.data AS Data, p.centavos / 100.0 AS 'Valor (R$)', p.forma AS Forma, p.operador AS Operador,
+                CASE WHEN e.operacao IS NULL THEN 'Registrado' ELSE 'Estornado' END AS Situação,
+                e.motivo AS Motivo, e.data AS "Estornado em", e.autorizado_por AS "Autorizado por"
                 FROM pagamentos_contas p JOIN contas_pagar c ON c.id=p.conta_id
+                LEFT JOIN estornos_pagamentos_contas e ON e.operacao=p.operacao
                 ORDER BY p.data DESC, p.rowid DESC""", conn)
             st.dataframe(historico, hide_index=True, use_container_width=True)
+
+        opcoes_estorno = dict(conn.execute("""SELECT p.operacao,
+            '#' || p.conta_id || ' · ' || c.beneficiario || ' · ' ||
+            printf('R$ %.2f', p.centavos / 100.0) || ' · ' || p.data
+            FROM pagamentos_contas p JOIN contas_pagar c ON c.id=p.conta_id
+            WHERE p.operacao NOT IN (SELECT operacao FROM estornos_pagamentos_contas)
+            ORDER BY p.rowid DESC"""))
+        if opcoes_estorno:
+            with st.expander("Estornar pagamento"):
+                with st.form("estornar_pagamento_conta"):
+                    operacao_estorno = st.selectbox("Pagamento", list(opcoes_estorno), index=None,
+                                                     format_func=opcoes_estorno.get)
+                    motivo_estorno = st.text_input("Motivo")
+                    login_estorno = st.text_input("Login do administrador", value="administrador")
+                    senha_estorno = st.text_input("Senha do administrador", type="password")
+                    if st.form_submit_button("Confirmar estorno"):
+                        try:
+                            estornar_pagamento_conta(conn, operacao_estorno, motivo_estorno,
+                                                    login_estorno, senha_estorno)
+                        except (ValueError, sqlite3.Error) as erro:
+                            st.error(str(erro))
+                        else:
+                            st.session_state["aviso_contas_pagar"] = "Pagamento estornado."
+                            st.rerun()
 
     elif "Contas a Receber" in str(menu_admin):
         import io
