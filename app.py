@@ -1918,6 +1918,22 @@ def lancar_conta_pagar(conexao, beneficiario, descricao, total, vencimento, parc
         )
 
 
+def editar_conta_pagar(conexao, conta_id, total, vencimento, total_anterior, vencimento_anterior):
+    with conexao:
+        conexao.execute("BEGIN IMMEDIATE")
+        conta = conexao.execute("""SELECT c.centavos, c.vencimento,
+            COALESCE((SELECT SUM(p.centavos) FROM pagamentos_contas p WHERE p.conta_id=c.id), 0)
+            FROM contas_pagar c WHERE c.id=?""", (conta_id,)).fetchone()
+        if not conta or conta[:2] != (total_anterior, vencimento_anterior):
+            raise ValueError("A parcela mudou. Selecione-a novamente antes de salvar.")
+        if conta[2] >= conta[0]:
+            raise ValueError("A parcela já foi quitada.")
+        if total <= 0 or total < conta[2]:
+            raise ValueError("Informe um valor positivo e igual ou superior ao que já foi pago.")
+        conexao.execute("UPDATE contas_pagar SET centavos=?, vencimento=? WHERE id=?",
+                        (total, vencimento.isoformat(), conta_id))
+
+
 def baixar_conta_pagar(conexao, conta_id, valor, forma, operador, operacao):
     with conexao:
         conexao.execute("BEGIN IMMEDIATE")
@@ -6105,6 +6121,27 @@ O Senhor é meu pastor nada mim faltarar.
         st.dataframe(exibidas, hide_index=True, use_container_width=True)
         pendentes = contas[contas["Saldo"] > 0].set_index("ID")
         if not pendentes.empty:
+            with st.expander("Editar valor e vencimento"):
+                parcela_id = st.selectbox("Parcela para editar", pendentes.index.tolist(),
+                    format_func=lambda i: f"#{i} · {pendentes.at[i, 'Beneficiário']} · {pendentes.at[i, 'Descrição']}")
+                parcela = pendentes.loc[parcela_id]
+                total_anterior = int(parcela["Total"])
+                vencimento_anterior = parcela["Vencimento"]
+                with st.form(f"editar_parcela_{empresa_doc}_{parcela_id}_{total_anterior}_{vencimento_anterior}"):
+                    novo_total = st.number_input("Valor total da parcela (R$)", min_value=0.01,
+                                                 value=total_anterior / 100, step=0.01)
+                    novo_vencimento = st.date_input("Vencimento da parcela",
+                                                    value=date.fromisoformat(vencimento_anterior),
+                                                    format="DD/MM/YYYY")
+                    if st.form_submit_button("Salvar alterações da parcela"):
+                        try:
+                            editar_conta_pagar(conn, parcela_id, centavos_conta(novo_total),
+                                               novo_vencimento, total_anterior, vencimento_anterior)
+                        except (ValueError, sqlite3.Error) as erro:
+                            st.error(str(erro))
+                        else:
+                            st.session_state["aviso_contas_pagar"] = "Parcela atualizada."
+                            st.rerun()
             conta_id = st.selectbox("Conta para pagar", pendentes.index.tolist(),
                                     format_func=lambda i: f"#{i} · {pendentes.at[i, 'Beneficiário']} · {pendentes.at[i, 'Descrição']}")
             saldo = int(pendentes.at[conta_id, "Saldo"])
