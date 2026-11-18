@@ -1881,6 +1881,66 @@ def registrar_recebimento_seguro(conexao, conta_id, valor, quitar, forma, data_o
 
 
 
+def garantir_contas_pagar(conexao):
+    conexao.execute("""CREATE TABLE IF NOT EXISTS contas_pagar (
+        id INTEGER PRIMARY KEY, beneficiario TEXT NOT NULL, descricao TEXT NOT NULL,
+        vencimento TEXT NOT NULL, centavos INTEGER NOT NULL CHECK (centavos > 0)
+    )""")
+    conexao.execute("""CREATE TABLE IF NOT EXISTS pagamentos_contas (
+        operacao TEXT PRIMARY KEY, conta_id INTEGER NOT NULL REFERENCES contas_pagar(id),
+        centavos INTEGER NOT NULL CHECK (centavos > 0), forma TEXT NOT NULL,
+        data TEXT NOT NULL, operador TEXT NOT NULL
+    )""")
+
+
+def centavos_conta(valor):
+    from decimal import Decimal, ROUND_HALF_UP
+
+    return int((Decimal(str(valor)) * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+
+
+def lancar_conta_pagar(conexao, beneficiario, descricao, total, vencimento, parcelas=1):
+    from calendar import monthrange
+
+    if not beneficiario.strip() or not descricao.strip() or total < parcelas:
+        raise ValueError("Informe o beneficiário, a descrição e pelo menos R$ 0,01 por parcela.")
+    valor, sobra = divmod(total, parcelas)
+    for indice in range(parcelas):
+        ano, mes = divmod(vencimento.year * 12 + vencimento.month - 1 + indice, 12)
+        mes += 1
+        dia = min(vencimento.day, monthrange(ano, mes)[1])
+        titulo = descricao.strip()
+        if parcelas > 1:
+            titulo += f" ({indice + 1}/{parcelas})"
+        conexao.execute(
+            "INSERT INTO contas_pagar (beneficiario, descricao, vencimento, centavos) VALUES (?, ?, ?, ?)",
+            (beneficiario.strip(), titulo, date(ano, mes, dia).isoformat(), valor + (indice < sobra)),
+        )
+
+
+def baixar_conta_pagar(conexao, conta_id, valor, forma, operador, operacao):
+    with conexao:
+        conexao.execute("BEGIN IMMEDIATE")
+        if conexao.execute("SELECT 1 FROM pagamentos_contas WHERE operacao=?", (operacao,)).fetchone():
+            return
+        conta = conexao.execute("""SELECT beneficiario, centavos -
+            COALESCE((SELECT SUM(p.centavos) FROM pagamentos_contas p WHERE p.conta_id=c.id), 0)
+            FROM contas_pagar c WHERE id=?""", (conta_id,)).fetchone()
+        if not conta or not 0 < valor <= conta[1]:
+            raise ValueError("O pagamento deve ser maior que zero e respeitar o saldo atual da conta.")
+        agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if forma == "Dinheiro da gaveta":
+            caixas = conexao.execute("SELECT id FROM caixa_sessoes WHERE status='ABERTO'").fetchall()
+            if len(caixas) != 1:
+                raise ValueError("É preciso ter exatamente um caixa aberto para pagar pela gaveta.")
+            conexao.execute("""INSERT INTO caixa_movimentacoes
+                (sessao_id, tipo, valor, descricao, data, forma_pagamento)
+                VALUES (?, 'SAIDA', ?, ?, ?, 'Dinheiro')""",
+                (caixas[0][0], valor / 100, f"Conta a pagar #{conta_id} · {conta[0]}", agora))
+        conexao.execute("INSERT INTO pagamentos_contas VALUES (?, ?, ?, ?, ?, ?)",
+                        (operacao, conta_id, valor, forma, agora, operador))
+
+
 def garantir_colunas_parcelas(conexao):
     conexao.execute('''CREATE TABLE IF NOT EXISTS contas_receber (
         id INTEGER PRIMARY KEY AUTOINCREMENT, cliente TEXT, valor REAL,
@@ -3644,6 +3704,9 @@ else:
 
     if is_admin_master or perms.get("contas_receber", 1) == 1:
         opcoes_menu_disponiveis.append("💸 Contas a Receber")
+
+    if is_admin_master:
+        opcoes_menu_disponiveis.append("💳 Contas a Pagar")
 
     if is_admin_master or perms.get("estoque", 1) == 1:
         opcoes_menu_disponiveis.append("📦 Estoque de Produtos")
@@ -5427,6 +5490,11 @@ O Senhor é meu pastor nada mim faltarar.
                         item_revisao['valor_compra'] = round(custo_revisao, 2)
                         st.rerun()
 
+            gerar_conta_compra = is_admin_master and st.checkbox("Gerar conta a pagar")
+            if gerar_conta_compra:
+                vencimento_compra = st.date_input("Primeiro vencimento da compra")
+                parcelas_compra = st.number_input("Parcelas mensais da compra", min_value=1, max_value=60)
+
             col_del1, col_del2, col_del3 = st.columns(3)
             with col_del1:
                 nomes_remover_compra = [f"{i+1}. {item['produto']}" for i,item in enumerate(st.session_state.carrinho_compras)]
@@ -5504,6 +5572,18 @@ O Senhor é meu pastor nada mim faltarar.
                             registro_compra_depois = cursor.execute('SELECT id,quantidade FROM produtos WHERE produto=?', (item['produto'],)).fetchone()
                             registrar_movimento_estoque(conn, registro_compra_depois[0], 'COMPRA', saldo_compra_antes,
                                                          float(registro_compra_depois[1]), usr_exibicao, 'Entrada de estoque')
+                        if gerar_conta_compra:
+                            from decimal import Decimal
+
+                            garantir_contas_pagar(conn)
+                            totais_por_fornecedor = {}
+                            for item in st.session_state.carrinho_compras:
+                                fornecedor = (item.get("fornecedor") or "").strip()
+                                custo = Decimal(str(item["quantidade"])) * Decimal(str(item["valor_compra"]))
+                                totais_por_fornecedor[fornecedor] = totais_por_fornecedor.get(fornecedor, Decimal(0)) + custo
+                            for fornecedor, total in totais_por_fornecedor.items():
+                                lancar_conta_pagar(conn, fornecedor, "Compra de estoque",
+                                                  centavos_conta(total), vencimento_compra, parcelas_compra)
                         conn.commit()
                     except Exception as erro:
                         conn.rollback()
@@ -5980,6 +6060,76 @@ O Senhor é meu pastor nada mim faltarar.
     # -------------------------------------------------------------
     # MÓDULO CONTAS A RECEBER (COM COMPROVANTE / EXTRATO PDF)
     # -------------------------------------------------------------
+    elif "Contas a Pagar" in str(menu_admin):
+        garantir_contas_pagar(conn)
+        st.subheader(f"Contas a Pagar — {nome_empresa_header}")
+        aviso = st.session_state.pop("aviso_contas_pagar", "")
+        if aviso:
+            st.success(aviso)
+        with st.expander("Lançar conta"):
+            with st.form("nova_conta_pagar", clear_on_submit=True):
+                beneficiario = st.text_input("Fornecedor ou beneficiário")
+                descricao = st.text_input("Descrição")
+                valor = st.number_input("Valor total (R$)", min_value=0.01, step=0.01)
+                vencimento = st.date_input("Primeiro vencimento", value=date.today())
+                parcelas = st.number_input("Parcelas mensais", min_value=1, max_value=60)
+                if st.form_submit_button("Salvar conta"):
+                    try:
+                        with conn:
+                            lancar_conta_pagar(conn, beneficiario, descricao,
+                                              centavos_conta(valor), vencimento, parcelas)
+                        st.session_state["aviso_contas_pagar"] = "Conta cadastrada."
+                        st.rerun()
+                    except (ValueError, sqlite3.Error) as erro:
+                        st.error(str(erro))
+        contas = pd.read_sql_query("""SELECT c.id AS ID, c.beneficiario AS Beneficiário,
+            c.descricao AS Descrição, c.vencimento AS Vencimento, c.centavos AS Total,
+            COALESCE(SUM(p.centavos), 0) AS Pago
+            FROM contas_pagar c LEFT JOIN pagamentos_contas p ON p.conta_id=c.id
+            GROUP BY c.id ORDER BY c.vencimento, c.id""", conn)
+        contas["Saldo"] = contas["Total"] - contas["Pago"]
+        contas["Situação"] = [
+            "Paga" if saldo == 0 else "Vencida" if data < date.today().isoformat() else "A vencer"
+            for saldo, data in zip(contas["Saldo"], contas["Vencimento"])
+        ]
+        categorias = ("Vencida", "A vencer", "Paga")
+        for coluna, categoria in zip(st.columns(3), categorias):
+            campo = "Pago" if categoria == "Paga" else "Saldo"
+            total = contas.loc[contas["Situação"] == categoria, campo].sum()
+            coluna.metric("Pagas" if categoria == "Paga" else categoria, f"R$ {total / 100:.2f}".replace(".", ","))
+        filtro = st.selectbox("Situação", ["Todas", *categorias])
+        exibidas = contas.copy() if filtro == "Todas" else contas[contas["Situação"] == filtro].copy()
+        for campo in ("Total", "Pago", "Saldo"):
+            exibidas[campo] = exibidas[campo].map(lambda valor: f"R$ {valor / 100:.2f}".replace(".", ","))
+        exibidas["Vencimento"] = exibidas["Vencimento"].map(lambda valor: date.fromisoformat(valor).strftime("%d/%m/%Y"))
+        st.dataframe(exibidas, hide_index=True, use_container_width=True)
+        pendentes = contas[contas["Saldo"] > 0].set_index("ID")
+        if not pendentes.empty:
+            conta_id = st.selectbox("Conta para pagar", pendentes.index.tolist(),
+                                    format_func=lambda i: f"#{i} · {pendentes.at[i, 'Beneficiário']} · {pendentes.at[i, 'Descrição']}")
+            saldo = int(pendentes.at[conta_id, "Saldo"])
+            chave_operacao = f"pagamento_conta_{empresa_doc}_{conta_id}_{saldo}"
+            if chave_operacao not in st.session_state:
+                st.session_state[chave_operacao] = uuid.uuid4().hex
+            with st.form(chave_operacao):
+                valor = st.number_input("Valor do pagamento (R$)", min_value=0.01,
+                                        max_value=saldo / 100, value=saldo / 100, step=0.01)
+                forma = st.selectbox("Forma de pagamento", ["Pix", "Transferência bancária", "Boleto", "Cartão", "Dinheiro da gaveta"])
+                if st.form_submit_button("Registrar pagamento"):
+                    try:
+                        baixar_conta_pagar(conn, conta_id, centavos_conta(valor), forma,
+                                           usr_exibicao, st.session_state[chave_operacao])
+                        st.session_state["aviso_contas_pagar"] = "Pagamento registrado."
+                        st.rerun()
+                    except (ValueError, sqlite3.Error) as erro:
+                        st.error(str(erro))
+        with st.expander("Histórico de pagamentos"):
+            historico = pd.read_sql_query("""SELECT p.conta_id AS Conta, c.beneficiario AS Beneficiário,
+                p.data AS Data, p.centavos / 100.0 AS 'Valor (R$)', p.forma AS Forma, p.operador AS Operador
+                FROM pagamentos_contas p JOIN contas_pagar c ON c.id=p.conta_id
+                ORDER BY p.data DESC, p.rowid DESC""", conn)
+            st.dataframe(historico, hide_index=True, use_container_width=True)
+
     elif "Contas a Receber" in str(menu_admin):
         import io
         from reportlab.lib.pagesizes import letter
