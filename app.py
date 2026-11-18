@@ -1946,13 +1946,19 @@ def baixar_conta_pagar(conexao, conta_id, valor, forma, operador, operacao):
             raise ValueError("O pagamento deve ser maior que zero e respeitar o saldo atual da conta.")
         agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         if forma == "Dinheiro da gaveta":
-            caixas = conexao.execute("SELECT id FROM caixa_sessoes WHERE status='ABERTO'").fetchall()
+            caixas = conexao.execute("SELECT id, saldo_inicial FROM caixa_sessoes WHERE status='ABERTO'").fetchall()
             if len(caixas) != 1:
                 raise ValueError("É preciso ter exatamente um caixa aberto para pagar pela gaveta.")
+            sessao_id, saldo_inicial = caixas[0]
+            totais, _ = resumo_recebimentos_caixa(conexao, sessao_id)
+            disponivel = centavos_conta(round(float(saldo_inicial or 0) + totais["Dinheiro"], 2))
+            if valor > disponivel:
+                saldo_formatado = f"R$ {max(0, disponivel) / 100:.2f}".replace(".", ",")
+                raise ValueError(f"Saldo insuficiente na gaveta. Disponível: {saldo_formatado}.")
             conexao.execute("""INSERT INTO caixa_movimentacoes
                 (sessao_id, tipo, valor, descricao, data, forma_pagamento)
                 VALUES (?, 'SAIDA', ?, ?, ?, 'Dinheiro')""",
-                (caixas[0][0], valor / 100, f"Conta a pagar #{conta_id} · {conta[0]}", agora))
+                (sessao_id, valor / 100, f"Conta a pagar #{conta_id} · {conta[0]}", agora))
         conexao.execute("INSERT INTO pagamentos_contas VALUES (?, ?, ?, ?, ?, ?)",
                         (operacao, conta_id, valor, forma, agora, operador))
 
