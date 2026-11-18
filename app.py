@@ -4085,9 +4085,19 @@ O Senhor é meu pastor nada mim faltarar.
                 rotulo = rotulo_unidade_medida(unidade)
                 st.markdown(f"### {produto['produto']}")
                 st.caption(f"{moeda_pdv(produto.get('valor_venda', 0))} por {rotulo} • Estoque: {quantidade_com_unidade(produto.get('quantidade', 0), unidade)}")
+                chave_quantidade = f"pdv_qtd_card_{produto_id}"
+                if unidade == "KG" and st.session_state.get("pdv_simular_perifericos"):
+                    chave_peso = f"pdv_peso_teste_{produto_id}"
+                    st.number_input("Peso de teste (kg)", min_value=0.001,
+                                    value=1.350, step=0.001, format="%.3f", key=chave_peso)
+
+                    def aplicar_peso_teste():
+                        st.session_state[chave_quantidade] = st.session_state[chave_peso]
+
+                    st.button("⚖️ Simular leitura da balança", on_click=aplicar_peso_teste)
                 quantidade = st.number_input(f"Quantidade ({rotulo})", min_value=0.001, value=1.0,
                     step=0.001 if unidade in {'KG','LITRO','METRO','GRAMA'} else 1.0,
-                    format="%.3f", key=f"pdv_qtd_card_{produto_id}")
+                    format="%.3f", key=chave_quantidade)
                 preco = float(produto.get('valor_venda', 0) or 0)
                 grupo = str(produto.get('grupo') or '')
                 promos = carregar_dados(f"SELECT * FROM promocoes WHERE produto_id={int(produto_id)} AND ativo=1")
@@ -4114,6 +4124,24 @@ O Senhor é meu pastor nada mim faltarar.
                 if st.button("Voltar aos produtos", key="pdv_cancelar_card"):
                     st.session_state.pop('pdv_produto_em_edicao', None)
                     st.rerun()
+
+            with st.expander("Periféricos do PDV"):
+                modo_teste = st.checkbox("Ativar modo de teste", key="pdv_simular_perifericos")
+                if modo_teste:
+                    st.caption("Simulação. A leitura de peso aparece ao selecionar um produto vendido em kg.")
+                    if st.button("Simular abertura da gaveta"):
+                        try:
+                            with conn:
+                                conn.execute("""CREATE TABLE IF NOT EXISTS eventos_gaveta (
+                                    id INTEGER PRIMARY KEY, data TEXT NOT NULL,
+                                    operador TEXT NOT NULL, modo TEXT NOT NULL
+                                )""")
+                                conn.execute("INSERT INTO eventos_gaveta (data, operador, modo) VALUES (?, ?, ?)",
+                                             (datetime.now().isoformat(timespec="seconds"), usr_exibicao, "Simulação"))
+                        except sqlite3.Error:
+                            st.error("Não foi possível registrar a simulação.")
+                        else:
+                            st.success(f"Abertura simulada registrada por {usr_exibicao}.")
 
             col_pdv_produtos, col_pdv_carrinho = st.columns([1.04, 1], gap="medium")
             with col_pdv_produtos:
