@@ -6111,7 +6111,7 @@ O Senhor é meu pastor nada mim faltarar.
             chave_operacao = f"pagamento_conta_{empresa_doc}_{conta_id}_{saldo}"
             if chave_operacao not in st.session_state:
                 st.session_state[chave_operacao] = uuid.uuid4().hex
-            with st.form(chave_operacao):
+            with st.form(f"formulario_{chave_operacao}"):
                 valor = st.number_input("Valor do pagamento (R$)", min_value=0.01,
                                         max_value=saldo / 100, value=saldo / 100, step=0.01)
                 forma = st.selectbox("Forma de pagamento", ["Pix", "Transferência bancária", "Boleto", "Cartão", "Dinheiro da gaveta"])
