@@ -13,7 +13,7 @@ TABELAS = frozenset({
     "funcionarios", "pagamentos_funcionarios", "usuarios", "auditoria_estornos",
     "contas_receber", "movimentos_estoque", "promocoes", "chaves_pix", "config_nfce",
     "preferencias_aparencia", "contas_pagar", "pagamentos_contas",
-    "estornos_pagamentos_contas", "eventos_gaveta",
+    "estornos_pagamentos_contas", "eventos_gaveta", "vinculos_pagamentos_caixa",
 })
 
 
@@ -48,7 +48,15 @@ def capturar(conexao, empresa):
         # A ordem física das linhas e o estilo do CREATE TABLE não alteram os dados.
         linhas.sort(key=lambda linha: json.dumps(linha, sort_keys=True, ensure_ascii=False))
         tabelas[nome] = {"sql": sql, "colunas": colunas, "linhas": linhas}
-    return {"empresa": empresa, "tabelas": tabelas}
+    # Índices preservam restrições como a unicidade de parcelas após criar uma tabela.
+    indices = [sql for nome, sql in conexao.execute(
+        "SELECT tbl_name, sql FROM sqlite_master WHERE type='index' AND sql IS NOT NULL ORDER BY name"
+    ) if nome in TABELAS]
+    sequencias = {}
+    if conexao.execute("SELECT 1 FROM sqlite_master WHERE name='sqlite_sequence'").fetchone():
+        sequencias = {nome: valor for nome, valor in conexao.execute("SELECT name, seq FROM sqlite_sequence")
+                      if nome in TABELAS}
+    return {"empresa": empresa, "tabelas": tabelas, "indices": indices, "sequencias": sequencias}
 
 
 def impressao(documento):
@@ -97,8 +105,20 @@ def aplicar(conexao, documento):
             f"INSERT INTO {identificador(nome)} ({colunas}) VALUES ({marcadores})",
             ([decodificar(v) for v in linha] for linha in tabela["linhas"]),
         )
-    # Os contadores precisam acompanhar a origem mesmo quando a última linha foi excluída.
-    # O AUTOINCREMENT local permanece monotônico para evitar reutilização de IDs.
+    for sql in documento.get("indices", []):
+        if not re.match(r"^CREATE\s+(?:UNIQUE\s+)?INDEX\s", sql, re.I):
+            raise ValueError("Índice incompatível na sincronização.")
+        sql = re.sub(r"^(CREATE\s+(?:UNIQUE\s+)?INDEX\s+)(?!IF\s+NOT\s+EXISTS)",
+                     r"\1IF NOT EXISTS ", sql, count=1, flags=re.I)
+        conexao.execute(sql)
+    for nome, sequencia in documento.get("sequencias", {}).items():
+        if nome not in TABELAS:
+            raise ValueError("Contador de tabela inválido.")
+        linha = conexao.execute("SELECT seq FROM sqlite_sequence WHERE name=?", (nome,)).fetchone()
+        if linha:
+            conexao.execute("UPDATE sqlite_sequence SET seq=MAX(seq, ?) WHERE name=?", (int(sequencia), nome))
+        else:
+            conexao.execute("INSERT INTO sqlite_sequence(name, seq) VALUES (?, ?)", (nome, int(sequencia)))
     violacoes = conexao.execute("PRAGMA foreign_key_check").fetchall()
     if violacoes:
         raise ValueError("A cópia recebida contém vínculos inconsistentes. Confira o backup.")
@@ -111,18 +131,7 @@ def sincronizar(caminho, empresa, conectar, pode_iniciar=False, receber_inicial=
             empresa TEXT PRIMARY KEY, base_hash TEXT, copia_anterior BLOB
         )""")
         local.commit()
-        # Serializa sincronização e gravações do PDV na mesma instalação.
-        local.execute("BEGIN IMMEDIATE")
         try:
-            vinculo = local.execute("SELECT documento FROM crm_empresa WHERE id=1").fetchone()
-            if vinculo != (empresa,):
-                raise ValueError("O banco local pertence a outra empresa.")
-            atual = capturar(local, empresa)
-            hash_local = impressao(atual)
-            estado = local.execute(
-                "SELECT base_hash FROM crm_sync_estado WHERE empresa=?", (empresa,)
-            ).fetchone()
-            base = estado[0] if estado else None
             with conectar() as remoto:
                 remoto.execute("CREATE SCHEMA IF NOT EXISTS crm_producao")
                 remoto.execute("""CREATE TABLE IF NOT EXISTS crm_producao.sincronizacao_empresas (
@@ -130,6 +139,17 @@ def sincronizar(caminho, empresa, conectar, pode_iniciar=False, receber_inicial=
                     hash_dados TEXT NOT NULL, conteudo BYTEA NOT NULL,
                     atualizado_em TIMESTAMPTZ NOT NULL DEFAULT now()
                 )""")
+                # A conexão remota é aberta antes de bloquear as gravações locais.
+                local.execute("BEGIN IMMEDIATE")
+                vinculo = local.execute("SELECT documento FROM crm_empresa WHERE id=1").fetchone()
+                if vinculo != (empresa,):
+                    raise ValueError("O banco local pertence a outra empresa.")
+                atual = capturar(local, empresa)
+                hash_local = impressao(atual)
+                estado = local.execute(
+                    "SELECT base_hash FROM crm_sync_estado WHERE empresa=?", (empresa,)
+                ).fetchone()
+                base = estado[0] if estado else None
                 if pode_iniciar:
                     remoto.execute("""INSERT INTO crm_producao.sincronizacao_empresas
                         (empresa, versao, hash_dados, conteudo) VALUES (%s, 1, %s, %s)
@@ -238,7 +258,13 @@ def receber_catalogo(conectar, caminho_cadastro, documentos_configurados):
             senha_hash TEXT NOT NULL,segredo_licenca TEXT NOT NULL)""")
         cadastro.execute("""CREATE TABLE IF NOT EXISTS planos_comerciais (
             documento TEXT PRIMARY KEY,plano TEXT NOT NULL CHECK(plano IN ('Simples','Pro')))""")
+        cadastro.execute("""CREATE TABLE IF NOT EXISTS catalogo_licencas (
+            documento TEXT PRIMARY KEY, nome TEXT NOT NULL, segredo_licenca TEXT NOT NULL
+        )""")
         for documento,nome,sal,senha_hash,segredo,plano in registros:
+            cadastro.execute("""INSERT INTO catalogo_licencas VALUES(?,?,?)
+                ON CONFLICT(documento) DO UPDATE SET nome=excluded.nome,
+                segredo_licenca=excluded.segredo_licenca""", (documento,nome,segredo))
             if documento not in documentos_configurados:
                 cadastro.execute("""INSERT INTO empresas VALUES(?,?,?,?,?)
                     ON CONFLICT(documento) DO UPDATE SET nome=excluded.nome,sal=excluded.sal,
@@ -247,3 +273,24 @@ def receber_catalogo(conectar, caminho_cadastro, documentos_configurados):
             cadastro.execute("""INSERT INTO planos_comerciais VALUES(?,?)
                 ON CONFLICT(documento) DO UPDATE SET plano=excluded.plano""", (documento,plano))
     return len(registros)
+
+
+
+def aplicar_configuracao_catalogo(caminho_cadastro, configuradas):
+    from pathlib import Path
+
+    resultado = {doc: dict(config) for doc, config in configuradas.items()}
+    if not Path(caminho_cadastro).exists():
+        return resultado
+    with sqlite3.connect(Path(caminho_cadastro).resolve().as_uri() + "?mode=ro", uri=True) as cadastro:
+        if not cadastro.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='catalogo_licencas'"
+        ).fetchone():
+            return resultado
+        for documento, nome, segredo in cadastro.execute(
+            "SELECT documento,nome,segredo_licenca FROM catalogo_licencas"
+        ):
+            if documento in resultado:
+                resultado[documento]["nome"] = nome
+                resultado[documento]["segredo_licenca"] = segredo
+    return resultado

@@ -3,7 +3,7 @@ from pathlib import Path
 import streamlit as st
 import streamlit.components.v1 as components
 import sqlite3
-from crm_sync import sincronizar, publicar_catalogo, receber_catalogo
+from crm_sync import sincronizar, publicar_catalogo, receber_catalogo, aplicar_configuracao_catalogo
 import pandas as pd
 import base64
 from datetime import datetime, date, timedelta
@@ -22,12 +22,14 @@ import unicodedata
 import json
 import re
 import html
+import logging
 from urllib.request import Request, urlopen
 from urllib.parse import urlencode, urlparse
 from PIL import Image, ImageOps
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="CRM Comércio", layout="wide", page_icon="🛍️")
+st.sidebar.caption("CRM Comércio · edição consolidada 2.0")
 
 # --- CONEXÃO E FUNÇÕES DE SUPORTE ---
 import threading
@@ -307,6 +309,9 @@ if config_catalogo.get("habilitada", False):
             except Exception:
                 st.session_state["_catalogo_status"] = "Atualização da lista pendente. Confira a conexão e publique primeiro no navegador."
         st.sidebar.caption(st.session_state.get("_catalogo_status", ""))
+
+if config_catalogo.get("catalogo_empresas") == "receber":
+    empresas_config = aplicar_configuracao_catalogo(BANCO_CADASTRO_EMPRESAS, empresas_config)
 
 DOCUMENTO_ALENCARSOFT = "95451161100"
 empresa_doc = ""
@@ -1946,6 +1951,10 @@ def garantir_contas_pagar(conexao):
         operacao TEXT PRIMARY KEY REFERENCES pagamentos_contas(operacao),
         data TEXT NOT NULL, motivo TEXT NOT NULL, autorizado_por TEXT NOT NULL
     )""")
+    conexao.execute("""CREATE TABLE IF NOT EXISTS vinculos_pagamentos_caixa (
+        operacao TEXT PRIMARY KEY REFERENCES pagamentos_contas(operacao),
+        movimento_id INTEGER NOT NULL UNIQUE REFERENCES caixa_movimentacoes(id)
+    )""")
 
 
 def estornar_pagamento_conta(conexao, operacao, motivo, login, senha):
@@ -1962,11 +1971,21 @@ def estornar_pagamento_conta(conexao, operacao, motivo, login, senha):
             raise ValueError("Pagamento indisponível para estorno.")
         conta, valor, forma, data, beneficiario = pagamento
         if forma == "Dinheiro da gaveta":
-            movimentos = conexao.execute("""SELECT m.id, c.status
-                FROM caixa_movimentacoes m LEFT JOIN caixa_sessoes c ON c.id=m.sessao_id
-                WHERE m.tipo='SAIDA' AND m.forma_pagamento='Dinheiro'
-                  AND m.descricao=? AND m.data=? AND m.valor=? AND COALESCE(m.estornado,0)=0""",
-                (f"Conta a pagar #{conta} · {beneficiario}", data, valor / 100)).fetchall()
+            vinculo = conexao.execute(
+                "SELECT movimento_id FROM vinculos_pagamentos_caixa WHERE operacao=?", (operacao,)
+            ).fetchone()
+            if vinculo:
+                movimentos = conexao.execute("""SELECT m.id, c.status FROM caixa_movimentacoes m
+                    JOIN caixa_sessoes c ON c.id=m.sessao_id
+                    WHERE m.id=? AND m.tipo='SAIDA' AND m.forma_pagamento='Dinheiro'
+                    AND m.valor=? AND COALESCE(m.estornado,0)=0""", (vinculo[0], valor / 100)).fetchall()
+            else:
+                # Pagamentos criados pelas versões anteriores usam a identificação original.
+                movimentos = conexao.execute("""SELECT m.id, c.status
+                    FROM caixa_movimentacoes m LEFT JOIN caixa_sessoes c ON c.id=m.sessao_id
+                    WHERE m.tipo='SAIDA' AND m.forma_pagamento='Dinheiro'
+                      AND m.descricao=? AND m.data=? AND m.valor=? AND COALESCE(m.estornado,0)=0""",
+                    (f"Conta a pagar #{conta} · {beneficiario}", data, valor / 100)).fetchall()
             if len(movimentos) != 1 or movimentos[0][1] != "ABERTO":
                 raise ValueError("O estorno exige uma saída identificada no caixa original ainda aberto.")
             conexao.execute("UPDATE caixa_movimentacoes SET estornado=1 WHERE id=?", (movimentos[0][0],))
@@ -2026,6 +2045,7 @@ def baixar_conta_pagar(conexao, conta_id, valor, forma, operador, operacao):
         if not conta or not 0 < valor <= conta[1]:
             raise ValueError("O pagamento deve ser maior que zero e respeitar o saldo atual da conta.")
         agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        movimento_id = None
         if forma == "Dinheiro da gaveta":
             caixas = conexao.execute("SELECT id, saldo_inicial FROM caixa_sessoes WHERE status='ABERTO'").fetchall()
             if len(caixas) != 1:
@@ -2040,8 +2060,16 @@ def baixar_conta_pagar(conexao, conta_id, valor, forma, operador, operacao):
                 (sessao_id, tipo, valor, descricao, data, forma_pagamento)
                 VALUES (?, 'SAIDA', ?, ?, ?, 'Dinheiro')""",
                 (sessao_id, valor / 100, f"Conta a pagar #{conta_id} · {conta[0]}", agora))
+            movimento_id = conexao.execute("SELECT last_insert_rowid()").fetchone()[0]
         conexao.execute("INSERT INTO pagamentos_contas VALUES (?, ?, ?, ?, ?, ?)",
                         (operacao, conta_id, valor, forma, agora, operador))
+        if movimento_id is not None:
+            conexao.execute("INSERT INTO vinculos_pagamentos_caixa VALUES (?, ?)", (operacao, movimento_id))
+
+
+# Prepara o financeiro antes de sincronizar ou abrir a tela de pagamento.
+garantir_contas_pagar(conn)
+conn.commit()
 
 
 def garantir_colunas_parcelas(conexao):
@@ -2689,15 +2717,23 @@ if 'carrinho_compras' not in st.session_state:
     st.session_state.carrinho_compras = []
 
 if empresa_doc and configuracao_backup_producao.get("licencas_persistentes", False):
-    try:
-        with transacao_licenca_persistente(conn, empresa_doc):
-            pass
-    except Exception:
-        if os.name == "nt" and licenca_local_valida_offline(conn, empresa_doc, device_id):
-            st.sidebar.caption("Usando a licença local válida. A consulta online será retomada com a conexão.")
-        else:
-            st.error("Não foi possível consultar as licenças no Supabase. Tente novamente em instantes.")
-            st.stop()
+    chave_retentativa = f"_licenca_retentativa_{empresa_doc}_{device_id}"
+    usar_local = os.name == "nt" and licenca_local_valida_offline(conn, empresa_doc, device_id)
+    consulta_adiada = usar_local and time.monotonic() < st.session_state.get(chave_retentativa, 0)
+    if not consulta_adiada:
+        try:
+            with transacao_licenca_persistente(conn, empresa_doc):
+                pass
+            st.session_state.pop(chave_retentativa, None)
+        except Exception:
+            if os.name == "nt" and licenca_local_valida_offline(conn, empresa_doc, device_id):
+                st.session_state[chave_retentativa] = time.monotonic() + 30
+                consulta_adiada = True
+            else:
+                st.error("Não foi possível consultar as licenças no Supabase. Tente novamente em instantes.")
+                st.stop()
+    if consulta_adiada:
+        st.sidebar.caption("Usando a licença local válida. Nova consulta online em até 30 segundos ao navegar.")
 
 df_emp_dev = carregar_dados(
     f"SELECT * FROM empresas_dispositivos WHERE device_id = '{device_id}'"
@@ -3775,14 +3811,21 @@ else:
             )
 
     configuracao_sync = st.secrets.get("sincronizacao", {})
+    documentos_sync = configuracao_sync.get("empresas")
+    if documentos_sync is None:
+        documentos_sync = [str(configuracao_sync.get("empresa", ""))]
+    if documentos_sync == "todas":
+        documentos_sync = list(empresas_config)
+    if not isinstance(documentos_sync, list):
+        documentos_sync = []
     sync_ativa = (
         configuracao_sync.get("habilitada", False)
-        and empresa_doc == str(configuracao_sync.get("empresa", ""))
+        and empresa_doc in documentos_sync
     )
     if sync_ativa:
         @st.fragment(run_every="20s")
         def painel_sincronizacao():
-            st.caption("Sincronização da empresa")
+            st.caption(f"Sincronização · {empresas_config[empresa_doc]['nome']}")
             if st.button("Sincronizar agora", key="sincronizar_empresa_agora"):
                 st.session_state.pop("_sync_tentativa", None)
             agora_sync = time.monotonic()
@@ -3793,7 +3836,12 @@ else:
                         banco_empresa, empresa_doc, conectar_supabase_producao,
                         pode_iniciar=configuracao_sync.get("origem_inicial") == "windows",
                     )
-                except Exception:
+                except ValueError as erro:
+                    resultado_sync = ("validacao", str(erro))
+                except sqlite3.OperationalError:
+                    resultado_sync = ("ocupado", "Banco ocupado. A sincronização tentará novamente.")
+                except Exception as erro:
+                    logging.getLogger("crm.sincronizacao").error("Sincronização indisponível: %s", type(erro).__name__)
                     resultado_sync = (
                         "offline",
                         "Sincronização pendente. Confira a internet e a conexão com Supabase.",
@@ -3804,9 +3852,9 @@ else:
             status_sync, mensagem_sync = st.session_state.get(
                 "_sync_resultado", ("aguardando", "Aguardando sincronização.")
             )
-            if status_sync in {"conflito", "inicial_diferente"}:
+            if status_sync in {"conflito", "inicial_diferente", "validacao"}:
                 st.warning(mensagem_sync)
-            elif status_sync == "offline":
+            elif status_sync in {"offline", "ocupado"}:
                 st.info(mensagem_sync)
             else:
                 st.caption(mensagem_sync)
