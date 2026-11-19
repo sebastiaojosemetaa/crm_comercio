@@ -2755,7 +2755,16 @@ if df_emp_dev.empty:
 
 reg_emp = df_emp_dev.iloc[0] if not df_emp_dev.empty else {}
 
-nome_empresa_header = str(reg_emp.get("nome_empresa") or nome_empresa_padrao)
+def resolver_nome_empresa(nome_dispositivo, nome_cadastro):
+    # Um dispositivo novo pode não ter nome preenchido após receber a base.
+    for valor in (nome_dispositivo, nome_cadastro):
+        nome = str(valor).strip() if valor is not None else ""
+        if nome and nome.casefold() not in {"none", "nan", "null", "<na>", "nat"}:
+            return nome
+    return "Empresa"
+
+
+nome_empresa_header = resolver_nome_empresa(reg_emp.get("nome_empresa"), nome_empresa_padrao)
 
 def interpretar_vencimento_licenca(valor):
     try:
