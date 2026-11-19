@@ -177,3 +177,73 @@ def sincronizar(caminho, empresa, conectar, pode_iniciar=False, receber_inicial=
         except Exception:
             local.rollback()
             raise
+
+
+def publicar_catalogo(conectar, empresas, planos):
+    """Publica os cadastros, sem os caminhos locais ou senhas em texto."""
+    registros = []
+    for documento, empresa in empresas.items():
+        if not re.fullmatch(r"[0-9]{11}|[0-9]{14}", documento):
+            raise ValueError("Documento inválido no cadastro.")
+        segredo = empresa.get("segredo_licenca") or empresa.get("senha_admin")
+        if empresa.get("senha_admin"):
+            sal = hashlib.sha256((documento + segredo).encode()).hexdigest()[:32]
+            senha_hash = hashlib.scrypt(empresa["senha_admin"].encode(),
+                                       salt=bytes.fromhex(sal), n=16384, r=8, p=1).hex()
+        else:
+            sal, senha_hash = empresa["sal"], empresa["senha_hash"]
+        registros.append((documento, empresa["nome"], sal, senha_hash,
+                          segredo, planos.get(documento, "Simples")))
+    if not registros:
+        raise ValueError("Nenhuma empresa cadastrada para publicar.")
+    with conectar() as remoto:
+        remoto.execute("CREATE SCHEMA IF NOT EXISTS crm_producao")
+        remoto.execute("""CREATE TABLE IF NOT EXISTS crm_producao.catalogo_empresas (
+            documento TEXT PRIMARY KEY, nome TEXT NOT NULL, sal TEXT NOT NULL,
+            senha_hash TEXT NOT NULL, segredo_licenca TEXT NOT NULL,
+            plano TEXT NOT NULL, atualizado_em TIMESTAMPTZ NOT NULL DEFAULT now()
+        )""")
+        for registro in registros:
+            remoto.execute("""INSERT INTO crm_producao.catalogo_empresas AS c
+                (documento,nome,sal,senha_hash,segredo_licenca,plano)
+                VALUES (%s,%s,%s,%s,%s,%s)
+                ON CONFLICT(documento) DO UPDATE SET nome=excluded.nome, sal=excluded.sal,
+                senha_hash=excluded.senha_hash, segredo_licenca=excluded.segredo_licenca,
+                plano=excluded.plano, atualizado_em=now()
+                WHERE (c.nome,c.sal,c.senha_hash,c.segredo_licenca,c.plano)
+                IS DISTINCT FROM (excluded.nome,excluded.sal,excluded.senha_hash,
+                                  excluded.segredo_licenca,excluded.plano)""", registro)
+    return len(registros)
+
+
+def receber_catalogo(conectar, caminho_cadastro, documentos_configurados):
+    with conectar() as remoto:
+        registros = remoto.execute("""SELECT documento,nome,sal,senha_hash,segredo_licenca,plano
+            FROM crm_producao.catalogo_empresas ORDER BY documento""").fetchall()
+    for documento, nome, sal, senha_hash, segredo, plano in registros:
+        if (
+            not re.fullmatch(r"[0-9]{11}|[0-9]{14}", documento)
+            or not nome.strip() or plano not in {"Simples", "Pro"}
+            or not re.fullmatch(r"[0-9a-f]{32}", sal)
+            or not re.fullmatch(r"[0-9a-f]{128}", senha_hash)
+            or not segredo
+        ):
+            raise ValueError("Cadastro remoto inválido.")
+    from pathlib import Path
+    Path(caminho_cadastro).parent.mkdir(parents=True, exist_ok=True)
+    with sqlite3.connect(caminho_cadastro, timeout=10) as cadastro:
+        cadastro.execute("BEGIN IMMEDIATE")
+        cadastro.execute("""CREATE TABLE IF NOT EXISTS empresas (
+            documento TEXT PRIMARY KEY,nome TEXT NOT NULL,sal TEXT NOT NULL,
+            senha_hash TEXT NOT NULL,segredo_licenca TEXT NOT NULL)""")
+        cadastro.execute("""CREATE TABLE IF NOT EXISTS planos_comerciais (
+            documento TEXT PRIMARY KEY,plano TEXT NOT NULL CHECK(plano IN ('Simples','Pro')))""")
+        for documento,nome,sal,senha_hash,segredo,plano in registros:
+            if documento not in documentos_configurados:
+                cadastro.execute("""INSERT INTO empresas VALUES(?,?,?,?,?)
+                    ON CONFLICT(documento) DO UPDATE SET nome=excluded.nome,sal=excluded.sal,
+                    senha_hash=excluded.senha_hash,segredo_licenca=excluded.segredo_licenca""",
+                    (documento,nome,sal,senha_hash,segredo))
+            cadastro.execute("""INSERT INTO planos_comerciais VALUES(?,?)
+                ON CONFLICT(documento) DO UPDATE SET plano=excluded.plano""", (documento,plano))
+    return len(registros)

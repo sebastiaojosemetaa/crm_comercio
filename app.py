@@ -3,7 +3,7 @@ from pathlib import Path
 import streamlit as st
 import streamlit.components.v1 as components
 import sqlite3
-from crm_sync import sincronizar
+from crm_sync import sincronizar, publicar_catalogo, receber_catalogo
 import pandas as pd
 import base64
 from datetime import datetime, date, timedelta
@@ -137,6 +137,61 @@ def gerar_payload_pix(chave, nome, cidade, valor, tipo):
     return f"{payload}{crc_hqx(payload.encode('ascii'), 0xFFFF):04X}"
 
 
+def conectar_supabase_producao():
+    try:
+        import psycopg
+    except ImportError as erro:
+        raise ValueError("Adicione psycopg[binary]>=3.2,<4 ao requirements.txt e publique novamente.") from erro
+    configuracao = st.secrets.get("crm_producao", {})
+    url = str(configuracao.get("database_url", "")).strip()
+    senha_separada = configuracao.get("password")
+    if senha_separada is not None:
+        # A URI original do painel pode ser usada sem inserir a senha nela.
+        url = url.replace("[YOUR-PASSWORD]", "")
+
+    if not url.startswith(("postgresql://", "postgres://")):
+        raise ValueError("Configure database_url no bloco crm_producao dos Secrets.")
+    if "[YOUR-PASSWORD]" in url or "COLE_A_" in url:
+        raise ValueError("A conexão ainda contém um texto de exemplo. Substitua [YOUR-PASSWORD] pela senha do banco nos Secrets.")
+    try:
+        parametros = psycopg.conninfo.conninfo_to_dict(url)
+        if senha_separada is not None:
+            parametros["password"] = str(senha_separada)
+        parametros.update(sslmode="require", connect_timeout=10)
+        # Configura o prazo após conectar para compatibilidade com o pooler.
+        parametros.pop("options", None)
+        conexao = psycopg.connect(**parametros)
+        try:
+            with conexao.transaction():
+                conexao.execute("SET statement_timeout = '30s'")
+        except Exception:
+            conexao.close()
+            raise
+        return conexao
+    except psycopg.Error as erro:
+        texto = str(erro).lower()
+        if "unsupported" in texto and ("parameter" in texto or "option" in texto):
+            mensagem = "O servidor recusou um parâmetro da conexão. Copie a URI original de Session pooler e use password separado nos Secrets."
+        elif "circuit breaker" in texto or "too many authentication" in texto:
+            mensagem = "O Supabase suspendeu temporariamente as tentativas após falhas de autenticação. Confira a senha e aguarde alguns minutos antes de testar."
+        elif "tenant or user not found" in texto:
+            mensagem = "O Supabase não reconheceu o usuário ou projeto. Copie novamente a URI de Session pooler do projeto de produção."
+        elif erro.sqlstate == "28P01" or "password authentication failed" in texto:
+            mensagem = "O Supabase recusou a senha do banco. Confira a senha e substitua @ por %40 apenas dentro da senha na URI."
+        elif any(trecho in texto for trecho in ["resolve", "translate host", "name or service not known"]):
+            mensagem = "O endereço do servidor não foi encontrado. Confira se a URI foi copiada inteira e se o @ que separa senha e servidor foi mantido."
+        elif any(trecho in texto for trecho in ["timeout", "timed out", "network is unreachable", "connection refused"]):
+            mensagem = "O servidor não respondeu. Confira se o projeto está ativo e se a conexão selecionada é Session pooler."
+        elif "ssl" in texto or "certificate" in texto:
+            mensagem = "Falha na conexão SSL com o banco. Confira a configuração do projeto."
+        else:
+            codigo = erro.sqlstate or ""
+            mensagem = "Não foi possível abrir a conexão com o banco."
+            if re.fullmatch(r"[0-9A-Z]{5}", codigo):
+                mensagem += f" Código PostgreSQL: {codigo}."
+        raise ValueError(mensagem) from None
+
+
 # Cada empresa cadastrada na configuração do servidor usa um banco próprio.
 try:
     empresas_config = st.secrets.get("empresas", {})
@@ -228,6 +283,31 @@ def cadastrar_empresa(documento, nome, senha, empresas_existentes):
             raise ValueError("Já existe uma empresa com esse documento.") from erro
 
 
+config_catalogo = st.secrets.get("sincronizacao", {})
+if config_catalogo.get("habilitada", False):
+    modo_catalogo = config_catalogo.get("catalogo_empresas", "")
+    if modo_catalogo in {"publicar", "receber"}:
+        if st.sidebar.button("Atualizar lista de empresas", key="atualizar_catalogo_empresas"):
+            st.session_state.pop("_catalogo_tentativa", None)
+        instante_catalogo = time.monotonic()
+        if instante_catalogo - st.session_state.get("_catalogo_tentativa", -100) >= 60:
+            st.session_state["_catalogo_tentativa"] = instante_catalogo
+            try:
+                if modo_catalogo == "publicar":
+                    catalogo = dict(ler_empresas_cadastradas())
+                    catalogo.update(dict(empresas_config))
+                    total_catalogo = publicar_catalogo(
+                        conectar_supabase_producao, catalogo, ler_planos_comerciais()
+                    )
+                else:
+                    total_catalogo = receber_catalogo(
+                        conectar_supabase_producao, BANCO_CADASTRO_EMPRESAS, set(empresas_config)
+                    )
+                st.session_state["_catalogo_status"] = f"Lista atualizada: {total_catalogo} empresas do navegador."
+            except Exception:
+                st.session_state["_catalogo_status"] = "Atualização da lista pendente. Confira a conexão e publique primeiro no navegador."
+        st.sidebar.caption(st.session_state.get("_catalogo_status", ""))
+
 DOCUMENTO_ALENCARSOFT = "95451161100"
 empresa_doc = ""
 empresa_config = {}
@@ -272,9 +352,16 @@ if empresas_config:
                 and not st.session_state.get("_trocando_empresa")
                 else ""
             )
+            empresa_escolhida = None
+            if config_catalogo.get("catalogo_empresas") == "receber":
+                empresa_escolhida = st.selectbox(
+                    "Empresa", list(empresas_config), index=None,
+                    placeholder="Selecione a empresa",
+                    format_func=lambda doc: f"{empresas_config[doc]['nome']} · {doc}",
+                )
             documento = st.text_input("CNPJ ou CPF da empresa", value=documento_padrao)
             if st.form_submit_button("Continuar"):
-                documento = re.sub(r"[^0-9]", "", documento)
+                documento = empresa_escolhida or re.sub(r"[^0-9]", "", documento)
                 if documento in empresas_config:
                     st.session_state["_empresa_doc"] = documento
                     st.rerun()
@@ -633,59 +720,6 @@ def exibir_suporte_crm(documento_sessao, nome_empresa, central, empresas):
         st.error("O suporte está indisponível. Tente novamente ou confira a configuração do Supabase.")
 
 
-def conectar_supabase_producao():
-    try:
-        import psycopg
-    except ImportError as erro:
-        raise ValueError("Adicione psycopg[binary]>=3.2,<4 ao requirements.txt e publique novamente.") from erro
-    configuracao = st.secrets.get("crm_producao", {})
-    url = str(configuracao.get("database_url", "")).strip()
-    senha_separada = configuracao.get("password")
-    if senha_separada is not None:
-        # A URI original do painel pode ser usada sem inserir a senha nela.
-        url = url.replace("[YOUR-PASSWORD]", "")
-
-    if not url.startswith(("postgresql://", "postgres://")):
-        raise ValueError("Configure database_url no bloco crm_producao dos Secrets.")
-    if "[YOUR-PASSWORD]" in url or "COLE_A_" in url:
-        raise ValueError("A conexão ainda contém um texto de exemplo. Substitua [YOUR-PASSWORD] pela senha do banco nos Secrets.")
-    try:
-        parametros = psycopg.conninfo.conninfo_to_dict(url)
-        if senha_separada is not None:
-            parametros["password"] = str(senha_separada)
-        parametros.update(sslmode="require", connect_timeout=10)
-        # Configura o prazo após conectar para compatibilidade com o pooler.
-        parametros.pop("options", None)
-        conexao = psycopg.connect(**parametros)
-        try:
-            with conexao.transaction():
-                conexao.execute("SET statement_timeout = '30s'")
-        except Exception:
-            conexao.close()
-            raise
-        return conexao
-    except psycopg.Error as erro:
-        texto = str(erro).lower()
-        if "unsupported" in texto and ("parameter" in texto or "option" in texto):
-            mensagem = "O servidor recusou um parâmetro da conexão. Copie a URI original de Session pooler e use password separado nos Secrets."
-        elif "circuit breaker" in texto or "too many authentication" in texto:
-            mensagem = "O Supabase suspendeu temporariamente as tentativas após falhas de autenticação. Confira a senha e aguarde alguns minutos antes de testar."
-        elif "tenant or user not found" in texto:
-            mensagem = "O Supabase não reconheceu o usuário ou projeto. Copie novamente a URI de Session pooler do projeto de produção."
-        elif erro.sqlstate == "28P01" or "password authentication failed" in texto:
-            mensagem = "O Supabase recusou a senha do banco. Confira a senha e substitua @ por %40 apenas dentro da senha na URI."
-        elif any(trecho in texto for trecho in ["resolve", "translate host", "name or service not known"]):
-            mensagem = "O endereço do servidor não foi encontrado. Confira se a URI foi copiada inteira e se o @ que separa senha e servidor foi mantido."
-        elif any(trecho in texto for trecho in ["timeout", "timed out", "network is unreachable", "connection refused"]):
-            mensagem = "O servidor não respondeu. Confira se o projeto está ativo e se a conexão selecionada é Session pooler."
-        elif "ssl" in texto or "certificate" in texto:
-            mensagem = "Falha na conexão SSL com o banco. Confira a configuração do projeto."
-        else:
-            codigo = erro.sqlstate or ""
-            mensagem = "Não foi possível abrir a conexão com o banco."
-            if re.fullmatch(r"[0-9A-Z]{5}", codigo):
-                mensagem += f" Código PostgreSQL: {codigo}."
-        raise ValueError(mensagem) from None
 
 
 def validar_backup_piloto(dados, documento):
@@ -763,6 +797,22 @@ def aplicar_estado_licenca_local(banco, documento, estado):
         banco.execute("DELETE FROM chaves_licenca_usadas")
         banco.executemany("INSERT INTO chaves_licenca_usadas VALUES (?)",
                           [(chave,) for chave in estado["usadas"]])
+
+
+def licenca_local_valida_offline(conexao, documento, aparelho):
+    registro = conexao.execute("""
+        SELECT ativado, licenca_expira_em, cnpj FROM empresas_dispositivos
+        WHERE device_id=?
+    """, (aparelho,)).fetchone()
+    if not registro or registro[0] != 1 or re.sub(r"[^0-9]", "", str(registro[2] or "")) != documento:
+        return False
+    try:
+        validade = dt.datetime.fromisoformat(str(registro[1]).replace("Z", "+00:00"))
+        if validade.tzinfo is None:
+            validade = validade.replace(tzinfo=dt.timezone.utc)
+        return validade > dt.datetime.now(dt.timezone.utc)
+    except (TypeError, ValueError):
+        return False
 
 
 @contextmanager
@@ -2643,8 +2693,11 @@ if empresa_doc and configuracao_backup_producao.get("licencas_persistentes", Fal
         with transacao_licenca_persistente(conn, empresa_doc):
             pass
     except Exception:
-        st.error("Não foi possível consultar as licenças no Supabase. Tente novamente em instantes.")
-        st.stop()
+        if os.name == "nt" and licenca_local_valida_offline(conn, empresa_doc, device_id):
+            st.sidebar.caption("Usando a licença local válida. A consulta online será retomada com a conexão.")
+        else:
+            st.error("Não foi possível consultar as licenças no Supabase. Tente novamente em instantes.")
+            st.stop()
 
 df_emp_dev = carregar_dados(
     f"SELECT * FROM empresas_dispositivos WHERE device_id = '{device_id}'"
