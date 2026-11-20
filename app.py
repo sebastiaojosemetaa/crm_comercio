@@ -268,7 +268,7 @@ def cadastrar_empresa(documento, nome, senha, empresas_existentes):
         raise ValueError("Já existe um banco associado a esse documento.")
     sal = secrets.token_hex(16)
     os.makedirs(PASTA_EMPRESAS, exist_ok=True)
-    with sqlite3.connect(BANCO_CADASTRO_EMPRESAS, timeout=30) as cadastro:
+    with closing(sqlite3.connect(BANCO_CADASTRO_EMPRESAS, timeout=30)) as cadastro, cadastro:
         cadastro.execute("BEGIN IMMEDIATE")
         cadastro.execute("""
             CREATE TABLE IF NOT EXISTS empresas (
@@ -295,23 +295,35 @@ if config_catalogo.get("habilitada", False):
         if instante_catalogo - st.session_state.get("_catalogo_tentativa", -100) >= 60:
             st.session_state["_catalogo_tentativa"] = instante_catalogo
             try:
-                if modo_catalogo == "publicar":
-                    catalogo = dict(ler_empresas_cadastradas())
-                    catalogo.update(dict(empresas_config))
-                    total_catalogo = publicar_catalogo(
-                        conectar_supabase_producao, catalogo, ler_planos_comerciais()
+                catalogo = dict(ler_empresas_cadastradas())
+                catalogo.update(dict(empresas_config))
+                conflitos_catalogo = []
+                publicar_catalogo(
+                    conectar_supabase_producao, catalogo, ler_planos_comerciais(),
+                    somente_novas=modo_catalogo == "receber", conflitos=conflitos_catalogo,
+                )
+                total_catalogo = receber_catalogo(
+                    conectar_supabase_producao, BANCO_CADASTRO_EMPRESAS, set(empresas_config),
+                    conflitos=conflitos_catalogo,
+                )
+                st.session_state["_catalogo_conflitos"] = sorted(set(conflitos_catalogo))
+                st.session_state["_catalogo_status"] = f"Lista compartilhada: {total_catalogo} empresas no servidor."
+                if conflitos_catalogo:
+                    st.session_state["_catalogo_status"] += (
+                        " Documento já utilizado por outro cadastro: "
+                        + ", ".join(sorted(set(conflitos_catalogo)))
+                        + ". Sincronização bloqueada para esses documentos; os dados foram preservados."
                     )
-                else:
-                    total_catalogo = receber_catalogo(
-                        conectar_supabase_producao, BANCO_CADASTRO_EMPRESAS, set(empresas_config)
-                    )
-                st.session_state["_catalogo_status"] = f"Lista atualizada: {total_catalogo} empresas do navegador."
             except Exception:
-                st.session_state["_catalogo_status"] = "Atualização da lista pendente. Confira a conexão e publique primeiro no navegador."
+                st.session_state["_catalogo_status"] = "Atualização da lista pendente. Confira a conexão com o servidor."
         st.sidebar.caption(st.session_state.get("_catalogo_status", ""))
 
-if config_catalogo.get("catalogo_empresas") == "receber":
-    empresas_config = aplicar_configuracao_catalogo(BANCO_CADASTRO_EMPRESAS, empresas_config)
+if config_catalogo.get("catalogo_empresas") in {"publicar", "receber"}:
+    configuracoes_compartilhadas = aplicar_configuracao_catalogo(BANCO_CADASTRO_EMPRESAS, empresas_config)
+    for documento_conflitante in st.session_state.get("_catalogo_conflitos", []):
+        if documento_conflitante in empresas_config:
+            configuracoes_compartilhadas[documento_conflitante] = empresas_config[documento_conflitante]
+    empresas_config = configuracoes_compartilhadas
 
 DOCUMENTO_ALENCARSOFT = "95451161100"
 empresa_doc = ""
@@ -3228,6 +3240,7 @@ if (
                         except (ValueError, sqlite3.Error, OSError) as erro:
                             st.error(f"Não foi possível cadastrar a empresa: {erro}")
                         else:
+                            st.session_state.pop("_catalogo_tentativa", None)
                             st.session_state["empresa_cadastrada_ok"] = nome_novo.strip()
                             st.rerun()
                 nome_cadastrado = st.session_state.pop("empresa_cadastrada_ok", None)
@@ -3830,6 +3843,7 @@ else:
     sync_ativa = (
         configuracao_sync.get("habilitada", False)
         and empresa_doc in documentos_sync
+        and empresa_doc not in st.session_state.get("_catalogo_conflitos", [])
     )
     if sync_ativa:
         @st.fragment(run_every="20s")

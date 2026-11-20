@@ -199,7 +199,7 @@ def sincronizar(caminho, empresa, conectar, pode_iniciar=False, receber_inicial=
             raise
 
 
-def publicar_catalogo(conectar, empresas, planos):
+def publicar_catalogo(conectar, empresas, planos, *, somente_novas=False, conflitos=None):
     """Publica os cadastros, sem os caminhos locais ou senhas em texto."""
     registros = []
     for documento, empresa in empresas.items():
@@ -223,7 +223,21 @@ def publicar_catalogo(conectar, empresas, planos):
             senha_hash TEXT NOT NULL, segredo_licenca TEXT NOT NULL,
             plano TEXT NOT NULL, atualizado_em TIMESTAMPTZ NOT NULL DEFAULT now()
         )""")
+        # Serializa a comparação e publicação: duas instalações não podem
+        # reivindicar o mesmo documento com identidades diferentes.
+        remoto.execute("LOCK TABLE crm_producao.catalogo_empresas IN SHARE ROW EXCLUSIVE MODE")
+        existentes = {r[0]: r for r in remoto.execute("""SELECT documento,nome,sal,senha_hash,segredo_licenca,plano
+            FROM crm_producao.catalogo_empresas ORDER BY documento""").fetchall()}
+        publicados = 0
         for registro in registros:
+            anterior = existentes.get(registro[0])
+            if anterior and anterior[4] != registro[4]:
+                if conflitos is not None:
+                    conflitos.append(registro[0])
+                continue
+            if anterior and somente_novas:
+                continue
+            publicados += 1
             remoto.execute("""INSERT INTO crm_producao.catalogo_empresas AS c
                 (documento,nome,sal,senha_hash,segredo_licenca,plano)
                 VALUES (%s,%s,%s,%s,%s,%s)
@@ -233,10 +247,10 @@ def publicar_catalogo(conectar, empresas, planos):
                 WHERE (c.nome,c.sal,c.senha_hash,c.segredo_licenca,c.plano)
                 IS DISTINCT FROM (excluded.nome,excluded.sal,excluded.senha_hash,
                                   excluded.segredo_licenca,excluded.plano)""", registro)
-    return len(registros)
+    return publicados
 
 
-def receber_catalogo(conectar, caminho_cadastro, documentos_configurados):
+def receber_catalogo(conectar, caminho_cadastro, documentos_configurados, *, conflitos=None):
     with conectar() as remoto:
         registros = remoto.execute("""SELECT documento,nome,sal,senha_hash,segredo_licenca,plano
             FROM crm_producao.catalogo_empresas ORDER BY documento""").fetchall()
@@ -251,7 +265,7 @@ def receber_catalogo(conectar, caminho_cadastro, documentos_configurados):
             raise ValueError("Cadastro remoto inválido.")
     from pathlib import Path
     Path(caminho_cadastro).parent.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(caminho_cadastro, timeout=10) as cadastro:
+    with closing(sqlite3.connect(caminho_cadastro, timeout=10)) as cadastro, cadastro:
         cadastro.execute("BEGIN IMMEDIATE")
         cadastro.execute("""CREATE TABLE IF NOT EXISTS empresas (
             documento TEXT PRIMARY KEY,nome TEXT NOT NULL,sal TEXT NOT NULL,
@@ -262,6 +276,11 @@ def receber_catalogo(conectar, caminho_cadastro, documentos_configurados):
             documento TEXT PRIMARY KEY, nome TEXT NOT NULL, segredo_licenca TEXT NOT NULL
         )""")
         for documento,nome,sal,senha_hash,segredo,plano in registros:
+            local = cadastro.execute("SELECT segredo_licenca FROM empresas WHERE documento=?", (documento,)).fetchone()
+            if local and local[0] != segredo:
+                if conflitos is not None:
+                    conflitos.append(documento)
+                continue
             cadastro.execute("""INSERT INTO catalogo_licencas VALUES(?,?,?)
                 ON CONFLICT(documento) DO UPDATE SET nome=excluded.nome,
                 segredo_licenca=excluded.segredo_licenca""", (documento,nome,segredo))
@@ -282,7 +301,7 @@ def aplicar_configuracao_catalogo(caminho_cadastro, configuradas):
     resultado = {doc: dict(config) for doc, config in configuradas.items()}
     if not Path(caminho_cadastro).exists():
         return resultado
-    with sqlite3.connect(Path(caminho_cadastro).resolve().as_uri() + "?mode=ro", uri=True) as cadastro:
+    with closing(sqlite3.connect(Path(caminho_cadastro).resolve().as_uri() + "?mode=ro", uri=True)) as cadastro:
         if not cadastro.execute(
             "SELECT 1 FROM sqlite_master WHERE type='table' AND name='catalogo_licencas'"
         ).fetchone():
