@@ -2725,9 +2725,15 @@ def normalizar_device_id(valor):
     except ValueError:
         return ""
 
+# O identificador do aparelho permanece no mesmo espaço de armazenamento
+# usado antes da migração; mudar o documento da empresa não cria outro aparelho.
+documento_dispositivo = (
+    "95451161100" if alencarsoft_migrada and empresa_doc == "12727169000127"
+    else empresa_doc
+)
 chave_dispositivo = (
-    f"crm_comercio_device_id_{empresa_doc}"
-    if empresa_doc and empresa_doc != "19417439000142"
+    f"crm_comercio_device_id_{documento_dispositivo}"
+    if documento_dispositivo and documento_dispositivo != "19417439000142"
     else "crm_comercio_device_id"
 )
 device_id = normalizar_device_id(st.query_params.get("device_id", ""))
