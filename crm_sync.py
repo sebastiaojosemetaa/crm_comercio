@@ -133,6 +133,8 @@ def sincronizar(caminho, empresa, conectar, pode_iniciar=False, receber_inicial=
         local.commit()
         try:
             with conectar() as remoto:
+                if empresa == CPF_ALENCARSOFT and consultar_migracao_alencarsoft(remoto):
+                    return "validacao", "ALENCARSOFT migrada para o CNPJ 12727169000127. Atualize o CRM."
                 remoto.execute("CREATE SCHEMA IF NOT EXISTS crm_producao")
                 remoto.execute("""CREATE TABLE IF NOT EXISTS crm_producao.sincronizacao_empresas (
                     empresa TEXT PRIMARY KEY, versao BIGINT NOT NULL,
@@ -229,7 +231,10 @@ def publicar_catalogo(conectar, empresas, planos, *, somente_novas=False, confli
         existentes = {r[0]: r for r in remoto.execute("""SELECT documento,nome,sal,senha_hash,segredo_licenca,plano
             FROM crm_producao.catalogo_empresas ORDER BY documento""").fetchall()}
         publicados = 0
+        migracao = consultar_migracao_alencarsoft(remoto)
         for registro in registros:
+            if migracao and registro[0] == CPF_ALENCARSOFT:
+                continue
             anterior = existentes.get(registro[0])
             if anterior and anterior[4] != registro[4]:
                 if conflitos is not None:
@@ -254,6 +259,8 @@ def receber_catalogo(conectar, caminho_cadastro, documentos_configurados, *, con
     with conectar() as remoto:
         registros = remoto.execute("""SELECT documento,nome,sal,senha_hash,segredo_licenca,plano
             FROM crm_producao.catalogo_empresas ORDER BY documento""").fetchall()
+        if consultar_migracao_alencarsoft(remoto):
+            registros = [r for r in registros if r[0] != CPF_ALENCARSOFT]
     for documento, nome, sal, senha_hash, segredo, plano in registros:
         if (
             not re.fullmatch(r"[0-9]{11}|[0-9]{14}", documento)
@@ -313,3 +320,277 @@ def aplicar_configuracao_catalogo(caminho_cadastro, configuradas):
                 resultado[documento]["nome"] = nome
                 resultado[documento]["segredo_licenca"] = segredo
     return resultado
+
+
+def reunir_cadastros_empresas(configuradas, cadastradas):
+    """Secrets escolhem a base ativa; cadastro duplicado fica preservado em disco."""
+    from pathlib import Path
+    resultado = {doc: dict(config) for doc, config in configuradas.items()}
+    repetidas = sorted(set(configuradas) & set(cadastradas))
+    for documento, configuracao in cadastradas.items():
+        if documento not in resultado:
+            resultado[documento] = dict(configuracao)
+    caminhos = {}
+    for documento, configuracao in resultado.items():
+        caminho = str(Path(configuracao['banco']).resolve())
+        if caminho in caminhos and caminhos[caminho] != documento:
+            raise ValueError('Empresas diferentes apontam para o mesmo banco. Confira os caminhos nos Secrets.')
+        caminhos[caminho] = documento
+    return resultado, repetidas
+
+# Migração específica autorizada da ALENCARSOFT. Outros documentos não são convertidos.
+CPF_ALENCARSOFT = '95451161100'
+CNPJ_ALENCARSOFT = '12727169000127'
+
+
+def consultar_migracao_alencarsoft(remoto):
+    if not remoto.execute("SELECT to_regclass('crm_producao.migracoes_documentos')").fetchone()[0]:
+        return None
+    linha = remoto.execute("SELECT dados FROM crm_producao.migracoes_documentos WHERE origem=%s AND destino=%s",
+                           (CPF_ALENCARSOFT, CNPJ_ALENCARSOFT)).fetchone()
+    if not linha:
+        return None
+    dados = linha[0]
+    return json.loads(dados) if isinstance(dados, str) else dados
+
+
+def converter_vinculo_alencarsoft(banco, registro):
+    """Chamador mantém a transação SQLite; não altera operações ou validade de licença."""
+    origem, destino = CPF_ALENCARSOFT, CNPJ_ALENCARSOFT
+    tabelas = {r[0] for r in banco.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    if 'crm_empresa' not in tabelas:
+        raise ValueError('Base sem vínculo de empresa. Migração interrompida.')
+    vinculo = banco.execute('SELECT documento FROM crm_empresa WHERE id=1').fetchone()
+    if vinculo == (destino,):
+        return False
+    if vinculo != (origem,):
+        raise ValueError('O arquivo não pertence ao CPF original da ALENCARSOFT.')
+    atual_antigo = capturar(banco, origem)
+    hash_antigo_local = impressao(atual_antigo)
+    banco.execute('UPDATE crm_empresa SET documento=? WHERE id=1', (destino,))
+    if 'empresas_dispositivos' in tabelas:
+        colunas = {r[1] for r in banco.execute('PRAGMA table_info(empresas_dispositivos)')}
+        if 'cnpj' in colunas:
+            for dispositivo, documento in banco.execute('SELECT device_id,cnpj FROM empresas_dispositivos').fetchall():
+                if re.sub(r'\D', '', str(documento or '')) in ('', origem):
+                    banco.execute('UPDATE empresas_dispositivos SET cnpj=? WHERE device_id=?', (destino, dispositivo))
+    if 'crm_sync_estado' in tabelas:
+        estado = banco.execute('SELECT base_hash,copia_anterior FROM crm_sync_estado WHERE empresa=?', (origem,)).fetchone()
+        if estado:
+            base, anterior = estado
+            if base == registro.get('hash_origem'):
+                nova_base = registro['hash_destino']
+            elif base == hash_antigo_local:
+                nova_base = impressao(capturar(banco, destino))
+            else:
+                nova_base = 'migracao:conciliacao-necessaria'
+            if anterior:
+                copia = desempacotar(anterior, origem)
+                copia['empresa'] = destino
+                anterior = empacotar(copia)
+            if banco.execute('SELECT 1 FROM crm_sync_estado WHERE empresa=?', (destino,)).fetchone():
+                raise ValueError('Já existe um checkpoint independente para o CNPJ. Dados preservados.')
+            banco.execute('DELETE FROM crm_sync_estado WHERE empresa=?', (origem,))
+            banco.execute('INSERT INTO crm_sync_estado VALUES(?,?,?)', (destino,nova_base,anterior))
+    return True
+
+
+def converter_backup_alencarsoft(conteudo, registro):
+    from pathlib import Path
+    import tempfile
+    with tempfile.TemporaryDirectory(prefix='crm_migrar_backup_') as pasta:
+        caminho = Path(pasta)/'copia.db'
+        caminho.write_bytes(bytes(conteudo))
+        with closing(sqlite3.connect(caminho)) as banco:
+            if banco.execute('PRAGMA integrity_check').fetchall() != [('ok',)]:
+                raise ValueError('Backup original inválido. Migração interrompida.')
+            with banco:
+                converter_vinculo_alencarsoft(banco, registro)
+            banco.execute('PRAGMA journal_mode=DELETE')
+        return caminho.read_bytes()
+
+
+def migrar_servidor_alencarsoft(conectar, hash_local_esperado=None, aparelhos_ativos_locais=None):
+    """Copia bases/licenças/backups para o CNPJ numa transação; mantém o histórico CPF."""
+    origem, destino = CPF_ALENCARSOFT, CNPJ_ALENCARSOFT
+    with conectar() as remoto:
+        remoto.execute('CREATE SCHEMA IF NOT EXISTS crm_producao')
+        remoto.execute('''CREATE TABLE IF NOT EXISTS crm_producao.migracoes_documentos (
+            origem TEXT PRIMARY KEY, destino TEXT UNIQUE NOT NULL,
+            dados JSONB NOT NULL, criado_em TIMESTAMPTZ NOT NULL DEFAULT now())''')
+        # Os locks impedem alteração da base durante a conferência e cópia.
+        remoto.execute('LOCK TABLE crm_producao.migracoes_documentos, crm_producao.catalogo_empresas, '
+                       'crm_producao.sincronizacao_empresas, crm_producao.estado_licencas, '
+                       'crm_producao.backups_sqlite IN SHARE ROW EXCLUSIVE MODE')
+        existente = consultar_migracao_alencarsoft(remoto)
+        if existente:
+            return existente
+        snapshot = remoto.execute('SELECT versao,hash_dados,conteudo FROM crm_producao.sincronizacao_empresas '
+                                  'WHERE empresa=%s', (origem,)).fetchone()
+        if not snapshot:
+            raise ValueError('A base sincronizada do CPF não foi encontrada. Nada foi migrado.')
+        if remoto.execute('SELECT 1 FROM crm_producao.sincronizacao_empresas WHERE empresa=%s', (destino,)).fetchone():
+            raise ValueError('O CNPJ já possui dados sincronizados. Migração bloqueada para não sobrescrever.')
+        if remoto.execute('SELECT 1 FROM crm_producao.estado_licencas WHERE empresa=%s', (destino,)).fetchone():
+            raise ValueError('O CNPJ já possui licenças próprias. Migração bloqueada.')
+        if remoto.execute('SELECT 1 FROM crm_producao.backups_sqlite WHERE empresa=%s', (destino,)).fetchone():
+            raise ValueError('O CNPJ já possui backups próprios. Migração bloqueada.')
+        if aparelhos_ativos_locais:
+            licenca = remoto.execute('SELECT estado FROM crm_producao.estado_licencas WHERE empresa=%s', (origem,)).fetchone()
+            estado = licenca[0] if licenca else {}
+            if isinstance(estado, str):
+                estado = json.loads(estado)
+            ativos = {r[0] for r in estado.get('aparelhos', []) if r[1] == 1}
+            if not set(aparelhos_ativos_locais).issubset(ativos):
+                raise ValueError('Há ativações locais ainda não reconhecidas no servidor. Migração interrompida para preservar as licenças.')
+        catalogo = remoto.execute('SELECT documento,nome,sal,senha_hash,segredo_licenca,plano '
+                                 'FROM crm_producao.catalogo_empresas WHERE documento=%s', (origem,)).fetchone()
+        if not catalogo:
+            raise ValueError('Cadastro remoto do CPF ausente. Migração interrompida.')
+        catalogo_destino = remoto.execute('SELECT documento,nome,sal,senha_hash,segredo_licenca,plano '
+                                         'FROM crm_producao.catalogo_empresas WHERE documento=%s', (destino,)).fetchone()
+        if hash_local_esperado is not None and snapshot[1] != hash_local_esperado:
+            raise ValueError('Windows e servidor possuem dados diferentes. Faça backup dos dois e concilie antes de migrar.')
+        documento = desempacotar(snapshot[2], origem)
+        if impressao(documento) != snapshot[1]:
+            raise ValueError('A base remota não passou na conferência de integridade.')
+        documento['empresa'] = destino
+        registro = {'versao':1,'origem':origem,'destino':destino,
+                    'hash_origem':snapshot[1], 'hash_destino':impressao(documento),
+                    'catalogo':list(catalogo),
+                    'catalogo_cnpj_anterior':list(catalogo_destino) if catalogo_destino else None}
+        backups = remoto.execute('SELECT id,nome_arquivo,conteudo FROM crm_producao.backups_sqlite '
+                                 'WHERE empresa=%s ORDER BY id', (origem,)).fetchall()
+        copias = [(f'migrado-{i}-{nome}',converter_backup_alencarsoft(dados,registro))
+                  for i,nome,dados in backups]
+        remoto.execute('INSERT INTO crm_producao.sincronizacao_empresas '
+                       '(empresa,versao,hash_dados,conteudo) VALUES(%s,%s,%s,%s)',
+                       (destino,snapshot[0],registro['hash_destino'],empacotar(documento)))
+        remoto.execute('INSERT INTO crm_producao.estado_licencas(empresa,estado) '
+                       'SELECT %s,estado FROM crm_producao.estado_licencas WHERE empresa=%s', (destino,origem))
+        novo_catalogo = (destino,'ALENCARSOFT',*catalogo[2:])
+        remoto.execute('''INSERT INTO crm_producao.catalogo_empresas
+            (documento,nome,sal,senha_hash,segredo_licenca,plano) VALUES(%s,%s,%s,%s,%s,%s)
+            ON CONFLICT(documento) DO UPDATE SET nome=excluded.nome,sal=excluded.sal,
+            senha_hash=excluded.senha_hash,segredo_licenca=excluded.segredo_licenca,
+            plano=excluded.plano,atualizado_em=now()''', novo_catalogo)
+        for nome,dados in copias:
+            remoto.execute('INSERT INTO crm_producao.backups_sqlite(empresa,nome_arquivo,conteudo) VALUES(%s,%s,%s)',
+                           (destino,nome,dados))
+        remoto.execute('INSERT INTO crm_producao.migracoes_documentos(origem,destino,dados) VALUES(%s,%s,%s::jsonb)',
+                       (origem,destino,json.dumps(registro)))
+        # Protege contra executáveis antigos que ainda tentem escrever no CPF.
+        remoto.execute('''CREATE OR REPLACE FUNCTION crm_producao.proteger_documento_migrado()
+            RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+              IF EXISTS(SELECT 1 FROM crm_producao.migracoes_documentos
+                        WHERE origem=(to_jsonb(NEW)->>TG_ARGV[0])) THEN
+                RAISE EXCEPTION 'Documento migrado. Atualize o CRM para usar o CNPJ.';
+              END IF;
+              RETURN NEW;
+            END $$''')
+        for tabela,coluna in (('catalogo_empresas','documento'),('sincronizacao_empresas','empresa'),
+                              ('estado_licencas','empresa'),('backups_sqlite','empresa')):
+            remoto.execute(f'DROP TRIGGER IF EXISTS proteger_documento_migrado ON crm_producao.{tabela}')
+            remoto.execute(f'''CREATE TRIGGER proteger_documento_migrado BEFORE INSERT OR UPDATE
+                ON crm_producao.{tabela} FOR EACH ROW EXECUTE FUNCTION
+                crm_producao.proteger_documento_migrado('{coluna}')''')
+    return registro
+
+
+def backup_migracao_local(caminho):
+    from pathlib import Path
+    from datetime import datetime, timezone
+    import uuid
+    caminho = Path(caminho)
+    pasta = caminho.parent / 'backup_migracao_cnpj'
+    pasta.mkdir(exist_ok=True)
+    nome = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')+'-'+uuid.uuid4().hex[:8]+'-'+caminho.name+'.db'
+    destino = pasta/nome
+    with closing(sqlite3.connect(caminho.resolve().as_uri()+'?mode=ro',uri=True)) as origem:
+        with closing(sqlite3.connect(destino)) as copia:
+            origem.backup(copia)
+            if copia.execute('PRAGMA integrity_check').fetchall() != [('ok',)]:
+                raise ValueError('A cópia de segurança local falhou. Migração interrompida.')
+    return str(destino)
+
+
+def aplicar_migracao_alencarsoft(configuradas, caminho_cadastro, registro):
+    from pathlib import Path
+    origem, destino = CPF_ALENCARSOFT, CNPJ_ALENCARSOFT
+    if registro.get('origem') != origem or registro.get('destino') != destino or registro.get('versao') != 1:
+        raise ValueError('Registro de migração inválido.')
+    resultado = {d:dict(c) for d,c in configuradas.items()}
+    if origem in resultado and destino in resultado:
+        raise ValueError('Mantenha um único bloco da ALENCARSOFT nos Secrets durante a migração.')
+    config = resultado.get(origem) or resultado.get(destino)
+    if not config:
+        return resultado
+    caminho = Path(config['banco']).resolve()
+    if not caminho.is_file():
+        raise ValueError('Banco original da ALENCARSOFT não encontrado. Migração local interrompida.')
+    # Não torna uma base independente inacessível ao escolher o caminho dos Secrets.
+    alternativa = Path(caminho_cadastro).parent / (destino+'.db')
+    if alternativa.resolve() != caminho and alternativa.exists():
+        raise ValueError('Há outro banco local para o CNPJ. Preserve os dois e confira antes da migração.')
+    with closing(sqlite3.connect(caminho,timeout=10)) as banco:
+        vinculo = banco.execute('SELECT documento FROM crm_empresa WHERE id=1').fetchone()
+        if vinculo not in ((origem,),(destino,)):
+            raise ValueError('Banco original vinculado a outra empresa. Migração interrompida.')
+        if vinculo == (origem,):
+            backup_migracao_local(caminho)
+            with banco:
+                banco.execute('BEGIN IMMEDIATE')
+                converter_vinculo_alencarsoft(banco, registro)
+    cadastro_path = Path(caminho_cadastro)
+    if cadastro_path.is_file():
+        with closing(sqlite3.connect(cadastro_path,timeout=10)) as cadastro:
+            tabelas = {r[0] for r in cadastro.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            precisa = any(cadastro.execute('SELECT 1 FROM '+t+' WHERE documento=?',(origem,)).fetchone()
+                          for t in ('empresas','catalogo_licencas','planos_comerciais') if t in tabelas)
+            if precisa:
+                backup_migracao_local(cadastro_path)
+                cat = registro['catalogo']
+                with cadastro:
+                    cadastro.execute('BEGIN IMMEDIATE')
+                    if 'empresas' in tabelas:
+                        cadastro.execute('DELETE FROM empresas WHERE documento IN (?,?)',(origem,destino))
+                        # A linha do CNPJ nos Secrets mantém seu banco original; não criamos outro banco.
+                    if 'catalogo_licencas' in tabelas:
+                        cadastro.execute('DELETE FROM catalogo_licencas WHERE documento IN (?,?)',(origem,destino))
+                        cadastro.execute('INSERT INTO catalogo_licencas VALUES(?,?,?)',(destino,'ALENCARSOFT',cat[4]))
+                    if 'planos_comerciais' in tabelas:
+                        cadastro.execute('DELETE FROM planos_comerciais WHERE documento IN (?,?)',(origem,destino))
+                        cadastro.execute('INSERT INTO planos_comerciais VALUES(?,?)',(destino,cat[5]))
+    config = dict(config)
+    config['nome'] = 'ALENCARSOFT'
+    config['segredo_licenca'] = registro['catalogo'][4]
+    resultado.pop(origem,None)
+    resultado[destino] = config
+    return resultado
+
+
+def carregar_migracao_instalacao(configuradas, caminho_cadastro, conectar):
+    """Somente uma migração já confirmada no servidor pode modificar a instalação."""
+    from pathlib import Path
+    if not ({CPF_ALENCARSOFT,CNPJ_ALENCARSOFT} & set(configuradas)):
+        return configuradas, False
+    recibo = Path(caminho_cadastro).parent/'migracao_alencarsoft_confirmada.json'
+    registro = None
+    if recibo.is_file():
+        registro = json.loads(recibo.read_text(encoding='utf-8'))
+    else:
+        try:
+            with conectar() as remoto:
+                registro = consultar_migracao_alencarsoft(remoto)
+        except Exception:
+            return configuradas, False
+    if registro is None:
+        return configuradas, False
+    # Recibo permite retomar após falha local ou sem internet; contém segredo de licença,
+    # como o cadastro local. Não é um relatório a compartilhar.
+    recibo.parent.mkdir(parents=True,exist_ok=True)
+    import uuid
+    temporario = recibo.with_name(recibo.name+'.'+uuid.uuid4().hex+'.tmp')
+    temporario.write_text(json.dumps(registro),encoding='utf-8')
+    temporario.replace(recibo)
+    return aplicar_migracao_alencarsoft(configuradas,caminho_cadastro,registro), True

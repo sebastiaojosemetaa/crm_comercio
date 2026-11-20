@@ -3,7 +3,7 @@ from pathlib import Path
 import streamlit as st
 import streamlit.components.v1 as components
 import sqlite3
-from crm_sync import sincronizar, publicar_catalogo, receber_catalogo, aplicar_configuracao_catalogo
+from crm_sync import sincronizar, publicar_catalogo, receber_catalogo, aplicar_configuracao_catalogo, reunir_cadastros_empresas, carregar_migracao_instalacao
 import pandas as pd
 import base64
 from datetime import datetime, date, timedelta
@@ -285,7 +285,23 @@ def cadastrar_empresa(documento, nome, senha, empresas_existentes):
             raise ValueError("Já existe uma empresa com esse documento.") from erro
 
 
-config_catalogo = st.secrets.get("sincronizacao", {})
+config_catalogo = dict(st.secrets.get("sincronizacao", {}))
+try:
+    empresas_config, alencarsoft_migrada = carregar_migracao_instalacao(
+        empresas_config, BANCO_CADASTRO_EMPRESAS, conectar_supabase_producao
+    )
+except Exception as erro:
+    st.error("A migração da ALENCARSOFT foi interrompida para preservar os dados. "
+             + (str(erro) if isinstance(erro, ValueError) else type(erro).__name__))
+    st.stop()
+if alencarsoft_migrada:
+    if st.session_state.get("_empresa_doc") == "95451161100":
+        st.session_state["_empresa_doc"] = "12727169000127"
+    if config_catalogo.get("empresa") == "95451161100":
+        config_catalogo["empresa"] = "12727169000127"
+    if isinstance(config_catalogo.get("empresas"), list):
+        config_catalogo["empresas"] = ["12727169000127" if d == "95451161100" else d
+                                      for d in config_catalogo["empresas"]]
 if config_catalogo.get("habilitada", False):
     modo_catalogo = config_catalogo.get("catalogo_empresas", "")
     if modo_catalogo in {"publicar", "receber"}:
@@ -325,7 +341,7 @@ if config_catalogo.get("catalogo_empresas") in {"publicar", "receber"}:
             configuracoes_compartilhadas[documento_conflitante] = empresas_config[documento_conflitante]
     empresas_config = configuracoes_compartilhadas
 
-DOCUMENTO_ALENCARSOFT = "95451161100"
+DOCUMENTO_ALENCARSOFT = "12727169000127" if alencarsoft_migrada else "95451161100"
 empresa_doc = ""
 empresa_config = {}
 banco_empresa = "crm_comercio.db"
@@ -352,11 +368,16 @@ if empresas_config:
 
     empresas_config = dict(empresas_config)
     cadastradas = ler_empresas_cadastradas()
-    bancos_cadastrados = {os.path.realpath(e["banco"]) for e in cadastradas.values()}
-    if empresas_config.keys() & cadastradas.keys() or bancos_cadastrados.intersection(caminhos):
-        st.error("Há empresas ou bancos duplicados entre os Secrets e o painel.")
+    try:
+        empresas_config, cadastros_repetidos = reunir_cadastros_empresas(empresas_config, cadastradas)
+    except ValueError as erro:
+        st.error(str(erro))
         st.stop()
-    empresas_config.update(cadastradas)
+    if cadastros_repetidos:
+        st.sidebar.info(
+            "Cadastros também presentes nos Secrets: " + ", ".join(cadastros_repetidos)
+            + ". Usando os bancos e credenciais dos Secrets. Os cadastros e bancos locais foram preservados."
+        )
     planos_comerciais = ler_planos_comerciais()
 
     empresa_doc = st.session_state.get("_empresa_doc", "")
@@ -397,10 +418,13 @@ if empresas_config:
         st.rerun()
 
 # A lista em Secrets usa os mesmos documentos do cadastro de empresas.
-configuracao_backup_producao = st.secrets.get("crm_producao", {})
+configuracao_backup_producao = dict(st.secrets.get("crm_producao", {}))
 documentos_backup_automatico = configuracao_backup_producao.get("empresas_backup_automatico", [])
 if not isinstance(documentos_backup_automatico, list):
     documentos_backup_automatico = []
+if alencarsoft_migrada:
+    documentos_backup_automatico = ["12727169000127" if d == "95451161100" else d
+                                   for d in documentos_backup_automatico]
 empresas_backup_automatico = {
     doc for doc in documentos_backup_automatico
     if isinstance(doc, str) and doc in empresas_config
@@ -3832,7 +3856,7 @@ else:
                 key="download_backup_seguranca",
             )
 
-    configuracao_sync = st.secrets.get("sincronizacao", {})
+    configuracao_sync = config_catalogo
     documentos_sync = configuracao_sync.get("empresas")
     if documentos_sync is None:
         documentos_sync = [str(configuracao_sync.get("empresa", ""))]
