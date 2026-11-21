@@ -227,7 +227,12 @@ def publicar_catalogo(conectar, empresas, planos, *, somente_novas=False, confli
         )""")
         # Serializa a comparação e publicação: duas instalações não podem
         # reivindicar o mesmo documento com identidades diferentes.
-        remoto.execute("LOCK TABLE crm_producao.catalogo_empresas IN SHARE ROW EXCLUSIVE MODE")
+        tem_identidades = remoto.execute("SELECT to_regclass('crm_producao.documentos_empresas')").fetchone()[0]
+        if tem_identidades:
+            remoto.execute("LOCK TABLE crm_producao.identidades_empresas, crm_producao.documentos_empresas, "
+                           "crm_producao.catalogo_empresas IN SHARE ROW EXCLUSIVE MODE")
+        else:
+            remoto.execute("LOCK TABLE crm_producao.catalogo_empresas IN SHARE ROW EXCLUSIVE MODE")
         existentes = {r[0]: r for r in remoto.execute("""SELECT documento,nome,sal,senha_hash,segredo_licenca,plano
             FROM crm_producao.catalogo_empresas ORDER BY documento""").fetchall()}
         publicados = 0
@@ -235,6 +240,12 @@ def publicar_catalogo(conectar, empresas, planos, *, somente_novas=False, confli
         for registro in registros:
             if migracao and registro[0] == CPF_ALENCARSOFT:
                 continue
+            if tem_identidades:
+                titular = remoto.execute("SELECT chave_interna FROM crm_producao.documentos_empresas WHERE documento=%s", (registro[0],)).fetchone()
+                if titular and titular[0] != registro[0]:
+                    if conflitos is not None:
+                        conflitos.append(registro[0])
+                    continue
             anterior = existentes.get(registro[0])
             if anterior and anterior[4] != registro[4]:
                 if conflitos is not None:

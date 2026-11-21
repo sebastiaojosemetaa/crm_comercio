@@ -3,7 +3,11 @@ from pathlib import Path
 import streamlit as st
 import streamlit.components.v1 as components
 import sqlite3
-from crm_sync import sincronizar, publicar_catalogo, receber_catalogo, aplicar_configuracao_catalogo, reunir_cadastros_empresas, carregar_migracao_instalacao
+from crm_sync import sincronizar, publicar_catalogo, receber_catalogo, aplicar_configuracao_catalogo, reunir_cadastros_empresas, carregar_migracao_instalacao, backup_migracao_local
+from crm_identidade import (
+    atualizar_cadastros, ler_cache as ler_cache_identidades, salvar_nomes, alterar_documento,
+    documento_exibicao, resolver_empresa,
+)
 import pandas as pd
 import base64
 from datetime import datetime, date, timedelta
@@ -29,7 +33,7 @@ from PIL import Image, ImageOps
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="CRM Comércio", layout="wide", page_icon="🛍️")
-st.sidebar.caption("CRM Comércio · edição consolidada 2.0")
+st.sidebar.caption("CRM Comércio · edição 2.1")
 
 # --- CONEXÃO E FUNÇÕES DE SUPORTE ---
 import threading
@@ -259,8 +263,8 @@ def cadastrar_empresa(documento, nome, senha, empresas_existentes):
         raise ValueError("Informe o nome e um CPF de 11 dígitos ou CNPJ de 14 dígitos.")
     if len(senha) < 16:
         raise ValueError("A senha do administrador precisa ter pelo menos 16 caracteres.")
-    if documento in empresas_existentes:
-        raise ValueError("Já existe uma empresa com esse documento.")
+    if documento in empresas_existentes or documento in st.session_state.get("_aliases_empresas", {}):
+        raise ValueError("Este documento já está reservado a uma empresa cadastrada. Use a edição do cadastro existente.")
     banco = os.path.join(PASTA_EMPRESAS, f"{documento}.db")
     if os.path.lexists(banco) or any(
         os.path.realpath(e["banco"]) == banco for e in empresas_existentes.values()
@@ -285,6 +289,11 @@ def cadastrar_empresa(documento, nome, senha, empresas_existentes):
             raise ValueError("Já existe uma empresa com esse documento.") from erro
 
 
+def solicitar_atualizacao_cadastros():
+    st.session_state.pop("_catalogo_tentativa", None)
+    st.session_state.pop("_identidade_tentativa", None)
+
+
 config_catalogo = dict(st.secrets.get("sincronizacao", {}))
 try:
     empresas_config, alencarsoft_migrada = carregar_migracao_instalacao(
@@ -302,10 +311,30 @@ if alencarsoft_migrada:
     if isinstance(config_catalogo.get("empresas"), list):
         config_catalogo["empresas"] = ["12727169000127" if d == "95451161100" else d
                                       for d in config_catalogo["empresas"]]
+# Os dados exibidos são independentes da chave interna utilizada pelas bases/licenças.
+if "_perfis_empresas" not in st.session_state:
+    perfis_salvos, aliases_salvos = ler_cache_identidades(BANCO_CADASTRO_EMPRESAS)
+    st.session_state["_perfis_empresas"] = perfis_salvos
+    st.session_state["_aliases_empresas"] = aliases_salvos
+if time.monotonic() - st.session_state.get("_identidade_tentativa", -100) >= 30:
+    st.session_state["_identidade_tentativa"] = time.monotonic()
+    try:
+        perfis_recebidos, aliases_recebidos = atualizar_cadastros(conectar_supabase_producao, BANCO_CADASTRO_EMPRESAS)
+    except Exception:
+        pass  # O último cadastro compartilhado permanece disponível offline.
+    else:
+        st.session_state["_perfis_empresas"] = perfis_recebidos
+        st.session_state["_aliases_empresas"] = aliases_recebidos
+perfis_empresas = st.session_state["_perfis_empresas"]
+aliases_empresas = st.session_state["_aliases_empresas"]
+empresas_config = {doc:dict(e) for doc,e in empresas_config.items()}
+for chave,perfil in perfis_empresas.items():
+    if chave in empresas_config:
+        empresas_config[chave]["nome"] = perfil["nome_fantasia"]
 if config_catalogo.get("habilitada", False):
     modo_catalogo = config_catalogo.get("catalogo_empresas", "")
     if modo_catalogo in {"publicar", "receber"}:
-        if st.sidebar.button("Atualizar lista de empresas", key="atualizar_catalogo_empresas"):
+        if st.sidebar.button("Atualizar lista de empresas", key="atualizar_catalogo_empresas", on_click=solicitar_atualizacao_cadastros):
             st.session_state.pop("_catalogo_tentativa", None)
         instante_catalogo = time.monotonic()
         if instante_catalogo - st.session_state.get("_catalogo_tentativa", -100) >= 60:
@@ -313,6 +342,9 @@ if config_catalogo.get("habilitada", False):
             try:
                 catalogo = dict(ler_empresas_cadastradas())
                 catalogo.update(dict(empresas_config))
+                for chave,perfil in perfis_empresas.items():
+                    if chave in catalogo:
+                        catalogo[chave] = dict(catalogo[chave], nome=perfil["nome_fantasia"])
                 conflitos_catalogo = []
                 publicar_catalogo(
                     conectar_supabase_producao, catalogo, ler_planos_comerciais(),
@@ -378,6 +410,9 @@ if empresas_config:
             "Cadastros também presentes nos Secrets: " + ", ".join(cadastros_repetidos)
             + ". Usando os bancos e credenciais dos Secrets. Os cadastros e bancos locais foram preservados."
         )
+    for chave,perfil in perfis_empresas.items():
+        if chave in empresas_config:
+            empresas_config[chave]["nome"] = perfil["nome_fantasia"]
     planos_comerciais = ler_planos_comerciais()
 
     empresa_doc = st.session_state.get("_empresa_doc", "")
@@ -390,16 +425,19 @@ if empresas_config:
                 and not st.session_state.get("_trocando_empresa")
                 else ""
             )
+            documento_padrao = documento_exibicao(documento_padrao, perfis_empresas)
             empresa_escolhida = None
             if config_catalogo.get("catalogo_empresas") == "receber":
                 empresa_escolhida = st.selectbox(
                     "Empresa", list(empresas_config), index=None,
                     placeholder="Selecione a empresa",
-                    format_func=lambda doc: f"{empresas_config[doc]['nome']} · {doc}",
+                    format_func=lambda doc: f"{empresas_config[doc]['nome']} · {documento_exibicao(doc, perfis_empresas)}",
                 )
             documento = st.text_input("CNPJ ou CPF da empresa", value=documento_padrao)
             if st.form_submit_button("Continuar"):
-                documento = empresa_escolhida or re.sub(r"[^0-9]", "", documento)
+                documento = empresa_escolhida or resolver_empresa(
+                    documento, empresas_config, perfis_empresas, aliases_empresas
+                )
                 if documento in empresas_config:
                     st.session_state["_empresa_doc"] = documento
                     st.rerun()
@@ -433,6 +471,7 @@ empresas_backup_automatico = {
 
 nome_empresa_padrao = empresa_config.get("nome", "REY DA CEBOLA")
 doc_empresa_padrao = empresa_doc or "19417439000142"
+documento_publico_empresa = documento_exibicao(empresa_doc, perfis_empresas) if empresa_doc else doc_empresa_padrao
 fone_empresa_padrao = "" if empresa_doc else "(99) 98501-6050"
 endereco_empresa_padrao = "" if empresa_doc else "RUA CAIPIRA, Nº 174"
 inscricao_empresa_padrao = "" if empresa_doc else "12.426.725-4"
@@ -655,8 +694,8 @@ def exibir_suporte_crm(documento_sessao, nome_empresa, central, empresas):
                 documento = st.selectbox(
                     "Empresa", clientes, index=None, placeholder="Selecione uma conversa",
                     format_func=lambda doc: (
-                        f"🔔 {empresas[doc]['nome']} · {doc} ({pendencias[doc]} não lidas)"
-                        if doc in pendencias else f"{empresas[doc]['nome']} · {doc}"
+                        f"🔔 {empresas[doc]['nome']} · {documento_exibicao(doc, perfis_empresas)} ({pendencias[doc]} não lidas)"
+                        if doc in pendencias else f"{empresas[doc]['nome']} · {documento_exibicao(doc, perfis_empresas)}"
                     ),
                     key="suporte_empresa_central",
                 )
@@ -2806,7 +2845,10 @@ def resolver_nome_empresa(nome_dispositivo, nome_cadastro):
     return "Empresa"
 
 
-nome_empresa_header = resolver_nome_empresa(reg_emp.get("nome_empresa"), nome_empresa_padrao)
+nome_empresa_header = (
+    perfis_empresas.get(empresa_doc, {}).get("nome_fantasia")
+    or resolver_nome_empresa(reg_emp.get("nome_empresa"), nome_empresa_padrao)
+)
 
 def interpretar_vencimento_licenca(valor):
     try:
@@ -3279,7 +3321,7 @@ if (
                 with st.expander("Planos comerciais — Simples e Pro"):
                     empresa_plano = st.selectbox(
                         "Empresa", list(empresas_config),
-                        format_func=lambda doc: f"{empresas_config[doc]['nome']} · {doc}",
+                        format_func=lambda doc: f"{empresas_config[doc]['nome']} · {documento_exibicao(doc, perfis_empresas)}",
                         key="empresa_plano_comercial",
                     )
                     plano_atual = planos_comerciais.get(empresa_plano, "Simples")
@@ -3382,7 +3424,7 @@ if (
                     else:
                         doc_piloto = st.selectbox(
                             "Empresa do backup", list(empresas_piloto),
-                            format_func=lambda doc: f"{empresas_piloto[doc]['nome']} · {doc}",
+                            format_func=lambda doc: f"{empresas_piloto[doc]['nome']} · {documento_exibicao(doc, perfis_empresas)}",
                             key="empresa_backup_piloto",
                         )
                         arquivo_piloto = st.file_uploader("Backup da empresa (.db)", type=["db"], key="backup_supabase_piloto")
@@ -3472,7 +3514,7 @@ if (
                 documento_destino = st.selectbox(
                     "Empresa que receberá a chave",
                     list(empresas_config),
-                    format_func=lambda doc: f"{empresas_config[doc]['nome']} · {doc}",
+                    format_func=lambda doc: f"{empresas_config[doc]['nome']} · {documento_exibicao(doc, perfis_empresas)}",
                     key="empresa_destino_licenca",
                 )
                 with st.expander("Liberar vaga de um dispositivo"):
@@ -3552,16 +3594,15 @@ elif not empresa_doc:
 
             if st.button("Gerar Chave", key="btn_dev_topo_acao"):
 
-                if doc_cliente.strip() and (not empresa_doc or re.sub(r"[^0-9]", "", doc_cliente) == empresa_doc):
+                chave_cliente = resolver_empresa(doc_cliente,empresas_config,perfis_empresas,aliases_empresas) if empresa_doc else re.sub(r"[^0-9]", "", doc_cliente)
+                if doc_cliente.strip() and (not empresa_doc or chave_cliente == empresa_doc):
 
                     sufixo_tipo = (
                         "TESTE" if "Teste" in tipo_plano
                         else ("MENSAL" if "Mensal" in tipo_plano else "ANUAL")
                     )
 
-                    doc_limpo = ''.join(
-                        filter(str.isdigit, str(doc_cliente))
-                    )
+                    doc_limpo = chave_cliente
 
                     try:
                         cursor = conn.cursor()
@@ -3855,7 +3896,7 @@ else:
             st.success("Backup restaurado. Os dados restaurados foram carregados.")
         if st.session_state.get("_backup_antes_restauracao"):
             st.download_button(
-                "📥 Baixar cópia de segurança anterior à restauração",
+                "📥 Baixar cópia de segurança anterior à alteração",
                 data=st.session_state["_backup_antes_restauracao"],
                 file_name="crm_antes_da_restauracao.db",
                 mime="application/octet-stream",
@@ -3882,6 +3923,18 @@ else:
             if st.button("Sincronizar agora", key="sincronizar_empresa_agora"):
                 st.session_state.pop("_sync_tentativa", None)
             agora_sync = time.monotonic()
+            if agora_sync - st.session_state.get("_identidade_tentativa", -100) >= 30:
+                st.session_state["_identidade_tentativa"] = agora_sync
+                try:
+                    novos_perfis, novos_aliases = atualizar_cadastros(conectar_supabase_producao, BANCO_CADASTRO_EMPRESAS)
+                except Exception:
+                    pass
+                else:
+                    mudou = novos_perfis != st.session_state.get("_perfis_empresas", {})
+                    st.session_state["_perfis_empresas"] = novos_perfis
+                    st.session_state["_aliases_empresas"] = novos_aliases
+                    if mudou:
+                        st.rerun()
             if agora_sync - st.session_state.get("_sync_tentativa", -100) >= 15:
                 st.session_state["_sync_tentativa"] = agora_sync
                 try:
@@ -4071,13 +4124,13 @@ else:
                 texto_troco = f'VALOR RECEBIDO: R$ {recebido:,.2f}\nTROCO: R$ {devolvido:,.2f}\n'
 
             emp_nome = nome_empresa_header
-            emp_cnpj = str(reg_emp.get("cnpj", doc_empresa_padrao))
+            emp_cnpj = documento_publico_empresa
             emp_end = inscricao_empresa_padrao
 
             try:
                 df_empresa_cupom = carregar_dados("SELECT * FROM empresa LIMIT 1")
                 if not df_empresa_cupom.empty:
-                    emp_nome = str(df_empresa_cupom.iloc[0].get('nome', emp_nome))
+                    emp_nome = nome_empresa_header if empresa_doc in perfis_empresas else str(df_empresa_cupom.iloc[0].get('nome', emp_nome))
                     emp_end = str(df_empresa_cupom.iloc[0].get('endereco', ''))
             except Exception:
                 pass
@@ -4693,15 +4746,16 @@ O Senhor é meu pastor nada mim faltarar.
                                         df_empresa_cupom = carregar_dados("SELECT * FROM empresa LIMIT 1")
                                         if not df_empresa_cupom.empty:
                                             emp_nome = df_empresa_cupom.iloc[0].get('nome', nome_empresa_header)
-                                            emp_cnpj = df_empresa_cupom.iloc[0].get('cnpj', doc_empresa_padrao)
+                                            emp_cnpj = documento_publico_empresa
+                                            emp_nome = nome_empresa_header
                                             emp_end = df_empresa_cupom.iloc[0].get('endereco', '')
                                         else:
                                             emp_nome = nome_empresa_header
-                                            emp_cnpj = doc_empresa_padrao
+                                            emp_cnpj = documento_publico_empresa
                                             emp_end = ''
                                     except Exception:
                                         emp_nome = nome_empresa_header
-                                        emp_cnpj = doc_empresa_padrao
+                                        emp_cnpj = documento_publico_empresa
                                         emp_end = ''
     
                                     cli_doc_final = "Não informado"
@@ -6526,7 +6580,7 @@ O Senhor é meu pastor nada mim faltarar.
 
             # Cabeçalho da Empresa
             story.append(Paragraph(f"<b>{nome_empresa_header}</b>", style_header_title))
-            story.append(Paragraph(f"CNPJ/CPF: {html.escape(doc_empresa_padrao)}", style_header_sub))
+            story.append(Paragraph(f"CNPJ/CPF: {html.escape(documento_publico_empresa)}", style_header_sub))
             contato = str(reg_emp.get("fone") or fone_empresa_padrao)
             if contato:
                 story.append(Paragraph(f"CONTATO: {html.escape(contato)}", style_header_sub))
@@ -7585,7 +7639,7 @@ O Senhor é meu pastor nada mim faltarar.
         else:
             st.warning("⚠️ Este aparelho ainda não está ativado.")
 
-        st.info(f"Empresa atual (CNPJ/CPF): `{doc_atual}`")
+        st.info(f"Empresa atual (CNPJ/CPF): `{documento_publico_empresa}`")
         if is_admin_master:
             with st.expander("Diagnóstico da ativação"):
                 st.write("Identificador do aparelho (final):", device_id[-8:])
@@ -7662,11 +7716,72 @@ O Senhor é meu pastor nada mim faltarar.
                         st.success(f"🎉 Licença ativada/renovada! Validade: {dias_validade} dias. Limite compartilhado: {limite_extraido} aparelho(s).")
                         st.rerun()
 
+        if empresa_doc and is_admin_master:
+            st.markdown("---")
+            st.markdown("### 🏢 Editar dados da empresa")
+            perfil_atual = perfis_empresas.get(empresa_doc)
+            if not perfil_atual:
+                st.info("Conecte à internet e atualize a lista para habilitar a edição compartilhada do cadastro.")
+            else:
+                st.caption("Nome fantasia e razão social são compartilhados com os outros aparelhos. É necessária conexão para salvar.")
+                sufixo_cadastro = f"{empresa_doc}_{perfil_atual['versao']}"
+                with st.form(f"editar_nomes_empresa_{sufixo_cadastro}"):
+                    fantasia_nova = st.text_input("Nome fantasia",value=perfil_atual["nome_fantasia"],max_chars=150,key=f"nova_fantasia_{sufixo_cadastro}")
+                    razao_nova = st.text_input("Razão social",value=perfil_atual["razao_social"],max_chars=200,key=f"nova_razao_social_{sufixo_cadastro}")
+                    login_nomes = st.text_input("Login do administrador",value="administrador",key=f"admin_nomes_{sufixo_cadastro}")
+                    senha_nomes = st.text_input("Senha do administrador",type="password",key=f"senha_nomes_{sufixo_cadastro}")
+                    salvar_nome = st.form_submit_button("Salvar nome fantasia e razão social")
+                if salvar_nome:
+                    try:
+                        responsavel = validar_administrador(conn,login_nomes,senha_nomes)
+                        st.session_state["_backup_antes_restauracao"] = gerar_backup_sqlite(conn)
+                        backup_migracao_local(banco_empresa)
+                        operacao = st.session_state.setdefault(f"op_nomes_{empresa_doc}_{perfil_atual['versao']}",uuid.uuid4().hex)
+                        salvar_nomes(conectar_supabase_producao,empresa_doc,perfil_atual["versao"],
+                                     fantasia_nova,razao_nova,responsavel,operacao)
+                    except ValueError as erro:
+                        st.error(str(erro))
+                    except Exception:
+                        st.error("Não foi possível confirmar a alteração. Confira a conexão e atualize o cadastro antes de tentar novamente.")
+                    else:
+                        st.session_state.pop("_identidade_tentativa",None)
+                        st.session_state.pop("_catalogo_tentativa",None)
+                        st.session_state["_aviso_identidade"] = "Nome fantasia e razão social atualizados."
+                        st.rerun()
+                with st.expander("Alterar CPF/CNPJ da mesma empresa"):
+                    st.caption("Use para corrigir o documento ou informar o CNPJ definitivo. Outra empresa deve receber um cadastro novo.")
+                    with st.form(f"alterar_documento_empresa_{sufixo_cadastro}"):
+                        st.text_input("Documento atual",value=perfil_atual["documento"],disabled=True)
+                        documento_novo = st.text_input("Novo CPF/CNPJ",key=f"novo_documento_empresa_{sufixo_cadastro}")
+                        mesma_empresa = st.checkbox("Confirmo que é a mesma empresa e estou corrigindo seu documento.")
+                        login_documento = st.text_input("Login do administrador",value="administrador",key=f"admin_documento_{sufixo_cadastro}")
+                        senha_documento = st.text_input("Senha do administrador",type="password",key=f"senha_documento_{sufixo_cadastro}")
+                        confirmar_documento = st.form_submit_button("Confirmar alteração do CPF/CNPJ")
+                    if confirmar_documento:
+                        try:
+                            responsavel = validar_administrador(conn,login_documento,senha_documento)
+                            st.session_state["_backup_antes_restauracao"] = gerar_backup_sqlite(conn)
+                            backup_migracao_local(banco_empresa)
+                            operacao = st.session_state.setdefault(f"op_documento_{empresa_doc}_{perfil_atual['versao']}",uuid.uuid4().hex)
+                            alterar_documento(conectar_supabase_producao,empresa_doc,perfil_atual["versao"],
+                                              documento_novo,responsavel,operacao,mesma_empresa=mesma_empresa)
+                        except ValueError as erro:
+                            st.error(str(erro))
+                        except Exception:
+                            st.error("Não foi possível confirmar a alteração. Confira a conexão e atualize o cadastro antes de tentar novamente.")
+                        else:
+                            st.session_state.pop("_identidade_tentativa",None)
+                            st.session_state.pop("_catalogo_tentativa",None)
+                            st.session_state["_aviso_identidade"] = "Documento atualizado. Banco, histórico e ativações foram mantidos."
+                            st.rerun()
+                if st.session_state.get("_aviso_identidade"):
+                    st.success(st.session_state.pop("_aviso_identidade"))
         st.markdown("---")
         with st.form("form_cfg_emp"):
             st.markdown("### 📝 Dados Gerais e Limites da Empresa")
-            nome_emp = st.text_input("Razão Social / Nome Fantasia", value=str(reg_emp.get('nome_empresa', nome_empresa_padrao)))
-            cnpj_emp = st.text_input("CNPJ ou CPF", value=empresa_doc or str(reg_emp.get('cnpj', doc_empresa_padrao)), disabled=bool(empresa_doc))
+            nome_emp = st.text_input("Nome fantasia", value=nome_empresa_header, disabled=bool(empresa_doc))
+            documento_formulario = st.text_input("CNPJ ou CPF", value=documento_publico_empresa, disabled=bool(empresa_doc))
+            cnpj_emp = empresa_doc or documento_formulario
             inscr_est_emp = st.text_input("INSCR. EST", value=str(reg_emp.get('inscr_est', inscricao_empresa_padrao)))
             tel_emp = st.text_input("Telefone de Contato", value=str(reg_emp.get('fone', fone_empresa_padrao)))
             end_emp = st.text_input("Endereço Completo", value=str(reg_emp.get('endereco', endereco_empresa_padrao)))
@@ -7748,7 +7863,7 @@ O Senhor é meu pastor nada mim faltarar.
             df_nfce_cfg = carregar_dados("SELECT * FROM config_nfce WHERE id = 1")
             cfg_nfce = df_nfce_cfg.iloc[0].to_dict() if not df_nfce_cfg.empty else {}
             with st.form("form_config_nfce"):
-                st.caption(f"Documento da empresa: {empresa_doc or doc_empresa_padrao}")
+                st.caption(f"Documento da empresa: {documento_publico_empresa}")
                 inscricao_salva = cfg_nfce.get("inscricao_estadual")
                 inscricao_nfce = st.text_input(
                     "Inscrição estadual do emitente",
